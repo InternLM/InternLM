@@ -67,6 +67,8 @@ InternLM ，即书生·浦语大模型，包含面向实用场景的70亿参数�
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
 | **InternLM 7B**      | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-7b) | [🤗internlm/intern-7b](https://huggingface.co/internlm/internlm-7b) |
 | **InternLM Chat 7B** | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b) | [🤗internlm/intern-chat-7b](https://huggingface.co/internlm/internlm-chat-7b)
+| **InternLM Chat 7B 8k** | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b-8k) | [🤗internlm/intern-chat-7b](https://huggingface.co/internlm/internlm-chat-7b-8k)
+
 
 **局限性：** 尽管在训练过程中我们非常注重模型的安全性，尽力促使模型输出符合伦理和法律要求的文本，但受限于模型大小以及概率生成范式，模型可能会产生各种不符合预期的输出，例如回复内容包含偏见、歧视等有害内容，请勿传播这些内容。由于传播不良信息导致的任何后果，本项目不承担责任。
 
