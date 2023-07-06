@@ -1,0 +1,14 @@
+transformers>=4.25.1
+numpy
+tqdm
+psutil
+packaging
+pre-commit
+ninja
+gputil
+pytest
+packaging
+boto3
+botocore
+torch-scatter
+-f https://data.pyg.org/whl/torch-1.13.0+cu117.html
