@@ -76,7 +76,7 @@ InternLM ，即书生·浦语大模型，包含面向实用场景的70亿参数�
 ```python
 >>> from transformers import AutoTokenizer, AutoModelForCausalLM
 >>> tokenizer = AutoTokenizer.from_pretrained("internlm/internlm-chat-7b", trust_remote_code=True)
->>> model = AutoModelForCausalLM.from_pretrained("internlm/internlm-chat-7b", trust_remote_code=True, device='cuda')
+>>> model = AutoModelForCausalLM.from_pretrained("internlm/internlm-chat-7b", trust_remote_code=True).cuda()
 >>> model = model.eval()
 >>> response, history = model.chat(tokenizer, "你好", history=[])
 >>> print(response)
@@ -137,7 +137,7 @@ python convert2hf.py --src_folder origin_ckpt/ --tgt_folder hf_ckpt/ --tokenizer
 转换之后可以通过以下的代码加载为 transformers 
 ```python
 >>> from transformers import AutoTokenizer, AutoModel
->>> model = AutoModel.from_pretrained("hf_ckpt/", trust_remote_code=True, device='cuda')
+>>> model = AutoModel.from_pretrained("hf_ckpt/", trust_remote_code=True).cuda()
 ```
 
 
