@@ -98,7 +98,7 @@ streamlit run web_demo.py
 ```
 效果如下 
 
-![效果](https://github.com/InternLM/InternLM/assets/9102141/08ec4541-9126-4d5f-b5c0-53947bc1d8bb)
+![效果](https://github.com/InternLM/InternLM/assets/9102141/9658904b-09cc-4bbc-bfbf-27f43f24475b)
 
 ### 基于InternLM高性能部署
 
