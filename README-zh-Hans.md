@@ -74,9 +74,9 @@ InternLM ，即书生·浦语大模型，包含面向实用场景的70亿参数�
 ### 通过 Transformers 加载
 通过以下的代码加载 InternLM 7B Chat 模型
 ```python
->>> from transformers import AutoTokenizer, AutoModel
+>>> from transformers import AutoTokenizer, AutoModelForCausalLM
 >>> tokenizer = AutoTokenizer.from_pretrained("internlm/internlm-chat-7b", trust_remote_code=True)
->>> model = AutoModel.from_pretrained("internlm/internlm-chat-7b", trust_remote_code=True, device='cuda')
+>>> model = AutoModelForCausalLM.from_pretrained("internlm/internlm-chat-7b", trust_remote_code=True, device='cuda')
 >>> model = model.eval()
 >>> response, history = model.chat(tokenizer, "你好", history=[])
 >>> print(response)
