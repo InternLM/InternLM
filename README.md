@@ -144,7 +144,7 @@ python convert2hf.py --src_folder origin_ckpt/ --tgt_folder hf_ckpt/ --tokenizer
 After conversion, it can be loaded as transformers by the following code
 ```python
 >>> from transformers import AutoTokenizer, AutoModel
->>> model = AutoModel.from_pretrained("hf_ckpt/", trust_remote_code=True, device='cuda')
+>>> model = AutoModel.from_pretrained("hf_ckpt/", trust_remote_code=True).cuda()
 ```
 
 
