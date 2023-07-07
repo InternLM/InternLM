@@ -1,0 +1,31 @@
+name: 🚀 功能建议
+description: 建议一项新的功能
+labels: ["enhancement"]
+title: "[Feature] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        推荐使用英语模板 Feature request，以便你的问题帮助更多人。
+
+        如果你已经实现了该功能，我们非常欢迎你直接创建一个新的 PR 来解决这个问题。创建 PR 的流程可以参考[文档](https://opencompass.readthedocs.io/zh_CN/master/community/CONTRIBUTING.html)。
+
+  - type: textarea
+    id: describe
+    validations:
+      required: true
+    attributes:
+      label: 描述该功能
+      description: |
+        你希望这个代码库添加什么功能？如果存在相关的论文、官方实现或者第三方实现，请同时贴出链接，这将非常有帮助。
+      placeholder: |
+        简要说明该功能，及为什么需要该功能
+        例 1. 现在进行 xxx 的时候不方便
+        例 2. 最近的论文中提出了有一个很有帮助的 xx
+
+  - type: checkboxes
+    id: pr
+    attributes:
+      label: 是否希望自己实现该功能？
+      options:
+        - label: 我希望自己来实现这一功能，并向 InternLM 贡献代码！
