@@ -59,7 +59,7 @@ We conducted a comprehensive evaluation of InternLM using the open-source evalua
 |  HumanEval           |      14.0           |        10.4        |   14.0     | 9.2       | 9.2       | 9.2       | 11.0  |
 | RACE(High)           |      76.3           |        57.4        | 46.9*      | 28.1      | 66.3      | 40.7      | 54.0  | 
 
-- The evaluation results were obtained from[OpenCompass 20230706](https://github.com/internLM/OpenCompass/)  (some data marked with *, which menas come from the original papers), and evaluation configuration can be found in the configuration files provided by [OpenCompass](https://github.com/internLM/OpenCompass/). 
+- The evaluation results were obtained from [OpenCompass 20230706](https://github.com/internLM/OpenCompass/) (some data marked with *, which means come from the original papers), and evaluation configuration can be found in the configuration files provided by [OpenCompass](https://github.com/internLM/OpenCompass/). 
 - The evaluation data may have numerical differences due to the version iteration of [OpenCompass](https://github.com/internLM/OpenCompass/), so please refer to the latest evaluation results of [OpenCompass](https://github.com/internLM/OpenCompass/).
 
 ### Model Zoo
@@ -83,7 +83,7 @@ To load the InternLM 7B Chat model using Transformers, use the following code:
 >>> model = model.eval()
 >>> response, history = model.chat(tokenizer, "hello", history=[])
 >>> print(response)
-Hello! How can I help you today？
+Hello! How can I help you today?
 >>> response, history = model.chat(tokenizer, "please provide three suggestions about time management", history=history)
 >>> print(response)
 Sure, here are three tips for effective time management:
