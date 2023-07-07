@@ -98,6 +98,7 @@ beta2_scheduler = dict(
 
 model = dict(
     checkpoint=False,
+    checkpoint_fraction=0,
     num_attention_heads=NUM_ATTENTION_HEAD,
     embed_split_hidden=True,
     vocab_size=VOCAB_SIZE,

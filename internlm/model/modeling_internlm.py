@@ -258,7 +258,7 @@ class PackedFlashInternLm1D(nn.Module):
         drop_rate: float = 0.0,
         dtype: torch.dtype = torch.float,
         checkpoint: bool = False,
-        checkpoint_fraction: float = 1.0,
+        checkpoint_fraction: float = 0,
         layer_norm_epsilon: float = 1e-5,
         first: bool = False,
         last: bool = False,
@@ -276,11 +276,9 @@ class PackedFlashInternLm1D(nn.Module):
     ):
         super().__init__()
 
-        if checkpoint_fraction <= 0:
-            checkpoint = False
-        if not checkpoint:
-            checkpoint_fraction = 0
-        checkpoint_layer_num = num_layers * checkpoint_fraction
+        checkpoint_layer_num = num_layers * checkpoint_fraction if checkpoint else 0
+        print(f"checkpoint_layer_num: {checkpoint_layer_num}", flush=True)
+
         if is_reward:
             head_cls = RewardModelLinear
         else:
@@ -408,11 +406,6 @@ def _build_generic_model_1d(num_layers, num_chunks, device=torch.device("cuda"),
 
     models = []
 
-    if kwargs["checkpoint"] is True:
-        kwargs["checkpoint_fraction"] = 1.0
-    else:
-        kwargs["checkpoint_fraction"] = 0
-
     for start, end in parts:
         kwargs["num_layers"] = end - start
         kwargs["first"] = start == 0
@@ -436,6 +429,7 @@ def _build_generic_model_1d(num_layers, num_chunks, device=torch.device("cuda"),
 def build_model_with_cfg(
     num_chunks=1,
     checkpoint=False,
+    checkpoint_fraction=0,
     dtype=torch.float,
     embed_split_hidden=False,
     num_layers=48,
@@ -491,6 +485,7 @@ def build_model_with_cfg(
         hidden_size=hidden_size,
         num_attention_heads=num_attention_heads,
         checkpoint=checkpoint,
+        checkpoint_fraction=checkpoint_fraction,
         dtype=dtype,
         embed_split_hidden=embed_split_hidden,
         vocab_size=vocab_size,

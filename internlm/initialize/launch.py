@@ -138,16 +138,34 @@ def args_sanity_check():
         logger.info(f"cudnn.deterministic: {torch.backends.cudnn.deterministic }")
         logger.info(f"clip_grad_norm: {clip_grad_norm}")
 
-    if "dtype" not in gpc.config.model:
+    model = gpc.config.model
+    if "dtype" not in model:
         logger.warning("dtype is not set, use torch.float16 by defalut!")
-        gpc.config.model._add_item("dtype", torch.float16)
+        model._add_item("dtype", torch.float16)
     else:
-        if gpc.config.model.dtype == "torch.bfloat16":
-            gpc.config.model.dtype = torch.bfloat16
-        elif gpc.config.model.dtype in ("torch.float16", "torch.half"):
-            gpc.config.model.dtype = torch.float16
+        if model.dtype == "torch.bfloat16":
+            model.dtype = torch.bfloat16
+        elif model.dtype in ("torch.float16", "torch.half"):
+            model.dtype = torch.float16
         else:
-            assert gpc.config.model.dtype in ["torch.float16", "torch.half", "torch.bfloat16"]
+            assert model.dtype in ["torch.float16", "torch.half", "torch.bfloat16"]
+
+    if "checkpoint_fraction" in model:
+        if model.checkpoint_fraction <= 0:
+            model._add_item("checkpoint", False)
+        elif model.checkpoint_fraction <= 1:
+            model._add_item("checkpoint", True)
+        else:
+            raise RuntimeError("checkpoint_fraction must between [0-1]")
+    else:
+        if "checkpoint" in model:
+            if model.checkpoint is True:
+                model._add_item("checkpoint_fraction", 1)
+            else:
+                model._add_item("checkpoint_fraction", 0)
+        else:
+            model._add_item("checkpoint", False)
+            model._add_item("checkpoint_fraction", 0)
 
     if gpc.is_rank_for_log():
         logger.info("+" * 15 + " Model Info " + "+" * 15)  # pylint: disable=W1201
