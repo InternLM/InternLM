@@ -4,7 +4,7 @@
 
 ## 权重转换
 
-`../tools/convert2hf.py` 可以将训练保存的权重一键转换为 transformers 格式。
+`convert2hf.py` 可以将训练保存的权重一键转换为 transformers 格式。
 
 ```bash
 python convert2hf.py --src_folder origin_ckpt/ --tgt_folder hf_ckpt/ --tokenizer tokenizes/tokenizer.model
