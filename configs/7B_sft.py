@@ -97,7 +97,8 @@ beta2_scheduler = dict(
 )
 
 model = dict(
-    checkpoint=False,
+    checkpoint=False,  # The proportion of layers for activation aheckpointing, the optional value are True/False/[0-1]
+    checkpoint_fraction=0,
     num_attention_heads=NUM_ATTENTION_HEAD,
     embed_split_hidden=True,
     vocab_size=VOCAB_SIZE,
