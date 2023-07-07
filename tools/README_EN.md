@@ -4,7 +4,7 @@ This directory provide some tools for model training with the following file str
 │   ├── configuration_internlm.py  # tools for adapting config
 │   ├── modeling_internlm.py  # tools for adapting model
 │   └── tokenization_internlm.py  # tools for adapting tokenizer
-├── convert2hf.py  # tools for adapting models to Hugging Face's format
+│   └── convert2hf.py  # tools for adapting models to Hugging Face's format
 └── tokenizer.py  # tools for generating `bin` and `meta` file for raw data
 ```
 

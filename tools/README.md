@@ -3,8 +3,8 @@
 ├── transformers  # 适配hugging face的transformers的一些工具
 │   ├── configuration_internlm.py  # config适配工具
 │   ├── modeling_internlm.py  # model适配工具
-│   └── tokenization_internlm.py  # tokenizer适配工具
-├── convert2hf.py  # 模型适配hugging face工具
+│   ├── tokenization_internlm.py  # tokenizer适配工具
+│   └── convert2hf.py  # 模型适配hugging face工具
 └── tokenizer.py  # 将原始数据转换成bin和meta文件的工具
 ```
 
