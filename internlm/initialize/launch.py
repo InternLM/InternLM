@@ -133,7 +133,7 @@ def args_sanity_check():
     clip_grad_norm = gpc.config.hybrid_zero_optimizer.get("clip_grad_norm", 0.0)
 
     if gpc.is_rank_for_log():
-        logger.info("+" * 15 + " Other Info " + "+" * 15) # pylint: disable=W1201
+        logger.info("+" * 15 + " Other Info " + "+" * 15)  # pylint: disable=W1201
         logger.info(f"cudnn.benchmark: {torch.backends.cudnn.benchmark }")
         logger.info(f"cudnn.deterministic: {torch.backends.cudnn.deterministic }")
         logger.info(f"clip_grad_norm: {clip_grad_norm}")
