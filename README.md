@@ -176,3 +176,11 @@ InternLM codebase is an open-source project contributed by Shanghai AI Laborator
 ## Open Source License
 
 The code in this repository is open-source under the Apache-2.0 license. The InternLM weights are fully open for academic research and also allow commercial use with written permission from the official team. For inquiries about commercial licenses and collaborations, please contact internlm@pjlab.org.cn.
+
+## Citation
+@misc{2023internlm,
+    title={InternLM: A Multilingual Language Model with Progressively Enhanced Capabilities},
+    author={InternLM Team},
+    howpublished = {\url{https://github.com/InternLM/InternLM}},
+    year={2023}
+}

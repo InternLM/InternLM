@@ -171,3 +171,11 @@ InternLM 代码库是一款由上海人工智能实验室和来自不同高校�
 ## 开源许可证
  
 本仓库的代码依照 Apache-2.0 协议开源。InternLM 权重对学术研究完全开放，在获得官方的书面许可后，亦允许商业使用。申请商用许可与合作请联系 internlm@pjlab.org.cn。
+
+## 引用
+@misc{2023internlm,
+    title={InternLM: A Multilingual Language Model with Progressively Enhanced Capabilities},
+    author={InternLM Team},
+    howpublished = {\url{https://github.com/InternLM/InternLM}},
+    year={2023}
+}
