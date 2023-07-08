@@ -180,9 +180,9 @@ We appreciate all the contributors for their efforts to improve and enhance Inte
 
 InternLM codebase is an open-source project contributed by Shanghai AI Laboratory and researchers from different universities and companies. We would like to thank all the contributors for their support in adding new features to the project and the users for providing valuable feedback. We hope that this toolkit and benchmark can provide the community with flexible and efficient code tools for fine-tuning InternLM and developing their own models, thus continuously contributing to the open-source community. Special thanks to the two open-source projects, [flash-attention](https://github.com/HazyResearch/flash-attention) and [ColossalAI](https://github.com/hpcaitech/ColossalAI).
 
-## Open Source License
+## License
 
-The code in this repository is open-source under the Apache-2.0 license. The InternLM weights are fully open for academic research and also allow commercial use with written permission from the official team. For inquiries about commercial licenses and collaborations, please contact <internlm@pjlab.org.cn>.
+The code is licensed under Apache-2.0, while model weights are fully open for academic research and also allow **free** commercial usage. To apply for a commercial license, please fill in the [application form (English)](https://wj.qq.com/s2/12727483/5dba/)/[申请表（中文）](https://wj.qq.com/s2/12725412/f7c1/). For other questions or collaborations, please contact <internlm@pjlab.org.cn>.
 
 ## Citation
 
