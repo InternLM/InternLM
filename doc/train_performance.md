@@ -2,10 +2,10 @@
 
 InternLM 深度整合了 Flash-Attention, Apex 等高性能模型算子，提高了训练效率。通过构建 Hybrid Zero 技术，实现计算和通信的高效重叠，大幅降低了训练过程中的跨节点通信流量。InternLM 支持 7B 模型从 8 卡扩展到 1024 卡，千卡规模下加速效率可高达 90%，训练吞吐超过 180TFLOPS，平均单卡每秒处理的 token 数量超过3600。下表为 InternLM 在不同配置下的扩展性测试数据：
 
-| InternLM         | 8卡  | 16卡 | 32卡 | 64卡 | 128卡 | 256卡 | 512卡 | 1024卡 |
+| GPU Number         | 8   | 16  | 32  | 64  | 128  | 256  | 512  | 1024  |
 | ---------------- | ---- | ---- | ---- | ---- | ----- | ----- | ----- | ------ |
-| TKS (Tokens/GPU/Second) | 4078 | 3939 | 3919 | 3944 | 3928  | 3920  | 3835  | 3625   |
-| TFLOPS  | 192 | 192  | 186  | 186  | 185   | 185   | 186   | 182    |
+| TGS (Tokens/GPU/Second) | 4078 | 3939 | 3919 | 3944 | 3928  | 3920  | 3835  | 3625   |
+| TFLOPS  | 193 | 191  | 188  | 188  | 187   | 185   | 186   | 184    |
 
 
 我们在GPU集群上测试了多种并行配置下，InternLM训练7B模型的性能。在每组测试中，每张GPU在单次迭代中处理的token数量一致。测试使用的硬件和参数配置如下表所示：
@@ -51,7 +51,8 @@ InternLM中`zero1`的配置决定了优化器状态的分配范围。
 
 - TGS: Tokens per GPU per Second
 
-- Global Bsz: The total number of processed tokens with all GPUs in a step
+- Global Bsz: 一个step中所有GPU处理的token数量
+
 
 | TP | Zero1 | Pack Sample Into One | Activation Ckpt | GPU Num | Seq Len | Micro Bsz | Micro Num | Global Bsz | TGS | TFLOPS |
 |-|-|-|-|-|-|-|-|-|-|-|

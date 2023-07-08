@@ -165,10 +165,10 @@ Please refer to the [System Architecture document](./doc/en/structure.md) for fu
 
 InternLM deeply integrates Flash-Attention, Apex and other high-performance model operators to improve training efficiency. By building the Hybrid Zero technique, it achieves efficient overlap of computation and communication, significantly reducing cross-node communication traffic during training. InternLM supports expanding the 7B model from 8 GPUs to 1024 GPUs, with an acceleration efficiency of up to 90% at the thousand-GPU scale, a training throughput of over 180 TFLOPS, and an average of over 3600 tokens per GPU per second. The following table shows InternLM's scalability test data at different configurations:
 
-| Number of GPUs | 8    | 16   | 32   | 64   | 128  | 256  | 512  | 1024 |
-| -------------- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
-| TGS            | 4078 | 3939 | 3919 | 3944 | 3928 | 3920 | 3835 | 3625 |
-| TFLOPS         | 192  | 192  | 186  | 186  | 185  | 185  | 186  | 182  |
+| GPU Number         | 8   | 16  | 32  | 64  | 128  | 256  | 512  | 1024  |
+| ---------------- | ---- | ---- | ---- | ---- | ----- | ----- | ----- | ------ |
+| TGS | 4078 | 3939 | 3919 | 3944 | 3928  | 3920  | 3835  | 3625   |
+| TFLOPS  | 193 | 191  | 188  | 188  | 187   | 185   | 186   | 184    |
 
 TGS represents the average number of tokens processed per GPU per second. For more performance test data, please refer to the [Training Performance document](./doc/en/train_performance.md) for further details.
 

@@ -6,7 +6,7 @@ InternLM deeply integrates Flash-Attention, Apex, and other high-performance mod
 | GPU Number         | 8   | 16  | 32  | 64  | 128  | 256  | 512  | 1024  |
 | ---------------- | ---- | ---- | ---- | ---- | ----- | ----- | ----- | ------ |
 | TGS (Tokens/GPU/Second) | 4078 | 3939 | 3919 | 3944 | 3928  | 3920  | 3835  | 3625   |
-| TFLOPS  | 192 | 192  | 186  | 186  | 185   | 185   | 186   | 182    |
+| TFLOPS  | 193 | 191  | 188  | 188  | 187   | 185   | 186   | 184    |
 
 
 We tested the performance of training the 7B model in InternLM using various parallel configurations on a GPU cluster. In each test group, the number of tokens processed per GPU in a single iteration remained consistent. The hardware and parameter configurations used in the tests are shown in the table below:
@@ -53,7 +53,7 @@ When `Activation Ckpt` is enabled，the test results are shown in the table belo
 
 - TGS: Tokens per GPU per Second
 
-- Global Bsz: 一个step中所有GPU处理的token数量
+- Global Bsz: The total number of processed tokens with all GPUs in a step
 
 | TP | Zero1 | Pack Sample Into One | Activation Ckpt | GPU Num | Seq Len | Micro Bsz | Micro Num | Global Bsz | TGS | TFLOPS |
 |-|-|-|-|-|-|-|-|-|-|-|
