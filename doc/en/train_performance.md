@@ -46,19 +46,46 @@ Throughput is defined as TGS, the average number of tokens processed per GPU per
 
 ### FLOPS Testing
 
-The computational workload of model training is based on the FLOPS calculation method described in the [Megatron](https://deepakn94.github.io/assets/papers/megatron-sc21.pdf) paper. To ensure constant FLOPS during training, the test configuration had `pack_sample_into_one=True`. The training used the following configuration:
+The computational workload of model training is based on the FLOPS calculation method described in the [Megatron](https://deepakn94.github.io/assets/papers/megatron-sc21.pdf) paper. To ensure constant FLOPS during training, the test configuration had `pack_sample_into_one=True`, `dtype=torch.bfloat16`.
 
-Activation Checkpointing | tp  | zero-1 | seq_len | micro_num | micro_bsz |
-| --- | --- | ------ | ------- | --------- | --------- |
-Disabled | 1   | 8      | 2048    | 4         | 2      |
-Enabled  | 1   | 8      | 2048    | 1         | 8      |
 
-The test results are shown in the table below. InternLM can achieve `>180 TFLOPS` for 7B model on thousand-card scale.
+When `Activation Ckpt` is enabled，the test results are shown in the table below. InternLM can achieve `>180 TFLOPS` for 7B model training with 1024 GPUs.
 
-| Activation Checkpoint | 8 GPUs | 16 GPUs | 32 GPUs | 64 GPUs | 128 GPUs | 256 GPUs | 512 GPUs | 1024 GPUs |
-| --------------------- | ------ | ------- | ------- | ------- | -------- | -------- | -------- | --------- |
-| Disabled              | 183    | 177     | 176     | 174     | 173      | 173      | 173      | 160       |
-| Enabled               | 192    | 192     | 186     | 186     | 185      | 185      | 186      | 182       |
+- TGS: Tokens per GPU per Second
+
+- Global Bsz: The totoal number of processed tokens with all GPUs in a step
+
+| TP | Zero1 | Pack Sample Into One | Activation Ckpt | GPU Num | Seq Len | Micro Bsz | Micro Num | Global Bsz | TGS | TFLOPS |
+|-|-|-|-|-|-|-|-|-|-|-|
+| 1 | 8 | TRUE | TRUE | 8 | 2048 | 8 | 1 | 0.125M | 3314 | 193 |
+| 1 | 8 | TRUE | TRUE | 16 | 2048 | 8 | 1 | 0.25M | 3268 | 191 |  
+| 1 | 8 | TRUE | TRUE | 32 | 2048 | 8 | 1 | 0.5M | 3323 | 188 |
+| 1 | 8 | TRUE | TRUE | 64 | 2048 | 8 | 1 | 1M | 3217 | 188 |
+| 1 | 8 | TRUE | TRUE | 128 | 2048 | 8 | 1 | 2M | 3260 | 187 |
+| 1 | 8 | TRUE | TRUE | 256 | 2048 | 8 | 1 | 4M | 3215 | 187 |
+| 1 | 8 | TRUE | TRUE | 512 | 2048 | 8 | 1 | 8M | 3199 | 186 |  
+| 1 | 8 | TRUE | TRUE | 1024 | 2048 | 8 | 1 | 16M | 3163 | 184 |
+| 1 | 8 | TRUE | TRUE | 512 | 2048 | 4 | 1 | 4M | 2963 | 173 |
+| 1 | 8 | TRUE | TRUE | 1024 | 2048 | 2 | 1 | 4M | 2341 | 136 |
+| 1 | 8 | TRUE | TRUE | 1024 | 2048 | 4 | 1 | 8M | 2796 | 160 |
+
+When `Activation Ckpt` is turned off, the test results are as shown in the table below:
+
+| TP | Zero1 | Pack Sample Into One | Activation Ckpt | GPU Num | Seq Len | Micro Bsz | Micro Num | Global Bsz | TGS | TFLOPS |
+|-|-|-|-|-|-|-|-|-|-|-|
+| 1 | 8 | TRUE | Fasle | 8 | 2048 | 2 | 4 | 0.125 | 4103 | 183 |
+| 1 | 8 | TRUE | Fasle | 16 | 2048 | 2 | 4 | 0.25 | 3939 | 177 |
+| 1 | 8 | TRUE | Fasle | 32 | 2048 | 2 | 4 | 0.5 | 3919 | 176 |
+| 1 | 8 | TRUE | Fasle | 64 | 2048 | 2 | 4 | 1 | 3944 | 174 |
+| 1 | 8 | TRUE | Fasle | 128 | 2048 | 2 | 4 | 2 | 3928 | 173 |
+| 1 | 8 | TRUE | Fasle | 256 | 2048 | 2 | 4 | 4 | 3920 | 173 |
+| 1 | 8 | TRUE | Fasle | 512 | 2048 | 2 | 4 | 8 | 3900 | 173 |
+| 1 | 8 | TRUE | Fasle | 1024 | 2048 | 2 | 4 | 16 | 3625 | 160 |
+| 1 | 8 | TRUE | Fasle | 512 | 2048 | 2 | 2 | 4 | 3084 | 139 |  
+| 1 | 8 | TRUE | Fasle | 1024 | 2048 | 2 | 1 | 4 | 2346 | 105 |
+| 1 | 8 | TRUE | Fasle | 1024 | 2048 | 2 | 2 | 8 | 2817 | 124 |
+
+
 
 <div align="left">
     <img src="../imgs/flops.png" width="580"/>
