@@ -29,7 +29,7 @@ InternLM中`zero1`的配置决定了优化器状态的分配范围。
 
 ### 吞吐量测量
 
-吞吐量定义为TGS，平均每GPU每秒处理的token的数量（Tokens per GPU per Second）。在该项测试的训练配置中，`pack_sample_into_one=False`，`checkpoint=False`。测试结果如下表所示。采用`zero1=8，tp=1`，InternLM针对7B模型训练的扩展性，在千卡训练的加速效率可以达到`88%`。
+吞吐量定义为TGS，平均每GPU每秒处理的token的数量（Tokens per GPU per Second）。在该项测试的训练配置中，`pack_sample_into_one=False`，`checkpoint=False`, `dtype=torch.bfloat16`。测试结果如下表所示。采用`zero1=8，tp=1`，InternLM针对7B模型训练的扩展性，在千卡训练的加速效率可以达到`88%`。
 
 | 并行配置         | 8卡  | 16卡 | 32卡 | 64卡 | 128卡 | 256卡 | 512卡 | 1024卡 |
 | ---------------- | ---- | ---- | ---- | ---- | ----- | ----- | ----- | ------ |
@@ -44,19 +44,46 @@ InternLM中`zero1`的配置决定了优化器状态的分配范围。
 </div>
 
 ### FLOPS测试
-模型训练的计算量参考 [Megatron](https://deepakn94.github.io/assets/papers/megatron-sc21.pdf) 论文中FLOPS计算方式。为了保证训练过程中的FLOPS恒定，在该项测试的训练配置中，`pack_sample_into_one=True`，其余超参设置如下所示：
+模型训练的计算量参考 [Megatron](https://deepakn94.github.io/assets/papers/megatron-sc21.pdf) 论文中FLOPS计算方式。为了保证训练过程中的FLOPS恒定，在该项测试的训练配置中，`pack_sample_into_one=True`，`dtype=torch.bfloat16`。
 
-activation checkpoint | tp  | zero-1 | seq_len | micro_num | micro_bsz |
-| --- | --- | ----  | ----   | ----  |---- |
-关闭 | 1   | 8      | 2048    | 4     | 2 |
-开启 | 1   | 8      | 2048    | 1     | 8 |
 
-测试结果如下表所示，InternLM针对7B模型的千卡训练，可以达到 `>180 TFLOPS`：
-| activation checkpoint         | 8卡 | 16卡 | 32卡 | 64卡 | 128卡 | 256卡 | 512卡 | 1024卡 |
-| --------------- | --- | ---- | ---- | ---- | ----- | ----- | ----- | ------ |
-| 关闭 | 183 | 177  | 176  | 174  | 173   | 173   | 173   | 160    |
-| 开启 | 192 | 192  | 186  | 186  | 185   | 185   | 186   | 182    |
+当开启 Activation Ckpt后，测试结果如下表所示，InternLM针对7B模型的千卡训练，可以达到 `>180 TFLOPS`：
+
+- TGS: Tokens per GPU per Second
+
+- Global Bsz: The total number of processed tokens with all GPUs in a step
+
+| TP | Zero1 | Pack Sample Into One | Activation Ckpt | GPU Num | Seq Len | Micro Bsz | Micro Num | Global Bsz | TGS | TFLOPS |
+|-|-|-|-|-|-|-|-|-|-|-|
+| 1 | 8 | TRUE | TRUE | 8 | 2048 | 8 | 1 | 0.125M | 3314 | 193 |
+| 1 | 8 | TRUE | TRUE | 16 | 2048 | 8 | 1 | 0.25M | 3268 | 191 |  
+| 1 | 8 | TRUE | TRUE | 32 | 2048 | 8 | 1 | 0.5M | 3323 | 188 |
+| 1 | 8 | TRUE | TRUE | 64 | 2048 | 8 | 1 | 1M | 3217 | 188 |
+| 1 | 8 | TRUE | TRUE | 128 | 2048 | 8 | 1 | 2M | 3260 | 187 |
+| 1 | 8 | TRUE | TRUE | 256 | 2048 | 8 | 1 | 4M | 3215 | 187 |
+| 1 | 8 | TRUE | TRUE | 512 | 2048 | 8 | 1 | 8M | 3199 | 186 |  
+| 1 | 8 | TRUE | TRUE | 1024 | 2048 | 8 | 1 | 16M | 3163 | 184 |
+| 1 | 8 | TRUE | TRUE | 512 | 2048 | 4 | 1 | 4M | 2963 | 173 |
+| 1 | 8 | TRUE | TRUE | 1024 | 2048 | 2 | 1 | 4M | 2341 | 136 |
+| 1 | 8 | TRUE | TRUE | 1024 | 2048 | 4 | 1 | 8M | 2796 | 160 |
+
+当关闭 Activation Ckpt后，测试结果如下表所示：
+
+| TP | Zero1 | Pack Sample Into One | Activation Ckpt | GPU Num | Seq Len | Micro Bsz | Micro Num | Global Bsz | TGS | TFLOPS |
+|-|-|-|-|-|-|-|-|-|-|-|
+| 1 | 8 | TRUE | FALSE | 8 | 2048 | 2 | 4 | 0.125M | 4103 | 183 |
+| 1 | 8 | TRUE | FALSE | 16 | 2048 | 2 | 4 | 0.25M | 3939 | 177 |
+| 1 | 8 | TRUE | FALSE | 32 | 2048 | 2 | 4 | 0.5M | 3919 | 176 |
+| 1 | 8 | TRUE | FALSE | 64 | 2048 | 2 | 4 | 1M | 3944 | 174 |
+| 1 | 8 | TRUE | FALSE | 128 | 2048 | 2 | 4 | 2M | 3928 | 173 |
+| 1 | 8 | TRUE | FALSE | 256 | 2048 | 2 | 4 | 4M | 3920 | 173 |
+| 1 | 8 | TRUE | FALSE | 512 | 2048 | 2 | 4 | 8M | 3900 | 173 |
+| 1 | 8 | TRUE | FALSE | 1024 | 2048 | 2 | 4 | 16M | 3625 | 160 |
+| 1 | 8 | TRUE | FALSE | 512 | 2048 | 2 | 2 | 4M | 3084 | 139 |  
+| 1 | 8 | TRUE | FALSE | 1024 | 2048 | 2 | 1 | 4M | 2346 | 105 |
+| 1 | 8 | TRUE | FALSE | 1024 | 2048 | 2 | 2 | 8M | 2817 | 124 |
 
 <div align="left">
     <img src="../doc/imgs/flops.png" width="580"/>
 </div>
+
