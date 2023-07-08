@@ -51,7 +51,7 @@ InternLM中`zero1`的配置决定了优化器状态的分配范围。
 
 - TGS: Tokens per GPU per Second
 
-- Global Bsz: The totoal number of processed tokens with all GPUs in a step
+- Global Bsz: The total number of processed tokens with all GPUs in a step
 
 | TP | Zero1 | Pack Sample Into One | Activation Ckpt | GPU Num | Seq Len | Micro Bsz | Micro Num | Global Bsz | TGS | TFLOPS |
 |-|-|-|-|-|-|-|-|-|-|-|
@@ -71,17 +71,17 @@ InternLM中`zero1`的配置决定了优化器状态的分配范围。
 
 | TP | Zero1 | Pack Sample Into One | Activation Ckpt | GPU Num | Seq Len | Micro Bsz | Micro Num | Global Bsz | TGS | TFLOPS |
 |-|-|-|-|-|-|-|-|-|-|-|
-| 1 | 8 | TRUE | Fasle | 8 | 2048 | 2 | 4 | 0.125 | 4103 | 183 |
-| 1 | 8 | TRUE | Fasle | 16 | 2048 | 2 | 4 | 0.25 | 3939 | 177 |
-| 1 | 8 | TRUE | Fasle | 32 | 2048 | 2 | 4 | 0.5 | 3919 | 176 |
-| 1 | 8 | TRUE | Fasle | 64 | 2048 | 2 | 4 | 1 | 3944 | 174 |
-| 1 | 8 | TRUE | Fasle | 128 | 2048 | 2 | 4 | 2 | 3928 | 173 |
-| 1 | 8 | TRUE | Fasle | 256 | 2048 | 2 | 4 | 4 | 3920 | 173 |
-| 1 | 8 | TRUE | Fasle | 512 | 2048 | 2 | 4 | 8 | 3900 | 173 |
-| 1 | 8 | TRUE | Fasle | 1024 | 2048 | 2 | 4 | 16 | 3625 | 160 |
-| 1 | 8 | TRUE | Fasle | 512 | 2048 | 2 | 2 | 4 | 3084 | 139 |  
-| 1 | 8 | TRUE | Fasle | 1024 | 2048 | 2 | 1 | 4 | 2346 | 105 |
-| 1 | 8 | TRUE | Fasle | 1024 | 2048 | 2 | 2 | 8 | 2817 | 124 |
+| 1 | 8 | TRUE | FALSE | 8 | 2048 | 2 | 4 | 0.125M | 4103 | 183 |
+| 1 | 8 | TRUE | FALSE | 16 | 2048 | 2 | 4 | 0.25M | 3939 | 177 |
+| 1 | 8 | TRUE | FALSE | 32 | 2048 | 2 | 4 | 0.5M | 3919 | 176 |
+| 1 | 8 | TRUE | FALSE | 64 | 2048 | 2 | 4 | 1M | 3944 | 174 |
+| 1 | 8 | TRUE | FALSE | 128 | 2048 | 2 | 4 | 2M | 3928 | 173 |
+| 1 | 8 | TRUE | FALSE | 256 | 2048 | 2 | 4 | 4M | 3920 | 173 |
+| 1 | 8 | TRUE | FALSE | 512 | 2048 | 2 | 4 | 8M | 3900 | 173 |
+| 1 | 8 | TRUE | FALSE | 1024 | 2048 | 2 | 4 | 16M | 3625 | 160 |
+| 1 | 8 | TRUE | FALSE | 512 | 2048 | 2 | 2 | 4M | 3084 | 139 |  
+| 1 | 8 | TRUE | FALSE | 1024 | 2048 | 2 | 1 | 4M | 2346 | 105 |
+| 1 | 8 | TRUE | FALSE | 1024 | 2048 | 2 | 2 | 8M | 2817 | 124 |
 
 <div align="left">
     <img src="../doc/imgs/flops.png" width="580"/>
