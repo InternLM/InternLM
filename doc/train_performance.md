@@ -60,3 +60,17 @@ activation checkpoint | tp  | zero-1 | seq_len | micro_num | micro_bsz |
 <div align="left">
     <img src="../doc/imgs/flops.png" width="580"/>
 </div>
+
+| TP | ZERO1 | pack_sample | activation ckpt | gpu | seq_len | micro_bsz | micro_num | global tokens/step (M) | TGS | TFLOPS |
+|-|-|-|-|-|-|-|-|-|-|-|
+| 1 | 8 | TRUE | TRUE | 8 | 2048 | 8 | 1 | 0.125 | 3188 | 186 | 
+| 1 | 8 | TRUE | TRUE | 16 | 2048 | 8 | 1 | 0.25 | 3130 | 182 |
+| 1 | 8 | TRUE | TRUE | 32 | 2048 | 8 | 1 | 0.5 | 3095 | 180 |
+| 1 | 8 | TRUE | TRUE | 64 | 2048 | 8 | 1 | 1 | 3073 | 179 |
+| 1 | 8 | TRUE | TRUE | 128 | 2048 | 8 | 1 | 2 | 3041 | 177 |
+| 1 | 8 | TRUE | TRUE | 256 | 2048 | 8 | 1 | 4 | 3040 | 177 |
+| 1 | 8 | TRUE | TRUE | 512 | 2048 | 8 | 1 | 8 | 3059 | 178 |
+| 1 | 8 | TRUE | TRUE | 1024 | 2048 | 8 | 1 | 16 | 3081 | 179 |
+| 1 | 8 | TRUE | TRUE | 512 | 2048 | 4 | 1 | 4 | 2865 | 165 |
+| <bgcolor=#D0E8F2>1 | 8 | TRUE | TRUE | 1024 | 2048 | 2 | 1 | 4 | 1832 | 110</bgcolor> |
+| <bgcolor=#D0E8F2>1 | 8 | TRUE | TRUE | 1024 | 2048 | 4 | 1 | 8 | 2796 | 160</bgcolor> |
