@@ -25,7 +25,8 @@
 [🤔Reporting Issues](https://github.com/InternLM/InternLM/issues/new)
 
 [English](./README.md) |
-[简体中文](./README-zh-Hans.md)
+[简体中文](./README-zh-Hans.md) |
+[日本語](./README-ja-JP.md)
 
 </div>
 
