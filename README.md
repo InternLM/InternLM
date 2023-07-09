@@ -96,6 +96,13 @@ Sure, here are three tips for effective time management:
 Remember, good time management skills take practice and patience. Start with small steps and gradually incorporate these habits into your daily routine.
 ```
 
+### Installation
+
+You can install the packages in the requirements file by running the following command:
+```
+pip install -r requirements.txt
+```
+
 ### Dialogue
 
 You can interact with the InternLM Chat 7B model through a frontend interface by running the following code:
