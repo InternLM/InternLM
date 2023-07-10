@@ -1,3 +1,4 @@
+# runtime.txt packages 
 transformers==4.30.2
 sentencepiece==0.1.99
 numpy==1.25.1
@@ -12,8 +13,10 @@ packaging==23.1
 boto3==1.28.1
 botocore==1.31.1
 torch-scatter==2.1.1
+#torch.txt packages
 torch==1.13.1+cu117
 torchvision==0.14.1+cu117
 torchaudio==2.0.2
+# packages mentioned in README.md
 streamlit==1.24.0
 transformers==4.30.2
