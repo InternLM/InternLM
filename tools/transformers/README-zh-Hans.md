@@ -17,9 +17,8 @@ python tools/transformers/convert2hf.py --src_folder origin_ckpt/ --tgt_folder h
 然后可以使用 `from_pretrained` 接口加载：
 
 ```python
-from modeling_internlm import InternLMForCausalLM
-
-model = InternForCausalLM.from_pretrained("hf_ckpt/")
+>>> from transformers import AutoTokenizer, AutoModel
+>>> model = AutoModel.from_pretrained("hf_ckpt/", trust_remote_code=True).cuda()
 ```
 
 

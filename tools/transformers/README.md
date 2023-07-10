@@ -16,9 +16,8 @@ python tools/transformers/convert2hf.py --src_folder origin_ckpt/ --tgt_folder h
 Then, you can load it using the `from_pretrained` interface:
 
 ```python
-from modeling_internlm import InternLMForCausalLM
-
-model = InternForCausalLM.from_pretrained("hf_ckpt/")
+>>> from transformers import AutoTokenizer, AutoModel
+>>> model = AutoModel.from_pretrained("hf_ckpt/", trust_remote_code=True).cuda()
 ```
 
 `intern_moss_example.py` demonstrates an example of how to use LoRA for fine-tuning on the `fnlp/moss-moon-002-sft` dataset.
