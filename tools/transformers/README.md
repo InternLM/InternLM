@@ -10,7 +10,7 @@ This folder contains the `InternLM` model in transformers format.
 `convert2hf.py` can convert saved training weights into the transformers format with a single command. Execute the command in the root directory of repository:
 
 ```bash
-python tools/transformers/convert2hf.py --src_folder origin_ckpt/ --tgt_folder hf_ckpt/ --tokenizer .tools/V7_sft.model
+python tools/transformers/convert2hf.py --src_folder origin_ckpt/ --tgt_folder hf_ckpt/ --tokenizer ./tools/V7_sft.model
 ```
 
 Then, you can load it using the `from_pretrained` interface:

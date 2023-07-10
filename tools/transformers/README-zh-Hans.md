@@ -11,7 +11,7 @@
 `convert2hf.py` 可以将训练保存的权重一键转换为 transformers 格式。在仓库根目录运行以下命令：
 
 ```bash
-python tools/transformers/convert2hf.py --src_folder origin_ckpt/ --tgt_folder hf_ckpt/ --tokenizer .tools/V7_sft.model
+python tools/transformers/convert2hf.py --src_folder origin_ckpt/ --tgt_folder hf_ckpt/ --tokenizer ./tools/V7_sft.model
 ```
 
 然后可以使用 `from_pretrained` 接口加载：
