@@ -85,7 +85,7 @@ def convert2hf(model_config, states_tp_pps):
         config.save_pretrained(folder)
         torch.save(current_states, os.path.join(folder, "pytorch_model.bin"))
 
-        model = InternLMForCausalLM.from_pretrained(folder, torch_dtype=torch.float16, low_cpu_mem_usage=True)
+        model = InternLMForCausalLM.from_pretrained(folder, torch_dtype=torch.float16)
         del model.config._name_or_path
 
     return config, model
