@@ -89,7 +89,7 @@ def args_sanity_check():
         data._add_item("valid_folder", None)
 
     if gpc.is_rank_for_log():
-        logger.info("+++++++++++++++++++++++++++++++ Data Info +++++++++++++++++++++++++++++++")
+        logger.info("+" * 15 + " Data Info " + "+" * 15)  # pylint: disable=W1201
         logger.info(f"seq_len: {data.seq_len}")
         logger.info(f"micro_num: {data.micro_num}")
         logger.info(f"micro_bsz: {data.micro_bsz}")
@@ -122,7 +122,7 @@ def args_sanity_check():
     )
 
     if gpc.is_rank_for_log():
-        logger.info("+++++++++++++++++++++++++++++++ Ckpt Info +++++++++++++++++++++++++++++++")
+        logger.info("+" * 15 + " Ckpt Info " + "+" * 15)  # pylint: disable=W1201
         logger.info(f"is enable save ckpt: {gpc.config.ckpt.enable_ckpt}")
         logger.info(f"save_ckpt_folder: {gpc.config.ckpt.save_ckpt_folder}")
         logger.info(f"checkpoint_every: {gpc.config.ckpt.checkpoint_every}")
@@ -133,7 +133,7 @@ def args_sanity_check():
     clip_grad_norm = gpc.config.hybrid_zero_optimizer.get("clip_grad_norm", 0.0)
 
     if gpc.is_rank_for_log():
-        logger.info("+++++++++++++++++++++++++++++++ other Info +++++++++++++++++++++++++++++++")
+        logger.info("+" * 15 + " Other Info " + "+" * 15)  # pylint: disable=W1201
         logger.info(f"cudnn.benchmark: {torch.backends.cudnn.benchmark }")
         logger.info(f"cudnn.deterministic: {torch.backends.cudnn.deterministic }")
         logger.info(f"clip_grad_norm: {clip_grad_norm}")
@@ -150,21 +150,20 @@ def args_sanity_check():
             assert gpc.config.model.dtype in ["torch.float16", "torch.half", "torch.bfloat16"]
 
     if gpc.is_rank_for_log():
-        logger.info("+++++++++++++++++++++++++++++++ Model Info +++++++++++++++++++++++++++++++")
+        logger.info("+" * 15 + " Model Info " + "+" * 15)  # pylint: disable=W1201
         logger.info(f"Model: {gpc.config.model}")
 
-        logger.info("+++++++++++++++++++++++++++++++ grad_scaler Info +++++++++++++++++++++++++++++++")
+        logger.info("+" * 15 + " grad_scaler Info " + "+" * 15)  # pylint: disable=W1201
         logger.info(f"grad_scaler: {gpc.config.grad_scaler}")
 
-        logger.info("+++++++++++++++++++++++++++++++ hybrid_zero_optimizer Info +++++++++++++++++++++++++++++++")
+        logger.info("+" * 15 + " hybrid_zero_optimizer Info " + "+" * 15)  # pylint: disable=W1201
         logger.info(f"hybrid_zero_optimizer: {gpc.config.hybrid_zero_optimizer}")
 
-        logger.info("+++++++++++++++++++++++++++++++ adam Info +++++++++++++++++++++++++++++++")
+        logger.info("+" * 15 + " adam Info " + "+" * 15)  # pylint: disable=W1201
         logger.info(f"adam: {gpc.config.adam}")
 
-        logger.info("+++++++++++++++++++++++++++++++ beta2_scheduler Info +++++++++++++++++++++++++++++++")
+        logger.info("+" * 15 + " beta2_scheduler Info " + "+" * 15)  # pylint: disable=W1201
         logger.info(f"beta2_scheduler: {gpc.config.beta2_scheduler}")
-        logger.info("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
 
 
 def launch(

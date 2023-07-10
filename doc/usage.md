@@ -11,7 +11,7 @@ InternLM训练任务的数据集包括一系列的`bin`和`meta`文件。使用`
 
 可以运行以下命令生成原始数据对应的`bin`和`meta`文件，其中参数`raw_data_name`表示原始数据集的文件名称，`input_file_type`表示原始数据集的文件格式，目前支持`txt`、`json`和`jsonl`这三种格式，`bin`表示生成的`bin`文件的保存路径。
 ```bash
-$ python tools/tokenizer.py --raw_data_name your_raw_data_file_name(without suffix) --input_file_type 'text' or 'json' or 'jsonl' --bin your_output_bin_path
+$ python tools/tokenizer.py --raw_data_name your_raw_data_file_name(without suffix) --input_file_type 'txt' or 'json' or 'jsonl' --bin your_output_bin_path
 ```
 
 下面是一个数据处理的例子（这里只给出了`txt`格式的数据处理例子，`json`和`jsonl`的数据处理流程和`txt`的完全一致）：
@@ -175,17 +175,28 @@ $ srun -p internllm -N 2 -n 16 --ntasks-per-node=8 --gpus-per-task=1 python trai
 
 若在 torch 上启动分布式运行环境，单节点 8 卡的运行命令如下所示：
 ```bash
-$ torchrun --nnodes=1 --nproc-per-node=8 train.py --config ./configs/7B_sft.py
+$ torchrun --nnodes=1 --nproc_per_node=8 train.py --config ./configs/7B_sft.py
 ```
 
 ### 运行结果
 
 以 slurm 上单机 8 卡的 Demo 训练配置为例，训练结果日志展示如下：
 ```bash
-2023-07-04 21:40:14,148 INFO train.py:318 in record_current_batch_training_metrics -- step=17,loss=9.810295104980469,tgs (tokens per gpu per second)=4399.93,lr=3.8e-06,loss_scale=65536.0,grad_norm=4.177205427229359,micro_num=4,num_consumed_tokens=2359296,inf_nan_skip_batches=0,num_samples_in_batch=60,largest_length=1300,largest_batch=18,smallest_batch=13,adam_beta2=0.95,fwd_bwd_time=3.57
-2023-07-04 21:40:17,825 INFO train.py:318 in record_current_batch_training_metrics -- step=18,loss=9.715232849121094,tgs (tokens per gpu per second)=4457.7,lr=4.000000000000001e-06,loss_scale=65536.0,grad_norm=5.018154183978863,micro_num=4,num_consumed_tokens=2490368,inf_nan_skip_batches=0,num_samples_in_batch=68,largest_length=1153,largest_batch=19,smallest_batch=16,adam_beta2=0.95,fwd_bwd_time=3.52
-2023-07-04 21:40:21,526 INFO train.py:318 in record_current_batch_training_metrics -- step=19,loss=9.76744556427002,tgs (tokens per gpu per second)=4429.13,lr=4.2000000000000004e-06,loss_scale=65536.0,grad_norm=5.245329823265071,micro_num=4,num_consumed_tokens=2621440,inf_nan_skip_batches=0,num_samples_in_batch=70,largest_length=706,largest_batch=18,smallest_batch=17,adam_beta2=0.95,fwd_bwd_time=3.54
-2023-07-04 21:40:25,227 INFO train.py:318 in record_current_batch_training_metrics -- step=20,loss=9.628969192504883,tgs (tokens per gpu per second)=4427.46,lr=4.4e-06,loss_scale=65536.0,grad_norm=5.503176552110271,micro_num=4,num_consumed_tokens=2752512,inf_nan_skip_batches=0,num_samples_in_batch=69,largest_length=915,largest_batch=20,smallest_batch=15,adam_beta2=0.95,fwd_bwd_time=3.55
-2023-07-04 21:40:28,899 INFO train.py:318 in record_current_batch_training_metrics -- step=21,loss=9.690847396850586,tgs (tokens per gpu per second)=4464.18,lr=4.6e-06,loss_scale=65536.0,grad_norm=5.5336643273197526,micro_num=4,num_consumed_tokens=2883584,inf_nan_skip_batches=0,num_samples_in_batch=66,largest_length=870,largest_batch=17,smallest_batch=16,adam_beta2=0.95,fwd_bwd_time=3.52
-2023-07-04 21:40:32,629 INFO train.py:318 in record_current_batch_training_metrics -- step=22,loss=9.61986255645752,tgs (tokens per gpu per second)=4393.28,lr=4.800000000000001e-06,loss_scale=65536.0,grad_norm=9.01168869536059,micro_num=4,num_consumed_tokens=3014656,inf_nan_skip_batches=0,num_samples_in_batch=65,largest_length=1151,largest_batch=20,smallest_batch=14,adam_beta2=0.95,fwd_bwd_time=3.57
+2023-07-07 12:26:58,293	INFO launch.py:228 in launch -- Distributed environment is initialized, data parallel size: 8, pipeline parallel size: 1, tensor parallel size: 1
+2023-07-07 12:26:58,293	INFO parallel_context.py:535 in set_seed -- initialized seed on rank 2, numpy: 1024, python random: 1024, ParallelMode.DATA: 1024, ParallelMode.TENSOR: 1024,the default parallel seed is ParallelMode.DATA.
+2023-07-07 12:26:58,295	INFO train.py:378 in main -- ===========New Run Jul07_12-26-58 on host:SH-IDC1-10-140-0-135,tp:0,pp=0,dp=0===========
+2023-07-07 12:26:58,296	INFO train.py:378 in main -- ===========New Run Jul07_12-26-58 on host:SH-IDC1-10-140-0-135,tp:0,pp=0,dp=5===========
+2023-07-07 12:26:58,296	INFO train.py:378 in main -- ===========New Run Jul07_12-26-58 on host:SH-IDC1-10-140-0-135,tp:0,pp=0,dp=1===========
+2023-07-07 12:26:58,296	INFO train.py:378 in main -- ===========New Run Jul07_12-26-58 on host:SH-IDC1-10-140-0-135,tp:0,pp=0,dp=6===========
+2023-07-07 12:26:58,296	INFO train.py:378 in main -- ===========New Run Jul07_12-26-58 on host:SH-IDC1-10-140-0-135,tp:0,pp=0,dp=7===========
+2023-07-07 12:26:58,296	INFO train.py:378 in main -- ===========New Run Jul07_12-26-58 on host:SH-IDC1-10-140-0-135,tp:0,pp=0,dp=2===========
+2023-07-07 12:26:58,296	INFO train.py:378 in main -- ===========New Run Jul07_12-26-58 on host:SH-IDC1-10-140-0-135,tp:0,pp=0,dp=4===========
+2023-07-07 12:26:58,296	INFO train.py:378 in main -- ===========New Run Jul07_12-26-58 on host:SH-IDC1-10-140-0-135,tp:0,pp=0,dp=3===========
+2023-07-07 12:28:27,826	INFO hybrid_zero_optim.py:295 in _partition_param_list -- Number of elements on ranks: [907415552, 907411456, 910163968, 910163968, 921698304, 921698304, 921698304, 921698304], rank:0
+2023-07-07 12:28:57,802	INFO train.py:323 in record_current_batch_training_metrics -- tflops=63.27010355651958,step=0,loss=11.634403228759766,tgs (tokens/gpu/second)=1424.64,lr=4.0000000000000003e-07,loss_scale=65536.0,grad_norm=63.672620777841004,micro_num=4,num_consumed_tokens=131072,inf_nan_skip_batches=0,num_samples_in_batch=19,largest_length=2048,largest_batch=5,smallest_batch=4,adam_beta2=0.95,fwd_bwd_time=6.48
+2023-07-07 12:29:01,636	INFO train.py:323 in record_current_batch_training_metrics -- tflops=189.83371103277346,step=1,loss=11.613704681396484,tgs (tokens/gpu/second)=4274.45,lr=6.000000000000001e-07,loss_scale=65536.0,grad_norm=65.150786641452,micro_num=4,num_consumed_tokens=262144,inf_nan_skip_batches=0,num_samples_in_batch=16,largest_length=2048,largest_batch=5,smallest_batch=3,adam_beta2=0.95,fwd_bwd_time=3.67
+2023-07-07 12:29:05,451	INFO train.py:323 in record_current_batch_training_metrics -- tflops=190.99928472960033,step=2,loss=11.490386962890625,tgs (tokens/gpu/second)=4300.69,lr=8.000000000000001e-07,loss_scale=65536.0,grad_norm=61.57798028719357,micro_num=4,num_consumed_tokens=393216,inf_nan_skip_batches=0,num_samples_in_batch=14,largest_length=2048,largest_batch=4,smallest_batch=3,adam_beta2=0.95,fwd_bwd_time=3.66
+2023-07-07 12:29:09,307	INFO train.py:323 in record_current_batch_training_metrics -- tflops=188.8613541410694,step=3,loss=11.099515914916992,tgs (tokens/gpu/second)=4252.55,lr=1.0000000000000002e-06,loss_scale=65536.0,grad_norm=63.5478796484391,micro_num=4,num_consumed_tokens=524288,inf_nan_skip_batches=0,num_samples_in_batch=16,largest_length=2048,largest_batch=5,smallest_batch=3,adam_beta2=0.95,fwd_bwd_time=3.7
+2023-07-07 12:29:13,147	INFO train.py:323 in record_current_batch_training_metrics -- tflops=189.65918563194305,step=4,loss=10.149517059326172,tgs (tokens/gpu/second)=4270.52,lr=1.2000000000000002e-06,loss_scale=65536.0,grad_norm=51.582841631508145,micro_num=4,num_consumed_tokens=655360,inf_nan_skip_batches=0,num_samples_in_batch=19,largest_length=2048,largest_batch=6,smallest_batch=3,adam_beta2=0.95,fwd_bwd_time=3.68
+2023-07-07 12:29:16,994	INFO train.py:323 in record_current_batch_training_metrics -- tflops=189.3109313713174,step=5,loss=9.822169303894043,tgs (tokens/gpu/second)=4262.67,lr=1.4000000000000001e-06,loss_scale=65536.0,grad_norm=47.10386835560855,micro_num=4,num_consumed_tokens=786432,inf_nan_skip_batches=0,num_samples_in_batch=17,largest_length=2048,largest_batch=6,smallest_batch=3,adam_beta2=0.95,fwd_bwd_time=3.69
 ```

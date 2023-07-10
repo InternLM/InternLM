@@ -269,9 +269,9 @@ class NonPipelineScheduler(BaseScheduler):
 
             if return_loss:
                 loss += _loss
-
-            outputs.append(_output)
-            labels.append(_label)
+            if return_output_label:
+                outputs.append(_output)
+                labels.append(_label)
 
         if not return_output_label:
             outputs, labels = None, None
