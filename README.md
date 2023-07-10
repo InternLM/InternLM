@@ -142,10 +142,10 @@ Please refer to [Usage Tutorial](./doc/en/usage.md) to start InternLM installati
 
 ### Convert to Transformers Format
 
-The model trained by InternLM can be easily converted to HuggingFace Transformers format, which is convenient for seamless docking with various open source projects in the community. With the help of `tools/convert2hf.py`, the weights saved during training can be converted into transformers format with one command
+The model trained by InternLM can be easily converted to HuggingFace Transformers format, which is convenient for seamless docking with various open source projects in the community. With the help of `tools/transformers/convert2hf.py`, the weights saved during training can be converted into transformers format with one command
 
 ```bash
-python convert2hf.py --src_folder origin_ckpt/ --tgt_folder hf_ckpt/ --tokenizer tokenizes/tokenizer.model
+python tools/transformers/convert2hf.py --src_folder origin_ckpt/ --tgt_folder hf_ckpt/ --tokenizer .tools/V7_sft.model
 ```
 
 After conversion, it can be loaded as transformers by the following code
