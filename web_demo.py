@@ -158,7 +158,7 @@ def load_model():
 
 def prepare_generation_config():
     with st.sidebar:
-        max_length = st.slider("Max Length", min_value=32, max_value=8000, value=2048)
+        max_length = st.slider("Max Length", min_value=32, max_value=8192, value=2048)
         top_p = st.slider(
             'Top P', 0.0, 1.0, 0.8, step=0.01
         )
