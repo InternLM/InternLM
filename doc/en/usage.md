@@ -192,7 +192,7 @@ $ srun -p internllm -N 2 -n 16 --ntasks-per-node=8 --gpus-per-task=1 python trai
 If you want to start distributed training on torch with 8 GPUs on a single node, use the following command:
 
 ```bash
-$ torchrun --nnodes=1 --nproc_per_node=8 train.py --config ./configs/7B_sft.py
+$ torchrun --nnodes=1 --nproc_per_node=8 train.py --config ./configs/7B_sft.py --launcher "torch"
 ```
 
 ### Training Results
