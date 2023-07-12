@@ -95,13 +95,19 @@ class Writer:
     Customed writer based on tensorboard for recording training metrics.
 
     Args:
+        launch_time (str): A string representing the launch time of the training.
+        tensorboard_folder (str): A string representing the folder for saving tensorboard logs.
+        resume_tb_folder (str): A string representing the folder for resuming tensorboard logs.
+        step_count (int): An integer representing the step count of the training.
+        config (str): A string representing the configuration of the training.
+        logger (logging.Logger): A logging.Logger object for logging information during training.
+        enable_tb (bool): A boolean indicating whether to enable the tensorboard writer.
 
-    Return:
     """
 
     def __init__(
         self,
-        launch_time,
+        launch_time: str,
         tensorboard_folder: str = None,
         resume_tb_folder: str = None,
         step_count: int = 0,
