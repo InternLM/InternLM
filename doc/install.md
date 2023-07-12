@@ -8,7 +8,8 @@
 - CUDA == 11.7
 - Pytorch == 1.13.1+cu117
 - Transformers >= 4.25.1
-- Flash-Attention == 23.05
+- Flash-Attention == v1.0.5
+- Apex == 23.05
 - Ampere或者Hopper架构的GPU (例如H100, A100)
 - Linux OS
 
