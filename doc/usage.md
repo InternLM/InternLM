@@ -175,7 +175,7 @@ $ srun -p internllm -N 2 -n 16 --ntasks-per-node=8 --gpus-per-task=1 python trai
 
 若在 torch 上启动分布式运行环境，单节点 8 卡的运行命令如下所示：
 ```bash
-$ torchrun --nnodes=1 --nproc_per_node=8 train.py --config ./configs/7B_sft.py
+$ torchrun --nnodes=1 --nproc_per_node=8 train.py --config ./configs/7B_sft.py --launcher "torch"
 ```
 
 ### 运行结果
