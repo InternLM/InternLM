@@ -54,6 +54,7 @@ from internlm.utils.parallel import (
     sync_model_param_within_tp,
 )
 from internlm.utils.registry import MODEL_INITIALIZER
+from internlm.utils.writer import Writer
 
 # global llm logger
 logger = get_logger(__file__)
@@ -246,6 +247,7 @@ def initialize_optimizer(model: nn.Module):
 def record_current_batch_training_metrics(
     get_tflops_func,
     logger,
+    writer,
     success_update,
     batch_count,
     batch,
@@ -307,12 +309,13 @@ def record_current_batch_training_metrics(
         infos["smallest_batch"] = min_samples_in_batch
         infos["adam_beta2"] = beta2_scheduler.get_beta2()
 
-        line = ""
-        for k, v in infos.items():
-            line += f"{k}={v},"
-
         fwd_bwd_time = round(timer("fwd-bwd").elapsed(), 2)
-        line += f"fwd_bwd_time={fwd_bwd_time}"
+        infos["fwd_bwd_time"] = fwd_bwd_time
+
+        line = ""
+        for key, value in infos.items():
+            line += f"{key}={value},"
+            writer.add_scalar(key=key, value=value, step=train_state.step_count)
 
         logger.info(line)
 
@@ -354,6 +357,18 @@ def main(args):
     objs = [current_time]
     dist.broadcast_object_list(objs, src=0)
     current_time = objs[0]
+
+    # initialize customed llm writer
+    with open(args.config, "r") as f:
+        config_lines = f.readlines()
+    writer = Writer(
+        launch_time=current_time,
+        tensorboard_folder=gpc.config.tensorboard_folder,
+        resume_tb_folder=gpc.config.resume_tb_folder,
+        config=config_lines,
+        logger=logger,
+        enable_tb=gpc.config.enable_tb,
+    )
 
     model_load_path = None
     if load_resume_ckpt_folder is not None:
@@ -469,6 +484,7 @@ def main(args):
         record_current_batch_training_metrics(
             get_tflops_func=get_tflops_func,
             logger=logger,
+            writer=writer,
             success_update=success_update,
             batch_count=batch_count,
             batch=batch,
