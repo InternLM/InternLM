@@ -67,6 +67,7 @@ def initialize_trainer(
             handler = PipelineSharedModuleGradientHandler(model=model, optimizer=optimizer)
             gradient_handlers.append(handler)
 
+    scheduler = None
     scheduler = NonPipelineScheduler(gradient_accumulation_size=gpc.config.data.gradient_accumulation)
 
     engine = Engine(
