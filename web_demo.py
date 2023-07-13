@@ -205,6 +205,7 @@ def parse_args():
 
 def main(args):
     torch.cuda.empty_cache()
+    
     print("load model begin.")
     model, tokenizer = load_model(args.model_path)
     print("load model end.")
