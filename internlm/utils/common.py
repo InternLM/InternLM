@@ -13,6 +13,7 @@ import numpy as np
 import torch
 
 import internlm
+from internlm.core.context import global_context as gpc
 
 CURRENT_TIME = None
 
@@ -170,6 +171,16 @@ def conditional_context(context_manager, enable=True):
             yield
     else:
         yield
+
+
+@contextmanager
+def switch_virtual_pipeline_parallel_rank(rank):
+    prev_rank = gpc.virtual_pipeline_parallel_rank
+    try:
+        gpc.set_virtual_pipeline_parallel_rank(rank)
+        yield
+    finally:
+        gpc.set_virtual_pipeline_parallel_rank(prev_rank)
 
 
 class BatchSkipper:

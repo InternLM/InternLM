@@ -5,16 +5,23 @@
 
 from typing import Callable, Iterable, Optional, Tuple
 
+import torch
 from torch import nn
 from torch.nn.modules.loss import _Loss
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
 
+from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.core.engine import Engine
 from internlm.core.gradient_handler import PipelineSharedModuleGradientHandler
 from internlm.core.no_pipeline_scheduler import NonPipelineScheduler
+from internlm.core.pipeline_scheduler import (
+    InterleavedPipelineScheduler,
+    PipelineScheduler,
+    get_tensor_shape,
+)
 from internlm.core.trainer import Trainer
 from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.optimizer.hybrid_zero_optim import BaseOptimizer
@@ -53,12 +60,17 @@ def initialize_trainer(
     elif isinstance(model, Callable):
         model = model().to(get_current_device())
 
+    gpc.config.grad_scaler.pop("fp16")
+
     # clip grad norm
     clip_grad_norm = gpc.config.hybrid_zero_optimizer.get("clip_grad_norm", 0.0)
 
     assert isinstance(optimizer, BaseOptimizer), "optimizer must be instance of BaseOptimizer"
 
     # gradient handler, only support PipelineSharedModuleGradientHandler now
+    is_using_pp = hasattr(gpc.config.parallel, "pipeline") and gpc.config.parallel.pipeline > 1
+    if is_using_pp:
+        gpc.config.gradient_handler = [dict(type="PipelineSharedModuleGradientHandler")]
     gradient_handler_cfg = gpc.config.get("gradient_handler", [])
     gradient_handlers = []
     assert isinstance(gradient_handler_cfg, list), f"gradient_handler must be list but got {type(gradient_handler_cfg)}"
@@ -67,8 +79,31 @@ def initialize_trainer(
             handler = PipelineSharedModuleGradientHandler(model=model, optimizer=optimizer)
             gradient_handlers.append(handler)
 
-    scheduler = NonPipelineScheduler(gradient_accumulation_size=gpc.config.data.gradient_accumulation)
+    # initialize scheduler for trainer
+    if is_using_pp:
+        gpc.config.NUM_MICRO_BATCHES = gpc.config.data.micro_num
+        tensor_shape = get_tensor_shape()
+        use_interleaved = (
+            hasattr(gpc.config, "model") and hasattr(gpc.config.model, "num_chunks") and gpc.config.model.num_chunks > 1
+        )
+        scatter_gather = gpc.is_initialized(ParallelMode.TENSOR)
+        if use_interleaved:
+            if isinstance(model, nn.Sequential):
+                model = nn.ModuleList([model])
+            scheduler = InterleavedPipelineScheduler(
+                num_microbatches=gpc.config.NUM_MICRO_BATCHES,
+                num_model_chunks=gpc.config.model.num_chunks,
+                tensor_shape=tensor_shape,
+                scatter_gather_tensors=scatter_gather,
+            )
+        else:
+            scheduler = PipelineScheduler(
+                gpc.config.NUM_MICRO_BATCHES, tensor_shape=tensor_shape, scatter_gather_tensors=scatter_gather
+            )
+    else:
+        scheduler = NonPipelineScheduler(gradient_accumulation_size=gpc.config.data.gradient_accumulation)
 
+    # initialize engine for trainer
     engine = Engine(
         model=model,
         optimizer=optimizer,
@@ -78,6 +113,10 @@ def initialize_trainer(
         gradient_handlers=gradient_handlers,
         clip_grad_norm=clip_grad_norm,
     )
+
+    # if bf16 is used, this value will be wrongly set to fp32, so it needs to be corrected manually
+    if hasattr(gpc.config.model, "dtype"):
+        scheduler.dtype = torch.bfloat16
 
     trainer = Trainer(engine, scheduler)
 
