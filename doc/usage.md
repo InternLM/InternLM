@@ -7,14 +7,14 @@
 
 ### 数据准备 （预训练）
 
-InternLM训练任务的数据集包括一系列的`bin`和`meta`文件。使用`tokenizer`从原始文本文件生成训练用数据集。通过在`tools/tokenizer.py`中指定模型参数路径的方式来导入tokenizer模型。目前提供`V7.model`来生成tokens。若想使用不同的模型，可直接修改`tokernizer.py`中的模型参数路径。
+InternLM训练任务的数据集包括一系列的`bin`和`meta`文件。使用`tokenizer`从原始文本文件生成训练用数据集。通过在`tools/tokenizer.py`中指定模型参数路径的方式来导入tokenizer模型。目前提供`V7_sft.model`来生成tokens。若想使用不同的模型，可直接修改`tokernizer.py`中的模型参数路径。
 
-可以运行以下命令生成原始数据对应的`bin`和`meta`文件，其中参数`raw_data_name`表示原始数据集的文件名称，`input_file_type`表示原始数据集的文件格式，目前支持`txt`、`json`和`jsonl`这三种格式，`bin`表示生成的`bin`文件的保存路径。
+可以运行以下命令生成原始数据对应的`bin`和`meta`文件，其中参数`text_input_path`表示原始文本数据路径，目前支持`txt`、`json`和`jsonl`三种输入格式，`bin_output_path`表示生成的`bin`文件的保存路径。
 ```bash
-$ python tools/tokenizer.py --raw_data_name your_raw_data_file_name(without suffix) --input_file_type 'txt' or 'json' or 'jsonl' --bin your_output_bin_path
+$ python tools/tokenizer.py --text_input_path your_input_text_path --bin_output_path your_output_bin_path
 ```
 
-下面是一个数据处理的例子（这里只给出了`txt`格式的数据处理例子，`json`和`jsonl`的数据处理流程和`txt`的完全一致）：
+下面是一个数据处理的例子：
 
 给定一个包含原始数据集的文件`raw_data.txt`，原始数据集如下所示：
 ```bash
@@ -25,7 +25,7 @@ $ python tools/tokenizer.py --raw_data_name your_raw_data_file_name(without suff
 
 可以通过运行以下命令来生成`bin`和`meta`文件：
 ```bash
-$ python tools/tokenizer.py --raw_data_name raw_data --input_file_type 'text' --bin cn/output.bin
+$ python tools/tokenizer.py --text_input_path raw_data.txt --bin_output_path cn/output.bin
 ```
 
 需要注意的是，生成的`bin`文件需要保存在`cn`或者`en`或者`code`或者`ja`或者`ar`或者`kaoshi`这六个目录下，以区分数据集的类型。
