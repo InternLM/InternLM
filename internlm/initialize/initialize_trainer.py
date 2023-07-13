@@ -80,6 +80,7 @@ def initialize_trainer(
             gradient_handlers.append(handler)
 
     # initialize scheduler for trainer
+    scheduler = None
     if is_using_pp:
         gpc.config.NUM_MICRO_BATCHES = gpc.config.data.micro_num
         tensor_shape = get_tensor_shape()
@@ -115,7 +116,7 @@ def initialize_trainer(
     )
 
     # if bf16 is used, this value will be wrongly set to fp32, so it needs to be corrected manually
-    if hasattr(gpc.config.model, "dtype"):
+    if hasattr(gpc.config.model, "dtype") and gpc.config.model.dtype == "torch.bfloat16":
         scheduler.dtype = torch.bfloat16
 
     trainer = Trainer(engine, scheduler)

@@ -4,6 +4,7 @@
 # adopted from https://github.com/hpcaitech/ColossalAI/blob/main/colossalai/engine
 
 import inspect
+from contextlib import contextmanager
 from typing import Callable, List, Tuple, Union
 
 import torch.cuda
@@ -12,11 +13,7 @@ import internlm.core.communication as comm
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.core.naive_amp import NaiveAMPModel
-from internlm.utils.common import (
-    get_current_device,
-    move_to_device,
-    switch_virtual_pipeline_parallel_rank,
-)
+from internlm.utils.common import get_current_device, move_to_device
 from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
 
@@ -74,6 +71,16 @@ def pack_return_tensors(return_tensors):
                 merged_label[k].append(v)
         label = {k: torch.cat(v, dim=0) for k, v in merged_label.items()}
     return output, label
+
+
+@contextmanager
+def switch_virtual_pipeline_parallel_rank(rank):
+    prev_rank = gpc.virtual_pipeline_parallel_rank
+    try:
+        gpc.set_virtual_pipeline_parallel_rank(rank)
+        yield
+    finally:
+        gpc.set_virtual_pipeline_parallel_rank(prev_rank)
 
 
 class PipelineScheduler(BaseScheduler):
@@ -185,8 +192,8 @@ class PipelineScheduler(BaseScheduler):
         # TODO: remove this after testing new zero with pipeline parallelism
         model = engine.model
         dtype = None
-        if isinstance(model, NaiveAMPModel):
-            dtype = torch.half
+        # if isinstance(model, NaiveAMPModel):
+        #     dtype = torch.half
         # TODO 这里需要加入一个操作使得可以支持bf16
         types = set()
         for param in model.parameters():

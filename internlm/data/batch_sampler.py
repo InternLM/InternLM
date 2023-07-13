@@ -219,11 +219,6 @@ class StaticBatchSampler:
             assert (
                 batch_size - self.start_bsz
             ) % self.bsz_incre == 0, f"{batch_size} - {self.start_bsz} should be multiple of {self.bsz_incre}"
-            assert (
-                self.start_bsz // micro_bsz >= 4
-            ), f"Must have more start samples:`{self.start_bsz}` with micro_bsz:\
-    `{micro_bsz}`, so that the pipeline can run correctly"
-
             assert batch_size % micro_bsz == 0, f"batch_size({batch_size}) should be multiple of micro_bsz({micro_bsz})"
             assert (
                 self.start_bsz % micro_bsz == 0
