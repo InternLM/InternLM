@@ -83,18 +83,18 @@ Transformers を使用して InternLM 7B チャットモデルをロードする
 >>> tokenizer = AutoTokenizer.from_pretrained("internlm/internlm-chat-7b", trust_remote_code=True)
 >>> model = AutoModelForCausalLM.from_pretrained("internlm/internlm-chat-7b", trust_remote_code=True).cuda()
 >>> model = model.eval()
->>> response, history = model.chat(tokenizer, "hello", history=[])
+>>> response, history = model.chat(tokenizer, "こんにちは", history=[])
 >>> print(response)
-こんにちは！ 今日はどのようなご用件でしょうか？
->>> response, history = model.chat(tokenizer, "please provide three suggestions about time management", history=history)
+こんにちは！どのようにお手伝いできますか？
+>>> response, history = model.chat(tokenizer, "時間管理について3つの提案をお願いします", history=history)
 >>> print(response)
 もちろん、効果的な時間管理のための3つのヒントはここにあります:
 
-1. 重要度と緊急度に基づいてタスクの優先順位をつける: すべてのタスクをリストアップし、"重要かつ緊急"、"重要だが緊急ではない"、"重要ではないが緊急"に分類する。最初のカテゴリーのタスクを完了させることに集中してから、他のカテゴリーに移る。
-2. カレンダーや手帳を使う: カレンダーや手帳に締め切りや予定を書き込んでおくと、忘れない。こうすることで、効率的にスケジュールを立てることができ、オーバーブッキングを防ぐことができます。
-3. 気晴らしを最小限にする: 重要な仕事に取り組むときは、気が散る可能性のあるものをできるだけ排除しましょう。携帯電話の通知をオフにし、パソコンの不要なタブを閉じ、可能であれば静かな場所で仕事をしましょう。
+1. To-Doリストを作成し、優先順位を付ける: タスクを明確にリストアップし、それぞれの優先度を判断しましょう。重要で緊急なタスクから順に取り組むことで、効率的に作業を進めることができます。
+2. 時間のブロック化を実践する: 作業を特定の時間枠に集中させるため、時間をブロック化しましょう。例えば、朝の2時間をメール対応に割り当て、午後の3時間をプロジェクトに集中するなど、タスクごとに時間を確保することが効果的です。
+3. ディストラクションを排除する: 集中力を保つために、ディストラクションを最小限に抑えましょう。通知をオフにし、SNSやメールに気を取られないようにすることで、作業効率を向上させることができます。
 
-優れた時間管理スキルには練習と忍耐が必要であることを忘れないでください。スモールステップから始めて、徐々にこれらの習慣を日課に取り入れていきましょう。
+これらの提案を実践することで、時間管理のスキルを向上させ、効果的に日々のタスクをこなしていくことができます。
 ```
 
 ### 対話
