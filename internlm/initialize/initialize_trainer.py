@@ -5,7 +5,6 @@
 
 from typing import Callable, Iterable, Optional, Tuple
 
-import torch
 from torch import nn
 from torch.nn.modules.loss import _Loss
 from torch.optim.lr_scheduler import _LRScheduler
@@ -68,8 +67,7 @@ def initialize_trainer(
     assert isinstance(optimizer, BaseOptimizer), "optimizer must be instance of BaseOptimizer"
 
     # gradient handler, only support PipelineSharedModuleGradientHandler now
-    is_using_pp = hasattr(gpc.config.parallel, "pipeline") and gpc.config.parallel.pipeline > 1
-    if is_using_pp:
+    if gpc.is_using_pp():
         gpc.config.gradient_handler = [dict(type="PipelineSharedModuleGradientHandler")]
     gradient_handler_cfg = gpc.config.get("gradient_handler", [])
     gradient_handlers = []
@@ -81,7 +79,7 @@ def initialize_trainer(
 
     # initialize scheduler for trainer
     scheduler = None
-    if is_using_pp:
+    if gpc.is_using_pp():
         gpc.config.NUM_MICRO_BATCHES = gpc.config.data.micro_num
         tensor_shape = get_tensor_shape()
         use_interleaved = (
@@ -104,6 +102,10 @@ def initialize_trainer(
     else:
         scheduler = NonPipelineScheduler(gradient_accumulation_size=gpc.config.data.gradient_accumulation)
 
+    # if bf16 is used, this value will be wrongly set to fp32, so it needs to be corrected manually
+    if "dtype" in gpc.config.model:
+        scheduler.dtype = gpc.config.model["dtype"]
+
     # initialize engine for trainer
     engine = Engine(
         model=model,
@@ -114,10 +116,6 @@ def initialize_trainer(
         gradient_handlers=gradient_handlers,
         clip_grad_norm=clip_grad_norm,
     )
-
-    # if bf16 is used, this value will be wrongly set to fp32, so it needs to be corrected manually
-    if hasattr(gpc.config.model, "dtype") and gpc.config.model.dtype == "torch.bfloat16":
-        scheduler.dtype = torch.bfloat16
 
     trainer = Trainer(engine, scheduler)
 

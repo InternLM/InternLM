@@ -29,7 +29,7 @@ from internlm.data.utils import DATASET_TYPE_IDS_MAP
 from internlm.model.loss import FlashGPTLMLoss
 from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
-from internlm.solver.optimizer.hybrid_zero_optim import HybridZeroOptimizer
+from internlm.solver.optimizer import HybridZeroOptimizer, ModifiedLowLevelZeroOptimizer
 from internlm.utils.common import (
     BatchSkipper,
     get_master_node,
@@ -229,9 +229,20 @@ def initialize_optimizer(model: nn.Module):
         eps=adam_cfg.adam_eps,
     )
 
-    optimizer = HybridZeroOptimizer(
-        naive_optimizer, grad_scal_cfg=gpc.config.grad_scaler, zero_cfg=gpc.config.hybrid_zero_optimizer
-    )
+    if gpc.is_using_pp():
+        optimizer = ModifiedLowLevelZeroOptimizer(
+            naive_optimizer,
+            overlap_communication=False,
+            partition_grad=False,
+            clip_grad_norm=gpc.config.hybrid_zero_optimizer["clip_grad_norm"],
+            **gpc.config.grad_scaler.fp16,
+            max_scale=None,
+            reduce_bucket_size=512 * 1024 * 1024,
+        )
+    else:
+        optimizer = HybridZeroOptimizer(
+            naive_optimizer, grad_scal_cfg=gpc.config.grad_scaler, zero_cfg=gpc.config.hybrid_zero_optimizer
+        )
 
     beta2_scheduler = Beta2Scheduler(optimizer=naive_optimizer, **gpc.config.beta2_scheduler)
 
@@ -464,7 +475,6 @@ def main(args):
         trainer.schedule.tensor_shape = torch.Size([batch[0]["input_ids"].shape[1], gpc.config.HIDDEN_SIZE])
         _, _, loss = trainer.execute_schedule(batch, forward_only=False, return_loss=True, return_output_label=False)
         timer("fwd-bwd").stop()
-        assert loss is not None
 
         # update parameters, and returns (success_update, grad_norm)
         trainer_result = trainer.step()

@@ -233,15 +233,6 @@ class PipelineScheduler(BaseScheduler):
             else:
                 raise TypeError(f"Expected data to be of type torch.Tensor, list, tuple, or dict, but got {type(data)}")
 
-    def _get_actual_forward_func(self, module):
-        if isinstance(module, NaiveAMPModel):
-            sig = inspect.signature(module.model.forward)
-        elif hasattr(module, "colo_attr"):
-            sig = inspect.signature(module.module.forward)
-        else:
-            sig = inspect.signature(module.forward)
-        return sig
-
     def _get_data_label_for_current_step(self, stage_output, micro_batch_data):
         if self.data_process_func:
             # use customized function to get data and label
