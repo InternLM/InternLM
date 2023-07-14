@@ -737,10 +737,7 @@ class ModifiedLowLevelZeroOptimizer(LowLevelZeroOptimizer):
         self.grad_scaler.update(found_inf)
         # update loss scale if overflow occurs
         if found_inf:
-            from utils.monitor_and_alert import get_process_rank, send_alert_message
-
-            if get_process_rank() == 0:
-                send_alert_message(message="Overflow occurs, please check it.")
+            logger.info("Overflow occurs, please check it.")
             self._grad_store._averaged_gradients = dict()
             self.zero_grad()
             return False, None

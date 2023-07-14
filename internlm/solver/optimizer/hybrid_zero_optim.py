@@ -179,8 +179,8 @@ class HybridZeroOptimizer(BaseOptimizer):
         # flag used to skip unnecessary gradient reduce operation when gradient accumulation is enabled.
         self.skip_grad_reduce = False
 
-        # intialize communication stream for
-        # communication-compuation overlapping
+        # initialize communication stream for
+        # communication-computation overlapping
         if self._overlap_communication:
             self._comm_stream = torch.cuda.Stream()
 
