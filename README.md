@@ -30,17 +30,12 @@
 
 </div>
 
-<div align="center">
-  <a href="https://github.com/InternLM/InternLM/assets/25839884/a6aad896-7232-4220-ac84-9e070c2633ce" style="text-decoration:none;">
-    <img src="https://github.com/InternLM/InternLM/assets/25839884/fb0a025a-cdea-4b6a-bfa5-0e4dfe9e6577" width="3%" alt="" />
-  </a>
-  <img src="https://user-images.githubusercontent.com/25839884/218346358-56cc8e2f-a2b8-487f-9088-32480cceabcf.png" width="3%" alt="" />
-  <a href="https://discord.gg/xa29JuW87d" style="text-decoration:none;">
-    <img src="https://user-images.githubusercontent.com/25839884/218347213-c080267f-cbb6-443e-8532-8e1ed9a58ea9.png" width="3%" alt="" />
-  </a>
+<p align="center">
+    👋 join us on <a href="https://discord.gg/xa29JuW87d" target="_blank">Slack</a> and <a href="https://github.com/InternLM/InternLM/assets/25839884/a6aad896-7232-4220-ac84-9e070c2633ce" target="_blank">WeChat</a>
+</p>
 
 
-</div>
+
 
 
 ## Introduction
