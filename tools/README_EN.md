@@ -11,12 +11,12 @@ This directory provide some tools for model training with the following file str
 # tokenizer.py
 We need to use a `tokenizer` to generate `bin` and `meta` files for raw data. We import the tokenizer model by specifying the model weight path in `tools/tokenizer.py`. Currently, we provide `V7.model` to generate tokens. If you want to use a different model, you can modify the model weight path in `tokenizer.py` directly.
 
-We can run the following command to generate `bin` and `meta` files for raw data, where the parameter `raw_data_name` indicates the file name of raw data, `input_file_type` denotes the raw data format, which should be `txt`, `json` and `jsonl`, and `bin` indicates the path to save the generated `bin` file.
+We can run the following command to generate `bin` and `meta` files corresponding to the original data. The parameter `text_input_path` represents the path of the original text data, currently supporting `txt`, `json`, and `jsonl` formats, while `bin_output_path` represents the save path of the generated `bin` files.
 ```bash
-$ python tools/tokenizer.py --raw_data_name your_raw_data_file_name(without suffix) --input_file_type 'text' or 'json' or 'jsonl' --bin your_output_bin_path
+$ python tools/tokenizer.py --text_input_path your_input_text_path --bin_output_path your_output_bin_path
 ```
 
-An example of data processing in `txt` format is given here (the data processing for `json` and `jsonl` is identical to that for `txt`).
+An example of data processing in `txt` format is given here:
 
 Given a file `raw_data.txt` containg raw data with the following content.
 ```bash
@@ -26,7 +26,7 @@ Learn to be tolerant and understanding to establish truly harmonious interperson
 ```
 Next, we can run the following command to generate `bin` and `meta` files for raw data.
 ```bash
-$ python tools/tokenizer.py --raw_data_name raw_data --input_file_type 'text' --bin cn/output.bin
+$ python tools/tokenizer.py --text_input_path your_input_text_path --bin_output_path your_output_bin_path
 ```
 
 It should be noted that the generated `bin` files should be placed in one of the following directories to clarify the data type: `cn`(Chinese), `en`(English), `code`(code data), `ja`(Japanese), `ar`(Arabic) and `kaoshi`(kaoshi data).

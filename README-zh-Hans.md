@@ -21,6 +21,7 @@
 [🛠️安装教程](./doc/install.md) |
 [📊训练性能](./doc/train_performance.md) |
 [👀模型库](#model-zoo) |
+[🤗HuggingFace](https://huggingface.co/spaces/internlm/InternLM-Chat-7B) |
 [🆕Update News](./CHANGE_LOG.md) |
 [🤔Reporting Issues](https://github.com/InternLM/InternLM/issues/new)
 
@@ -34,7 +35,7 @@
 
 InternLM ，即书生·浦语大模型，包含面向实用场景的70亿参数基础模型与对话模型 （InternLM-7B）。模型具有以下特点：
 
-- 使用上万亿高质量预料，建立模型超强知识体系；
+- 使用上万亿高质量语料，建立模型超强知识体系；
 - 支持8k语境窗口长度，实现更长输入与更强推理体验；
 - 通用工具调用能力，支持用户灵活自助搭建流程；
 

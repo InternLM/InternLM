@@ -1,12 +1,9 @@
 blank_issues_enabled: false
 
 contact_links:
-  - name: 📚 InternLM Documentation (官方文档)
-    url: https://internlm.readthedocs.io/en/latest/
-    about: Check if your question is answered in docs
   - name: 💬 General questions (寻求帮助)
     url: https://github.com/InternLM/InternLM/discussions
     about: Ask general usage questions and discuss with other InternLM community members
   - name: 🌐 Explore InternLM (官网)
-    url: https://https://internlm.org/
+    url: https://internlm.org/
     about: Get know more about InternLM
