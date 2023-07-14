@@ -24,6 +24,8 @@
 [🤗HuggingFace](https://huggingface.co/spaces/internlm/InternLM-Chat-7B) |
 [🆕Update News](./CHANGE_LOG.md) |
 [🤔Reporting Issues](https://github.com/InternLM/InternLM/issues/new)
+[🤔Discord](https://discord.gg/xa29JuW87d)
+[🤔Wechat](https://github.com/InternLM/InternLM/assets/25839884/a6aad896-7232-4220-ac84-9e070c2633ce)
 
 [English](./README.md) |
 [简体中文](./README-zh-Hans.md)
