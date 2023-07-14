@@ -198,9 +198,9 @@ def combine_history(prompt):
     return total_prompt
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Chat with the model, please add "--" between web_demo.py and Args in terminal')
+    parser = argparse.ArgumentParser(description='Chat with the model, please add "--" between web_demo.py and the args in terminal')
     parser.add_argument('--model_path', default='internlm/internlm-7b', help='path of the InternLm model')
-    parser.add_argument('--max_value', default=2048, help='the max length of the generated text')
+    parser.add_argument('--max_value', default=2048, type=int, help='the max length of the generated text')
     return parser.parse_args()
 
 def main(args):
@@ -213,7 +213,8 @@ def main(args):
     user_avator = "doc/imgs/user.png"
     robot_avator = "doc/imgs/robot.png"
     
-    st.title("InternLm-7b")
+    title = args.model_path.split("/")[-1] if 'internlm' in args.model_path.split("/")[-1] else 'internlm-7b'
+    st.title(title[0].upper() + title[1:])
     
     generation_config = prepare_generation_config(args.max_value)
 
@@ -246,9 +247,7 @@ def main(args):
         print(f"cur total response:\n{cur_response}\n")
         # Add robot response to chat history
         st.session_state.messages.append({"role": "robot", "content": cur_response, "avatar": robot_avator})
-        
 
 if __name__ == "__main__":
     args = parse_args()
     main(args)
-    
