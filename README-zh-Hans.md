@@ -47,7 +47,7 @@ InternLM ，即书生·浦语大模型，包含面向实用场景的70亿参数�
 我们使用开源评测工具 [OpenCompass](https://github.com/internLM/OpenCompass/) 从学科综合能力、语言能力、知识能力、推理能力、理解能力五大能力维度对InternLM开展全面评测，部分评测结果如下表所示，欢迎访问[OpenCompass 榜单](https://opencompass.org.cn/rank)获取更多的评测结果。
 
 | 数据集\模型           |  **InternLM-Chat-7B** |  **InternLM-7B**  |  LLaMA-7B | Baichuan-7B | ChatGLM2-6B | Alpaca-7B | Vicuna-7B |
-| -------------------- | --------------------- | ---------------- | --------- |  --------- | ------------ | --------- | ---------- |  
+| -------------------- | --------------------- | ---------------- | --------- |  --------- | ------------ | --------- | ---------- |
 | C-Eval(Val)          |      53.2             |        53.4       | 24.2      | 42.7       |  50.9       |  28.9     | 31.2     |
 | MMLU                 |      50.8             |       51.0        | 35.2*     |  41.5      |  46.0       |  39.7     | 47.3     |
 | AGIEval              |      42.5             |       37.6        | 20.8      | 24.6       |  39.0       | 24.1      | 26.4     |
@@ -81,7 +81,7 @@ InternLM ，即书生·浦语大模型，包含面向实用场景的70亿参数�
 ```python
 >>> from transformers import AutoTokenizer, AutoModelForCausalLM
 >>> tokenizer = AutoTokenizer.from_pretrained("internlm/internlm-chat-7b", trust_remote_code=True)
->>> model = AutoModelForCausalLM.from_pretrained("internlm/internlm-chat-7b", trust_remote_code=True).cuda()
+>>> model = AutoModelForCausalLM.from_pretrained("internlm/internlm-chat-7b", torch_dtype=torch.float16, trust_remote_code=True).cuda()
 >>> model = model.eval()
 >>> response, history = model.chat(tokenizer, "你好", history=[])
 >>> print(response)
