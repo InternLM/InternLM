@@ -151,7 +151,7 @@ class GenerationConfig:
     
 
 @st.cache_resource
-def load_model(model_path):
+def load_model(model):
     model = AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True).to(torch.bfloat16).cuda()
     tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
     return model, tokenizer
@@ -203,17 +203,18 @@ def parse_args():
     parser.add_argument('--max_value', default=2048, type=int, help='The max length of the generated text')
     return parser.parse_args()
 
+
 def main(args):
     torch.cuda.empty_cache()
     
     print("load model begin.")
-    model, tokenizer = load_model(args.model_path)
+    model, tokenizer = load_model(args.model)
     print("load model end.")
     
     user_avator = "doc/imgs/user.png"
     robot_avator = "doc/imgs/robot.png"
     
-    title = args.model_path.split("/")[-1] if 'internlm' in args.model_path.split("/")[-1] else 'internlm-7b'
+    title = args.model.split("/")[-1] if 'internlm' in args.model.split("/")[-1] else 'internlm-7b'
     st.title(title[0].upper() + title[1:])
     
     generation_config = prepare_generation_config(args.max_value)
@@ -252,11 +253,3 @@ def main(args):
 if __name__ == "__main__":
     args = parse_args()
     main(args)
-    
-    
-
-
-
-
-
-
