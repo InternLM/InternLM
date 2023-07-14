@@ -151,8 +151,8 @@ class GenerationConfig:
     
 
 @st.cache_resource
-def load_model(model_path):
-    model = AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True).to(torch.bfloat16).cuda()
+def load_model(model_path, max_position_embeddings):
+    model = AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True, max_position_embeddings=max_position_embeddings).to(torch.bfloat16).cuda()
     tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
     return model, tokenizer
 
@@ -208,7 +208,7 @@ def main(args):
     torch.cuda.empty_cache()
     
     print("load model begin.")
-    model, tokenizer = load_model(args.model)
+    model, tokenizer = load_model(args.model, max_position_embeddings=args.max_value)
     print("load model end.")
     
     user_avator = "doc/imgs/user.png"
