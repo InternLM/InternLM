@@ -32,7 +32,7 @@
 
 <div align="center">
   <a href="https://github.com/InternLM/InternLM/assets/25839884/a6aad896-7232-4220-ac84-9e070c2633ce" style="text-decoration:none;">
-    <img src="https://github.com/InternLM/InternLM/assets/25839884/c2bd1086-7e9f-45f4-bd32-762b1e1b6fb4" width="3%" alt="" />
+    <img src="https://github.com/InternLM/InternLM/assets/25839884/fb0a025a-cdea-4b6a-bfa5-0e4dfe9e6577" width="3%" alt="" />
   </a>
   <img src="https://user-images.githubusercontent.com/25839884/218346358-56cc8e2f-a2b8-487f-9088-32480cceabcf.png" width="3%" alt="" />
   <a href="https://discord.gg/xa29JuW87d" style="text-decoration:none;">
