@@ -30,6 +30,15 @@
 
 </div>
 
+<div align="center">
+  <a href="https://discord.com/channels/1037617289144569886/1046608014234370059" style="text-decoration:none;">
+    <img src="https://user-images.githubusercontent.com/25839884/218347213-c080267f-cbb6-443e-8532-8e1ed9a58ea9.png" width="3%" alt="" /></a>
+  <img src="https://user-images.githubusercontent.com/25839884/218346358-56cc8e2f-a2b8-487f-9088-32480cceabcf.png" width="3%" alt="" />
+  <a href="https://www.zhihu.com/people/openmmlab" style="text-decoration:none;">
+    <img src="https://github.com/InternLM/InternLM/assets/25839884/c2bd1086-7e9f-45f4-bd32-762b1e1b6fb4" width="3%" alt="" /></a>
+</div>
+
+
 ## Introduction
 
 InternLM has open-sourced a 7 billion parameter base model and a chat model tailored for practical scenarios. The model has the following characteristics:
