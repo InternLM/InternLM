@@ -147,7 +147,8 @@ class GenerationConfig:
     top_p: Optional[float] = None
     temperature: Optional[float] = None
     do_sample: Optional[bool] = True
-    
+    repetition_penalty: Optional[float] = 1.1
+
 
 @st.cache_resource
 def load_model():
