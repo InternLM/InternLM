@@ -1,0 +1,25 @@
+name: "❔ 常见问题"
+description: 提出一个关于使用或者想法讨论的问题。
+labels: [ "question" ]
+title: "[QA] "
+
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 注意
+        对于一般的使用问题或者想法讨论，请在我们的[**论坛**](https://github.com/InternLM/InternLM/discussions)
+        请尽可能填写以下表格。**描述得越清楚，解决问题的时间就越短。**
+
+  - type: textarea
+    id: describe
+    validations:
+      required: true
+    attributes:
+      label: 描述问题
+      description: |
+        what is your question? Please provide a clear and concise description of what the question is.
+        你的问题是什么？请提供一个清晰简明的问题描述。
+      placeholder: |
+        一个清晰简明的问题描述。

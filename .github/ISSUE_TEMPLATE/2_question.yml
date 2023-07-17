@@ -1,0 +1,24 @@
+name: "❔ Common Questions"
+description: Ask a question about the usage or idea discussions.
+labels: [ "question" ]
+title: "[QA] "
+
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Note
+        For general usage questions or idea discussions, please post it to our [**Forum**](https://github.com/InternLM/InternLM/discussions)
+        Please fill in as **much** of the following form as you're able to. **The clearer the description, the shorter it will take to solve it.**
+
+  - type: textarea
+    id: describe
+    validations:
+      required: true
+    attributes:
+      label: Describe the question.
+      description: |
+        what is your question? Please provide a clear and concise description of what the question is.
+      placeholder: |
+        A clear and concise description of the question.
