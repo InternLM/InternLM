@@ -15,8 +15,8 @@ from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.core.engine import Engine
 from internlm.core.gradient_handler import PipelineSharedModuleGradientHandler
-from internlm.core.no_pipeline_scheduler import NonPipelineScheduler
-from internlm.core.pipeline_scheduler import (
+from internlm.core.scheduler.no_pipeline_scheduler import NonPipelineScheduler
+from internlm.core.scheduler.pipeline_scheduler import (
     InterleavedPipelineScheduler,
     PipelineScheduler,
     get_tensor_shape,
