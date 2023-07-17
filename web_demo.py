@@ -147,7 +147,7 @@ class GenerationConfig:
     top_p: Optional[float] = None
     temperature: Optional[float] = None
     do_sample: Optional[bool] = True
-    repetition_penalty: Optional[float] = 1.1
+    repetition_penalty: Optional[float] = 1.0
 
 
 @st.cache_resource
