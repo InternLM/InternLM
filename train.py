@@ -27,6 +27,7 @@ from internlm.data.packed_dataset import (
 )
 from internlm.data.utils import DATASET_TYPE_IDS_MAP
 from internlm.model.loss import FlashGPTLMLoss
+from internlm.model.metrics import AccPerplex
 from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
 from internlm.solver.optimizer.hybrid_zero_optim import HybridZeroOptimizer
@@ -256,6 +257,7 @@ def record_current_batch_training_metrics(
     start_time,
     loss,
     grad_norm,
+    metric,
 ):
     """
     Print some training metrics of current batch.
@@ -306,6 +308,10 @@ def record_current_batch_training_metrics(
         infos["largest_batch"] = max_samples_in_batch  # the batch with the most samples
         infos["smallest_batch"] = min_samples_in_batch
         infos["adam_beta2"] = beta2_scheduler.get_beta2()
+
+        res = metric.get_metric()
+        for k, v in res.items():
+            infos[k] = v
 
         line = ""
         for k, v in infos.items():
@@ -385,7 +391,7 @@ def main(args):
     criterion = FlashGPTLMLoss(parallel_output=True, label_smoothing=label_smoothing)
 
     # initialize the train data loader
-    train_dl, _ = get_train_data_loader(num_worker=4)
+    train_dl, dataset_types = get_train_data_loader(num_worker=4)
     train_state.init_batch_sampler(train_dl)
 
     # Loading model weights must be done before zero is initialized.
@@ -419,6 +425,14 @@ def main(args):
     # initialize the batch skipper
     batch_skipper = BatchSkipper(skip_batches)
 
+    # initialize metric for calculating accuracy and perplexity
+    metric = AccPerplex(
+        device=torch.cuda.current_device(),
+        tp_pg=gpc.get_group(ParallelMode.TENSOR),
+        dp_pg=gpc.get_group(ParallelMode.DATA),
+        dataset_types=dataset_types,
+    )
+
     trainer.train()
 
     # transfer the train data loader into train data iterator
@@ -446,10 +460,15 @@ def main(args):
 
         # zero the grads of parameters
         trainer.zero_grad()
+        type_ids = batch[0].pop("type_ids", None)
+        if type_ids is not None:
+            metric.set_current_type_ids(type_ids=type_ids)
 
         # do forward and backward
         timer("fwd-bwd").start()
-        _, _, loss = trainer.execute_schedule(batch, forward_only=False, return_loss=True, return_output_label=False)
+        _, _, loss = trainer.execute_schedule(
+            batch, forward_only=False, return_loss=True, return_output_label=False, post_fn=metric
+        )
         timer("fwd-bwd").stop()
         assert loss is not None
 
@@ -479,6 +498,7 @@ def main(args):
             start_time=start_time,
             loss=loss,
             grad_norm=grad_norm,
+            metric=metric,
         )
 
         timer("one-batch").stop()
