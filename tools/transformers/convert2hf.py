@@ -1,9 +1,9 @@
 import argparse
 import math
+import json
 import os
-import random
 import re
-import shutil
+import tempfile
 
 import torch
 from modeling_internlm import InternLMConfig, InternLMForCausalLM
@@ -15,10 +15,8 @@ NUM_SHARDS = {
 
 
 def convert2hf(model_config, states_tp_pps):
-    folder = f"/dev/shm/wait_to_upload_weight_tmp_{random.random()}/"
-    os.makedirs(folder, exist_ok=True)
 
-    try:
+    with tempfile.TemporaryDirectory() as folder:
         states = merge_pp(states_tp_pps)[0]
 
         if "embedding.word_embeddings.weight" in states:
@@ -88,11 +86,8 @@ def convert2hf(model_config, states_tp_pps):
         config.save_pretrained(folder)
         torch.save(current_states, os.path.join(folder, "pytorch_model.bin"))
 
-        model = InternLMForCausalLM.from_pretrained(folder, torch_dtype=torch.float16, low_cpu_mem_usage=True)
+        model = InternLMForCausalLM.from_pretrained(folder, torch_dtype=torch.float16)
         del model.config._name_or_path
-
-    finally:
-        shutil.rmtree(folder)
 
     return config, model
 
@@ -169,6 +164,12 @@ if __name__ == "__main__":
 
     os.makedirs(target_folder, exist_ok=True)
     model.save_pretrained(target_folder, max_shard_size="20GB")
+    # TODO There should be a better way to add this.
+    with open(os.path.join(target_folder, "config.json")) as fp:
+        config_dict = json.load(fp)
+    config_dict["auto_map"]["AutoModel"] = "modeling_internlm.InternLMModel"
+    with open(os.path.join(target_folder, "config.json"), "w") as fp:
+        json.dump(config_dict, fp, indent=2)
 
     tokenizer = InternLMTokenizer(args.tokenizer)
     tokenizer.save_pretrained(target_folder)

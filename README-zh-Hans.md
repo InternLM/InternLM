@@ -145,10 +145,10 @@ streamlit run web_demo.py
 
 ### 转换为 Transformers 格式使用
 
-通过 InternLM 进行训练的模型可以很轻松地转换为 HuggingFace Transformers 格式，方便与社区各种开源项目无缝对接。借助 `tools/convert2hf.py` 可以将训练保存的权重一键转换为 transformers 格式
+通过 InternLM 进行训练的模型可以很轻松地转换为 HuggingFace Transformers 格式，方便与社区各种开源项目无缝对接。借助 `tools/transformers/convert2hf.py` 可以将训练保存的权重一键转换为 transformers 格式
 
 ```bash
-python convert2hf.py --src_folder origin_ckpt/ --tgt_folder hf_ckpt/ --tokenizer tokenizes/tokenizer.model
+python tools/transformers/convert2hf.py --src_folder origin_ckpt/ --tgt_folder hf_ckpt/ --tokenizer ./tools/V7_sft.model
 ```
 
 转换之后可以通过以下的代码加载为 transformers
