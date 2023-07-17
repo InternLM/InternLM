@@ -1,0 +1,63 @@
+name: demo-in-readme
+
+on: [push,pull_request]
+
+jobs:
+  dataset-preparation:
+    runs-on: [lmtest]
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: raw-chinese-data
+      run: |
+        source activate internlm-env-test
+        sh ./ci_scripts/data/tokenizer_chinese.sh
+
+    - name: alpaca-data
+      run: |
+        source activate internlm-env-test
+        sh ./ci_scripts/data/tokenizer_alpaca.sh
+
+
+  train:
+    runs-on: [lmtest]
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: slurm-train
+      run: |
+        source activate internlm-env-test
+        sh ./ci_scripts/train/slurm_run.sh
+        rm -rf $GITHUB_WORKSPACE/llm_ckpts
+
+    - name: torchrun-train
+      run: |
+        source activate internlm-env-test
+        sh ./ci_scripts/train/torchrun.sh
+
+  load-model:
+    runs-on: [lmtest]
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: convert-model
+      run: |
+        source activate internlm-env-test
+        export PYTHONPATH=$PWD:$PYTHONPATH
+        sh ./ci_scripts/model/convert_to_hf.sh
+
+    - name: load-chat-model
+      run: |
+        source activate internlm-env-test
+        sh ./ci_scripts/model/load_chat_model.sh
+        rm -rf $GITHUB_WORKSPACE/hf_ckpt
+
+  load-chat-model-in-hf:
+    runs-on: [lmtest]
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: chat-model-in-hf
+      run: |
+        source activate internlm-env-test
+        python ./ci_scripts/model/demo_load_7B_chat_model.py
