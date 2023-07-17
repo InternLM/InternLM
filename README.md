@@ -26,9 +26,18 @@
 [🤔Reporting Issues](https://github.com/InternLM/InternLM/issues/new)
 
 [English](./README.md) |
-[简体中文](./README-zh-Hans.md)
+[简体中文](./README-zh-Hans.md) |
+[日本語](./README-ja-JP.md)
 
 </div>
+
+<p align="center">
+    👋 join us on <a href="https://discord.gg/xa29JuW87d" target="_blank">Discord</a> and <a href="https://github.com/InternLM/InternLM/assets/25839884/a6aad896-7232-4220-ac84-9e070c2633ce" target="_blank">WeChat</a>
+</p>
+
+
+
+
 
 ## Introduction
 
@@ -81,7 +90,7 @@ To load the InternLM 7B Chat model using Transformers, use the following code:
 ```python
 >>> from transformers import AutoTokenizer, AutoModelForCausalLM
 >>> tokenizer = AutoTokenizer.from_pretrained("internlm/internlm-chat-7b", trust_remote_code=True)
->>> model = AutoModelForCausalLM.from_pretrained("internlm/internlm-chat-7b", trust_remote_code=True).cuda()
+>>> model = AutoModelForCausalLM.from_pretrained("internlm/internlm-chat-7b", torch_dtype=torch.float16, trust_remote_code=True).cuda()
 >>> model = model.eval()
 >>> response, history = model.chat(tokenizer, "hello", history=[])
 >>> print(response)
