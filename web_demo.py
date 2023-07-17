@@ -229,15 +229,12 @@ def main():
         # Add user message to chat history
         st.session_state.messages.append({"role": "user", "content": prompt, "avatar": user_avator})
 
-        print(f"cur real input:\n{real_prompt}\n")
-
         with st.chat_message("robot", avatar=robot_avator):
             message_placeholder = st.empty()
             for cur_response in generate_interactive(model=model, tokenizer=tokenizer, prompt=real_prompt, additional_eos_token_id=103028, **asdict(generation_config)):
                 # Display robot response in chat message container
                 message_placeholder.markdown(cur_response + "▌")
             message_placeholder.markdown(cur_response)
-        print(f"cur total response:\n{cur_response}\n")
         # Add robot response to chat history
         st.session_state.messages.append({"role": "robot", "content": cur_response, "avatar": robot_avator})
         
