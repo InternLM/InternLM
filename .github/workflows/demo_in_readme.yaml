@@ -52,6 +52,10 @@ jobs:
         sh ./ci_scripts/model/load_chat_model.sh
         rm -rf $GITHUB_WORKSPACE/hf_ckpt
 
+  - name: Check Job Status
+    if: ${{ failure() }}
+    run: exit 1
+
   load-chat-model-in-hf:
     runs-on: [lmtest]
     steps:
