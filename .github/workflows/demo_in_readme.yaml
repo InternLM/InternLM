@@ -27,7 +27,7 @@ jobs:
     - name: slurm-train
       run: |
         source activate internlm-env-test
-        sh ./ci_scripts/train/slurm_run.sh
+        sh ./ci_scripts/train/slurm_train.sh
         rm -rf $GITHUB_WORKSPACE/llm_ckpts
 
     - name: torchrun-train
