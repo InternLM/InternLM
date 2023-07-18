@@ -24,7 +24,7 @@ if [ $file_num -ne 9 ]
 then
     echo "The num of files is not right"
     ls -l $file_dir
-    exit_code=$($exit_code + 1) 
+    exit_code=$(($exit_code + 1)) 
 fi
 
 if [ $exit_code -ne 0 ]
