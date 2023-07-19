@@ -36,7 +36,7 @@ jobs:
         sh ./ci_scripts/train/torchrun.sh
         rm -rf $GITHUB_WORKSPACE/llm_ckpts
 
-  load-model:
+  convert-model:
     runs-on: [lmtest]
     steps:
     - uses: actions/checkout@v3
@@ -47,12 +47,16 @@ jobs:
         export PYTHONPATH=$PWD:$PYTHONPATH
         sh ./ci_scripts/model/convert_to_hf.sh
 
-    - name: load-chat-model
-      run: |
-        source activate internlm-env-test
-        sh ./ci_scripts/model/load_chat_model.sh
-        rm -rf $GITHUB_WORKSPACE/hf_ckpt
 
+  load-model:
+    runs-on: [lmtest]
+    needs: convert-model
+    steps:
+    - name: convert-model
+      run: |
+        cd ./hf_ckpt
+        srun -p llm2 python ../ci_scripts/model/loaded_as_transformer.py
+  
   load-chat-model-in-hf:
     runs-on: [lmtest]
     steps:
