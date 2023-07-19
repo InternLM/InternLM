@@ -52,10 +52,12 @@ jobs:
     runs-on: [lmtest]
     needs: convert-model
     steps:
-    - name: convert-model
+    - name: load-model
       run: |
         cd ./hf_ckpt
         srun -p llm2 python ../ci_scripts/model/loaded_as_transformer.py
+        cd ..
+        rm -rf $GITHUB_WORKSPACE/hf_ckpt
   
   load-chat-model-in-hf:
     runs-on: [lmtest]
