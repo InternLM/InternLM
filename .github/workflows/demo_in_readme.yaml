@@ -34,6 +34,7 @@ jobs:
       run: |
         source activate internlm-env-test
         sh ./ci_scripts/train/torchrun.sh
+        rm -rf $GITHUB_WORKSPACE/llm_ckpts
 
   load-model:
     runs-on: [lmtest]
