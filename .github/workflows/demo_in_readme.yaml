@@ -1,7 +1,13 @@
 name: demo-in-readme
-
-on: [push,pull_request]
-
+on: 
+  pull_request:
+    branches:
+      - "main"
+      - "develop"
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+     
 jobs:
   dataset-preparation:
     runs-on: [lmtest]
