@@ -1,4 +1,5 @@
-from transformers import AutoTokenizer, AutoModel
+from transformers import AutoModel
+
 model = AutoModel.from_pretrained("../hf_ckpt/", trust_remote_code=True).cuda()
 print(model)
 assert model.config.hidden_size == 2048
