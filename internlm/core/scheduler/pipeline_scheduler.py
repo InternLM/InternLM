@@ -525,8 +525,6 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         self.num_model_chunks = num_model_chunks
 
     def pre_processing(self, engine):
-        if isinstance(engine.model[0], NaiveAMPModel):
-            self.dtype = torch.half
         for model in engine.model:
             if isinstance(model, NaiveAMPModel):
                 model = model.model
@@ -545,7 +543,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         return move_to_device(data)
 
     def _forward_step(  # pylint: disable=W0237
-        self, engine, model_chunk_id, input_obj, return_tensors, return_output_label=True, accum_loss=None
+        self, engine, model_chunk_id, input_obj, return_tensors, return_output_label=True, accum_loss=None, **kwargs
     ):
         """Forward step for passed-in model. If it is the first stage, the input tensor
         is obtained from data_iterator, otherwise the passed-in input_obj is used.
@@ -568,6 +566,12 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         output_obj = self._call_engine(engine.model[model_chunk_id], data)
 
         if gpc.is_pipeline_last_stage():
+            timer("post_fn").start()
+            post_func = kwargs.get("post_fn")
+            if post_func is not None:
+                post_func(output_obj, label)
+            timer("post_fn").stop()
+
             if return_output_label:
                 return_tensors.append((output_obj, label))
             if accum_loss is not None:
@@ -580,7 +584,9 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         else:
             return output_obj
 
-    def forward_backward_step(self, engine, data_iter, forward_only=False, return_loss=True, return_output_label=True):
+    def forward_backward_step(
+        self, engine, data_iter, forward_only=False, return_loss=True, return_output_label=True, **kwargs
+    ):
         """Run interleaved 1F1B schedule (model split into model chunks), with
         communication between pipeline stages as needed.
 
@@ -668,6 +674,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
                 return_tensors,
                 return_output_label=return_output_label,
                 accum_loss=accum_loss,
+                **kwargs,
             )
             output_objs[model_chunk_id].append(output_obj)
 

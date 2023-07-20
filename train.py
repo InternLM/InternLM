@@ -310,7 +310,7 @@ def record_current_batch_training_metrics(
 
         line = ""
         for key, value in infos.items():
-            line += f"{key}={value},"
+            line += f"{key}={value} "
             writer.add_scalar(key=key, value=value, step=train_state.step_count)
 
         logger.info(line)
