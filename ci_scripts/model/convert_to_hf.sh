@@ -8,7 +8,7 @@ file_one="$GITHUB_WORKSPACE/hf_ckpt/tokenizer.model"
 file_two="$GITHUB_WORKSPACE/hf_ckpt/config.json"
 file_three="$GITHUB_WORKSPACE/hf_ckpt/modeling_internlm.py"
 file_list=($file_one $file_two $file_three)
-file_dir="$GITHUB_WORKSPACE/hf_ckpt/"
+file_dir="$GITHUB_WORKSPACE/hf_ckpt/*"
 
 source ./ci_scripts/common/basic_func.sh
 
