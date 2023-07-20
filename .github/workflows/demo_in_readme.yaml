@@ -36,24 +36,16 @@ jobs:
         sh ./ci_scripts/train/torchrun.sh
         rm -rf $GITHUB_WORKSPACE/llm_ckpts
 
-  convert-model:
+  convert-model-then-load:
     runs-on: [lmtest]
     steps:
     - uses: actions/checkout@v3
 
-    - name: convert-model
+    - name: convert-model-then-load
       run: |
         source activate internlm-env-test
         export PYTHONPATH=$PWD:$PYTHONPATH
-        sh ./ci_scripts/model/convert_to_hf.sh
-
-
-  load-model:
-    runs-on: [lmtest]
-    needs: convert-model
-    steps:
-    - name: load-model
-      run: |
+        sh ./ci_scripts/model/convert_to_hf.sh 
         cd ./hf_ckpt
         srun -p llm2 python ../ci_scripts/model/loaded_as_transformer.py
         cd ..
