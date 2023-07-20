@@ -189,24 +189,13 @@ class PipelineScheduler(BaseScheduler):
         return move_to_device(mciro_batch_data)
 
     def pre_processing(self, engine):
-        # TODO: remove this after testing new zero with pipeline parallelism
         model = engine.model
-        dtype = None
-        # if isinstance(model, NaiveAMPModel):
-        #     dtype = torch.half
-        # TODO 这里需要加入一个操作使得可以支持bf16
         types = set()
         for param in model.parameters():
             types.add(param.dtype)
         assert len(types) == 1, f"Mixed types of parameter detected, {types}"
         _dtype = types.pop()
-        if dtype is not None:
-            assert _dtype is dtype, f"The parameter dtype does not match preset, {dtype}, {_dtype}"
-        # logger.info(f"Using dtype:{_dtype}")
         self.dtype = _dtype
-        # sig = inspect.signature(model.forward)
-        # for p in sig.parameters.values():
-        #     assert p.kind != inspect.Parameter.VAR_POSITIONAL, '*args is not supported'
 
     @staticmethod
     def _call_engine(model, data):  # pylint: disable=W0237
