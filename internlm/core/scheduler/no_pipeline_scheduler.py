@@ -67,12 +67,10 @@ class NonPipelineScheduler(BaseScheduler):
             data (Any): The data to be loaded.
             label (Any): The label to be loaded.
         """
-        _data = {
-            k: v[self._grad_accum_offset : self._grad_accum_offset + self._grad_accum_batch_size]
-            for k, v in data.items()
-        }
-        _label = label[self._grad_accum_offset : self._grad_accum_offset + self._grad_accum_batch_size]
 
+        _data, _label = self._load_micro_batch(
+            data=data, label=label, offset=self._grad_accum_offset, micro_bsz=self._grad_accum_batch_size
+        )
         self._grad_accum_offset += self._grad_accum_batch_size
 
         return _data, _label

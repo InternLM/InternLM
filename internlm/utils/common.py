@@ -81,28 +81,12 @@ def move_to_device(data):
         data_to_return = []
         for element in data:
             if isinstance(element, dict):
-                data_to_return.append(
-                    {
-                        k: (
-                            _move_tensor(v)
-                            if k != "inference_params"
-                            else v._replace(attention_mask=_move_tensor(v.attention_mask))
-                        )
-                        for k, v in element.items()
-                    }
-                )
+                data_to_return.append({k: _move_tensor(v) for k, v in element.items()})
             else:
                 data_to_return.append(_move_tensor(element))
         data = data_to_return
     elif isinstance(data, dict):
-        data = {
-            k: (
-                _move_tensor(v)
-                if k != "inference_params"
-                else v._replace(attention_mask=_move_tensor(v.attention_mask))
-            )
-            for k, v in data.items()
-        }
+        data = {k: _move_tensor(v) for k, v in data.items()}
     else:
         raise TypeError(f"Expected batch data to be of type torch.Tensor, list, tuple, or dict, but got {type(data)}")
     return data

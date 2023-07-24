@@ -137,42 +137,17 @@ class PipelineScheduler(BaseScheduler):
     def load_batch(self, engine, data_iter):
         # Pipeline schedule just puts data in memory
         batch_data, self.batch_size = engine.load_batch(data_iter, to_gpu=False)
+        self.batch_data, self.batch_label = batch_data
         self.microbatch_offset = 0
         assert self.batch_size % self.num_microbatches == 0, "Batch size should divided by the number of microbatches"
         self.microbatch_size = self.batch_size // self.num_microbatches
-        self.batch_data = batch_data
-
-    def _get_data_slice(self, data, offset):
-        if isinstance(data, torch.Tensor):
-            return data[offset : offset + self.microbatch_size]
-        elif isinstance(data, (list, tuple)):
-            data_dict = {}
-            for element in data:
-                if isinstance(element, dict):
-                    data_dict.update(
-                        {
-                            k: (
-                                v[offset : offset + self.microbatch_size]
-                                if k != "inference_params"
-                                else v._replace(attention_mask=v.attention_mask[offset : offset + self.microbatch_size])
-                            )
-                            for k, v in element.items()
-                        }
-                    )
-                elif data_dict:
-                    data_dict["label"] = element[offset : offset + self.microbatch_size]
-            if data_dict:
-                return data_dict
-            return [val[offset : offset + self.microbatch_size] for val in data]
-        elif isinstance(data, dict):
-            return {k: v[offset : offset + self.microbatch_size] for k, v in data.items()}
-        else:
-            raise TypeError(f"Expected data to be of type torch.Tensor, list, tuple, or dict, but got {type(data)}")
 
     def load_micro_batch(self):
-        mciro_batch_data = self._get_data_slice(self.batch_data, self.microbatch_offset)
+        mciro_batch_data, micro_batch_label = self._load_micro_batch(
+            data=self.batch_data, label=self.batch_label, offset=self.microbatch_offset, micro_bsz=self.microbatch_size
+        )
         self.microbatch_offset += self.microbatch_size
-        return move_to_device(mciro_batch_data)
+        return move_to_device(mciro_batch_data), move_to_device(micro_batch_label)
 
     def pre_processing(self, engine):
         model = engine.model
@@ -208,10 +183,10 @@ class PipelineScheduler(BaseScheduler):
             else:
                 raise TypeError(f"Expected data to be of type torch.Tensor, list, tuple, or dict, but got {type(data)}")
 
-    def _get_data_label_for_current_step(self, stage_output, micro_batch_data):
+    def _get_data_label_for_current_step(self, stage_output, micro_batch_data, micro_batch_label):
         if self.data_process_func:
             # use customized function to get data and label
-            data, label = self.data_process_func(stage_output, micro_batch_data)
+            data, label = self.data_process_func(stage_output, micro_batch_data, micro_batch_label)
         else:
             if isinstance(micro_batch_data, (tuple, list)):
                 if gpc.is_first_rank(ParallelMode.PIPELINE):
@@ -229,7 +204,7 @@ class PipelineScheduler(BaseScheduler):
                 if "label" in micro_batch_data:
                     label = micro_batch_data.pop("label")
                 else:
-                    label = None
+                    label = micro_batch_label
                 load_data = micro_batch_data
                 data.update(load_data)
         return data, label
@@ -249,9 +224,9 @@ class PipelineScheduler(BaseScheduler):
             Union[:class:`torch.Tensor`, List[:class:`torch.Tensor`]]: output or the loss value of the current
                 pipeline stage.
         """
-        micro_batch_data = self.load_micro_batch()
+        micro_batch_data, micro_batch_label = self.load_micro_batch()
 
-        data, label = self._get_data_label_for_current_step(input_obj, micro_batch_data)
+        data, label = self._get_data_label_for_current_step(input_obj, micro_batch_data, micro_batch_label)
         timer("fwd").start()
         output_obj = self._call_engine(engine.model, data)
         timer("fwd").stop()
@@ -526,9 +501,14 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         self.microbatch_offset = [0 for _ in range(self.num_model_chunks)]
 
     def load_micro_batch(self, model_chunk_id):
-        data = self._get_data_slice(self.batch_data, self.microbatch_offset[model_chunk_id])
+        mciro_batch_data, micro_batch_label = self._load_micro_batch(
+            data=self.batch_data,
+            label=self.batch_label,
+            offset=self.microbatch_offset[model_chunk_id],
+            micro_bsz=self.microbatch_size,
+        )
         self.microbatch_offset[model_chunk_id] += self.microbatch_size
-        return move_to_device(data)
+        return move_to_device(mciro_batch_data), move_to_device(micro_batch_label)
 
     def _forward_step(  # pylint: disable=W0237
         self, engine, model_chunk_id, input_obj, return_tensors, return_output_label=True, accum_loss=None, **kwargs
@@ -548,8 +528,8 @@ class InterleavedPipelineScheduler(PipelineScheduler):
             Union[:class:`torch.Tensor`, List[:class:`torch.Tensor`]]: output or the loss value of the current
                 pipeline stage.
         """
-        micro_batch_data = self.load_micro_batch(model_chunk_id)
-        data, label = self._get_data_label_for_current_step(input_obj, micro_batch_data)
+        micro_batch_data, micro_batch_label = self.load_micro_batch(model_chunk_id)
+        data, label = self._get_data_label_for_current_step(input_obj, micro_batch_data, micro_batch_label)
 
         output_obj = self._call_engine(engine.model[model_chunk_id], data)
 

@@ -35,6 +35,13 @@ class BaseScheduler(ABC):
         """
         pass
 
+    def _load_micro_batch(self, data, label, offset, micro_bsz):
+        assert isinstance(data, dict) and isinstance(label, torch.Tensor)
+        micro_batch_data = {k: v[offset : offset + micro_bsz] for k, v in data.items()}
+        micro_batch_label = label[offset : offset + micro_bsz]
+
+        return micro_batch_data, micro_batch_label
+
     @abstractmethod
     def forward_backward_step(
         self,
