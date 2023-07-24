@@ -178,7 +178,7 @@ class PackedFlashBaseLayer1D(nn.Module):
         mixer_kwargs = {
             "cu_seqlens": cu_seqlens,
             "max_seqlen": max_seqlen,
-            "indexes": indexes,
+            # "indexes": indexes,
             "inference_params": inference_params,
         }
 
