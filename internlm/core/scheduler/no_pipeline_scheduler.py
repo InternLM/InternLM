@@ -9,6 +9,7 @@ from typing import Any, Callable, Iterable
 import torch
 
 from internlm.core.engine import Engine
+from internlm.core.context.parallel_context import global_context as gpc
 from internlm.utils.common import conditional_context
 
 from .base_scheduler import BaseScheduler
@@ -173,7 +174,44 @@ class NonPipelineScheduler(BaseScheduler):
                 engine.optimizer.skip_grad_reduce = True
 
             _data, _label = self._load_accum_batch(data, label)
+            
+            def convert_data(input_ids, cu_seqlens, max_lenth):
+                '''
+                input_ids: (1, packed_length)
+                
+                Return:
+                output: (batch_size, max_length)
+                '''
+                if isinstance(cu_seqlens, list):
+                    assert len(cu_seqlens) == 1
+                    cu_seqlens = cu_seqlens[0]
+                
+                if cu_seqlens is not None:
+                    cu_seqlens = cu_seqlens.squeeze(0)
 
+                if isinstance(cu_seqlens, torch.Tensor):
+                    num_sequence = cu_seqlens.shape[0] - 1
+                else:
+                    raise RuntimeError("The cu_seqlens should be list or torch.Tensor type")
+                assert not num_sequence == 0
+                # obtain the unpacked tensors
+                
+                # output = torch.zeros(num_sequence, max_lenth, device=input_ids.device, dtype=input_ids.dtype)
+                tensor_list = []
+                for i in range(num_sequence):
+                    tmp_tensor = input_ids[0, cu_seqlens[i]:cu_seqlens[i + 1]]
+                    tensor_list.append(tmp_tensor)
+                    # seq_length = cu_seqlens[i + 1] - cu_seqlens[i]
+                    # output[i, 0:seq_length] = input_ids[0, cu_seqlens[i]:cu_seqlens[i + 1]]
+                
+                from torch.nn.utils.rnn import pad_sequence
+                output = pad_sequence(tensor_list, batch_size=True)
+                return output
+            
+            with torch.no_grad():
+                _data['input_ids'] = convert_data(_data['input_ids'], _data['cu_seqlens'], gpc.config.data.seq_len)
+                _label = convert_data(_label, _data['cu_seqlens'], gpc.config.data.seq_len)
+            
             _output, _loss = self._train_one_batch(
                 _data, _label, engine, forward_only, return_loss, self._grad_accum_size, post_fn
             )

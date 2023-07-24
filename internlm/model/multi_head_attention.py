@@ -86,8 +86,10 @@ class MHA(nn.Module):
             **factory_kwargs,
         )  # according to https://spaces.ac.cn/archives/9577
 
-        inner_attn_cls = FlashSelfAttention if use_flash_attn else SelfAttention
-        inner_cross_attn_cls = FlashCrossAttention if use_flash_attn else CrossAttention
+        # inner_attn_cls = FlashSelfAttention if use_flash_attn else SelfAttention
+        # inner_cross_attn_cls = FlashCrossAttention if use_flash_attn else CrossAttention
+        inner_attn_cls = SelfAttention
+        inner_cross_attn_cls = CrossAttention
         self.inner_attn = inner_attn_cls(causal=causal, softmax_scale=softmax_scale, attention_dropout=dropout)
         self.inner_cross_attn = inner_cross_attn_cls(
             causal=causal, softmax_scale=softmax_scale, attention_dropout=dropout
