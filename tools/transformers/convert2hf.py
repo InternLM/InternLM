@@ -167,7 +167,7 @@ if __name__ == "__main__":
     # TODO There should be a better way to add this.
     with open(os.path.join(target_folder, "config.json")) as fp:
         config_dict = json.load(fp)
-    config_dict["auto_map"]["AutoModel"] = "modeling_internlm.InternLMModel"
+    config_dict["auto_map"]["AutoModel"] = "modeling_internlm.InternLMForCausalLM"
     with open(os.path.join(target_folder, "config.json"), "w") as fp:
         json.dump(config_dict, fp, indent=2)
 
