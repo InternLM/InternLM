@@ -460,8 +460,6 @@ def main(args):
 
         # do forward and backward
         timer("fwd-bwd").start()
-        # TODO: move to scheduler?
-        trainer.schedule.tensor_shape = torch.Size([batch[0]["input_ids"].shape[1], gpc.config.HIDDEN_SIZE])
         _, _, loss = trainer.execute_schedule(batch, forward_only=False, return_loss=True, return_output_label=False)
         timer("fwd-bwd").stop()
 

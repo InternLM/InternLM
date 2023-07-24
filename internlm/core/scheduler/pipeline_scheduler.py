@@ -29,24 +29,9 @@ def get_tensor_shape():
     if not gpc.is_initialized(ParallelMode.PIPELINE):
         return None
 
-    if (
-        hasattr(gpc.config, "SEQ_LENGTH")
-        and hasattr(gpc.config, "GLOBAL_BATCH_SIZE")
-        and hasattr(gpc.config, "GLOBAL_BATCH_SIZE")
-        and hasattr(gpc.config, "HIDDEN_SIZE")
-    ):
-        if gpc.is_initialized(ParallelMode.DATA):
-            dp_size = gpc.get_world_size(ParallelMode.DATA)
-        else:
-            dp_size = 1
-        if gpc.is_initialized(ParallelMode.SEQUENCE):
-            seq_size = gpc.get_world_size(ParallelMode.SEQUENCE)
-        else:
-            seq_size = 1
-
+    if hasattr(gpc.config, "SEQ_LEN") and hasattr(gpc.config.data, "micro_bsz") and hasattr(gpc.config, "HIDDEN_SIZE"):
         tensor_shape = (
-            gpc.config.SEQ_LENGTH // seq_size,
-            gpc.config.GLOBAL_BATCH_SIZE // dp_size // gpc.config.NUM_MICRO_BATCHES,
+            gpc.config.SEQ_LEN * gpc.config.data["micro_bsz"],
             gpc.config.HIDDEN_SIZE,
         )
         return tensor_shape
@@ -113,6 +98,7 @@ class PipelineScheduler(BaseScheduler):
     def __init__(
         self,
         num_microbatches,
+        dtype=torch.float,
         data_process_func: Callable = None,
         tensor_shape: Union[torch.Size, List[int], Tuple[int]] = None,
         scatter_gather_tensors: bool = False,
@@ -131,7 +117,7 @@ class PipelineScheduler(BaseScheduler):
         assert num_microbatches > 0, f"expected num_microbatches to be larger then 1, but got {num_microbatches}"
 
         self.num_microbatches = num_microbatches
-        self.dtype = torch.float
+        self.dtype = dtype
         assert not isinstance(
             tensor_shape, int
         ), "tensor_shape type should be one of Union[torch.Size, List[int], Tuple[int]]."
@@ -491,6 +477,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         self,
         num_microbatches: int,
         num_model_chunks: int,
+        dtype=torch.float,
         data_process_func: Callable = None,
         tensor_shape: Union[torch.Size, List[int], Tuple[int]] = None,
         scatter_gather_tensors: bool = False,
@@ -516,6 +503,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         ), f"expected num_model_chunks to be an integer and larger than 0, but got {num_model_chunks}"
         super().__init__(
             num_microbatches,
+            dtype=dtype,
             data_process_func=data_process_func,
             tensor_shape=tensor_shape,
             scatter_gather_tensors=scatter_gather_tensors,

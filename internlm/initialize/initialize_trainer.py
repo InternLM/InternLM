@@ -59,8 +59,6 @@ def initialize_trainer(
     elif isinstance(model, Callable):
         model = model().to(get_current_device())
 
-    gpc.config.grad_scaler.pop("fp16")
-
     # clip grad norm
     clip_grad_norm = gpc.config.hybrid_zero_optimizer.get("clip_grad_norm", 0.0)
 
@@ -92,19 +90,19 @@ def initialize_trainer(
             scheduler = InterleavedPipelineScheduler(
                 num_microbatches=gpc.config.NUM_MICRO_BATCHES,
                 num_model_chunks=gpc.config.model.num_chunks,
+                dtype=gpc.config.model["dtype"],
                 tensor_shape=tensor_shape,
                 scatter_gather_tensors=scatter_gather,
             )
         else:
             scheduler = PipelineScheduler(
-                gpc.config.NUM_MICRO_BATCHES, tensor_shape=tensor_shape, scatter_gather_tensors=scatter_gather
+                num_microbatches=gpc.config.NUM_MICRO_BATCHES,
+                dtype=gpc.config.model["dtype"],
+                tensor_shape=tensor_shape,
+                scatter_gather_tensors=scatter_gather,
             )
     else:
         scheduler = NonPipelineScheduler(gradient_accumulation_size=gpc.config.data.gradient_accumulation)
-
-    # if bf16 is used, this value will be wrongly set to fp32, so it needs to be corrected manually
-    if "dtype" in gpc.config.model:
-        scheduler.dtype = gpc.config.model["dtype"]
 
     # initialize engine for trainer
     engine = Engine(
