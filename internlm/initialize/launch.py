@@ -38,6 +38,8 @@ def get_default_parser():
     parser.add_argument("--local_rank", type=int, help="local rank on the node")
     parser.add_argument("--backend", type=str, default="nccl", help="backend for distributed communication")
     parser.add_argument("--seed", type=int, default=1024)
+    parser.add_argument("--cal_loss", type=int, default=0)
+    parser.add_argument("--loss_path", type=str, default=None)
     return parser
 
 

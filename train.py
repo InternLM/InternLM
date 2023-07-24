@@ -312,9 +312,24 @@ def record_current_batch_training_metrics(
             line += f"{k}={v},"
 
         fwd_bwd_time = round(timer("fwd-bwd").elapsed(), 2)
-        line += f"fwd_bwd_time={fwd_bwd_time}"
+        line += f"fwd_bwd_time={fwd_bwd_time},"
+        one_batch = round(timer("one-batch").elapsed(), 2)
+        line += f"one_batch={one_batch}"
 
         logger.info(line)
+
+
+import json
+import numpy as np
+def cal_loss_var_diff(loss_path, statis_step_loss):
+    with open(loss_path, 'r') as file:
+        data = json.load(file)
+
+    values1 = np.array(list(data.values()))
+    values2 = np.array(list(statis_step_loss.values()))
+    variance = np.var(values1 - values2)
+    difference = abs(values1[-1] - values2[-1])
+    return variance, difference
 
 
 def main(args):
@@ -423,6 +438,9 @@ def main(args):
 
     # transfer the train data loader into train data iterator
     train_iter = iter(train_dl)
+    
+    # Statistics for loss of each step
+    statis_step_loss = {}
 
     # start iterating the train data and begin training
     for batch_count in range(train_state.batch_count, total_steps):
@@ -464,6 +482,9 @@ def main(args):
             train_state.inf_nan_skip_batches += 1  # record the amount of updating parameters unsuccessfully.
             if grad_norm == -99.0 and gpc.is_rank_for_log():  # -99.0 encodes a specific failure case
                 logger.warning(f"Warning: skip parameter update at step {batch_count}.")
+                
+        # Statistics for loss of each step
+        statis_step_loss['step' + str(batch_count)] = loss.item()
 
         # calculate and record the training metrics, eg. loss, accuracy and so on.
         record_current_batch_training_metrics(
@@ -482,18 +503,27 @@ def main(args):
         )
 
         timer("one-batch").stop()
+        if batch_count == 100 and gpc.is_rank_for_log():
+            print('statis_step_loss')
+            print(statis_step_loss, flush=True)
+        if batch_count == 100 and args.cal_loss == 1 and gpc.is_rank_for_log():
+            assert args.loss_path != None, "var_path should be provided!"
+            variance, difference = cal_loss_var_diff(args.loss_path, statis_step_loss)
+            print("loss和标准数据之间的方差:", variance, flush=True)
+            print("最后一个loss的差值绝对值:", difference, flush=True)
+            
 
         # checkpoint the training states in specific steps, which is determined by the args "checkpoint_every"
         # # save batch sampler that tracks the true consumed samples
-        if enable_save_ckpt and train_state.step_count % checkpoint_every == 0:
-            save_checkpoint(
-                folder=save_ckpt_folder,
-                model=model,
-                optimizer=optimizer,
-                scheduler=lr_scheduler,
-                train_state=train_state,
-                model_config=gpc.config.model,
-            )
+        # if enable_save_ckpt and train_state.step_count % checkpoint_every == 0:
+        #     save_checkpoint(
+        #         folder=save_ckpt_folder,
+        #         model=model,
+        #         optimizer=optimizer,
+        #         scheduler=lr_scheduler,
+        #         train_state=train_state,
+        #         model_config=gpc.config.model,
+        #     )
 
     # wait for all checkpoint uploads to be completed
     dist.barrier()
