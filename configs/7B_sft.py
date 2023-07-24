@@ -10,9 +10,9 @@ VOCAB_SIZE = 103168
 # Ckpt folder format:
 # fs: 'local:/mnt/nfs/XXX'
 # oss: 'boto3:s3://model_weights/XXX'
-MODEL_ONLY_FOLDER = "local:llm_ckpts/xxxx"
-SAVE_CKPT_FOLDER = "local:llm_ckpts"
-LOAD_CKPT_FOLDER = "local:llm_ckpts/49"
+MODEL_ONLY_FOLDER = None #"local:llm_ckpts/xxxx"
+SAVE_CKPT_FOLDER = None #"local:llm_ckpts"
+LOAD_CKPT_FOLDER = None #"local:llm_ckpts/49"
 ckpt = dict(
     # Path to save training ckpt.
     save_ckpt_folder=SAVE_CKPT_FOLDER,
@@ -25,7 +25,7 @@ ckpt = dict(
     load_optimizer=True,
 )
 
-TRAIN_FOLDER = "/path/to/dataset"
+# TRAIN_FOLDER = "/path/to/dataset"
 data = dict(
     seq_len=SEQ_LEN,
     # micro_num means the number of micro_batch contained in one gradient update
@@ -33,7 +33,7 @@ data = dict(
     # packed_length = micro_bsz * SEQ_LEN
     micro_bsz=2,
     pack_sample_into_one=False,
-    total_steps=50000,
+    total_steps=100,
     skip_batches="",
     rampup_batch_size="",
     # Datasets with less than 50 rows will be discarded
@@ -97,7 +97,7 @@ beta2_scheduler = dict(
 )
 
 model = dict(
-    checkpoint=False,
+    checkpoint=True,
     num_attention_heads=NUM_ATTENTION_HEAD,
     embed_split_hidden=True,
     vocab_size=VOCAB_SIZE,
