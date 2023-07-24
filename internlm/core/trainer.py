@@ -117,8 +117,7 @@ class Trainer:
             ), f"expected schedule to be of type BaseSchedule, but got {type(schedule)}"
             self._schedule = schedule
 
-        if self.uses_pipeline:
-            self._schedule.pre_processing(self._engine)
+        self._schedule.pre_processing(self._engine)
 
     @property
     def engine(self):
