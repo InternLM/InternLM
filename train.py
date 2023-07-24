@@ -211,8 +211,6 @@ def load_new_batch(train_dl: DataLoader, train_iter: Iterable, train_state: Trai
         train_state.num_consumed_samples_in_epoch = 0
     timer("batch-gen").stop()
 
-    batch[0].pop("type_ids", None)
-
     return batch, train_iter
 
 
