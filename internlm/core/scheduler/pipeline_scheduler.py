@@ -76,23 +76,11 @@ class PipelineScheduler(BaseScheduler):
     Args:
         num_microbatches (int): The number of microbatches.
         data_process_func (Callable, optional):
-            The preprocessing function which receives a batch of data, and it will be executed in `load_batch`.
+            The post processing function which receives a micro batch of data, and it will be executed
+            in `load_micro_batch`.
         tensor_shape (torch.Size, optional): Specified shape in pipeline communication.
         scatter_gather_tensors (bool, optional):
             If set to `True`, communication will be reduced over pipeline when using 1D tensor parallelization.
-
-    Example:
-
-        # this shows an example of customized data_process_func
-        def data_process_func(stage_output, dataloader_output):
-            output1, output2 = stage_output
-            item1, item2, item3 = dataloader_output
-
-            # assume item2 is not needed
-            data = (output1, output2, item1)
-            label = item3
-            return data, label
-
     """
 
     def __init__(
@@ -103,15 +91,6 @@ class PipelineScheduler(BaseScheduler):
         tensor_shape: Union[torch.Size, List[int], Tuple[int]] = None,
         scatter_gather_tensors: bool = False,
     ):
-        # we need to make sure that the signature of the data_process_func is valid
-        if data_process_func:
-            sig = inspect.signature(data_process_func)
-            assert len(sig.parameters) == 2, (
-                "The data_process_func only takes in two parameters for NonPipelineSchedule, "
-                "which is the tensors passed by the previous pipeline stage and the dataloader output from this stage, "
-                "i.e. data_process_func(stage_output, dataloader_output)."
-            )
-
         super().__init__(data_process_func=data_process_func)
 
         assert num_microbatches > 0, f"expected num_microbatches to be larger then 1, but got {num_microbatches}"
@@ -147,6 +126,9 @@ class PipelineScheduler(BaseScheduler):
             data=self.batch_data, label=self.batch_label, offset=self.microbatch_offset, micro_bsz=self.microbatch_size
         )
         self.microbatch_offset += self.microbatch_size
+
+        # unpack data process
+        # TODO by xyt
         return move_to_device(mciro_batch_data), move_to_device(micro_batch_label)
 
     def pre_processing(self, engine):
@@ -184,29 +166,26 @@ class PipelineScheduler(BaseScheduler):
                 raise TypeError(f"Expected data to be of type torch.Tensor, list, tuple, or dict, but got {type(data)}")
 
     def _get_data_label_for_current_step(self, stage_output, micro_batch_data, micro_batch_label):
-        if self.data_process_func:
-            # use customized function to get data and label
-            data, label = self.data_process_func(stage_output, micro_batch_data, micro_batch_label)
-        else:
-            if isinstance(micro_batch_data, (tuple, list)):
-                if gpc.is_first_rank(ParallelMode.PIPELINE):
-                    # for the first stage, we use the data from the
-                    # dataloader output by default
-                    data, label = micro_batch_data
-                else:
-                    # for non-first stage, we use the output passed
-                    # by the previous as the model input
-                    data = stage_output
-                    _, label = micro_batch_data
-            elif isinstance(micro_batch_data, dict):
-                data = {}
-                data["stage_output"] = stage_output
-                if "label" in micro_batch_data:
-                    label = micro_batch_data.pop("label")
-                else:
-                    label = micro_batch_label
-                load_data = micro_batch_data
-                data.update(load_data)
+        if isinstance(micro_batch_data, (tuple, list)):
+            if gpc.is_first_rank(ParallelMode.PIPELINE):
+                # for the first stage, we use the data from the
+                # dataloader output by default
+                data, label = micro_batch_data
+            else:
+                # for non-first stage, we use the output passed
+                # by the previous as the model input
+                data = stage_output
+                _, label = micro_batch_data
+        elif isinstance(micro_batch_data, dict):
+            data = {}
+            data["stage_output"] = stage_output
+            if "label" in micro_batch_data:
+                label = micro_batch_data.pop("label")
+            else:
+                label = micro_batch_label
+            load_data = micro_batch_data
+            data.update(load_data)
+
         return data, label
 
     def _forward_step(self, engine, input_obj, return_tensors, return_output_label=True, accum_loss=None, **kwargs):
