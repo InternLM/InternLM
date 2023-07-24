@@ -421,14 +421,17 @@ def main(args):
     )
 
     # initialize simple memory profiler
-    memory_profiler = SimpleMemoryProfiler(
-        model.model,
-        optimizer.optim,
-        log_folder=f"memory_trace/rank{gpc.get_global_rank()}_"
-        + f"dp{gpc.get_local_rank(ParallelMode.DATA)}_"
-        + f"tp{gpc.get_local_rank(ParallelMode.TENSOR)}",
-        activation_config=build_activation_config(gpc.config.model.num_layers),
-    )
+    if args.profiling:
+        memory_profiler = SimpleMemoryProfiler(
+            model.model,
+            optimizer.optim,
+            log_folder=f"memory_trace/rank{gpc.get_global_rank()}_"
+            + f"dp{gpc.get_local_rank(ParallelMode.DATA)}_"
+            + f"tp{gpc.get_local_rank(ParallelMode.TENSOR)}",
+            activation_config=build_activation_config(gpc.config.model.num_layers),
+        )
+    else:
+        memory_profiler = None
 
     # initialize the batch skipper
     batch_skipper = BatchSkipper(skip_batches)
@@ -496,7 +499,9 @@ def main(args):
         )
 
         timer("one-batch").stop()
-        memory_profiler.step()
+
+        if memory_profiler is not None:
+            memory_profiler.step()
 
         # checkpoint the training states in specific steps, which is determined by the args "checkpoint_every"
         # # save batch sampler that tracks the true consumed samples
