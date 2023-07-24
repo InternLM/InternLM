@@ -294,13 +294,13 @@ class NonPipelineScheduler(BaseScheduler):
                     # output[i, 0:seq_length] = input_ids[0, cu_seqlens[i]:cu_seqlens[i + 1]]
                 
                 from torch.nn.utils.rnn import pad_sequence
-                output = pad_sequence(tensor_list, batch_size=True)
+                output = pad_sequence(tensor_list, batch_first=True)
                 return output
             
             with torch.no_grad():
                 _data['input_ids'] = convert_data(_data['input_ids'], _data['cu_seqlens'], gpc.config.data.seq_len)
                 _label = convert_data(_label, _data['cu_seqlens'], gpc.config.data.seq_len)
-            
+
             _output, _loss = self._train_one_batch(
                 _data, _label, engine, forward_only, return_loss, self._grad_accum_size
             )
