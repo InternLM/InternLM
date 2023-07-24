@@ -140,10 +140,6 @@ def args_sanity_check():
     torch.backends.cudnn.deterministic = gpc.config.get("cudnn_deterministic", False)
     clip_grad_norm = gpc.config.hybrid_zero_optimizer.get("clip_grad_norm", 0.0)
 
-    gpc.config.hybrid_zero_optimizer.zero_overlap_communication = True
-    if gpc.config.parallel.pipeline > 1:
-        gpc.config.hybrid_zero_optimizer.zero_overlap_communication = False
-
     if gpc.is_rank_for_log():
         logger.info("+" * 15 + " Other Info " + "+" * 15)  # pylint: disable=W1201
         logger.info(f"cudnn.benchmark: {torch.backends.cudnn.benchmark }")

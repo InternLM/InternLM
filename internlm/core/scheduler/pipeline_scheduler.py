@@ -323,6 +323,9 @@ class PipelineScheduler(BaseScheduler):
         num_warmup_microbatches = min(num_warmup_microbatches, self.num_microbatches)
         num_microbatches_remaining = self.num_microbatches - num_warmup_microbatches
 
+        # only the last micro batch backward need to reduce gradients
+        engine.optimizer.skip_grad_reduce = True
+
         # Input, output tensors only need to be saved when doing backward passes
         input_objs = None
         output_objs = None
@@ -412,6 +415,9 @@ class PipelineScheduler(BaseScheduler):
                 input_obj = input_objs.pop(0)
                 output_obj = output_objs.pop(0)
 
+                if num_warmup_microbatches == 0 and last_iteration:
+                    engine.optimizer.skip_grad_reduce = False
+
                 input_obj_grad = self._backward_step(engine, input_obj, output_obj, output_obj_grad)
 
                 if last_iteration:
@@ -431,6 +437,9 @@ class PipelineScheduler(BaseScheduler):
                 output_obj_grad = comm.recv_backward(
                     bt_shapes, dtype=self.dtype, scatter_gather_tensors=self.scatter_gather_tensors
                 )
+
+                if num_warmup_microbatches > 0 and i == num_warmup_microbatches - 1:
+                    engine.optimizer.skip_grad_reduce = False
 
                 input_obj_grad = self._backward_step(engine, input_obj, output_obj, output_obj_grad)
 
@@ -584,6 +593,9 @@ class InterleavedPipelineScheduler(PipelineScheduler):
             accum_loss = torch.zeros(1, device=get_current_device())
         else:
             accum_loss = None
+
+        # only the last micro batch backward need to reduce gradients
+        engine.optimizer.skip_grad_reduce = True
 
         # Used for obj meta information communication
         input_obj_shapes = [self.tensor_shape for _ in range(len(model))]
@@ -747,6 +759,8 @@ class InterleavedPipelineScheduler(PipelineScheduler):
 
             # Backward pass.
             backward_k = k
+            if num_warmup_microbatches == 0 and k == num_microbatches_remaining - 1:
+                engine.optimizer.skip_grad_reduce = False
             input_obj_grad = _backward_step_helper(backward_k)
 
             # Send output_obj and input_obj_grad, receive input_obj
@@ -823,6 +837,8 @@ class InterleavedPipelineScheduler(PipelineScheduler):
                     )
                 )
             for k in range(num_microbatches_remaining, num_microbatches):
+                if k == num_microbatches - 1:
+                    engine.optimizer.skip_grad_reduce = False
                 input_obj_grad = _backward_step_helper(k)
                 next_backward_model_chunk_id = get_model_chunk_id(k + 1, forward=False)
                 recv_next = True
