@@ -1,4 +1,5 @@
 import argparse
+import fcntl
 import time
 import torch
 from torch import distributed as dist
@@ -6,6 +7,15 @@ import os
 import socket
 
 from typing import List
+
+def printflock(*msgs,flush: bool=False):
+    """ print """
+    with open(__file__, "r") as fh:
+        fcntl.flock(fh, fcntl.LOCK_EX)
+        try:
+            print(*msgs, flush=flush)
+        finally:
+            fcntl.flock(fh, fcntl.LOCK_UN)
 
 class NodeInfo:
     def __init__(self, hostname) -> None:
@@ -78,9 +88,9 @@ class ProcessFilter:
         
         # init_method = "env://"
         
-        # print("start init process group", flush=True)
+        #print("start init process group", flush=True)
         init_method = f"tcp://[{self.master}]:{self.port}"
-        dist.init_process_group(backend="nccl", init_method=init_method, world_size=self.world_size, rank=self.rank) #
+        dist.init_process_group(backend="nccl", init_method=init_method, world_size=self.world_size, rank=self.rank)
 
     def auto_slurm_env(self):
         try:
@@ -137,12 +147,17 @@ class ProcessFilter:
             if count > self.warmup:
                 sum += bw
         self.nodeinfo.ib_bw = sum / (self.iters - self.warmup)
-        print(f"RANK {self.rank} in HOST {self.nodeinfo.hostname} has outer busBw {self.nodeinfo.ib_bw} GB/s", flush=True)
+        printflock(f"RANK {self.rank} in HOST {self.nodeinfo.hostname} has outer busBw {self.nodeinfo.ib_bw} GB/s", flush=True)
         dist.destroy_process_group()
         
         with open("tmp_nccltest.log", "a+") as f:
-            if self.nodeinfo.ib_bw < self.ib_threshold and self.local_rank == 0:
-                f.write(f"{self.nodeinfo.hostname} has busBw  {self.nodeinfo.ib_bw} GB/s \n")
+            fcntl.flock(f, fcntl.LOCK_EX)
+            try:
+                if self.nodeinfo.ib_bw < self.ib_threshold and self.local_rank == 0:
+                    f.write(f"{self.nodeinfo.hostname} has busBw  {self.nodeinfo.ib_bw} GB/s \n")
+            finally:
+                fcntl.flock(f, fcntl.LOCK_UN)
+            
             
     def do_all_reduce_single_node(self):
         self.init_distributed_env(master=self.nodeinfo.hostname)
@@ -158,7 +173,7 @@ class ProcessFilter:
                 sum += bw
             count += 1
         self.nodeinfo.nvlink_bw = sum / (self.iters - self.warmup)
-        print(f"RANK {self.rank} in HOST {self.nodeinfo.hostname} has internal busBw {self.nodeinfo.nvlink_bw} GB/s", flush=True)
+        printflock(f"RANK {self.rank} in HOST {self.nodeinfo.hostname} has internal busBw {self.nodeinfo.nvlink_bw} GB/s", flush=True)
         dist.destroy_process_group()
         
             
@@ -204,7 +219,7 @@ if __name__ == "__main__":
     parser.add_argument("--local", action="store_true", help="nccl test on per node")
     parser.add_argument("--warmup", type=int, default=5, help="warm-up iters")
     parser.add_argument("--iters", type=int, default=20, help="communication iters")
-    
+    parser.add_argument("--local_rank", type=int, default=0)
     
     args = parser.parse_args()
     filter = ProcessFilter(launcher=args.launcher, ib_threshold=args.ib_threshold, nvlink_threshold=args.nvlink_threshold, buffer_size=args.buffersize, port=args.port, is_local=args.local, warmup=args.warmup, iters=args.iters)
