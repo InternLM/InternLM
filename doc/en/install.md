@@ -63,8 +63,8 @@ Users can obtain an image with the InternLM runtime environment installed from h
 
 ```bash
 # pull image
-docker pull sunpengsdu/internlm:torch2.0.1-cuda11.8-flashatten2.0.0-centos
+docker pull sunpengsdu/internlm:torch1.13-cuda11.7-flashatten1.0.5-centos
 # start container
-docker run --gpus all -d -it --shm-size=2gb sunpengsdu/internlm:torch2.0.1-cuda11.8-flashatten2.0.0-centos
-docker exec -it mytorch2.0 bash
+docker run --gpus all -d -it --shm-size=2gb --name myinternlm sunpengsdu/internlm:torch1.13-cuda11.7-flashatten1.0.5-centos
+docker exec -it myinternlm bash
 ```
