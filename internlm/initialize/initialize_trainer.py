@@ -13,6 +13,7 @@ from torch.utils.data import DataLoader
 
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
+from internlm.data.utils import unpack_data
 from internlm.core.engine import Engine
 from internlm.core.gradient_handler import PipelineSharedModuleGradientHandler
 from internlm.core.scheduler.no_pipeline_scheduler import NonPipelineScheduler
@@ -102,7 +103,7 @@ def initialize_trainer(
                 scatter_gather_tensors=scatter_gather,
             )
     else:
-        scheduler = NonPipelineScheduler(gradient_accumulation_size=gpc.config.data.gradient_accumulation)
+        scheduler = NonPipelineScheduler(data_process_func=unpack_data, gradient_accumulation_size=gpc.config.data.gradient_accumulation)
 
     # initialize engine for trainer
     engine = Engine(
