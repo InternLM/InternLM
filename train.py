@@ -29,7 +29,7 @@ from internlm.data.utils import DATASET_TYPE_IDS_MAP
 from internlm.model.loss import FlashGPTLMLoss
 from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
-from internlm.solver.optimizer.hybrid_zero_optim import HybridZeroOptimizer
+from internlm.solver.optimizer import HybridZeroOptimizer
 from internlm.utils.common import (
     BatchSkipper,
     get_master_node,
@@ -92,10 +92,6 @@ def initialize_model():
 
     Returns: The neural network model to be trained or evaluated.
     """
-
-    assert (
-        not hasattr(gpc.config.parallel, "pipeline") or gpc.config.parallel.pipeline == 1
-    ), "Pipeline parallelism is not supported for now."
 
     model = MODEL_INITIALIZER.get_module(module_name=gpc.config.model_type)(**(gpc.config.model))
     model = NaiveAMPModel(
@@ -314,7 +310,7 @@ def record_current_batch_training_metrics(
 
         line = ""
         for key, value in infos.items():
-            line += f"{key}={value},"
+            line += f"{key}={value} "
             writer.add_scalar(key=key, value=value, step=train_state.step_count)
 
         logger.info(line)
@@ -466,7 +462,6 @@ def main(args):
         timer("fwd-bwd").start()
         _, _, loss = trainer.execute_schedule(batch, forward_only=False, return_loss=True, return_output_label=False)
         timer("fwd-bwd").stop()
-        assert loss is not None
 
         # update parameters, and returns (success_update, grad_norm)
         trainer_result = trainer.step()
