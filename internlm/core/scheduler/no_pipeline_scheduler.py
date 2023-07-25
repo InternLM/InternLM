@@ -10,6 +10,7 @@ import torch
 
 from internlm.core.engine import Engine
 from internlm.core.context.parallel_context import global_context as gpc
+from internlm.data.utils import unpack_data
 from internlm.utils.common import conditional_context
 
 from .base_scheduler import BaseScheduler
@@ -37,19 +38,11 @@ class NonPipelineScheduler(BaseScheduler):
     """
 
     def __init__(self, data_process_func: Callable = None, gradient_accumulation_size: int = 1):
-        # check that non-pipeline schedule data process func only takes in one parameter
-        # which is the batch data
-        if data_process_func:
-            sig = inspect.signature(data_process_func)
-            assert len(sig.parameters) == 1, (
-                "The data_process_func only takes in one parameter for NonPipelineSchedule, "
-                "which is a tuple of tensors for the current batch, "
-                "i.e. data_process_func(dataloader_output)."
-            )
 
         self._grad_accum_size = gradient_accumulation_size
         self._grad_accum_batch_size = 1  # static batch size for flash attetion.
         self._grad_accum_offset = 0
+        self.data_process_func = data_process_func
 
         super().__init__(data_process_func)
 
@@ -73,6 +66,10 @@ class NonPipelineScheduler(BaseScheduler):
             data=data, label=label, offset=self._grad_accum_offset, micro_bsz=self._grad_accum_batch_size
         )
         self._grad_accum_offset += self._grad_accum_batch_size
+        
+        if self.data_process_func:
+            _data['input_ids'] = self.data_process_func(_data['input_ids'], _data['cu_seqlens'])
+            _label = self.data_process_func(_label, _data['cu_seqlens'])
 
         return _data, _label
 
@@ -152,13 +149,8 @@ class NonPipelineScheduler(BaseScheduler):
         assert (
             batch_size == self._grad_accum_size
         ), f"batch_size:{batch_size} must be equal to gradient accumulation steps:{self._grad_accum_size}"
-
-        if self.data_process_func:
-            data, label = self.data_process_func(batch_data)
-        else:
-            # if not batch data process func is given,
-            # then we regard the batch data as a simple tuple of (data, label)
-            data, label = batch_data
+        
+        data, label = batch_data
 
         loss = 0 if return_loss else None
         outputs = []
@@ -174,43 +166,6 @@ class NonPipelineScheduler(BaseScheduler):
                 engine.optimizer.skip_grad_reduce = True
 
             _data, _label = self._load_accum_batch(data, label)
-            
-            def convert_data(input_ids, cu_seqlens, max_lenth):
-                '''
-                input_ids: (1, packed_length)
-                
-                Return:
-                output: (batch_size, max_length)
-                '''
-                if isinstance(cu_seqlens, list):
-                    assert len(cu_seqlens) == 1
-                    cu_seqlens = cu_seqlens[0]
-                
-                if cu_seqlens is not None:
-                    cu_seqlens = cu_seqlens.squeeze(0)
-
-                if isinstance(cu_seqlens, torch.Tensor):
-                    num_sequence = cu_seqlens.shape[0] - 1
-                else:
-                    raise RuntimeError("The cu_seqlens should be list or torch.Tensor type")
-                assert not num_sequence == 0
-                # obtain the unpacked tensors
-                
-                # output = torch.zeros(num_sequence, max_lenth, device=input_ids.device, dtype=input_ids.dtype)
-                tensor_list = []
-                for i in range(num_sequence):
-                    tmp_tensor = input_ids[0, cu_seqlens[i]:cu_seqlens[i + 1]]
-                    tensor_list.append(tmp_tensor)
-                    # seq_length = cu_seqlens[i + 1] - cu_seqlens[i]
-                    # output[i, 0:seq_length] = input_ids[0, cu_seqlens[i]:cu_seqlens[i + 1]]
-                
-                from torch.nn.utils.rnn import pad_sequence
-                output = pad_sequence(tensor_list, batch_first=True)
-                return output
-            
-            with torch.no_grad():
-                _data['input_ids'] = convert_data(_data['input_ids'], _data['cu_seqlens'], gpc.config.data.seq_len)
-                _label = convert_data(_label, _data['cu_seqlens'], gpc.config.data.seq_len)
 
             _output, _loss = self._train_one_batch(
                 _data, _label, engine, forward_only, return_loss, self._grad_accum_size, post_fn
