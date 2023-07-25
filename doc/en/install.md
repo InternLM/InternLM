@@ -57,3 +57,14 @@ cd ./third_party/apex
 pip install -v --disable-pip-version-check --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./
 cd ../../
 ```
+
+### Environment Image
+Users can obtain an image with the InternLM runtime environment installed from https://hub.docker.com/r/sunpengsdu/internlm. The commands for pulling the image and starting the container are as follows:
+
+```bash
+# pull image
+docker pull sunpengsdu/internlm:torch2.0.1-cuda11.8-flashatten2.0.0-centos
+# start container
+docker run --gpus all -d -it --shm-size=2gb sunpengsdu/internlm:torch2.0.1-cuda11.8-flashatten2.0.0-centos
+docker exec -it mytorch2.0 bash
+```

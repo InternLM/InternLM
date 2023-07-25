@@ -57,3 +57,13 @@ cd ./third_party/apex
 pip install -v --disable-pip-version-check --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./
 cd ../../
 ```
+
+### 环境镜像
+用户可以从 https://hub.docker.com/r/sunpengsdu/internlm 获取安装了 InternLM 运行环境的镜像，拉取镜像及启动容器的命令如下：
+```bash
+# 拉取镜像
+docker pull sunpengsdu/internlm:torch2.0.1-cuda11.8-flashatten2.0.0-centos
+# 启动容器
+docker run --gpus all -d -it --shm-size=2gb sunpengsdu/internlm:torch2.0.1-cuda11.8-flashatten2.0.0-centos
+docker exec -it mytorch2.0 bash
+```
