@@ -261,8 +261,8 @@ def record_current_batch_training_metrics(
 
     if success_update in (0, True):
         train_state.num_consumed_tokens += batch[1].nelement() * gpc.get_world_size(ParallelMode.DATA)
-
-    acc_perplex = metric.get_metric()
+    if is_no_pp_or_last_stage():
+        acc_perplex = metric.get_metric()
 
     if success_update and gpc.is_rank_for_log():
         lr = optimizer.param_groups[0]["lr"]
