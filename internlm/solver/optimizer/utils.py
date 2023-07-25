@@ -4,14 +4,19 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Optional
 
+import amp_C
 import torch
 import torch.distributed as dist
+from apex.multi_tensor_apply import multi_tensor_applier
 from torch import Tensor
+from torch._six import inf
 from torch._utils import _flatten_dense_tensors, _unflatten_dense_tensors
 
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
+from internlm.utils.common import get_tensor_norm, move_norm_to_cuda
 from internlm.utils.logger import get_logger
+from internlm.utils.parallel import is_model_parallel_parameter
 
 logger = get_logger(__file__)
 
@@ -148,6 +153,108 @@ def sync_param(flat_tensor, tensor_list):
     # update the tensor data
     for p, q in zip(tensor_list, updated_params):
         p.data = q.data
+
+
+def calc_l2_norm(grads):
+    norm = 0.0
+    if len(grads) > 0:
+        dummy_overflow_buf = torch.cuda.IntTensor([0])
+        norm, _ = multi_tensor_applier(
+            amp_C.multi_tensor_l2norm, dummy_overflow_buf, [grads], False  # no per-parameter norm
+        )
+    return norm
+
+
+def calc_lp(grads, norm_type):
+    norm = 0.0
+    for grad in grads:
+        grad_norm = torch.norm(grad, norm_type)
+        norm += grad_norm**norm_type
+    return norm
+
+
+def compute_norm(gradients, parameters, norm_type=2):
+    """Get the norm
+    Arguments:
+        gradients (Iterable[Tensor]): The gradient value.
+        parameters (Iterable[Tensor]): The parameter each gradient corresponds to.
+        norm_type (float or int): type of the used p-norm. Can be ``'inf'`` for
+            infinity norm.
+
+    Returns:
+        Total norm of the parameters, need total_norm**(1/norm) before using.
+    """
+
+    enable_cuda_kernels = gradients[0].device.type == "cuda"
+    # Norm parameters.
+    norm_type = float(norm_type)
+
+    # Calculate norm.
+    if norm_type == inf:
+        total_norm = max(g.data.abs().max() for g in gradients)
+        total_norm_cuda = torch.FloatTensor([float(total_norm)], device=gradients[0].device)
+        # Take max across all model-parallel GPUs.
+        if gpc.get_world_size(ParallelMode.MODEL) > 1:
+            dist.all_reduce(total_norm_cuda, op=dist.ReduceOp.MAX, group=gpc.get_group(ParallelMode.MODEL))
+        total_norm = total_norm_cuda[0].item()
+    else:
+        tensor_parallel_grads = []
+        for g, p in zip(gradients, parameters):
+            # TODO: consider the pipeline shared parameter
+            if (
+                gpc.is_initialized(ParallelMode.PIPELINE)
+                and hasattr(p, "pipeline_shared_module_pg")
+                and dist.get_rank(p.pipeline_shared_module_pg) == 0
+            ):  # if shared between different pipe, only count o
+                tensor_parallel_grads.append(g.data.float())
+            elif (
+                gpc.is_initialized(ParallelMode.PIPELINE)
+                and hasattr(p, "pipeline_shared_module_pg")
+                and dist.get_rank(p.pipeline_shared_module_pg) != 0
+            ):
+                continue
+            elif (
+                gpc.is_initialized(ParallelMode.TENSOR)
+                and not is_model_parallel_parameter(p)
+                and gpc.get_local_rank(ParallelMode.TENSOR) == 0
+            ):  # if not used in each chunk, such as layernorm
+                tensor_parallel_grads.append(g.data.float())
+            elif is_model_parallel_parameter(p):
+                tensor_parallel_grads.append(g.data.float())
+            elif gpc.get_local_rank(ParallelMode.TENSOR) != 0:
+                continue
+            else:
+                raise RuntimeError("Should not arrive here")
+
+        if norm_type == 2.0 and enable_cuda_kernels:
+            tensor_parallel_norm = calc_l2_norm(tensor_parallel_grads) ** norm_type
+        else:
+            tensor_parallel_norm = calc_lp(tensor_parallel_grads, norm_type)
+
+        # If norm is type of float, then we convert them into torch.Tensor.
+        tensor_parallel_norm = get_tensor_norm(tensor_parallel_norm, enable_cuda_kernels)
+        # If grads are on CPU, the norms is also on CPU. Cast them to CUDA tensors
+        if not enable_cuda_kernels:
+            tensor_parallel_norm = move_norm_to_cuda(tensor_parallel_norm)
+
+        total_norm = tensor_parallel_norm
+
+        # Sum across all model-parallel GPUs.
+        if gpc.is_initialized(ParallelMode.MODEL):
+            dist.all_reduce(total_norm, op=dist.ReduceOp.SUM, group=gpc.get_group(ParallelMode.MODEL))
+
+        # This is because we use zero1, so we need to use this reduction.
+        # TODO: Check zero group to be a subset of dp group.
+        dist.all_reduce(total_norm, op=dist.ReduceOp.SUM, group=gpc.get_group(ParallelMode.ZERO1))
+
+        if torch.is_tensor(total_norm):
+            total_norm = total_norm.item()
+
+    # Scale.
+    if total_norm == float("inf") or total_norm == -float("inf"):
+        total_norm = -1
+
+    return total_norm
 
 
 class BaseGradScaler(ABC):

@@ -6,6 +6,13 @@ body:
   - type: markdown
     attributes:
       value: |
+        ## Note
+        For general usage questions or idea discussions, please post it to our [**Forum**](https://github.com/InternLM/InternLM/discussions)
+        Please fill in as **much** of the following form as you're able to. **The clearer the description, the shorter it will take to solve it.**
+
+  - type: markdown
+    attributes:
+      value: |
         If you have already identified the reason, we strongly appreciate you creating a new PR!
         If you need our help, please fill in the following form to help us to identify the bug.
 
@@ -55,3 +62,11 @@ body:
 
         1. Did you make any modifications on the code or config?
         2. What do you think might be the reason?
+
+  - type: markdown
+    attributes:
+      value: |
+        ## Acknowledgement
+        Thanks for taking the time to fill out this report.
+
+        If you have already identified the reason, we strongly appreciate you creating a new PR to fix it [**here**](https://github.com/InternLM/InternLM/pulls)!

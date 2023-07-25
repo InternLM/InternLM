@@ -30,7 +30,7 @@ from internlm.model.loss import FlashGPTLMLoss
 from internlm.model.metrics import AccPerplex
 from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
-from internlm.solver.optimizer.hybrid_zero_optim import HybridZeroOptimizer
+from internlm.solver.optimizer import HybridZeroOptimizer
 from internlm.utils.common import (
     BatchSkipper,
     get_master_node,
@@ -55,6 +55,7 @@ from internlm.utils.parallel import (
     sync_model_param_within_tp,
 )
 from internlm.utils.registry import MODEL_INITIALIZER
+from internlm.utils.writer import Writer
 
 # global llm logger
 logger = get_logger(__file__)
@@ -92,10 +93,6 @@ def initialize_model():
 
     Returns: The neural network model to be trained or evaluated.
     """
-
-    assert (
-        not hasattr(gpc.config.parallel, "pipeline") or gpc.config.parallel.pipeline == 1
-    ), "Pipeline parallelism is not supported for now."
 
     model = MODEL_INITIALIZER.get_module(module_name=gpc.config.model_type)(**(gpc.config.model))
     model = NaiveAMPModel(
@@ -245,6 +242,7 @@ def initialize_optimizer(model: nn.Module):
 def record_current_batch_training_metrics(
     get_tflops_func,
     logger,
+    writer,
     success_update,
     batch_count,
     batch,
@@ -263,6 +261,8 @@ def record_current_batch_training_metrics(
 
     if success_update in (0, True):
         train_state.num_consumed_tokens += batch[1].nelement() * gpc.get_world_size(ParallelMode.DATA)
+
+    acc_perplex = metric.get_metric()
 
     if success_update and gpc.is_rank_for_log():
         lr = optimizer.param_groups[0]["lr"]
@@ -307,16 +307,16 @@ def record_current_batch_training_metrics(
         infos["smallest_batch"] = min_samples_in_batch
         infos["adam_beta2"] = beta2_scheduler.get_beta2()
 
-        res = metric.get_metric()
-        for k, v in res.items():
-            infos[k] = v
+        fwd_bwd_time = round(timer("fwd-bwd").elapsed(), 2)
+        infos["fwd_bwd_time"] = fwd_bwd_time
+
+        for key, value in acc_perplex.items():
+            infos[key] = value
 
         line = ""
-        for k, v in infos.items():
-            line += f"{k}={v},"
-
-        fwd_bwd_time = round(timer("fwd-bwd").elapsed(), 2)
-        line += f"fwd_bwd_time={fwd_bwd_time}"
+        for key, value in infos.items():
+            line += f"{key}={value} "
+            writer.add_scalar(key=key, value=value, step=train_state.step_count)
 
         logger.info(line)
 
@@ -358,6 +358,18 @@ def main(args):
     objs = [current_time]
     dist.broadcast_object_list(objs, src=0)
     current_time = objs[0]
+
+    # initialize customed llm writer
+    with open(args.config, "r") as f:
+        config_lines = f.readlines()
+    writer = Writer(
+        launch_time=current_time,
+        tensorboard_folder=gpc.config.tensorboard_folder,
+        resume_tb_folder=gpc.config.resume_tb_folder,
+        config=config_lines,
+        logger=logger,
+        enable_tb=gpc.config.enable_tb,
+    )
 
     model_load_path = None
     if load_resume_ckpt_folder is not None:
@@ -468,7 +480,6 @@ def main(args):
             batch, forward_only=False, return_loss=True, return_output_label=False, post_fn=metric
         )
         timer("fwd-bwd").stop()
-        assert loss is not None
 
         # update parameters, and returns (success_update, grad_norm)
         trainer_result = trainer.step()
@@ -486,6 +497,7 @@ def main(args):
         record_current_batch_training_metrics(
             get_tflops_func=get_tflops_func,
             logger=logger,
+            writer=writer,
             success_update=success_update,
             batch_count=batch_count,
             batch=batch,
