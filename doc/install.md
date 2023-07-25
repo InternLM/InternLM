@@ -5,10 +5,10 @@
 - Python == 3.10
 - GCC == 10.2.0
 - MPFR == 4.1.0
-- CUDA == 11.7
-- Pytorch == 1.13.1+cu117
+- CUDA >= 11.7
+- Pytorch >= 1.13.1
 - Transformers >= 4.28.0
-- Flash-Attention == v1.0.5
+- Flash-Attention >= v1.0.5
 - Apex == 23.05
 - Ampere或者Hopper架构的GPU (例如H100, A100)
 - Linux OS
