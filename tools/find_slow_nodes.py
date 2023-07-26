@@ -210,53 +210,6 @@ class ProcessFilter:
             left_group, right_group = node_rank_groups[: int(number_nodes/2) + 1], node_rank_groups[int(number_nodes/2)+1: ]
             return left_group, right_group
 
-def get_nodehost(nodes_str):
-    hostlist = []
-
-    tmp_nodelist = copy.deepcopy(nodes_str)
-    tmp_nodelist = tmp_nodelist.replace(" ", "")
-
-    tmplist = re.split(r",[A-Za-z]",tmp_nodelist)
-    # if len(tmplist) == 1 and "," in tmplist[0]:
-    #     tmplist = tmplist[0].split(",")
-    for tmpiter in tmplist:
-        tmpres = re.findall(r"(\d[\d,-]+)", tmpiter)
-        if len(tmpres) == 1:
-            tmpstr = tmpres[0]
-            if tmpstr.endswith("-"):
-                tmpstr = tmpstr[:-1]
-            tmplist2 = tmpstr.split("-")
-            ip = ".".join(tmplist2[-4:])
-            host = socket.gethostbyaddr(ip)[0]
-            hostlist.append(host)
-        else:
-            tmpprefix = tmpres[0]
-            tmpstr = tmpres[1]
-
-            if tmpprefix.endswith("-"):
-                tmpprefix = tmpprefix[:-1]
-            prefix = ".".join(tmpprefix.split("-")[-3:])
-            if tmpstr.endswith(","):
-                tmpstr = tmpstr[:-1]
-            substrings = tmpstr.split(",")
-            ipnumresult = []
-            for s in substrings:
-                # 解析 x-y 格式的子字符串
-                m = re.match(r"\d+-\d+", s)
-                if m:
-                    range_str = m.group()  # e.g., "4-6"
-                    start, end = map(int, range_str.split("-"))
-                    ipnumresult.extend(range(start, end + 1))
-                else:
-                    num = int(s)
-                    ipnumresult.append(num)
-            hostlist.extend([socket.gethostbyaddr(prefix + "." + str(n))[0] for n in ipnumresult])
-    return hostlist
-
-def get_hosts_str(nodelist):
-    hostlist = get_nodehost(nodelist)
-    
-    return ",".join(hostlist)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="nccl test tools for finding slow nodes")
@@ -269,13 +222,11 @@ if __name__ == "__main__":
     parser.add_argument("--warmup", type=int, default=5, help="warm-up iters")
     parser.add_argument("--iters", type=int, default=20, help="communication iters")
     parser.add_argument("--local_rank", type=int, default=0)
-    parser.add_argument("--nodes", type=str, default=None)
+    parser.add_argument("--gethost", action="store_true")
     
     args = parser.parse_args()
-    if args.nodes:
-        hosts = get_hosts_str(args.nodes)
-        if (args.launcher == "slurm" and os.environ['SLURM_PROCID'] == '0') or (args.launcher == "torch" and args.local_rank == 0):
-            print(hosts)
+    if args.gethost:
+        print(socket.gethostname())
     else:
         filter = ProcessFilter(launcher=args.launcher, ib_threshold=args.ib_threshold, nvlink_threshold=args.nvlink_threshold, buffer_size=args.buffersize, port=args.port, is_local=args.local, warmup=args.warmup, iters=args.iters)
         

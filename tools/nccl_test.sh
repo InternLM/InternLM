@@ -16,7 +16,10 @@ function do_slurm(){
 }
 
 function get_nodes_slurm(){
-    nodes=$(srun -p $partition -N $nnodes --gpus-per-task 1 --ntasks-per-node=$gpus_per_node bash -c 'python find_slow_nodes.py --launcher slurm --nodes $SLURM_NODELIST')
+    local nodestr=$(srun -p $partition -N $nnodes --gpus-per-task 1 --ntasks-per-node=$gpus_per_node bash -c 'python find_slow_nodes.py --launcher slurm --nodes $SLURM_NODELIST')
+    local nodearray=($(echo $nodestr | awk -F ' ' '{for(i=1; i<=NF; i++) print $i}'))
+    nodes=$(printf "%s," "${nodearray[@]}")
+    nodes=${nodes%,}
 }
 
 function do_torch(){
@@ -26,7 +29,7 @@ function do_torch(){
 
 function nccl_test_slurm(){
   local nodestr=$1
-  IFS=',' read -ra nodearray <<< "$nodestr"
+  nodearray=($(echo $nodes | awk -F ',' '{for(i=1; i<=NF; i++) print $i}'))
   echo $nodestr
   local num_group=${#nodearray[@]}
   do_slurm "$nodestr" "${num_group}"
@@ -65,4 +68,4 @@ function nccl_test_slurm(){
 get_nodes_slurm
 nccl_test_slurm "${nodes}"
 
-# echo $slow_nodes
+echo $slow_nodes
