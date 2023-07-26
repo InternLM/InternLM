@@ -133,7 +133,7 @@ We use [LMDeploy](https://github.com/InternLM/LMDeploy) to complete the one-clic
 2. Use the following command for quick deployment:
 
 ```
-  python3 -m lmdeploy.serve.turbomind.deploy InternLM-7B /path/to/internlm-7b/model hf
+  python3 -m lmdeploy.serve.turbomind.deploy internlm-chat-7b /path/to/internlm-chat-7b/model
 ```
 
 3. After exporting the model, you can start a server and have a conversation with the deployed model using the following command:

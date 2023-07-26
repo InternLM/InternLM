@@ -126,7 +126,7 @@ streamlit run web_demo.py
 2. 快速的部署命令如下：
 
   ```
-  python3 -m lmdeploy.serve.turbomind.deploy InternLM-7B /path/to/internlm-7b/model hf
+  python3 -m lmdeploy.serve.turbomind.deploy internlm-chat-7b /path/to/internlm-7b/model
   ```
 
 3. 在导出模型后，你可以直接通过如下命令启动服务一个服务并和部署后的模型对话
