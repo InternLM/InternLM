@@ -275,6 +275,8 @@ class PackedFlashInternLm1D(nn.Module):
         use_swiglu: bool = True,
     ):
         super().__init__()
+        
+        self.use_flash_attn = False
 
         if checkpoint_fraction <= 0:
             checkpoint = False
@@ -349,7 +351,6 @@ class PackedFlashInternLm1D(nn.Module):
 
     def forward(self, hidden_states=None, cu_seqlens=None, input_ids=None, indexes=None, inference_params=None):
         # attention_mask: compute attention on the places where the value is 1
-        print("+++++++++++++++input_ids:", input_ids.shape)
         if hasattr(self, "embedding"):
             hidden_states = self.embedding(input_ids)
             if self.embed_grad_scale != 1:
@@ -362,7 +363,8 @@ class PackedFlashInternLm1D(nn.Module):
 
         if cu_seqlens is not None:
             cu_seqlens = cu_seqlens.squeeze(0)
-            hidden_states = hidden_states.squeeze(0)  # If cu_seqlens is passed in，it indicated a packed state，
+            if self.use_flash_attn:
+                hidden_states = hidden_states.squeeze(0)  # If cu_seqlens is passed in，it indicated a packed state，
             # the batch dimension with a size of 1 should be directly squeezed off.
 
         if indexes is not None:
