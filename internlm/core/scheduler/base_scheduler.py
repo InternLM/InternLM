@@ -112,3 +112,33 @@ class BaseScheduler(ABC):
                 '(which is auto-converted to tuple), list, tuple, or dict, ' \
                 'but got {type(outputs)} (model outputs) and {type(labels)} (labels)"
             )
+
+
+class SchedulerHook(ABC):
+    @abstractmethod
+    def before_forward(self, scheduler, inputs) -> None:
+        """Actions before forward"""
+
+    @abstractmethod
+    def after_forward(self, scheduler, outputs) -> None:
+        """Actions after forward"""
+
+    @abstractmethod
+    def before_criterion(self, scheduler, outputs, label) -> None:
+        """Actions before criterion"""
+
+    @abstractmethod
+    def after_criterion(self, scheduler, loss) -> None:
+        """Actions after criterion"""
+
+    @abstractmethod
+    def before_backward(self, scheduler, outputs, outputs_grad) -> None:
+        """Actions before backward"""
+
+    @abstractmethod
+    def after_backward(self, scheduler, inputs_grad) -> None:
+        """Actions after backward"""
+
+    @abstractmethod
+    def post_helper_func(self, scheduler, outputs, label) -> None:
+        """A post helper function"""

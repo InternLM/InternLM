@@ -4,14 +4,14 @@
 # adopted from https://github.com/hpcaitech/ColossalAI/blob/main/colossalai/engine
 
 import inspect
-from typing import Any, Callable, Iterable
+from typing import Any, Callable, Iterable, List, Optional
 
 import torch
 
 from internlm.core.engine import Engine
 from internlm.utils.common import conditional_context
 
-from .base_scheduler import BaseScheduler
+from .base_scheduler import BaseScheduler, SchedulerHook
 
 
 class NonPipelineScheduler(BaseScheduler):
@@ -35,7 +35,12 @@ class NonPipelineScheduler(BaseScheduler):
             return data, label
     """
 
-    def __init__(self, data_process_func: Callable = None, gradient_accumulation_size: int = 1):
+    def __init__(
+        self,
+        data_process_func: Callable = None,
+        gradient_accumulation_size: int = 1,
+        scheduler_hooks: Optional[List[SchedulerHook]] = None,
+    ):
         # check that non-pipeline schedule data process func only takes in one parameter
         # which is the batch data
         if data_process_func:
@@ -50,6 +55,8 @@ class NonPipelineScheduler(BaseScheduler):
         self._grad_accum_batch_size = 1  # static batch size for flash attetion.
         self._grad_accum_offset = 0
 
+        self._hooks = scheduler_hooks
+
         super().__init__(data_process_func)
 
     def pre_processing(self, engine: Engine):
@@ -60,6 +67,10 @@ class NonPipelineScheduler(BaseScheduler):
         """
         pass
 
+    def _call_hooks(self, func_name: str, *args, **kwargs) -> None:
+        for hook in self._hooks:
+            getattr(hook, func_name)(self, *args, **kwargs)
+
     def _load_accum_batch(self, data: Any, label: Any):
         """Loads a batch of data and label for gradient accumulation.
 
@@ -68,7 +79,7 @@ class NonPipelineScheduler(BaseScheduler):
             label (Any): The label to be loaded.
         """
 
-        _data, _label = self._load_micro_batch(
+        _data, _label = self.load_micro_batch(
             data=data, label=label, offset=self._grad_accum_offset, micro_bsz=self._grad_accum_batch_size
         )
         self._grad_accum_offset += self._grad_accum_batch_size
@@ -98,15 +109,23 @@ class NonPipelineScheduler(BaseScheduler):
 
         # forward
         with conditional_context(torch.no_grad(), enable=forward_only):
+            self._call_hooks("before_forward", data)
             output = self._call_engine(engine, data)
+            self._call_hooks("after_forward", output)
+
+            self._call_hooks("post_helper_func", output, label)
 
             if return_loss:
+                self._call_hooks("before_criterion", output, label)
                 loss = self._call_engine_criterion(engine, output, label)
+                self._call_hooks("after_criterion", loss)
                 loss /= scale_loss
 
         # backward
         if not forward_only:
+            self._call_hooks("before_backward", None, None)
             engine.backward(loss)
+            self._call_hooks("after_backward", None)
 
         if not return_loss:
             loss = None

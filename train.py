@@ -5,7 +5,7 @@ import socket
 import time
 import traceback
 from functools import partial
-from typing import Iterable
+from typing import Callable, Iterable, Optional
 
 import torch
 import torch.distributed as dist
@@ -16,6 +16,7 @@ import internlm
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.core.naive_amp import NaiveAMPModel
+from internlm.core.scheduler import SchedulerHook
 from internlm.core.trainer import TrainState
 from internlm.data.batch_sampler import StaticBatchSampler
 from internlm.data.collaters import packed_collate_fn
@@ -94,12 +95,25 @@ def initialize_model():
     """
 
     model = MODEL_INITIALIZER.get_module(module_name=gpc.config.model_type)(**(gpc.config.model))
-    model = NaiveAMPModel(
-        model=model,
-        output_to_fp32=is_no_pp_or_last_stage(),
-        dtype=gpc.config.model.get("dtype", torch.half),
-        sync_buffer=False,
-    )
+    if isinstance(model, nn.ModuleList):
+        model = nn.ModuleList(
+            [
+                NaiveAMPModel(
+                    model=_m,
+                    output_to_fp32=False,  # 由interleaved pipleline scheduler手动控制
+                    dtype=gpc.config.model.get("dtype", torch.half),
+                    sync_buffer=False,
+                )
+                for _m in model
+            ]
+        )
+    else:
+        model = NaiveAMPModel(
+            model=model,
+            output_to_fp32=is_no_pp_or_last_stage(),
+            dtype=gpc.config.model.get("dtype", torch.half),
+            sync_buffer=False,
+        )
 
     # This sync is very important, cause the model weights kept in optimizer are copied
     # from the origin parameters in the memory, so we should make sure the dp sync
@@ -316,6 +330,35 @@ def record_current_batch_training_metrics(
         logger.info(line)
 
 
+class SchedulerMetricHook(SchedulerHook):
+    def __init__(self, metric: Optional[Callable] = None) -> None:
+        self._post_func = metric
+
+    def before_forward(self, scheduler, inputs) -> None:
+        timer("fwd").start()
+
+    def after_forward(self, scheduler, outputs) -> None:
+        timer("fwd").stop()
+
+    def before_criterion(self, scheduler, outputs, label) -> None:
+        timer("cal_loss").start()
+
+    def after_criterion(self, scheduler, loss) -> None:
+        timer("cal_loss").stop()
+
+    def before_backward(self, scheduler, outputs, outputs_grad) -> None:
+        timer("bwd").start()
+
+    def after_backward(self, scheduler, inputs_grad) -> None:
+        timer("bwd").stop()
+
+    def post_helper_func(self, scheduler, outputs, label) -> None:
+        timer("post_fn").start()
+        if self._post_func is not None:
+            self._post_func(outputs, label)
+        timer("post_fn").stop()
+
+
 def main(args):
     # initialize distributed environment
     initialize_distributed_env(config=args.config, launcher=args.launcher, master_port=args.port, seed=args.seed)
@@ -418,6 +461,8 @@ def main(args):
             load_optimizer_checkpoint(load_resume_ckpt_folder, optimizer)
 
     # initialize trainer
+    # TODO: fix metric
+    scheduler_hooks = [SchedulerMetricHook(metric=None)]
     trainer, train_dl, _, _ = internlm.initialize_trainer(
         model=model,
         optimizer=optimizer,
@@ -425,6 +470,7 @@ def main(args):
         train_dataloader=train_dl,
         lr_scheduler=lr_scheduler,
         beta2_scheduler=beta2_scheduler,
+        scheduler_hooks=scheduler_hooks,
     )
 
     # initialize the batch skipper

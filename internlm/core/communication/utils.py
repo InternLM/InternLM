@@ -1,5 +1,6 @@
 # adopted from https://github.com/hpcaitech/ColossalAI/blob/main/colossalai/communication
 
+from functools import wraps
 from typing import List, Tuple, Union
 
 import torch
@@ -19,7 +20,7 @@ def send_meta_helper(obj, next_rank, tensor_kwargs):
     dist.send(send_shape, next_rank)
 
 
-def send_obj_meta(obj, need_meta=True, next_rank=None) -> bool:
+def send_obj_meta(obj, next_rank=None):
     """Sends obj meta information before sending a specific obj.
     Since the recipient must know the shape of the obj in p2p communications,
     meta information of the obj should be sent before communications. This function
@@ -33,22 +34,19 @@ def send_obj_meta(obj, need_meta=True, next_rank=None) -> bool:
     Returns:
         bool: False
     """
-    if need_meta:
-        if next_rank is None:
-            next_rank = gpc.get_next_global_rank(ParallelMode.PIPELINE)
+    if next_rank is None:
+        next_rank = gpc.get_next_global_rank(ParallelMode.PIPELINE)
 
-        tensor_kwargs = {"dtype": torch.long, "device": get_current_device()}
-        if isinstance(obj, torch.Tensor):
-            send_obj_nums = torch.tensor(1, **tensor_kwargs)
-            dist.send(send_obj_nums, next_rank)
-            send_meta_helper(obj, next_rank, tensor_kwargs)
-        else:
-            send_obj_nums = torch.tensor(len(obj), **tensor_kwargs)
-            dist.send(send_obj_nums, next_rank)
-            for tensor_to_send in obj:
-                send_meta_helper(tensor_to_send, next_rank, tensor_kwargs)
-
-    return False
+    tensor_kwargs = {"dtype": torch.long, "device": get_current_device()}
+    if isinstance(obj, torch.Tensor):
+        send_obj_nums = torch.tensor(1, **tensor_kwargs)
+        dist.send(send_obj_nums, next_rank)
+        send_meta_helper(obj, next_rank, tensor_kwargs)
+    else:
+        send_obj_nums = torch.tensor(len(obj), **tensor_kwargs)
+        dist.send(send_obj_nums, next_rank)
+        for tensor_to_send in obj:
+            send_meta_helper(tensor_to_send, next_rank, tensor_kwargs)
 
 
 def recv_meta_helper(prev_rank, tensor_kwargs):
@@ -59,7 +57,7 @@ def recv_meta_helper(prev_rank, tensor_kwargs):
     return recv_shape
 
 
-def recv_obj_meta(obj_shape, prev_rank=None) -> torch.Size:
+def recv_obj_meta(prev_rank=None) -> torch.Size:
     """Receives obj meta information before receiving a specific obj.
     Since the recipient must know the shape of the obj in p2p communications,
     meta information of the obj should be received before communications. This function
@@ -72,21 +70,20 @@ def recv_obj_meta(obj_shape, prev_rank=None) -> torch.Size:
     Returns:
         Union[:class:`torch.Size`, List[:class:`torch.Size`]]: The shape of the obj to be received.
     """
-    if obj_shape is None:
-        if prev_rank is None:
-            prev_rank = gpc.get_prev_global_rank(ParallelMode.PIPELINE)
+    if prev_rank is None:
+        prev_rank = gpc.get_prev_global_rank(ParallelMode.PIPELINE)
 
-        tensor_kwargs = {"dtype": torch.long, "device": get_current_device()}
-        recv_obj_nums = torch.empty((), **tensor_kwargs)
-        dist.recv(recv_obj_nums, prev_rank)
-        if recv_obj_nums.item() == 1:
+    tensor_kwargs = {"dtype": torch.long, "device": get_current_device()}
+    recv_obj_nums = torch.empty((), **tensor_kwargs)
+    dist.recv(recv_obj_nums, prev_rank)
+    if recv_obj_nums.item() == 1:
+        recv_shape = recv_meta_helper(prev_rank, tensor_kwargs)
+        obj_shape = torch.Size(recv_shape)
+    else:
+        obj_shape = []
+        for _ in range(recv_obj_nums.item()):
             recv_shape = recv_meta_helper(prev_rank, tensor_kwargs)
-            obj_shape = torch.Size(recv_shape)
-        else:
-            obj_shape = []
-            for _ in range(recv_obj_nums.item()):
-                recv_shape = recv_meta_helper(prev_rank, tensor_kwargs)
-                obj_shape.append(torch.Size(recv_shape))
+            obj_shape.append(torch.Size(recv_shape))
 
     return obj_shape
 
@@ -127,3 +124,14 @@ def gather_split_1d_tensor(tensor: torch.Tensor) -> torch.Tensor:
     chunks = [gathered[i * numel : (i + 1) * numel] for i in range(world_size)]
     dist.all_gather(chunks, tensor, group=gpc.get_group(ParallelMode.TENSOR))
     return gathered
+
+
+# 一个用于预激活携程的装饰器
+def pre_activated_coroutine(func):
+    @wraps(func)
+    def primer(*args, **kwargs):
+        generator = func(*args, **kwargs)
+        next(generator)
+        return generator
+
+    return primer

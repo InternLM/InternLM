@@ -14,7 +14,11 @@ from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.utils.common import get_current_device
 
-from .utils import gather_split_1d_tensor, split_tensor_into_1d_equal_chunks
+from .utils import (
+    gather_split_1d_tensor,
+    pre_activated_coroutine,
+    split_tensor_into_1d_equal_chunks,
+)
 
 TensorShape = Union[torch.Size, List[int], Tuple[int]]
 
@@ -207,16 +211,13 @@ def recv_forward(
     Returns:
         Union[:class:`torch.Tensor`, List[:class:`torch.Tensor`]]: The input tensor or input tensor list.
     """
-    if gpc.is_pipeline_first_stage():
-        input_tensor = None
-    else:
-        input_tensor, _ = _communicate(
-            recv_prev=True,
-            recv_prev_shape=input_tensor_shape,
-            prev_rank=prev_rank,
-            dtype=dtype,
-            scatter_gather_tensors=scatter_gather_tensors,
-        )
+    input_tensor, _ = _communicate(
+        recv_prev=True,
+        recv_prev_shape=input_tensor_shape,
+        prev_rank=prev_rank,
+        dtype=dtype,
+        scatter_gather_tensors=scatter_gather_tensors,
+    )
     return input_tensor
 
 
@@ -233,16 +234,13 @@ def recv_backward(
     Returns:
         Union[:class:`torch.Tensor`, List[:class:`torch.Tensor`]]: The input gradient tensor or gradident tensor list.
     """
-    if gpc.is_pipeline_last_stage():
-        output_tensor_grad = None
-    else:
-        _, output_tensor_grad = _communicate(
-            recv_next=True,
-            recv_next_shape=output_grad_shape,
-            next_rank=next_rank,
-            dtype=dtype,
-            scatter_gather_tensors=scatter_gather_tensors,
-        )
+    _, output_tensor_grad = _communicate(
+        recv_next=True,
+        recv_next_shape=output_grad_shape,
+        next_rank=next_rank,
+        dtype=dtype,
+        scatter_gather_tensors=scatter_gather_tensors,
+    )
     return output_tensor_grad
 
 
@@ -253,8 +251,7 @@ def send_forward(output_tensor, next_rank=None, scatter_gather_tensors=False) ->
         output_tensor (Union[:class:`torch.Tensor`, List[:class:`torch.Tensor`]]): Tensor to be sent.
         next_rank (int, optional): The rank of the recipient of the tensor.
     """
-    if not gpc.is_pipeline_last_stage():
-        _communicate(object_send_next=output_tensor, next_rank=next_rank, scatter_gather_tensors=scatter_gather_tensors)
+    _communicate(object_send_next=output_tensor, next_rank=next_rank, scatter_gather_tensors=scatter_gather_tensors)
 
 
 def send_backward(input_tensor_grad, prev_rank=None, scatter_gather_tensors=False) -> None:
@@ -271,7 +268,7 @@ def send_backward(input_tensor_grad, prev_rank=None, scatter_gather_tensors=Fals
 
 
 def send_forward_recv_backward(
-    output_tensor, output_grad_shape, recv_next=True, next_rank=None, dtype=torch.float, scatter_gather_tensors=False
+    output_tensor, output_grad_shape, next_rank=None, dtype=torch.float, scatter_gather_tensors=False
 ) -> Union[torch.Tensor, List[torch.Tensor]]:
     """Batched communication operation. Sends the input tensor to the
     next stage in pipeline, while receives the gradient tensor from the
@@ -285,24 +282,21 @@ def send_forward_recv_backward(
     Returns:
         Union[:class:`torch.Tensor`, List[:class:`torch.Tensor`]]: The input gradient tensor.
     """
-    if gpc.is_pipeline_last_stage():
-        output_tensor_grad = None
-    else:
-        _, output_tensor_grad = _communicate(
-            object_send_next=output_tensor,
-            recv_next=recv_next,
-            recv_next_shape=output_grad_shape,
-            next_rank=next_rank,
-            dtype=dtype,
-            scatter_gather_tensors=scatter_gather_tensors,
-        )
+    _, output_tensor_grad = _communicate(
+        object_send_next=output_tensor,
+        recv_next=output_grad_shape is not None,
+        recv_next_shape=output_grad_shape,
+        next_rank=next_rank,
+        dtype=dtype,
+        scatter_gather_tensors=scatter_gather_tensors,
+    )
+
     return output_tensor_grad
 
 
 def send_backward_recv_forward(
     input_tensor_grad,
     input_tensor_shape,
-    recv_prev=True,
     prev_rank=None,
     dtype=torch.float,
     scatter_gather_tensors=False,
@@ -319,24 +313,21 @@ def send_backward_recv_forward(
     Returns:
         Union[:class:`torch.Tensor`, List[:class:`torch.Tensor`]]: The input tensor.
     """
-    if gpc.is_pipeline_first_stage():
-        input_tensor = None
-    else:
-        input_tensor, _ = _communicate(
-            object_send_prev=input_tensor_grad,
-            recv_prev=recv_prev,
-            recv_prev_shape=input_tensor_shape,
-            prev_rank=prev_rank,
-            dtype=dtype,
-            scatter_gather_tensors=scatter_gather_tensors,
-        )
+    input_tensor, _ = _communicate(
+        object_send_prev=input_tensor_grad,
+        recv_prev=input_tensor_shape is not None,
+        recv_prev_shape=input_tensor_shape,
+        prev_rank=prev_rank,
+        dtype=dtype,
+        scatter_gather_tensors=scatter_gather_tensors,
+    )
+
     return input_tensor
 
 
 def send_forward_recv_forward(
     output_tensor,
     input_tensor_shape,
-    recv_prev=True,
     prev_rank=None,
     next_rank=None,
     dtype=torch.float,
@@ -356,7 +347,7 @@ def send_forward_recv_forward(
     """
     input_tensor, _ = _communicate(
         object_send_next=output_tensor,
-        recv_prev=recv_prev,
+        recv_prev=input_tensor_shape is not None,
         recv_prev_shape=input_tensor_shape,
         prev_rank=prev_rank,
         next_rank=next_rank,
@@ -369,7 +360,6 @@ def send_forward_recv_forward(
 def send_backward_recv_backward(
     input_tensor_grad,
     output_grad_shape,
-    recv_next=True,
     prev_rank=None,
     next_rank=None,
     dtype=torch.float,
@@ -389,7 +379,7 @@ def send_backward_recv_backward(
     """
     _, output_tensor_grad = _communicate(
         object_send_prev=input_tensor_grad,
-        recv_next=recv_next,
+        recv_next=output_grad_shape is not None,
         recv_next_shape=output_grad_shape,
         prev_rank=prev_rank,
         next_rank=next_rank,
@@ -404,8 +394,6 @@ def send_forward_backward_recv_forward_backward(
     input_tensor_grad,
     input_tensor_shape,
     output_grad_shape,
-    recv_prev=True,
-    recv_next=True,
     prev_rank=None,
     next_rank=None,
     dtype=torch.float,
@@ -430,8 +418,8 @@ def send_forward_backward_recv_forward_backward(
     input_tensor, output_tensor_grad = _communicate(
         object_send_next=output_tensor,
         object_send_prev=input_tensor_grad,
-        recv_prev=recv_prev,
-        recv_next=recv_next,
+        recv_prev=input_tensor_shape is not None,
+        recv_next=output_grad_shape is not None,
         recv_prev_shape=input_tensor_shape,
         recv_next_shape=output_grad_shape,
         prev_rank=prev_rank,
@@ -440,3 +428,161 @@ def send_forward_backward_recv_forward_backward(
         scatter_gather_tensors=scatter_gather_tensors,
     )
     return input_tensor, output_tensor_grad
+
+
+@pre_activated_coroutine
+def send_forward_and_recv_next_forward_async(
+    output_tensor,
+    recv_prev_shape: Union[torch.Size, List[torch.Size]] = None,
+    dtype: torch.dtype = None,
+    scatter_gather_tensors=False,
+):
+    """send forward output to next rank and recv forward input from prev rank"""
+
+    reqs = []
+    tensor_recv_prev = None
+
+    # prepare send opreations
+    if output_tensor is not None:
+        next_rank = gpc.get_next_global_rank(ParallelMode.PIPELINE)
+
+        output_tensor = process_object_to_send(output_tensor, scatter_gather_tensors)
+
+        try:
+            for tensor_to_comm in output_tensor:
+                reqs.append(dist.P2POp(dist.isend, tensor_to_comm, next_rank))
+        except TypeError:
+            reqs.append(dist.P2POp(dist.isend, output_tensor, next_rank))
+
+    # prepare receive opreations
+    if recv_prev_shape is not None:
+        prev_rank = gpc.get_prev_global_rank(ParallelMode.PIPELINE)
+        # create receive buffer
+        tensor_recv_prev, recv_prev_split = create_recv_buffer_with_shapes(
+            recv_prev_shape, dtype, scatter_gather_tensors
+        )
+        # generate async receive opterations
+        try:
+            for tensor_to_comm in tensor_recv_prev:
+                reqs.append(dist.P2POp(dist.irecv, tensor_to_comm, prev_rank))
+        except TypeError:
+            reqs.append(dist.P2POp(dist.irecv, tensor_recv_prev, prev_rank))
+
+    if len(reqs) > 0:
+        reqs = dist.batch_isend_irecv(reqs)
+
+    # return and do other things
+    yield
+
+    # check communication completed
+    for req in reqs:
+        req.wait()
+    # To protect against race condition when using batch_isend_irecv()
+    torch.cuda.synchronize()
+
+    # 处理接收到的数据
+    if recv_prev_shape is not None and recv_prev_split:
+        if isinstance(tensor_recv_prev, torch.Tensor):
+            tensor_recv_prev = gather_split_1d_tensor(tensor_recv_prev).view(recv_prev_shape).requires_grad_()
+        else:
+            for index in range(len(tensor_recv_prev)):
+                tensor_recv_prev[index] = (
+                    gather_split_1d_tensor(tensor_recv_prev[index]).view(recv_prev_shape[index]).requires_grad_()
+                )
+
+    yield tensor_recv_prev
+
+
+@pre_activated_coroutine
+def send_backward_and_recv_next_backward_async(
+    input_tensor,
+    recv_next_shape: Union[torch.Size, List[torch.Size]] = None,
+    dtype: torch.dtype = None,
+    scatter_gather_tensors=False,
+):
+    reqs = []
+    tensor_recv_next = None
+
+    # prepare send opreations
+    if input_tensor is not None:
+        prev_rank = gpc.get_prev_global_rank(ParallelMode.PIPELINE)
+
+        input_tensor = process_object_to_send(input_tensor, scatter_gather_tensors)
+
+        try:
+            for tensor_to_comm in input_tensor:
+                reqs.append(dist.P2POp(dist.isend, tensor_to_comm, prev_rank))
+        except TypeError:
+            reqs.append(dist.P2POp(dist.isend, input_tensor, prev_rank))
+
+    # prepare receive opreations
+    if recv_next_shape is not None:
+        next_rank = gpc.get_next_global_rank(ParallelMode.PIPELINE)
+        # create receive buffer
+        tensor_recv_next, recv_next_split = create_recv_buffer_with_shapes(
+            recv_next_shape, dtype, scatter_gather_tensors
+        )
+        # generate async receive opreations
+        try:
+            for tensor_to_comm in tensor_recv_next:
+                reqs.append(dist.P2POp(dist.irecv, tensor_to_comm, next_rank))
+        except TypeError:
+            reqs.append(dist.P2POp(dist.irecv, tensor_recv_next, next_rank))
+
+    if len(reqs) > 0:
+        reqs = dist.batch_isend_irecv(reqs)
+
+    # return and do other things
+    yield
+
+    # check communication completed
+    for req in reqs:
+        req.wait()
+    # To protect against race condition when using batch_isend_irecv()
+    torch.cuda.synchronize()
+
+    # 处理接收到的数据
+    if recv_next_shape is not None and recv_next_split:
+        try:
+            for index in range(len(tensor_recv_next)):
+                tensor_recv_next[index] = (
+                    gather_split_1d_tensor(tensor_recv_next[index]).view(recv_next_shape[index]).requires_grad_()
+                )
+        except TypeError:
+            tensor_recv_next = gather_split_1d_tensor(tensor_recv_next).view(recv_next_shape).requires_grad_()
+
+    yield tensor_recv_next
+
+
+class AsynCommunicator:
+    def __init__(
+        self,
+        tensor_to_send: Union[torch.Tensor, List[torch.Tensor]],
+        recv_shape: Union[torch.Size, List[torch.Size]],
+        dtype: torch.dtype = None,
+        scatter_gather_tensors=False,
+        forward: bool = True,
+    ) -> None:
+        self._need_receive = recv_shape is not None
+
+        if forward:
+            self._coroutine = send_forward_and_recv_next_forward_async(
+                tensor_to_send, recv_shape, dtype, scatter_gather_tensors
+            )
+        else:
+            self._coroutine = send_backward_and_recv_next_backward_async(
+                tensor_to_send, recv_shape, dtype, scatter_gather_tensors
+            )
+
+    @property
+    def need_receive(self) -> bool:
+        return self._need_receive
+
+    def start(self) -> None:
+        self._coroutine.send()
+
+    def wait_and_receive(self) -> Union[torch.Tensor, List[torch.Tensor]]:
+        received = self._coroutine.send()
+        self._coroutine.close()
+
+        return received
