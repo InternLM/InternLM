@@ -122,8 +122,8 @@ pipeline parallel: pipeline parallel size, only 1 is accepted currently.
 tensor parallel: tensor parallel size, usually the number of GPUs per node, only 1 is accepted currently.
 """
 parallel = dict(
-    zero1=8,
-    # pipeline=2,
+    zero1=4,
+    pipeline=2,
 )
 
 cudnn_deterministic = False
