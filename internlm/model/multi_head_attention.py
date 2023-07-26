@@ -120,6 +120,7 @@ class MHA(nn.Module):
                 (in case batch is small).
         """
         qkv = self.Wqkv(x)
+        print("+=============== qkv:", qkv.shape)
         if seqlen is None:
             qkv = rearrange(qkv, "b s (three h d) -> b s three h d", three=3, d=self.head_dim)
         else:

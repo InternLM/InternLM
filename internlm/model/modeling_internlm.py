@@ -349,6 +349,7 @@ class PackedFlashInternLm1D(nn.Module):
 
     def forward(self, hidden_states=None, cu_seqlens=None, input_ids=None, indexes=None, inference_params=None):
         # attention_mask: compute attention on the places where the value is 1
+        print("+++++++++++++++input_ids:", input_ids.shape)
         if hasattr(self, "embedding"):
             hidden_states = self.embedding(input_ids)
             if self.embed_grad_scale != 1:
