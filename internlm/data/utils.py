@@ -4,6 +4,8 @@
 import torch
 from torch.nn.utils.rnn import pad_sequence
 
+from internlm.core.context import global_context as gpc
+
 DATASET_TYPE_IDS_MAP = {"en": 0, "cn": 1, "code": 2, "ja": 3, "ar": 4, "kaoshi": 5}
 
 
@@ -30,21 +32,23 @@ def unpack_data(input_ids, cu_seqlens):
     
     if cu_seqlens is not None:
         cu_seqlens = cu_seqlens.squeeze(0)
-
-    if isinstance(cu_seqlens, torch.Tensor):
-        num_sequence = cu_seqlens.shape[0] - 1
-    else:
-        raise RuntimeError("The cu_seqlens should be list or torch.Tensor type")
-    assert not num_sequence == 0
+    
+    num_sequence = gpc.config.data.micro_bsz
+    # if isinstance(cu_seqlens, torch.Tensor):
+    #     num_sequence = cu_seqlens.shape[0] - 1
+    # else:
+    #     raise RuntimeError("The cu_seqlens should be list or torch.Tensor type")
+    # assert not num_sequence == 0
     # obtain the unpacked tensors
     
-    # output = torch.zeros(num_sequence, max_lenth, device=input_ids.device, dtype=input_ids.dtype)
-    tensor_list = []
+    output = torch.zeros(num_sequence, gpc.config.data.seq_len, device=input_ids.device, dtype=input_ids.dtype)
+    # tensor_list = []
     for i in range(num_sequence):
-        tmp_tensor = input_ids[0, cu_seqlens[i]:cu_seqlens[i + 1]]
-        tensor_list.append(tmp_tensor)
-        # seq_length = cu_seqlens[i + 1] - cu_seqlens[i]
-        # output[i, 0:seq_length] = input_ids[0, cu_seqlens[i]:cu_seqlens[i + 1]]
+        
+        # tmp_tensor = input_ids[0, cu_seqlens[i]:cu_seqlens[i + 1]]
+        # tensor_list.append(tmp_tensor)
+        seq_length = cu_seqlens[i + 1] - cu_seqlens[i]
+        output[i, 0:seq_length] = input_ids[0, cu_seqlens[i]:cu_seqlens[i + 1]]
     
-    output = pad_sequence(tensor_list, batch_first=True)
+    # output = pad_sequence(tensor_list, batch_first=True)
     return output

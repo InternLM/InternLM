@@ -80,7 +80,8 @@ def initialize_trainer(
     scheduler = None
     if gpc.is_using_pp():
         gpc.config.NUM_MICRO_BATCHES = gpc.config.data.micro_num
-        tensor_shape = get_tensor_shape()
+        # tensor_shape = get_tensor_shape()
+        tensor_shape = None
         use_interleaved = (
             hasattr(gpc.config, "model") and hasattr(gpc.config.model, "num_chunks") and gpc.config.model.num_chunks > 1
         )
@@ -97,6 +98,7 @@ def initialize_trainer(
             )
         else:
             scheduler = PipelineScheduler(
+                data_process_func=unpack_data,
                 num_microbatches=gpc.config.NUM_MICRO_BATCHES,
                 dtype=gpc.config.model["dtype"],
                 tensor_shape=tensor_shape,

@@ -29,9 +29,9 @@ ckpt = dict(
 data = dict(
     seq_len=SEQ_LEN,
     # micro_num means the number of micro_batch contained in one gradient update
-    micro_num=4,
+    micro_num=8,
     # packed_length = micro_bsz * SEQ_LEN
-    micro_bsz=2,
+    micro_bsz=1,
     pack_sample_into_one=False,
     total_steps=100,
     skip_batches="",
