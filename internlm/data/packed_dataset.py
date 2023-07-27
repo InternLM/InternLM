@@ -97,9 +97,9 @@ class PackedDataset(torch.utils.data.Dataset):
         return pre_pos, pre_token_id, pos, token_id
 
     def build_pack(self, pre_pos: int, pre_token_id: int, pos: int, token_id: int):
-        
+
         pack, cu_seqlens, indexes, labels, type_ids = [], [0], [], [], []
-        
+
         # 表示总共有多少个sequence需要pack
         while pre_pos < pos:
             sample_idx = self.sample_indices[pre_pos]
@@ -152,16 +152,16 @@ class PackedDataset(torch.utils.data.Dataset):
             pre_pos = 0
         else:
             pre_pos = index * gpc.config.data.num_sequence
-        
+
         pos = (index + 1) * gpc.config.data.num_sequence
         return pre_pos, pos
-    
+
     def build_unpack(self, index):
-        
+
         pre_pos, pos = self.cal_pos_unpack(index)
-        
+
         pack, cu_seqlens, indexes, labels, type_ids = [], [0], [], [], []
-        
+
         while pre_pos < pos and pre_pos < len(self.dataset):
             sample_idx = self.sample_indices[pre_pos]
             sample = self.dataset[sample_idx]
@@ -176,19 +176,18 @@ class PackedDataset(torch.utils.data.Dataset):
             cu_seqlens.append(cu_seqlens[-1] + len(chunk))
             indexes.extend(list(range(length)))
             pre_pos = pre_pos + 1
-        
+
         if cu_seqlens[-1] != self.packed_length:
             pack = pack + [0] * (self.packed_length - cu_seqlens[-1])
             labels = labels + [0] * (self.packed_length - cu_seqlens[-1])
             type_ids = type_ids + [0] * (self.packed_length - cu_seqlens[-1])
             indexes.extend(list(range(self.packed_length - cu_seqlens[-1])))
             cu_seqlens.append(self.packed_length)
-        
+
         assert len(pack) == self.packed_length
-        
+
         out = {"tokens": pack, "cu_seqlens": cu_seqlens, "indexes": indexes, "labels": labels, "type_ids": type_ids}
         return out
-        
 
     def __getitem__(self, item: int) -> Dict:
         """Given the index, it returns a dict as
@@ -204,6 +203,7 @@ class PackedDataset(torch.utils.data.Dataset):
             return self.build_pack(pos_before, token_id_before, pos_after, token_id_after)
 
         return self.build_unpack(item)
+
 
 class PackedDatasetWithoutCuSeqlen(torch.utils.data.Dataset):
     """

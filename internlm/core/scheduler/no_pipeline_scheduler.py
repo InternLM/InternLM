@@ -3,14 +3,11 @@
 
 # adopted from https://github.com/hpcaitech/ColossalAI/blob/main/colossalai/engine
 
-import inspect
 from typing import Any, Callable, Iterable
 
 import torch
 
 from internlm.core.engine import Engine
-from internlm.core.context.parallel_context import global_context as gpc
-from internlm.data.utils import unpack_data
 from internlm.utils.common import conditional_context
 
 from .base_scheduler import BaseScheduler
@@ -65,11 +62,11 @@ class NonPipelineScheduler(BaseScheduler):
         _data, _label = self._load_micro_batch(
             data=data, label=label, offset=self._grad_accum_offset, micro_bsz=self._grad_accum_batch_size
         )
-        
+
         if self.data_process_func:
-            _data['input_ids'] = self.data_process_func(_data['input_ids'], _data['cu_seqlens'])
-            label = self.data_process_func(label, _data['cu_seqlens'])
-            
+            _data["input_ids"] = self.data_process_func(_data["input_ids"], _data["cu_seqlens"])
+            label = self.data_process_func(label, _data["cu_seqlens"])
+
         self._grad_accum_offset += self._grad_accum_batch_size
 
         return _data, _label
@@ -146,11 +143,11 @@ class NonPipelineScheduler(BaseScheduler):
         ), "The argument 'return_loss' has to be True when 'forward_only' is False, but got False."
 
         batch_data, batch_size = engine.load_batch(data_iter)
-  
+
         assert (
             batch_size == self._grad_accum_size
         ), f"batch_size:{batch_size} must be equal to gradient accumulation steps:{self._grad_accum_size}"
-        
+
         data, label = batch_data
 
         loss = 0 if return_loss else None

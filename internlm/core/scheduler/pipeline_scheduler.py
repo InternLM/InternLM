@@ -126,10 +126,12 @@ class PipelineScheduler(BaseScheduler):
             data=self.batch_data, label=self.batch_label, offset=self.microbatch_offset, micro_bsz=self.microbatch_size
         )
         self.microbatch_offset += self.microbatch_size
-        
+
         if self.data_process_func:
-            micro_batch_data['input_ids'] = self.data_process_func(micro_batch_data['input_ids'], micro_batch_data['cu_seqlens'])
-            micro_batch_label = self.data_process_func(micro_batch_label, micro_batch_data['cu_seqlens'])
+            micro_batch_data["input_ids"] = self.data_process_func(
+                micro_batch_data["input_ids"], micro_batch_data["cu_seqlens"]
+            )
+            micro_batch_label = self.data_process_func(micro_batch_label, micro_batch_data["cu_seqlens"])
 
         return move_to_device(micro_batch_data), move_to_device(micro_batch_label)
 
@@ -190,7 +192,7 @@ class PipelineScheduler(BaseScheduler):
 
         return data, label
 
-    def _forward_step(self, engine, input_obj, return_tensors, return_output_label=True, accum_loss=None, ft_shapes=None, **kwargs):
+    def _forward_step(self, engine, input_obj, return_tensors, return_output_label=True, accum_loss=None, **kwargs):
         """Forward step for passed-in model. If it is the first stage, the input tensor
         is obtained from data_iterator, otherwise the passed-in input_obj is used.
         Returns output tensor. This is a helper function and can be ignored by users.
@@ -208,7 +210,7 @@ class PipelineScheduler(BaseScheduler):
         micro_batch_data, micro_batch_label = self.load_micro_batch()
         # assert micro_batch_data['input_ids'].shape == micro_batch_label.shape
         data, label = self._get_data_label_for_current_step(input_obj, micro_batch_data, micro_batch_label)
-        
+
         timer("fwd").start()
         output_obj = self._call_engine(engine.model, data)
         timer("fwd").stop()
@@ -297,7 +299,7 @@ class PipelineScheduler(BaseScheduler):
         """
 
         assert (
-            forward_only or return_loss  
+            forward_only or return_loss
         ), "The argument 'return_loss' has to be True when 'forward_only' is False, but got False."
 
         self.load_batch(engine, data_iter)
@@ -339,7 +341,6 @@ class PipelineScheduler(BaseScheduler):
                 return_tensors,
                 return_output_label=return_output_label,
                 accum_loss=accum_loss,
-                ft_shapes=ft_shapes,
                 **kwargs,
             )
             if not gpc.is_last_rank(ParallelMode.PIPELINE):
@@ -376,7 +377,6 @@ class PipelineScheduler(BaseScheduler):
                 return_tensors,
                 return_output_label=return_output_label,
                 accum_loss=accum_loss,
-                ft_shapes=ft_shapes,
                 **kwargs,
             )
             if forward_only:
