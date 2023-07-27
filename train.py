@@ -320,7 +320,7 @@ def record_current_batch_training_metrics(
 
         logger.info(line)
 
-    
+
 def main(args):
     # initialize distributed environment
     initialize_distributed_env(config=args.config, launcher=args.launcher, master_port=args.port, seed=args.seed)
@@ -470,12 +470,12 @@ def main(args):
 
         # zero the grads of parameters
         trainer.zero_grad()
-        
+
         type_ids = batch[0].pop("type_ids", None)
         # process data
         # if use_flash_attn is False, we need to unpack type_ids
         if not gpc.config.model.use_flash_attn:
-            type_ids = unpack_data(type_ids, batch[0]['cu_seqlens'])
+            type_ids = unpack_data(type_ids, batch[0]["cu_seqlens"])
 
         if type_ids is not None:
             metric.set_current_type_ids(type_ids=type_ids)

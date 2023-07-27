@@ -184,7 +184,7 @@ class PackedFlashBaseLayer1D(nn.Module):
             "indexes": indexes,
             "inference_params": inference_params,
         }
-        
+
         if not self.use_flash_attn:
             mixer_kwargs.pop("indexes")
 
