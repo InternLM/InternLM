@@ -25,23 +25,23 @@ ckpt = dict(
     load_optimizer=True,
 )
 
-# TRAIN_FOLDER = "/mnt/petrelfs/share_data/llm_data/0623_scratch_tokenized_merged/train/en/en_CC-MAIN-2022-05/"
+TRAIN_FOLDER = "/mnt/petrelfs/share_data/llm_data/0623_scratch_tokenized_merged/train/en/en_CC-MAIN-2022-05/"
 data = dict(
     seq_len=SEQ_LEN,
     # micro_num means the number of micro_batch contained in one gradient update
     micro_num=8,
     # packed_length = micro_bsz * SEQ_LEN
-    micro_bsz=1,
+    micro_bsz=2,
     pack_sample_into_one=False,
     total_steps=100,
     skip_batches="",
     rampup_batch_size="",
     # Datasets with less than 50 rows will be discarded
     min_length=50,
-    # train_folder=TRAIN_FOLDER,
+    train_folder=TRAIN_FOLDER,
     # only if use_flash_attn=False, the num_sequence is meaningful, which means the number of sequence to be packed
     # and it should be equal to the micro_bsz
-    num_sequence=1,
+    num_sequence=2,
 )
 
 grad_scaler = dict(
