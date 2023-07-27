@@ -33,7 +33,7 @@ def unpack_data(input_ids, cu_seqlens):
     if cu_seqlens is not None:
         cu_seqlens = cu_seqlens.squeeze(0)
     
-    num_sequence = gpc.config.data.micro_bsz
+    num_sequence = gpc.config.data.num_sequence
     # if isinstance(cu_seqlens, torch.Tensor):
     #     num_sequence = cu_seqlens.shape[0] - 1
     # else:

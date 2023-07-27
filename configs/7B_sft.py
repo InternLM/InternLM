@@ -39,6 +39,9 @@ data = dict(
     # Datasets with less than 50 rows will be discarded
     min_length=50,
     # train_folder=TRAIN_FOLDER,
+    # only if use_flash_attn=False, the num_sequence is meaningful, which means the number of sequence to be packed
+    # and it should be equal to the micro_bsz
+    num_sequence=1,
 )
 
 grad_scaler = dict(
@@ -110,6 +113,7 @@ model = dict(
     dtype="torch.bfloat16",
     norm_type="rmsnorm",
     layer_norm_epsilon=1e-5,
+    use_flash_attn=False,
 )
 """
 zero1 parallel:
