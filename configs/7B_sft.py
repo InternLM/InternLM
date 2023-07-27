@@ -126,8 +126,8 @@ pipeline parallel: pipeline parallel size.
 tensor parallel: tensor parallel size, usually the number of GPUs per node.
 """
 parallel = dict(
-    zero1=8,
-    # pipeline=2,
+    zero1=-1,
+    pipeline=2,
 )
 
 cudnn_deterministic = False
