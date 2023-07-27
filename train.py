@@ -27,6 +27,7 @@ from internlm.data.packed_dataset import (
 )
 from internlm.data.utils import DATASET_TYPE_IDS_MAP
 from internlm.model.loss import FlashGPTLMLoss
+from internlm.model.metrics import AccPerplex
 from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
 from internlm.solver.optimizer import HybridZeroOptimizer
@@ -207,8 +208,6 @@ def load_new_batch(train_dl: DataLoader, train_iter: Iterable, train_state: Trai
         train_state.num_consumed_samples_in_epoch = 0
     timer("batch-gen").stop()
 
-    batch[0].pop("type_ids", None)
-
     return batch, train_iter
 
 
@@ -254,6 +253,7 @@ def record_current_batch_training_metrics(
     start_time,
     loss,
     grad_norm,
+    metric,
 ):
     """
     Print some training metrics of current batch.
@@ -261,6 +261,8 @@ def record_current_batch_training_metrics(
 
     if success_update in (0, True):
         train_state.num_consumed_tokens += batch[1].nelement() * gpc.get_world_size(ParallelMode.DATA)
+    if is_no_pp_or_last_stage():
+        acc_perplex = metric.get_metric()
 
     if success_update and gpc.is_rank_for_log():
         lr = optimizer.param_groups[0]["lr"]
@@ -307,6 +309,9 @@ def record_current_batch_training_metrics(
 
         fwd_bwd_time = round(timer("fwd-bwd").elapsed(), 2)
         infos["fwd_bwd_time"] = fwd_bwd_time
+
+        for key, value in acc_perplex.items():
+            infos[key] = value
 
         line = ""
         for key, value in infos.items():
@@ -396,7 +401,7 @@ def main(args):
     criterion = FlashGPTLMLoss(parallel_output=True, label_smoothing=label_smoothing)
 
     # initialize the train data loader
-    train_dl, _ = get_train_data_loader(num_worker=4)
+    train_dl, dataset_types = get_train_data_loader(num_worker=4)
     train_state.init_batch_sampler(train_dl)
 
     # Loading model weights must be done before zero is initialized.
@@ -430,6 +435,14 @@ def main(args):
     # initialize the batch skipper
     batch_skipper = BatchSkipper(skip_batches)
 
+    # initialize metric for calculating accuracy and perplexity
+    metric = AccPerplex(
+        device=torch.cuda.current_device(),
+        tp_pg=gpc.get_group(ParallelMode.TENSOR),
+        dp_pg=gpc.get_group(ParallelMode.DATA),
+        dataset_types=dataset_types,
+    )
+
     trainer.train()
 
     # transfer the train data loader into train data iterator
@@ -457,10 +470,15 @@ def main(args):
 
         # zero the grads of parameters
         trainer.zero_grad()
+        type_ids = batch[0].pop("type_ids", None)
+        if type_ids is not None:
+            metric.set_current_type_ids(type_ids=type_ids)
 
         # do forward and backward
         timer("fwd-bwd").start()
-        _, _, loss = trainer.execute_schedule(batch, forward_only=False, return_loss=True, return_output_label=False)
+        _, _, loss = trainer.execute_schedule(
+            batch, forward_only=False, return_loss=True, return_output_label=False, post_fn=metric
+        )
         timer("fwd-bwd").stop()
 
         # update parameters, and returns (success_update, grad_norm)
@@ -490,6 +508,7 @@ def main(args):
             start_time=start_time,
             loss=loss,
             grad_norm=grad_norm,
+            metric=metric,
         )
 
         timer("one-batch").stop()
