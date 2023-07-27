@@ -21,34 +21,27 @@ def get_dataset_type_id(path):
 
 def unpack_data(input_ids, cu_seqlens):
     '''
-    input_ids: (1, packed_length)
+    input_ids: (n, packed_length)
     
     Return:
     output: (batch_size, max_length)
     '''
-    if isinstance(cu_seqlens, list):
-        assert len(cu_seqlens) == 1
-        cu_seqlens = cu_seqlens[0]
-    
-    if cu_seqlens is not None:
-        cu_seqlens = cu_seqlens.squeeze(0)
+
+    bsz = input_ids.shape[0]
     
     num_sequence = gpc.config.data.num_sequence
-    # if isinstance(cu_seqlens, torch.Tensor):
-    #     num_sequence = cu_seqlens.shape[0] - 1
-    # else:
-    #     raise RuntimeError("The cu_seqlens should be list or torch.Tensor type")
-    # assert not num_sequence == 0
-    # obtain the unpacked tensors
     
-    output = torch.zeros(num_sequence, gpc.config.data.seq_len, device=input_ids.device, dtype=input_ids.dtype)
-    # tensor_list = []
-    for i in range(num_sequence):
-        
-        # tmp_tensor = input_ids[0, cu_seqlens[i]:cu_seqlens[i + 1]]
-        # tensor_list.append(tmp_tensor)
-        seq_length = cu_seqlens[i + 1] - cu_seqlens[i]
-        output[i, 0:seq_length] = input_ids[0, cu_seqlens[i]:cu_seqlens[i + 1]]
+    outputs = torch.zeros(bsz, num_sequence, gpc.config.data.seq_len, device=input_ids.device, dtype=input_ids.dtype)
     
-    # output = pad_sequence(tensor_list, batch_first=True)
-    return output
+    for i in range(bsz):
+        output = torch.zeros(num_sequence, gpc.config.data.seq_len, device=input_ids.device, dtype=input_ids.dtype)
+        cu_seqlens_slice = cu_seqlens[i]
+        for j in range(num_sequence):
+            seq_length = cu_seqlens_slice[j + 1] - cu_seqlens_slice[j]
+            output[j, 0:seq_length] = input_ids[0, cu_seqlens_slice[j]:cu_seqlens_slice[j + 1]]
+        outputs[i] = output
+    
+    if bsz == 1:
+        outputs = outputs.squeeze(0)
+
+    return outputs

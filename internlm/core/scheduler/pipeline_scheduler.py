@@ -126,18 +126,11 @@ class PipelineScheduler(BaseScheduler):
             data=self.batch_data, label=self.batch_label, offset=self.microbatch_offset, micro_bsz=self.microbatch_size
         )
         self.microbatch_offset += self.microbatch_size
-        # print("cu_seqlens shape: ", mciro_batch_data['cu_seqlens'])
         
-        # mciro_batch_data: dict input ids: (1, 4096): (567, 899, 1570)
-        # micro_batch_label: (1, 4096)
-        
-        # mciro_batch_data: (3, 1570)
-        # micro_batch_label: (3, 1570)
-        
-        # unpack data process
         if self.data_process_func:
             micro_batch_data['input_ids'] = self.data_process_func(micro_batch_data['input_ids'], micro_batch_data['cu_seqlens'])
             micro_batch_label = self.data_process_func(micro_batch_label, micro_batch_data['cu_seqlens'])
+
         return move_to_device(micro_batch_data), move_to_device(micro_batch_label)
 
     def pre_processing(self, engine):
@@ -212,44 +205,14 @@ class PipelineScheduler(BaseScheduler):
             Union[:class:`torch.Tensor`, List[:class:`torch.Tensor`]]: output or the loss value of the current
                 pipeline stage.
         """
-        # packed data: (data, label)  data: dict, data['input_ids']:(4, 4096)  label: Tensor (4, 4096)
-        
-        # zero=4
-        # pp=2
-        # first_rank: input ids: (3, 1570) label:(3, 1570) output:(3, 1570, 4096)
-        # last_rank: input: (3, 1570, 4096) output: (3, 1570) label:(3, 1570)
-        
-        # last_rank: micro_batch_data (4, 2048)  micro_batch_label (4, 2048)
-        
-        # print("====================================", gpc.get_global_rank())
         micro_batch_data, micro_batch_label = self.load_micro_batch()
         # assert micro_batch_data['input_ids'].shape == micro_batch_label.shape
         data, label = self._get_data_label_for_current_step(input_obj, micro_batch_data, micro_batch_label)
         
-        # assert data['input_ids'].shape == label.shape
-        # if gpc.get_global_rank() == 5:
-        #     import pdb; pdb.set_trace()
         timer("fwd").start()
         output_obj = self._call_engine(engine.model, data)
         timer("fwd").stop()
-        # print("==================================== global: ", gpc.get_global_rank(), flush=True)
-        # print("==================================== local pp: ", gpc.get_local_rank(ParallelMode.PIPELINE), flush=True)
-        # print("==================================== local dp: ", gpc.get_local_rank(ParallelMode.DATA), flush=True)
-        # print("ft shapes: ", ft_shapes, flush=True)
-        # print("offset = :", self.microbatch_offset, flush=True)
-        # print("input ids: ", data['input_ids'], flush=True)
-        # print("cu_seqlens: ", data['cu_seqlens'], flush=True)
-        # print("label: ", label.shape, flush=True)
-        # print("output: ", output_obj.shape, flush=True)
-        # print(output_obj, flush=True)
-        # if input_obj is not None:
-        #     print("input_obj: ", input_obj.shape, flush=True)
-        #     print(input_obj, flush=True)
-        # print("data: ", data['input_ids'].shape)
-        # print("output: ", output_obj.shape)
-        # print("label: ", label.shape)
-        # assert output_obj.shape[0] == label.shape[0]
-        # assert output_obj.shape[1] == label.shape[1]
+
         if gpc.is_last_rank(ParallelMode.PIPELINE):
             timer("post_fn").start()
             post_func = kwargs.get("post_fn")
@@ -334,7 +297,7 @@ class PipelineScheduler(BaseScheduler):
         """
 
         assert (
-            forward_only or return_loss
+            forward_only or return_loss  
         ), "The argument 'return_loss' has to be True when 'forward_only' is False, but got False."
 
         self.load_batch(engine, data_iter)

@@ -77,7 +77,6 @@ def initialize_trainer(
             gradient_handlers.append(handler)
 
     # initialize scheduler for trainer
-    scheduler = None
     if gpc.is_using_pp():
         gpc.config.NUM_MICRO_BATCHES = gpc.config.data.micro_num
         # tensor_shape = get_tensor_shape()
@@ -98,14 +97,13 @@ def initialize_trainer(
             )
         else:
             scheduler = PipelineScheduler(
-                data_process_func=unpack_data,
                 num_microbatches=gpc.config.NUM_MICRO_BATCHES,
                 dtype=gpc.config.model["dtype"],
                 tensor_shape=tensor_shape,
                 scatter_gather_tensors=scatter_gather,
             )
     else:
-        scheduler = NonPipelineScheduler(data_process_func=unpack_data, gradient_accumulation_size=gpc.config.data.gradient_accumulation)
+        scheduler = NonPipelineScheduler(gradient_accumulation_size=gpc.config.data.gradient_accumulation)
 
     # initialize engine for trainer
     engine = Engine(

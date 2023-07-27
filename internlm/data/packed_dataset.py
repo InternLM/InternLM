@@ -98,11 +98,6 @@ class PackedDataset(torch.utils.data.Dataset):
 
     def build_pack(self, pre_pos: int, pre_token_id: int, pos: int, token_id: int):
         
-        # pre_pos:上一次packed的pos
-        # pre_token_id:上一次packed的结束的token index
-        # pos: 所需的sequence的idx，例如，[100, 150, 270, 430, 510]，对于packed length为200，则第一次packed的时候，pos为2，即到index为2之前的sequence，至少需要pos-pre_pos个完整的sequence
-        # token_id：还需要多少个tokens去补齐packed length，三个sequence大于packed length，两个又少，所以这里表示取两个sequence，还需要多少个去补齐。
-        
         pack, cu_seqlens, indexes, labels, type_ids = [], [0], [], [], []
         
         # 表示总共有多少个sequence需要pack
@@ -204,9 +199,10 @@ class PackedDataset(torch.utils.data.Dataset):
          'labels': List[int], # corresponds to 'tokens' and shifted yet, -100 means skipping prediction
         }
         """
+        if gpc.config.model.use_flash_attn:
+            pos_before, token_id_before, pos_after, token_id_after = self.mapping(item)
+            return self.build_pack(pos_before, token_id_before, pos_after, token_id_after)
 
-        # pos_before, token_id_before, pos_after, token_id_after = self.mapping(item)
-        # return self.build_pack(pos_before, token_id_before, pos_after, token_id_after)
         return self.build_unpack(item)
 
 class PackedDatasetWithoutCuSeqlen(torch.utils.data.Dataset):
