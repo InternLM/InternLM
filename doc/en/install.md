@@ -5,10 +5,10 @@ The required packages and corresponding version are shown as follows:
 - Python == 3.10
 - GCC == 10.2.0
 - MPFR == 4.1.0
-- CUDA == 11.7
-- Pytorch == 1.13.1+cu117
-- Transformers >= 4.25.1
-- Flash-Attention == v1.0.5
+- CUDA >= 11.7
+- Pytorch >= 1.13.1
+- Transformers >= 4.28.0
+- Flash-Attention >= v1.0.5
 - Apex == 23.05
 - GPU with Ampere or Hopper architecture (such as H100, A100)
 - Linux OS
@@ -56,4 +56,15 @@ Install Apex (version 23.05):
 cd ./third_party/apex
 pip install -v --disable-pip-version-check --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./
 cd ../../
+```
+
+### Environment Image
+Users can obtain an image with the InternLM runtime environment installed from https://hub.docker.com/r/sunpengsdu/internlm. The commands for pulling the image and starting the container are as follows:
+
+```bash
+# pull image
+docker pull sunpengsdu/internlm:torch1.13-cuda11.7-flashatten1.0.5-centos
+# start container
+docker run --gpus all -d -it --shm-size=2gb --name myinternlm sunpengsdu/internlm:torch1.13-cuda11.7-flashatten1.0.5-centos
+docker exec -it myinternlm bash
 ```
