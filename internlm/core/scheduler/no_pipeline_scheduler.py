@@ -2,8 +2,8 @@
 # -*- encoding: utf-8 -*-
 
 # adopted from https://github.com/hpcaitech/ColossalAI/blob/main/colossalai/engine
+
 import inspect
-from abc import ABC, abstractmethod
 from typing import Any, Callable, Iterable
 
 import torch
@@ -11,101 +11,7 @@ import torch
 from internlm.core.engine import Engine
 from internlm.utils.common import conditional_context
 
-
-class BaseScheduler(ABC):
-    """A basic helper class to control the process of training or evaluation.
-    It mainly composes of forward_backward_step for gradient backward and
-    optimizer_step for parameters update.
-    For the convenience to enable FP16, we aggregate all codes that contain the
-    control of FP16 in class schedule.
-
-    Args:
-        data_process_func (Callable, optional): The preprocessing function which receives a batch of data and arranges
-            them into data and label.
-    """
-
-    def __init__(self, data_process_func: Callable = None):
-        self.data_process_func = data_process_func
-
-    @abstractmethod
-    def pre_processing(self, engine: Engine):
-        """To perform actions before running the schedule.
-
-        Args:
-           engine (internlm.core.Engine): InternLM engine for training and inference.
-        """
-        pass
-
-    @abstractmethod
-    def forward_backward_step(
-        self,
-        engine: Engine,
-        data_iter: Iterable,
-        forward_only: bool,
-        return_loss: bool = True,
-        return_output_label: bool = True,
-    ):
-        """The process function over a batch of dataset for training or evaluation.
-
-        Args:
-            engine (internlm.core.Engine): InternLM engine for training and inference.
-            data_iter (Iterable): Data iterator from which get a batch of data, obtained by calling iter(dataloader).
-            forward_only (bool): If True, the process won't include backward.
-            return_loss (bool, optional): If False, the loss won't be returned.
-            return_output_label (bool, optional): If False, the output and label won't be returned.
-        """
-        pass
-
-    @staticmethod
-    def _call_engine(engine: Engine, inputs: Any):
-        """Calls the engine with the given inputs.
-
-        Args:
-            engine (internlm.core.Engine): InternLM engine for training and inference.
-            inputs (Any): The inputs to the engine, can be of type torch.Tensor, list, tuple, or dict.
-        """
-        if isinstance(inputs, torch.Tensor):
-            return engine(inputs)
-        elif isinstance(inputs, (list, tuple)):
-            return engine(*inputs)
-        elif isinstance(inputs, dict):
-            return engine(**inputs)
-        else:
-            raise TypeError(
-                f"Expected engine inputs to be of type torch.Tensor, list, tuple, or dict, but got {type(inputs)}"
-            )
-
-    @staticmethod
-    def _call_engine_criterion(engine: Engine, outputs: Any, labels: Any):
-        """Calls the engine's criterion with the given outputs and labels.
-
-        Args:
-            engine (internlm.core.Engine): InternLM engine for training and inference.
-            outputs (Any): The outputs from the model, can be of type torch.Tensor, list, tuple, or dict.
-            labels (Any): The labels for the outputs, can be of type torch.Tensor, list, tuple, or dict.
-        """
-        assert isinstance(
-            outputs, (torch.Tensor, list, tuple, dict)
-        ), f"Expect output of model is (torch.Tensor, list, tuple), got {type(outputs)}"
-        if isinstance(outputs, torch.Tensor):
-            outputs = (outputs,)
-        if isinstance(labels, torch.Tensor):
-            labels = (labels,)
-
-        if isinstance(outputs, (tuple, list)) and isinstance(labels, (tuple, list)):
-            return engine.criterion(*outputs, *labels)
-        elif isinstance(outputs, (tuple, list)) and isinstance(labels, dict):
-            return engine.criterion(*outputs, **labels)
-        elif isinstance(outputs, dict) and isinstance(labels, dict):
-            return engine.criterion(**outputs, **labels)
-        elif isinstance(outputs, dict) and isinstance(labels, (list, tuple)):
-            raise ValueError(f"Expected labels to be a dict when the model outputs are dict, but got {type(labels)}")
-        else:
-            raise TypeError(
-                f"Expected model outputs and labels to be of type torch.Tensor ' \
-                '(which is auto-converted to tuple), list, tuple, or dict, ' \
-                'but got {type(outputs)} (model outputs) and {type(labels)} (labels)"
-            )
+from .base_scheduler import BaseScheduler
 
 
 class NonPipelineScheduler(BaseScheduler):
@@ -161,12 +67,10 @@ class NonPipelineScheduler(BaseScheduler):
             data (Any): The data to be loaded.
             label (Any): The label to be loaded.
         """
-        _data = {
-            k: v[self._grad_accum_offset : self._grad_accum_offset + self._grad_accum_batch_size]
-            for k, v in data.items()
-        }
-        _label = label[self._grad_accum_offset : self._grad_accum_offset + self._grad_accum_batch_size]
 
+        _data, _label = self._load_micro_batch(
+            data=data, label=label, offset=self._grad_accum_offset, micro_bsz=self._grad_accum_batch_size
+        )
         self._grad_accum_offset += self._grad_accum_batch_size
 
         return _data, _label
@@ -179,6 +83,7 @@ class NonPipelineScheduler(BaseScheduler):
         forward_only: bool = False,
         return_loss: bool = True,
         scale_loss: int = 1,
+        post_fn: Callable = None,
     ):
         """Trains one batch of data.
 
@@ -190,11 +95,15 @@ class NonPipelineScheduler(BaseScheduler):
                 be executed.
             return_loss (bool, optional): Loss will be returned if True.
             scale_loss (int, optional): The scale factor for the loss.
+            post_fn (Callable, optional): Call back function after executing data forward output.
         """
 
         # forward
         with conditional_context(torch.no_grad(), enable=forward_only):
             output = self._call_engine(engine, data)
+
+            if post_fn is not None:
+                post_fn(output, label)
 
             if return_loss:
                 loss = self._call_engine_criterion(engine, output, label)
@@ -216,6 +125,7 @@ class NonPipelineScheduler(BaseScheduler):
         forward_only: bool = False,
         return_loss: bool = True,
         return_output_label: bool = True,
+        post_fn: Callable = None,
     ):
         """The process function that loads a batch of dataset and feeds it to the model.
         The returned labels and loss will None if :attr:`return_loss` is False.
@@ -227,6 +137,7 @@ class NonPipelineScheduler(BaseScheduler):
                 If True, the model is run for the forward pass, else back propagation will be executed.
             return_loss (bool, optional): Loss will be returned if True.
             return_output_label (bool, optional): Output and label will be returned if True.
+            post_fn (Callable, optional): Call back function after executing data forward output.
 
         Returns:
             Tuple[:class:`torch.Tensor`]: A tuple of (output, label, loss), loss and label could be None.
@@ -264,7 +175,7 @@ class NonPipelineScheduler(BaseScheduler):
             _data, _label = self._load_accum_batch(data, label)
 
             _output, _loss = self._train_one_batch(
-                _data, _label, engine, forward_only, return_loss, self._grad_accum_size
+                _data, _label, engine, forward_only, return_loss, self._grad_accum_size, post_fn
             )
 
             if return_loss:

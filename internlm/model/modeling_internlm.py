@@ -402,9 +402,10 @@ def _build_generic_model_1d(num_layers, num_chunks, device=torch.device("cuda"),
     pipeline_size = gpc.get_world_size(ParallelMode.PIPELINE)
     pipeline_rank = gpc.get_local_rank(ParallelMode.PIPELINE)
 
-    # all_parts = partition_uniform_with_embed2(num_layers, pipeline_size, num_chunks)
     all_parts = partition_uniform(num_layers, pipeline_size, num_chunks)
     parts = all_parts[pipeline_rank]
+    if gpc.is_rank_for_log():
+        logger.info(f"The layer sharding is {all_parts}.")
 
     models = []
 

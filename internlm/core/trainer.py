@@ -7,7 +7,12 @@ import json
 from typing import Iterable, Optional
 
 from internlm.core.engine import Engine
-from internlm.core.no_pipeline_scheduler import BaseScheduler, NonPipelineScheduler
+from internlm.core.scheduler import (
+    BaseScheduler,
+    InterleavedPipelineScheduler,
+    NonPipelineScheduler,
+    PipelineScheduler,
+)
 
 
 class TrainState:
@@ -112,8 +117,7 @@ class Trainer:
             ), f"expected schedule to be of type BaseSchedule, but got {type(schedule)}"
             self._schedule = schedule
 
-        if self.uses_pipeline:
-            self._schedule.pre_processing(self)
+        self._schedule.pre_processing(self._engine)
 
     @property
     def engine(self):
@@ -126,7 +130,7 @@ class Trainer:
     @property
     def uses_pipeline(self):
         """Returns whether the pipeline parallel is used or not."""
-        return False
+        return isinstance(self._schedule, (PipelineScheduler, InterleavedPipelineScheduler))
 
     def train(self):
         self._engine.train()

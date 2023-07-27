@@ -22,9 +22,9 @@ class Registry:
         """Registers a module represented in `module_class`.
 
         Args:
-            module_class (class): The module to be registered.
+            module_name (str): The name of module to be registered.
         Returns:
-            class: The module to be registered, so as to use it normally if via importing.
+            function: The module to be registered, so as to use it normally if via importing.
         Raises:
             AssertionError: Raises an AssertionError if the module has already been registered before.
         """
