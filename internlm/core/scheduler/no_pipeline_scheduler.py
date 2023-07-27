@@ -39,7 +39,6 @@ class NonPipelineScheduler(BaseScheduler):
         self._grad_accum_size = gradient_accumulation_size
         self._grad_accum_batch_size = 1  # static batch size for flash attetion.
         self._grad_accum_offset = 0
-        self.data_process_func = data_process_func
 
         super().__init__(data_process_func)
 
