@@ -10,9 +10,9 @@ VOCAB_SIZE = 103168
 # Ckpt folder format:
 # fs: 'local:/mnt/nfs/XXX'
 # oss: 'boto3:s3://model_weights/XXX'
-MODEL_ONLY_FOLDER = None #"local:llm_ckpts/xxxx"
-SAVE_CKPT_FOLDER = None #"local:llm_ckpts"
-LOAD_CKPT_FOLDER = None #"local:llm_ckpts/49"
+MODEL_ONLY_FOLDER = "local:llm_ckpts/xxxx"
+SAVE_CKPT_FOLDER = "local:llm_ckpts"
+LOAD_CKPT_FOLDER = "local:llm_ckpts/49"
 ckpt = dict(
     # Path to save training ckpt.
     save_ckpt_folder=SAVE_CKPT_FOLDER,
@@ -25,7 +25,7 @@ ckpt = dict(
     load_optimizer=True,
 )
 
-TRAIN_FOLDER = "/mnt/petrelfs/share_data/llm_data/0623_scratch_tokenized_merged/train/en/en_CC-MAIN-2022-05/"
+TRAIN_FOLDER = "/path/to/dataset"
 data = dict(
     seq_len=SEQ_LEN,
     # micro_num means the number of micro_batch contained in one gradient update
@@ -126,7 +126,7 @@ pipeline parallel: pipeline parallel size.
 tensor parallel: tensor parallel size, usually the number of GPUs per node.
 """
 parallel = dict(
-    zero1=-1,
+    zero1=8,
     pipeline=2,
 )
 
