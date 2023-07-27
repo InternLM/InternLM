@@ -188,6 +188,9 @@ class PackedFlashBaseLayer1D(nn.Module):
         if not self.use_flash_attn:
             mixer_kwargs.pop("indexes")
 
+        if not self.use_flash_attn:
+            mixer_kwargs.pop("indexes")
+
         def _dropout_and_norm_attn(_hidden_states):
             _dropped = self.dropout1(_hidden_states)
             _residual = _dropped

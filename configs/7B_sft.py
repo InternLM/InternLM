@@ -25,23 +25,23 @@ ckpt = dict(
     load_optimizer=True,
 )
 
-TRAIN_FOLDER = "/path/to/dataset"
+TRAIN_FOLDER = "/mnt/petrelfs/share_data/llm_data/0623_scratch_tokenized_merged/train/en/en_CC-MAIN-2022-05/"
 data = dict(
     seq_len=SEQ_LEN,
     # micro_num means the number of micro_batch contained in one gradient update
-    micro_num=4,
+    micro_num=8,
     # packed_length = micro_bsz * SEQ_LEN
-    micro_bsz=2,
-    pack_sample_into_one=False,
-    total_steps=50000,
+    micro_bsz=1,
+    pack_sample_into_one=True,
+    total_steps=100,
     skip_batches="",
     rampup_batch_size="",
     # Datasets with less than 50 rows will be discarded
     min_length=50,
-    # train_folder=TRAIN_FOLDER,
+    train_folder=TRAIN_FOLDER,
     # only if use_flash_attn=False, the num_sequence is meaningful, which means the number of sequence to be packed
     # and it should be equal to the micro_bsz
-    num_sequence=2,
+    num_sequence=1,
 )
 
 grad_scaler = dict(
@@ -60,7 +60,7 @@ grad_scaler = dict(
     # the maximum loss scale, defaults to None
     max_scale=2**24,
     # the number of overflows before decreasing loss scale, defaults to 2
-    hysteresis=2,
+    hysteresis=1,
 )
 
 hybrid_zero_optimizer = dict(
@@ -100,7 +100,7 @@ beta2_scheduler = dict(
 )
 
 model = dict(
-    checkpoint=False,
+    checkpoint=True,
     num_attention_heads=NUM_ATTENTION_HEAD,
     embed_split_hidden=True,
     vocab_size=VOCAB_SIZE,
@@ -127,7 +127,11 @@ tensor parallel: tensor parallel size, usually the number of GPUs per node.
 """
 parallel = dict(
     zero1=-1,
+<<<<<<< HEAD
     pipeline=2,
+=======
+    # pipeline=2,
+>>>>>>> self-attn-before
 )
 
 cudnn_deterministic = False

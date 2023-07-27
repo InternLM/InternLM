@@ -470,11 +470,13 @@ def main(args):
 
         # zero the grads of parameters
         trainer.zero_grad()
+
         type_ids = batch[0].pop("type_ids", None)
         # process data
         # if use_flash_attn is False, we need to unpack type_ids
-        if type_ids is not None and not gpc.config.model.use_flash_attn:
+        if not gpc.config.model.use_flash_attn:
             type_ids = unpack_data(type_ids, batch[0]["cu_seqlens"])
+
         if type_ids is not None:
             metric.set_current_type_ids(type_ids=type_ids)
 

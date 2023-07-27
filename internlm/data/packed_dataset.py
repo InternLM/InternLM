@@ -97,6 +97,7 @@ class PackedDataset(torch.utils.data.Dataset):
         return pre_pos, pre_token_id, pos, token_id
 
     def build_pack(self, pre_pos: int, pre_token_id: int, pos: int, token_id: int):
+
         pack, cu_seqlens, indexes, labels, type_ids = [], [0], [], [], []
 
         while pre_pos < pos:
@@ -195,10 +196,10 @@ class PackedDataset(torch.utils.data.Dataset):
          'labels': List[int], # corresponds to 'tokens' and shifted yet, -100 means skipping prediction
         }
         """
-
         if gpc.config.model.use_flash_attn:
             pos_before, token_id_before, pos_after, token_id_after = self.mapping(item)
             return self.build_pack(pos_before, token_id_before, pos_after, token_id_after)
+
         return self.build_unpack(item)
 
 

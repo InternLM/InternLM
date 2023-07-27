@@ -13,6 +13,7 @@ from torch.utils.data import DataLoader
 
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
+from internlm.data.utils import unpack_data
 from internlm.core.engine import Engine
 from internlm.core.gradient_handler import PipelineSharedModuleGradientHandler
 from internlm.core.scheduler.no_pipeline_scheduler import NonPipelineScheduler
@@ -77,11 +78,12 @@ def initialize_trainer(
             gradient_handlers.append(handler)
 
     # initialize scheduler for trainer
-    scheduler = None
+    
     if gpc.config.model.use_flash_attn:
         data_fn = None
     else:
         data_fn = unpack_data
+    
     if gpc.is_using_pp():
         gpc.config.NUM_MICRO_BATCHES = gpc.config.data.micro_num
         if gpc.config.model.use_flash_attn:

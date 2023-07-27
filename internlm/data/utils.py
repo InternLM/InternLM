@@ -18,9 +18,11 @@ def get_dataset_type_id(path):
     assert len(match_idxes) == 1, f"{path}, match_idxes should be 1, but got {match_idxes} from {DATASET_TYPE_IDS_MAP}"
     return match_idxes[0]
 
+
 def unpack_data(input_ids, cu_seqlens):
     """
     input_ids: (n, packed_length)
+
     Return:
     output: (batch_size, max_length)
     """

@@ -65,7 +65,6 @@ class NonPipelineScheduler(BaseScheduler):
         if self.data_process_func:
             _data["input_ids"] = self.data_process_func(_data["input_ids"], _data["cu_seqlens"])
             _label = self.data_process_func(_label, _data["cu_seqlens"])
-        
         self._grad_accum_offset += self._grad_accum_batch_size
 
         return _data, _label

@@ -122,16 +122,18 @@ class PipelineScheduler(BaseScheduler):
         self.microbatch_size = self.batch_size // self.num_microbatches
 
     def load_micro_batch(self):
-        micro_batch_label, micro_batch_label = self._load_micro_batch(
+        micro_batch_data, micro_batch_label = self._load_micro_batch(
             data=self.batch_data, label=self.batch_label, offset=self.microbatch_offset, micro_bsz=self.microbatch_size
         )
         self.microbatch_offset += self.microbatch_size
 
         if self.data_process_func:
-            micro_batch_label["input_ids"] = self.data_process_func(micro_batch_label["input_ids"], micro_batch_label["cu_seqlens"])
-            micro_batch_label = self.data_process_func(micro_batch_label, micro_batch_label["cu_seqlens"])
+            micro_batch_data["input_ids"] = self.data_process_func(
+                micro_batch_data["input_ids"], micro_batch_data["cu_seqlens"]
+            )
+            micro_batch_label = self.data_process_func(micro_batch_label, micro_batch_data["cu_seqlens"])
 
-        return move_to_device(micro_batch_label), move_to_device(micro_batch_label)
+        return move_to_device(micro_batch_data), move_to_device(micro_batch_label)
 
     def pre_processing(self, engine):
         model = engine.model
@@ -206,11 +208,13 @@ class PipelineScheduler(BaseScheduler):
                 pipeline stage.
         """
         micro_batch_data, micro_batch_label = self.load_micro_batch()
-
+        # assert micro_batch_data['input_ids'].shape == micro_batch_label.shape
         data, label = self._get_data_label_for_current_step(input_obj, micro_batch_data, micro_batch_label)
+
         timer("fwd").start()
         output_obj = self._call_engine(engine.model, data)
         timer("fwd").stop()
+
         if gpc.is_last_rank(ParallelMode.PIPELINE):
             timer("post_fn").start()
             post_func = kwargs.get("post_fn")
@@ -297,6 +301,7 @@ class PipelineScheduler(BaseScheduler):
         assert (
             forward_only or return_loss
         ), "The argument 'return_loss' has to be True when 'forward_only' is False, but got False."
+
         self.load_batch(engine, data_iter)
         num_warmup_microbatches = (
             gpc.get_world_size(ParallelMode.PIPELINE) - gpc.get_local_rank(ParallelMode.PIPELINE) - 1
