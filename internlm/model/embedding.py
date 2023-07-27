@@ -175,7 +175,7 @@ class RotaryEmbedding(torch.nn.Module):
                 self._sin_cached = (torch.sin(freqs) * scale).to(x.dtype)
                 self._cos_k_cached = (torch.cos(freqs) / scale).to(x.dtype)
                 self._sin_k_cached = (torch.sin(freqs) / scale).to(x.dtype)
-    
+
     def forward(self, qkv: torch.Tensor, **kwargs):
         if kwargs.get("indexes", None) is not None:
             return self._forward(qkv, kwargs.pop("indexes"))
@@ -183,7 +183,7 @@ class RotaryEmbedding(torch.nn.Module):
             return self._eval_forward(qkv, seqlen_offset=kwargs.get("inference_params", None).sequence_len_offset)
         else:
             return self._eval_forward(qkv)
-    
+
     def _forward(self, qkv: torch.Tensor, indexes=0) -> Tuple[torch.Tensor, torch.Tensor]:
         self._update_cos_sin_cache(qkv, indexes)
         if self.scale is None:
