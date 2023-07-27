@@ -43,6 +43,7 @@ class MHA(nn.Module):
                                     of x will be done before doing the matmul.
         device (Optional[Union[str, torch.device]]): The device will be used.
         dtype (Optional[torch.dtype]): The type of data.
+        use_flash_attn (bool): Whether to use flash-attn. True by default.
 
     """
 
@@ -57,7 +58,7 @@ class MHA(nn.Module):
         layer_idx: int = None,
         rotary_emb_dim: int = 0,
         rotary_emb_scale_base: int = 0,
-        use_flash_attn: bool = False,
+        use_flash_attn: bool = True,
         sequence_parallel: bool = True,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
@@ -86,10 +87,8 @@ class MHA(nn.Module):
             **factory_kwargs,
         )  # according to https://spaces.ac.cn/archives/9577
 
-        # inner_attn_cls = FlashSelfAttention if use_flash_attn else SelfAttention
-        # inner_cross_attn_cls = FlashCrossAttention if use_flash_attn else CrossAttention
-        inner_attn_cls = SelfAttention
-        inner_cross_attn_cls = CrossAttention
+        inner_attn_cls = FlashSelfAttention if use_flash_attn else SelfAttention
+        inner_cross_attn_cls = FlashCrossAttention if use_flash_attn else CrossAttention
         self.inner_attn = inner_attn_cls(causal=causal, softmax_scale=softmax_scale, attention_dropout=dropout)
         self.inner_cross_attn = inner_cross_attn_cls(
             causal=causal, softmax_scale=softmax_scale, attention_dropout=dropout

@@ -65,11 +65,12 @@ class NonPipelineScheduler(BaseScheduler):
         _data, _label = self._load_micro_batch(
             data=data, label=label, offset=self._grad_accum_offset, micro_bsz=self._grad_accum_batch_size
         )
-        self._grad_accum_offset += self._grad_accum_batch_size
         
         if self.data_process_func:
             _data['input_ids'] = self.data_process_func(_data['input_ids'], _data['cu_seqlens'])
-            _label = self.data_process_func(_label, _data['cu_seqlens'])
+            label = self.data_process_func(label, _data['cu_seqlens'])
+            
+        self._grad_accum_offset += self._grad_accum_batch_size
 
         return _data, _label
 
@@ -145,7 +146,7 @@ class NonPipelineScheduler(BaseScheduler):
         ), "The argument 'return_loss' has to be True when 'forward_only' is False, but got False."
 
         batch_data, batch_size = engine.load_batch(data_iter)
-
+  
         assert (
             batch_size == self._grad_accum_size
         ), f"batch_size:{batch_size} must be equal to gradient accumulation steps:{self._grad_accum_size}"

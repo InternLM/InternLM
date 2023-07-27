@@ -25,7 +25,7 @@ ckpt = dict(
     load_optimizer=True,
 )
 
-# TRAIN_FOLDER = "/path/to/dataset"
+# TRAIN_FOLDER = "/mnt/petrelfs/share_data/llm_data/0623_scratch_tokenized_merged/train/en/en_CC-MAIN-2022-05/"
 data = dict(
     seq_len=SEQ_LEN,
     # micro_num means the number of micro_batch contained in one gradient update
@@ -60,7 +60,7 @@ grad_scaler = dict(
     # the maximum loss scale, defaults to None
     max_scale=2**24,
     # the number of overflows before decreasing loss scale, defaults to 2
-    hysteresis=2,
+    hysteresis=1,
 )
 
 hybrid_zero_optimizer = dict(
@@ -126,8 +126,8 @@ pipeline parallel: pipeline parallel size.
 tensor parallel: tensor parallel size, usually the number of GPUs per node.
 """
 parallel = dict(
-    zero1=4,
-    pipeline=2,
+    zero1=-1,
+    # pipeline=2,
 )
 
 cudnn_deterministic = False
