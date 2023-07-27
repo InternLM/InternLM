@@ -62,10 +62,10 @@ class NonPipelineScheduler(BaseScheduler):
         _data, _label = self._load_micro_batch(
             data=data, label=label, offset=self._grad_accum_offset, micro_bsz=self._grad_accum_batch_size
         )
-
+        
         if self.data_process_func:
             _data["input_ids"] = self.data_process_func(_data["input_ids"], _data["cu_seqlens"])
-            label = self.data_process_func(label, _data["cu_seqlens"])
+            _label = self.data_process_func(_label, _data["cu_seqlens"])
 
         self._grad_accum_offset += self._grad_accum_batch_size
 
