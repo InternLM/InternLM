@@ -122,14 +122,16 @@ class PipelineScheduler(BaseScheduler):
         self.microbatch_size = self.batch_size // self.num_microbatches
 
     def load_micro_batch(self):
-        mciro_batch_data, micro_batch_label = self._load_micro_batch(
+        micro_batch_label, micro_batch_label = self._load_micro_batch(
             data=self.batch_data, label=self.batch_label, offset=self.microbatch_offset, micro_bsz=self.microbatch_size
         )
         self.microbatch_offset += self.microbatch_size
 
-        # unpack data process
-        # TODO by xyt
-        return move_to_device(mciro_batch_data), move_to_device(micro_batch_label)
+        if self.data_process_func:
+            micro_batch_label["input_ids"] = self.data_process_func(micro_batch_label["input_ids"], micro_batch_label["cu_seqlens"])
+            micro_batch_label = self.data_process_func(micro_batch_label, micro_batch_label["cu_seqlens"])
+
+        return move_to_device(micro_batch_label), move_to_device(micro_batch_label)
 
     def pre_processing(self, engine):
         model = engine.model

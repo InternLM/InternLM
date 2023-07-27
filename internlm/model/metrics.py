@@ -51,7 +51,10 @@ class AccPerplex:
         return self.update(logits, labels, type_ids=self.type_ids)
 
     def update(self, logits, labels, type_ids=None):
-        micro_bsz = labels.size(0)
+        if gpc.config.model.use_flash_attn:
+            micro_bsz = labels.size(0)
+        else:
+            micro_bsz = 1
         if type_ids is not None:
             type_ids = type_ids[self.batch_shift * micro_bsz : (self.batch_shift + 1) * micro_bsz].view(-1)
             self.batch_shift += 1
