@@ -100,7 +100,6 @@ class PackedDataset(torch.utils.data.Dataset):
 
         pack, cu_seqlens, indexes, labels, type_ids = [], [0], [], [], []
 
-        # 表示总共有多少个sequence需要pack
         while pre_pos < pos:
             sample_idx = self.sample_indices[pre_pos]
             sample = self.dataset[sample_idx]
@@ -111,7 +110,6 @@ class PackedDataset(torch.utils.data.Dataset):
             assert len(_labels) == len(chunk), (_labels, chunk)
             labels.extend(_labels)
             type_ids.extend([sample.get("type_id", 0)] * len(chunk))
-            # 指定了每个sample的最大长度为max_length_per_sample
             num_new_samples, tokens_left = divmod(len(chunk), self.max_length_per_sample)
             for _ in range(num_new_samples):
                 cu_seqlens.append(cu_seqlens[-1] + self.max_length_per_sample)
