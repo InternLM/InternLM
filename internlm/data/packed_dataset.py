@@ -97,7 +97,6 @@ class PackedDataset(torch.utils.data.Dataset):
         return pre_pos, pre_token_id, pos, token_id
 
     def build_pack(self, pre_pos: int, pre_token_id: int, pos: int, token_id: int):
-
         pack, cu_seqlens, indexes, labels, type_ids = [], [0], [], [], []
 
         while pre_pos < pos:

@@ -24,7 +24,6 @@ def packed_collate_fn(batch, packed_length):
     """
 
     xs, ys, cu_seqlens, indexes, ts = [], [], [], [], []
-    
     for b in batch:
         assert (
             len(b["tokens"]) == packed_length

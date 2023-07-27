@@ -210,11 +210,9 @@ class PipelineScheduler(BaseScheduler):
         micro_batch_data, micro_batch_label = self.load_micro_batch()
         # assert micro_batch_data['input_ids'].shape == micro_batch_label.shape
         data, label = self._get_data_label_for_current_step(input_obj, micro_batch_data, micro_batch_label)
-
         timer("fwd").start()
         output_obj = self._call_engine(engine.model, data)
         timer("fwd").stop()
-
         if gpc.is_last_rank(ParallelMode.PIPELINE):
             timer("post_fn").start()
             post_func = kwargs.get("post_fn")
@@ -301,7 +299,6 @@ class PipelineScheduler(BaseScheduler):
         assert (
             forward_only or return_loss
         ), "The argument 'return_loss' has to be True when 'forward_only' is False, but got False."
-
         self.load_batch(engine, data_iter)
         num_warmup_microbatches = (
             gpc.get_world_size(ParallelMode.PIPELINE) - gpc.get_local_rank(ParallelMode.PIPELINE) - 1

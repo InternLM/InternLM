@@ -470,7 +470,6 @@ def main(args):
 
         # zero the grads of parameters
         trainer.zero_grad()
-
         type_ids = batch[0].pop("type_ids", None)
         # process data
         # if use_flash_attn is False, we need to unpack type_ids
