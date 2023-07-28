@@ -3,7 +3,6 @@
 
 # adopted from https://github.com/hpcaitech/ColossalAI/blob/main/colossalai/engine
 
-import inspect
 from typing import Any, Callable, Iterable
 
 import torch
@@ -36,15 +35,6 @@ class NonPipelineScheduler(BaseScheduler):
     """
 
     def __init__(self, data_process_func: Callable = None, gradient_accumulation_size: int = 1):
-        # check that non-pipeline schedule data process func only takes in one parameter
-        # which is the batch data
-        if data_process_func:
-            sig = inspect.signature(data_process_func)
-            assert len(sig.parameters) == 1, (
-                "The data_process_func only takes in one parameter for NonPipelineSchedule, "
-                "which is a tuple of tensors for the current batch, "
-                "i.e. data_process_func(dataloader_output)."
-            )
 
         self._grad_accum_size = gradient_accumulation_size
         self._grad_accum_batch_size = 1  # static batch size for flash attetion.
@@ -72,6 +62,12 @@ class NonPipelineScheduler(BaseScheduler):
             data=data, label=label, offset=self._grad_accum_offset, micro_bsz=self._grad_accum_batch_size
         )
         self._grad_accum_offset += self._grad_accum_batch_size
+        
+        if self.data_process_func:
+            _data["input_ids"] = self.data_process_func(_data["input_ids"], _data["cu_seqlens"])
+            _label = self.data_process_func(_label, _data["cu_seqlens"])
+            _data.pop("cu_seqlens")
+            _data.pop("indexes")
 
         return _data, _label
 
@@ -152,12 +148,7 @@ class NonPipelineScheduler(BaseScheduler):
             batch_size == self._grad_accum_size
         ), f"batch_size:{batch_size} must be equal to gradient accumulation steps:{self._grad_accum_size}"
 
-        if self.data_process_func:
-            data, label = self.data_process_func(batch_data)
-        else:
-            # if not batch data process func is given,
-            # then we regard the batch data as a simple tuple of (data, label)
-            data, label = batch_data
+        data, label = batch_data
 
         loss = 0 if return_loss else None
         outputs = []
