@@ -31,7 +31,7 @@ data = dict(
     # micro_num means the number of micro_batch contained in one gradient update
     micro_num=4,
     # packed_length = micro_bsz * SEQ_LEN
-    micro_bsz=1,
+    micro_bsz=2,
     pack_sample_into_one=False,
     total_steps=50000,
     skip_batches="",
@@ -124,7 +124,7 @@ tensor parallel: tensor parallel size, usually the number of GPUs per node.
 """
 parallel = dict(
     zero1=8,
-    # pipeline=2,
+    pipeline=2,
 )
 
 cudnn_deterministic = False
