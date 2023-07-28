@@ -84,10 +84,11 @@ def initialize_trainer(
         data_fn = unpack_data
     if gpc.is_using_pp():
         gpc.config.NUM_MICRO_BATCHES = gpc.config.data.micro_num
-        if gpc.config.model.use_flash_attn:
-            tensor_shape = get_tensor_shape()
-        else:
-            tensor_shape = None
+        tensor_shape = get_tensor_shape()
+        # if gpc.config.model.use_flash_attn:
+            # tensor_shape = get_tensor_shape()
+        # else:
+            # tensor_shape = None
         use_interleaved = (
             hasattr(gpc.config, "model") and hasattr(gpc.config.model, "num_chunks") and gpc.config.model.num_chunks > 1
         )

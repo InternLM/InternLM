@@ -184,9 +184,6 @@ class PackedFlashBaseLayer1D(nn.Module):
             "indexes": indexes,
             "inference_params": inference_params,
         }
-        
-        if not self.use_flash_attn:
-            mixer_kwargs.pop("indexes")
 
         def _dropout_and_norm_attn(_hidden_states):
             _dropped = self.dropout1(_hidden_states)
@@ -368,11 +365,10 @@ class PackedFlashInternLm1D(nn.Module):
         if isinstance(cu_seqlens, list):
             assert len(cu_seqlens) == 1
             cu_seqlens = cu_seqlens[0].to(hidden_states.device)
-
+ 
         if cu_seqlens is not None:
             cu_seqlens = cu_seqlens.squeeze(0)
-            if self.use_flash_attn:
-                hidden_states = hidden_states.squeeze(0)  # If cu_seqlens is passed in，it indicated a packed state，
+            hidden_states = hidden_states.squeeze(0)  # If cu_seqlens is passed in，it indicated a packed state，
             # the batch dimension with a size of 1 should be directly squeezed off.
 
         if indexes is not None:

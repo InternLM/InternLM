@@ -27,7 +27,7 @@ def unpack_data(input_ids, cu_seqlens):
 
     bsz = input_ids.shape[0]
 
-    num_sequence = gpc.config.data.num_sequence
+    num_sequence = gpc.config.data["micro_bsz"]
 
     outputs = torch.zeros(bsz, num_sequence, gpc.config.data.seq_len, device=input_ids.device, dtype=input_ids.dtype)
 

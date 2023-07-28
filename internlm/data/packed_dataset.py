@@ -148,9 +148,9 @@ class PackedDataset(torch.utils.data.Dataset):
         if index == 0:
             pre_pos = 0
         else:
-            pre_pos = index * gpc.config.data.num_sequence
+            pre_pos = index * gpc.config.data["micro_bsz"]
 
-        pos = (index + 1) * gpc.config.data.num_sequence
+        pos = (index + 1) * gpc.config.data["micro_bsz"]
         return pre_pos, pos
 
     def build_unpack(self, index):

@@ -31,7 +31,7 @@ data = dict(
     # micro_num means the number of micro_batch contained in one gradient update
     micro_num=4,
     # packed_length = micro_bsz * SEQ_LEN
-    micro_bsz=2,
+    micro_bsz=1,
     pack_sample_into_one=False,
     total_steps=50000,
     skip_batches="",
@@ -39,9 +39,6 @@ data = dict(
     # Datasets with less than 50 rows will be discarded
     min_length=50,
     # train_folder=TRAIN_FOLDER,
-    # only if use_flash_attn=False, the num_sequence is meaningful, which means the number of sequence to be packed
-    # and it should be equal to the micro_bsz
-    num_sequence=2
 )
 
 grad_scaler = dict(
@@ -100,7 +97,7 @@ beta2_scheduler = dict(
 )
 
 model = dict(
-    checkpoint=True,
+    checkpoint=False,
     num_attention_heads=NUM_ATTENTION_HEAD,
     embed_split_hidden=True,
     vocab_size=VOCAB_SIZE,
@@ -127,7 +124,7 @@ tensor parallel: tensor parallel size, usually the number of GPUs per node.
 """
 parallel = dict(
     zero1=8,
-    pipeline=2,
+    # pipeline=2,
 )
 
 cudnn_deterministic = False

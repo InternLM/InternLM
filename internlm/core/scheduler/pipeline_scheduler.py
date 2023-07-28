@@ -30,10 +30,16 @@ def get_tensor_shape():
         return None
 
     if hasattr(gpc.config, "SEQ_LEN") and hasattr(gpc.config.data, "micro_bsz") and hasattr(gpc.config, "HIDDEN_SIZE"):
-        tensor_shape = (
-            gpc.config.SEQ_LEN * gpc.config.data["micro_bsz"],
-            gpc.config.HIDDEN_SIZE,
-        )
+        if gpc.config.model.use_flash_attn:
+            tensor_shape = (
+                gpc.config.SEQ_LEN * gpc.config.data["micro_bsz"],
+                gpc.config.HIDDEN_SIZE,
+            )
+        else:
+            tensor_shape = (
+                gpc.config.data["micro_bsz"], gpc.config.SEQ_LEN,
+                gpc.config.HIDDEN_SIZE,
+            )
         return tensor_shape
     else:
         return None
@@ -132,6 +138,9 @@ class PipelineScheduler(BaseScheduler):
                 micro_batch_data["input_ids"], micro_batch_data["cu_seqlens"]
             )
             micro_batch_label = self.data_process_func(micro_batch_label, micro_batch_data["cu_seqlens"])
+            
+            micro_batch_data.pop("cu_seqlens")
+            micro_batch_data.pop("indexes")
 
         return move_to_device(micro_batch_data), move_to_device(micro_batch_label)
 
