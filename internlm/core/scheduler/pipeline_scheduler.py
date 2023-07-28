@@ -217,7 +217,6 @@ class PipelineScheduler(BaseScheduler):
                 pipeline stage.
         """
         micro_batch_data, micro_batch_label = self.load_micro_batch()
-        # assert micro_batch_data['input_ids'].shape == micro_batch_label.shape
         data, label = self._get_data_label_for_current_step(input_obj, micro_batch_data, micro_batch_label)
 
         timer("fwd").start()
