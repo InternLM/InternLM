@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
+import math
 from abc import ABC, abstractmethod
 from typing import Dict, Optional
 
 import amp_C
-import math
 import torch
 import torch.distributed as dist
 from apex.multi_tensor_apply import multi_tensor_applier
