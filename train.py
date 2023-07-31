@@ -39,7 +39,7 @@ from internlm.utils.common import (
     launch_time,
     parse_args,
 )
-from internlm.utils.logger import get_logger
+from internlm.utils.logger import get_logger, initialize_uniscale_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
 from internlm.utils.model_checkpoint import (
     load_context,
@@ -358,6 +358,10 @@ def main(args):
     objs = [current_time]
     dist.broadcast_object_list(objs, src=0)
     current_time = objs[0]
+
+    # initialize customed llm logger
+    global logger
+    logger = initialize_uniscale_logger(launch_time=current_time)
 
     # initialize customed llm writer
     with open(args.config, "r") as f:
