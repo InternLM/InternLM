@@ -8,21 +8,7 @@ from functools import partial
 import torch
 from torch.utils.tensorboard import SummaryWriter
 
-from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
-
-
-def get_tb_log_file_name():
-    if gpc.is_rank_for_log():
-        tb_prefix = "main_"  # Indicates a rank with more output information
-    else:
-        tb_prefix = ""
-
-    tb_log_file_name = (
-        f"{tb_prefix}dp={gpc.get_local_rank(ParallelMode.DATA)}_"
-        f"tp={gpc.get_local_rank(ParallelMode.TENSOR)}_pp={gpc.get_local_rank(ParallelMode.PIPELINE)}"
-    )
-    return tb_log_file_name
 
 
 def copy_ignore_folder(source_path, target_path):
@@ -40,16 +26,18 @@ def tb_save_run_info(writer, config_lines, global_step=0):
 
 
 def init_tb_writer(
-    launch_time,
+    job_name: str,
+    launch_time: str,
+    file_name: str,
     tensorboard_folder: str,
     resume_tb_folder: str,
     step_count: int,
     config: str,
     logger: logging.Logger,
 ):
-    tb_log_file_name = get_tb_log_file_name()
+    tb_log_file_name = file_name
     if not tensorboard_folder:
-        tb_folder = os.path.join(gpc.config.JOB_NAME, launch_time, "tensorboards")
+        tb_folder = os.path.join(job_name, launch_time, "tensorboards")
     else:
         tb_folder = tensorboard_folder
 
@@ -62,7 +50,7 @@ def init_tb_writer(
 
         tb_logdir = os.path.join(tb_folder, tb_log_file_name)
         writer = SummaryWriter(log_dir=tb_logdir, max_queue=5, purge_step=step_count, flush_secs=3)
-        writer.add_text(tag="job_name", text_string=gpc.config.JOB_NAME, global_step=step_count)
+        writer.add_text(tag="job_name", text_string=job_name, global_step=step_count)
         writer.add_text(tag="tensorboard_folder", text_string=tb_logdir, global_step=step_count)
 
         torch.distributed.broadcast_object_list([tb_folder], src=0)
@@ -95,7 +83,9 @@ class Writer:
     Customed writer based on tensorboard for recording training metrics.
 
     Args:
+        job_name (str): The name of training job, defaults to None.
         launch_time (str): A string representing the launch time of the training.
+        file_name (str): The log file name, defaults to None.
         tensorboard_folder (str): A string representing the folder for saving tensorboard logs.
         resume_tb_folder (str): A string representing the folder for resuming tensorboard logs.
         step_count (int): An integer representing the step count of the training.
@@ -107,7 +97,9 @@ class Writer:
 
     def __init__(
         self,
-        launch_time: str,
+        job_name: str = None,
+        launch_time: str = None,
+        file_name: str = None,
         tensorboard_folder: str = None,
         resume_tb_folder: str = None,
         step_count: int = 0,
@@ -117,7 +109,9 @@ class Writer:
     ) -> None:
         self.enable_tb = enable_tb
         self.tb_writer, self.tb_logdir = init_tb_writer(
+            job_name=job_name,
             launch_time=launch_time,
+            file_name=file_name,
             tensorboard_folder=tensorboard_folder,
             resume_tb_folder=resume_tb_folder,
             step_count=step_count,

@@ -4,8 +4,6 @@
 import logging
 import os
 
-from internlm.core.context import global_context as gpc
-from internlm.utils.writer import get_tb_log_file_name
 
 LOGGER_NAME = "internlm"
 LOGGER_FORMAT = "%(asctime)s\t%(levelname)s %(filename)s:%(lineno)s in %(funcName)s -- %(message)s"
@@ -52,7 +50,9 @@ def get_logger(logger_name: str = LOGGER_NAME, logging_level: str = LOGGER_LEVEL
 
 
 def initialize_uniscale_logger(
-    launch_time: str,
+    job_name: str = None,
+    launch_time: str = None,
+    file_name: str = None,
     name: str = LOGGER_NAME,
     level: str = LOGGER_LEVEL,
     file_path: str = None,
@@ -62,9 +62,12 @@ def initialize_uniscale_logger(
     Initialize uniscale logger.
 
     Args:
+        job_name (str): The name of training job, defaults to None.
+        launch_time (str): The launch time of training job, defaults to None.
+        file_name (str): The log file name, defaults to None.
         name (str): The logger name, defaults to "internlm".
         level (str): The log level, defaults to "info".
-        file_path (str): The log file path, defaults to "./internlm.log".
+        file_path (str): The log file path, defaults to None.
         is_std (bool): Whether to output to console, defaults to True.
 
     Returns:
@@ -78,8 +81,11 @@ def initialize_uniscale_logger(
         return None
 
     if not file_path:
-        log_file_name = get_tb_log_file_name()
-        log_folder = os.path.join(gpc.config.JOB_NAME, launch_time, "logs")
+        assert (
+            job_name and launch_time and file_name
+        ), "If file_path is None, job_name, launch_time and file_name must be setted."
+        log_file_name = file_name
+        log_folder = os.path.join(job_name, launch_time, "logs")
         log_dir = os.path.join(log_folder, log_file_name)
         file_path = log_dir
 

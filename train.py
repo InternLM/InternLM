@@ -53,6 +53,7 @@ from internlm.utils.parallel import (
     is_no_pp_or_last_stage,
     sync_model_param,
     sync_model_param_within_tp,
+    get_parallel_log_file_name,
 )
 from internlm.utils.registry import MODEL_INITIALIZER
 from internlm.utils.writer import Writer
@@ -360,14 +361,20 @@ def main(args):
     current_time = objs[0]
 
     # initialize customed llm logger
-    global logger
-    logger = initialize_uniscale_logger(launch_time=current_time)
+    uniscale_logger = initialize_uniscale_logger(
+        job_name=gpc.config.JOB_NAME, launch_time=current_time, file_name=get_parallel_log_file_name()
+    )
+    if uniscale_logger is not None:
+        global logger
+        logger = uniscale_logger
 
     # initialize customed llm writer
     with open(args.config, "r") as f:
         config_lines = f.readlines()
     writer = Writer(
+        job_name=gpc.config.JOB_NAME,
         launch_time=current_time,
+        file_name=get_parallel_log_file_name(),
         tensorboard_folder=gpc.config.tensorboard_folder,
         resume_tb_folder=gpc.config.resume_tb_folder,
         config=config_lines,

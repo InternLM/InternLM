@@ -46,3 +46,16 @@ def sync_model_param_within_tp(model):
 
 def is_no_pp_or_last_stage():
     return not gpc.is_initialized(ParallelMode.PIPELINE) or gpc.is_last_rank(ParallelMode.PIPELINE)
+
+
+def get_parallel_log_file_name():
+    if gpc.is_rank_for_log():
+        fn_prefix = "main_"  # Indicates a rank with more output information
+    else:
+        fn_prefix = ""
+
+    log_file_name = (
+        f"{fn_prefix}dp={gpc.get_local_rank(ParallelMode.DATA)}_"
+        f"tp={gpc.get_local_rank(ParallelMode.TENSOR)}_pp={gpc.get_local_rank(ParallelMode.PIPELINE)}"
+    )
+    return log_file_name
