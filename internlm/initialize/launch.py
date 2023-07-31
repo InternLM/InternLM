@@ -38,6 +38,7 @@ def get_default_parser():
     parser.add_argument("--local_rank", type=int, help="local rank on the node")
     parser.add_argument("--backend", type=str, default="nccl", help="backend for distributed communication")
     parser.add_argument("--seed", type=int, default=1024)
+    parser.add_argument("--auto_restart", action="store_true", help="auto_restart flag")
     return parser
 
 

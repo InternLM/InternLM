@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
+import ast
 import socket
 import time
 import traceback
@@ -48,6 +49,11 @@ from internlm.utils.model_checkpoint import (
     load_scheduler,
     save_checkpoint,
 )
+from internlm.utils.monitor_and_alert import (
+    init_local_adapter,
+    send_exception,
+    send_keep_alive,
+)
 from internlm.utils.parallel import (
     is_no_pp_or_last_stage,
     sync_model_param,
@@ -64,11 +70,14 @@ def initialize_distributed_env(config: str, launcher: str = "slurm", master_port
     Initialize distributed environment for distributed training.
 
     Args:
-        config (str): Config file path.
+        config (str): Config file path or config dict.
         launcher (str): Launcher for launching distributed environment, can be slurm or torch. "slurm" by default.
         master_port (str): The master port for distributed training. 8888 by default.
         seed (int, optional): Specified random seed for every process. 1024 by default.
     """
+
+    if not config.endswith(".py") and "{" in config and "}" in config:  # Check whether the config is a dictionary
+        config = ast.literal_eval(config)
 
     torch.cuda.empty_cache()
 
@@ -322,6 +331,10 @@ def main(args):
     initialize_distributed_env(config=args.config, launcher=args.launcher, master_port=args.port, seed=args.seed)
     assert hasattr(gpc, "config") and gpc.config is not None
 
+    # init monitor
+    if args.auto_restart and dist.get_global_rank() == 0:
+        init_local_adapter(dist.get_global_rank(), dist.get_rank(), gpc.config)
+
     # init setting
     skip_batches = gpc.config.data.skip_batches
     total_steps = gpc.config.data.total_steps
@@ -465,6 +478,19 @@ def main(args):
             if grad_norm == -99.0 and gpc.is_rank_for_log():  # -99.0 encodes a specific failure case
                 logger.warning(f"Warning: skip parameter update at step {batch_count}.")
 
+        if args.auto_restart and dist.get_global_rank() == 0:
+            num_tokens_in_batch = batch[1].nelement()
+            tk_per_gpu = round(
+                num_tokens_in_batch
+                * gpc.get_world_size(ParallelMode.DATA)
+                / gpc.get_world_size(ParallelMode.GLOBAL)
+                / (time.time() - start_time),
+                2,
+            )
+
+            tflops = get_tflops_func((time.time() - start_time))
+            send_keep_alive(train_state.step_count, loss, tk_per_gpu, tflops, checkpoint_every)
+
         # calculate and record the training metrics, eg. loss, accuracy and so on.
         record_current_batch_training_metrics(
             get_tflops_func=get_tflops_func,
@@ -507,3 +533,10 @@ if __name__ == "__main__":
     except Exception:
         print(f"Raise exception from {socket.gethostname()} with proc id: {get_process_rank()}")
         traceback.print_exc()
+
+        filtered_trace = traceback.format_exc().split("\n")[-10:]
+        format_trace = ""
+        for line in filtered_trace:
+            format_trace += "\n" + line
+        if args.auto_restart:
+            send_exception(format_trace)
