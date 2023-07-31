@@ -85,10 +85,6 @@ def initialize_trainer(
     if gpc.is_using_pp():
         gpc.config.NUM_MICRO_BATCHES = gpc.config.data.micro_num
         tensor_shape = get_tensor_shape()
-        # if gpc.config.model.use_flash_attn:
-            # tensor_shape = get_tensor_shape()
-        # else:
-            # tensor_shape = None
         use_interleaved = (
             hasattr(gpc.config, "model") and hasattr(gpc.config.model, "num_chunks") and gpc.config.model.num_chunks > 1
         )
@@ -112,7 +108,9 @@ def initialize_trainer(
                 scatter_gather_tensors=scatter_gather,
             )
     else:
-        scheduler = NonPipelineScheduler(data_process_func=data_fn, gradient_accumulation_size=gpc.config.data.gradient_accumulation)
+        scheduler = NonPipelineScheduler(
+            data_process_func=data_fn, gradient_accumulation_size=gpc.config.data.gradient_accumulation
+        )
 
     # initialize engine for trainer
     engine = Engine(
