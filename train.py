@@ -526,9 +526,7 @@ def main(args):
 
         # do forward and backward
         timer("fwd-bwd").start()
-        _, _, loss = trainer.execute_schedule(
-            batch, forward_only=False, return_loss=True, return_output_label=False, post_fn=metric
-        )
+        _, _, loss = trainer.execute_schedule(batch, forward_only=False, return_loss=True, return_output_label=False)
         timer("fwd-bwd").stop()
 
         # update parameters, and returns (success_update, grad_norm)
