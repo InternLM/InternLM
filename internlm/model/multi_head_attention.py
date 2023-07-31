@@ -12,13 +12,12 @@ from flash_attn.modules.mha import (
     SelfAttention,
     _update_kv_cache,
 )
-from flash_attn.ops.fused_dense import ColumnParallelLinear, RowParallelLinear
 from torch import nn
 
 from internlm.core.context import IS_TENSOR_PARALLEL, ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.model.embedding import RotaryEmbedding
-
+from internlm.model.linear import ColumnParallelLinear, RowParallelLinear
 
 class MHA(nn.Module):
     """

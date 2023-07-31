@@ -5,16 +5,12 @@ from typing import Optional
 
 import torch
 import torch.nn.functional as F
-from flash_attn.ops.fused_dense import (
-    ColumnParallelLinear,
-    RowParallelLinear,
-    fused_dense_func,
-)
+from torch.distributed import ProcessGroup
 from torch import nn
 
 from internlm.core.context import IS_TENSOR_PARALLEL, ParallelMode
 from internlm.core.context import global_context as gpc
-
+from internlm.model.utils import fused_dense_func_torch, reduce_scatter, all_reduce
 
 class ScaleColumnParallelLinear(nn.Linear):
     """
@@ -61,7 +57,7 @@ class ScaleColumnParallelLinear(nn.Linear):
             weight = self.weight * self.weight_scale + (1 - self.weight_scale) * self.weight.detach()
         else:
             weight = self.weight
-        return fused_dense_func(
+        return fused_dense_func_torch(
             input, weight, self.bias, process_group=self.process_group, sequence_parallel=self.sequence_parallel
         )
 
@@ -107,9 +103,56 @@ class RewardModelLinear(ScaleColumnParallelLinear):
             weight = self.weight * self.weight_scale + (1 - self.weight_scale) * self.weight.detach()
         else:
             weight = self.weight
-        return fused_dense_func(
+        return fused_dense_func_torch(
             input, weight, self.bias, process_group=self.process_group, sequence_parallel=self.sequence_parallel
         )
+
+
+class ColumnParallelLinear(nn.Linear):
+
+    def __init__(self, in_features: int, out_features: int, process_group: ProcessGroup,
+                 bias: bool = True, sequence_parallel=True, device=None, dtype=None) -> None:
+        world_size = torch.distributed.get_world_size(process_group)
+        if out_features % world_size != 0:
+            raise ValueError(f'out_features ({out_features}) must be divisible by '
+                             f'world_size ({world_size})')
+        super().__init__(in_features, out_features // world_size, bias=bias,
+                         device=device, dtype=dtype)
+        self.process_group = process_group
+        self.sequence_parallel = sequence_parallel
+
+    def forward(self, x):
+        # If self.sequence_parallel is True, we're doing Tensor Parallel with sequence parallelism:
+        # we do an all_gather of x before doing the matmul.
+        # If not, then the input is already gathered.
+
+        return fused_dense_func_torch(x, self.weight, self.bias, process_group=self.process_group,
+                                sequence_parallel=self.sequence_parallel)
+
+
+class RowParallelLinear(nn.Linear):
+
+    def __init__(self, in_features: int, out_features: int, process_group: ProcessGroup,
+                 bias: bool = True, sequence_parallel=True, device=None, dtype=None) -> None:
+        world_size = torch.distributed.get_world_size(process_group)
+        rank = torch.distributed.get_rank(process_group)
+        if in_features % world_size != 0:
+            raise ValueError(f'in_features ({in_features}) must be divisible by '
+                             f'world_size ({world_size})')
+        # Only rank 0 will have bias
+        super().__init__(in_features // world_size, out_features, bias=bias and rank == 0,
+                         device=device, dtype=dtype)
+        self.process_group = process_group
+        self.sequence_parallel = sequence_parallel
+
+    def forward(self, x):
+        """
+        We're doing Tensor Parallel with sequence parallelism: we do the matmul and then
+        a reduce_scatter of the result.
+        """
+        out = fused_dense_func_torch(x, self.weight, self.bias)
+        reduce_fn = reduce_scatter if self.sequence_parallel else all_reduce
+        return reduce_fn(out, self.process_group)
 
 
 class FeedForward(nn.Module):
