@@ -199,7 +199,7 @@ def combine_history(prompt):
 
 
 def main():
-    torch.cuda.empty_cache()
+    #torch.cuda.empty_cache()
     print("load model begin.")
     model, tokenizer = load_model()
     print("load model end.")
@@ -237,6 +237,7 @@ def main():
             message_placeholder.markdown(cur_response)
         # Add robot response to chat history
         st.session_state.messages.append({"role": "robot", "content": cur_response, "avatar": robot_avator})
+        torch.cuda.empty_cache()
         
 
 if __name__ == "__main__":

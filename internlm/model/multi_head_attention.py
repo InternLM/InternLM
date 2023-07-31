@@ -43,6 +43,7 @@ class MHA(nn.Module):
                                     of x will be done before doing the matmul.
         device (Optional[Union[str, torch.device]]): The device will be used.
         dtype (Optional[torch.dtype]): The type of data.
+        use_flash_attn (bool): Whether to use flash-attn. True by default.
 
     """
 
@@ -57,7 +58,7 @@ class MHA(nn.Module):
         layer_idx: int = None,
         rotary_emb_dim: int = 0,
         rotary_emb_scale_base: int = 0,
-        use_flash_attn: bool = False,
+        use_flash_attn: bool = True,
         sequence_parallel: bool = True,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
@@ -107,9 +108,9 @@ class MHA(nn.Module):
         if kwargs.get("indexes", None) is not None:
             return self._packed_forward(x=x, inference_params=inference_params, **kwargs)
         else:
-            return self._forward(x=x, seqlen=seqlen, inference_params=inference_params)
+            return self._forward(x=x, seqlen=seqlen, inference_params=inference_params, **kwargs)
 
-    def _forward(self, x, seqlen=None, inference_params=None):
+    def _forward(self, x, seqlen=None, inference_params=None, **kwargs):
         """
         Arguments:
             x: (batch, seqlen, hidden_dim) (where hidden_dim = num heads * head dim) if seqlen=None.
@@ -124,10 +125,8 @@ class MHA(nn.Module):
             qkv = rearrange(qkv, "(b s) (three h d) -> b s three h d", s=seqlen, three=3, d=self.head_dim)
 
         if self.rotary_emb_dim > 0:
-            if inference_params is None:
-                qkv = self.rotary_emb.eval_forward(qkv)
-            else:
-                qkv = self.rotary_emb.eval_forward(qkv, seqlen_offset=inference_params.sequence_len_offset)
+            kwargs["inference_params"] = inference_params
+            qkv = self.rotary_emb(qkv, **kwargs)
 
         if inference_params is None:
             context = self.inner_attn(qkv)
@@ -158,7 +157,8 @@ class MHA(nn.Module):
         """
         qkv = self.Wqkv(x)  # total x hsz'
         qkv = rearrange(qkv, "t (three h d) -> t three h d", three=3, d=self.head_dim)  # total x 3 x n_head x d
-        qkv = self.rotary_emb(qkv, kwargs.pop("indexes"))
+        qkv = self.rotary_emb(qkv, **kwargs)
+        kwargs.pop("indexes")
 
         if inference_params is None:
             context = self.inner_attn(qkv, **kwargs)

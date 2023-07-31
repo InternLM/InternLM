@@ -23,6 +23,7 @@ from internlm.core.scheduler import (
 )
 from internlm.core.scheduler.pipeline_scheduler import get_tensor_shape
 from internlm.core.trainer import Trainer
+from internlm.data.utils import unpack_data
 from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.optimizer.hybrid_zero_optim import BaseOptimizer
 from internlm.utils.common import get_current_device
@@ -79,9 +80,17 @@ def initialize_trainer(
 
     # initialize scheduler for trainer
     scheduler = None
+    if gpc.config.model.use_flash_attn:
+        data_fn = None
+    else:
+        data_fn = unpack_data
     if gpc.is_using_pp():
         gpc.config.NUM_MICRO_BATCHES = gpc.config.data.micro_num
         tensor_shape = get_tensor_shape()
+        # if gpc.config.model.use_flash_attn:
+        # tensor_shape = get_tensor_shape()
+        # else:
+        # tensor_shape = None
         use_interleaved = (
             hasattr(gpc.config, "model") and hasattr(gpc.config.model, "num_chunks") and gpc.config.model.num_chunks > 1
         )
@@ -100,6 +109,7 @@ def initialize_trainer(
             )
         else:
             scheduler = PipelineScheduler(
+                data_process_func=data_fn,
                 num_microbatches=gpc.config.NUM_MICRO_BATCHES,
                 dtype=gpc.config.model["dtype"],
                 tensor_shape=tensor_shape,
@@ -108,6 +118,7 @@ def initialize_trainer(
             )
     else:
         scheduler = NonPipelineScheduler(
+            data_process_func=data_fn,
             gradient_accumulation_size=gpc.config.data.gradient_accumulation,
             scheduler_hooks=scheduler_hooks,
         )

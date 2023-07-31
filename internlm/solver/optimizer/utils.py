@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
+import math
 from abc import ABC, abstractmethod
 from typing import Dict, Optional
 
@@ -9,7 +10,6 @@ import torch
 import torch.distributed as dist
 from apex.multi_tensor_apply import multi_tensor_applier
 from torch import Tensor
-from torch._six import inf
 from torch._utils import _flatten_dense_tensors, _unflatten_dense_tensors
 
 from internlm.core.context import ParallelMode
@@ -17,6 +17,8 @@ from internlm.core.context import global_context as gpc
 from internlm.utils.common import get_tensor_norm, move_norm_to_cuda
 from internlm.utils.logger import get_logger
 from internlm.utils.parallel import is_model_parallel_parameter
+
+inf = math.inf
 
 logger = get_logger(__file__)
 

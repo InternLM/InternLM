@@ -3,7 +3,6 @@
 
 # adopted from https://github.com/hpcaitech/ColossalAI/blob/main/colossalai/engine
 
-import inspect
 from typing import Any, Callable, Iterable, List, Optional
 
 import torch
@@ -74,6 +73,12 @@ class NonPipelineScheduler(BaseScheduler):
         )
         self._grad_accum_offset += self._grad_accum_batch_size
 
+        if self.data_process_func:
+            _data["input_ids"] = self.data_process_func(_data["input_ids"], _data["cu_seqlens"])
+            _label = self.data_process_func(_label, _data["cu_seqlens"])
+            _data.pop("cu_seqlens")
+            _data.pop("indexes")
+
         return _data, _label
 
     def _train_one_batch(
@@ -84,6 +89,7 @@ class NonPipelineScheduler(BaseScheduler):
         forward_only: bool = False,
         return_loss: bool = True,
         scale_loss: int = 1,
+        post_fn: Callable = None,
     ):
         """Trains one batch of data.
 
@@ -95,6 +101,7 @@ class NonPipelineScheduler(BaseScheduler):
                 be executed.
             return_loss (bool, optional): Loss will be returned if True.
             scale_loss (int, optional): The scale factor for the loss.
+            post_fn (Callable, optional): Call back function after executing data forward output.
         """
 
         # forward
@@ -104,6 +111,9 @@ class NonPipelineScheduler(BaseScheduler):
             self._call_hooks("after_forward", output)
 
             self._call_hooks("post_helper_func", output, label)
+
+            if post_fn is not None:
+                post_fn(output, label)
 
             if return_loss:
                 self._call_hooks("before_criterion", output, label)
@@ -129,6 +139,7 @@ class NonPipelineScheduler(BaseScheduler):
         forward_only: bool = False,
         return_loss: bool = True,
         return_output_label: bool = True,
+        post_fn: Callable = None,
     ):
         """The process function that loads a batch of dataset and feeds it to the model.
         The returned labels and loss will None if :attr:`return_loss` is False.
@@ -140,6 +151,7 @@ class NonPipelineScheduler(BaseScheduler):
                 If True, the model is run for the forward pass, else back propagation will be executed.
             return_loss (bool, optional): Loss will be returned if True.
             return_output_label (bool, optional): Output and label will be returned if True.
+            post_fn (Callable, optional): Call back function after executing data forward output.
 
         Returns:
             Tuple[:class:`torch.Tensor`]: A tuple of (output, label, loss), loss and label could be None.
@@ -154,12 +166,7 @@ class NonPipelineScheduler(BaseScheduler):
             batch_size == self._grad_accum_size
         ), f"batch_size:{batch_size} must be equal to gradient accumulation steps:{self._grad_accum_size}"
 
-        if self.data_process_func:
-            data, label = self.data_process_func(batch_data)
-        else:
-            # if not batch data process func is given,
-            # then we regard the batch data as a simple tuple of (data, label)
-            data, label = batch_data
+        data, label = batch_data
 
         loss = 0 if return_loss else None
         outputs = []
@@ -177,7 +184,7 @@ class NonPipelineScheduler(BaseScheduler):
             _data, _label = self._load_accum_batch(data, label)
 
             _output, _loss = self._train_one_batch(
-                _data, _label, engine, forward_only, return_loss, self._grad_accum_size
+                _data, _label, engine, forward_only, return_loss, self._grad_accum_size, post_fn
             )
 
             if return_loss:

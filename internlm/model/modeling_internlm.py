@@ -49,6 +49,7 @@ class PackedFlashBaseLayer1D(nn.Module):
         residual_in_fp32 (bool): Whether to use residual in fp32. False by default.
         device (Optional[Union[str, torch.device]]): The device will be used.
         norm_type (str): Use RMS norm or layernorm."rmsnorm" by default.
+        use_flash_attn (bool): Whether use flash-attn. True by default.
     """
 
     def __init__(
@@ -68,12 +69,14 @@ class PackedFlashBaseLayer1D(nn.Module):
         dropout_selective_checkpoint: bool = True,
         use_scaled_init: bool = True,
         use_swiglu: bool = True,
+        use_flash_attn: bool = True,
     ):
         super().__init__()
         self.checkpoint = checkpoint
         # dropout selective checkpoint can only be enabled when checkpoint is disabled.
         self.dropout_selective_checkpoint = dropout_selective_checkpoint is True and checkpoint is False
         self.layer_idx = layer_idx
+        self.use_flash_attn = use_flash_attn
 
         head_dim = hidden_size // num_attention_heads
         self.mixer = MHA(
@@ -86,7 +89,7 @@ class PackedFlashBaseLayer1D(nn.Module):
             layer_idx=layer_idx,
             rotary_emb_dim=head_dim,
             rotary_emb_scale_base=0,
-            use_flash_attn=True,
+            use_flash_attn=use_flash_attn,
             sequence_parallel=False,
             device=device,
             dtype=dtype,
@@ -244,6 +247,7 @@ class PackedFlashInternLm1D(nn.Module):
         device (Optional[Union[str, torch.device]]): The device will be used. None by default.
         residual_in_fp32 (bool): Whether to use residual in fp32. False by default.
         norm_type (str): Normalization type. Use RMSNorm or LayerNorm. "rmsnorm" by default.
+        use_flash_attn (bool): Whether to use flash-attn. True by default.
 
     """
 
@@ -273,9 +277,11 @@ class PackedFlashInternLm1D(nn.Module):
         dropout_selective_checkpoint: bool = True,
         use_scaled_init: bool = True,
         use_swiglu: bool = True,
+        use_flash_attn: bool = True,
     ):
         super().__init__()
 
+        self.use_flash_attn = use_flash_attn
         if checkpoint_fraction <= 0:
             checkpoint = False
         if not checkpoint:
@@ -322,6 +328,7 @@ class PackedFlashInternLm1D(nn.Module):
                     dropout_selective_checkpoint=dropout_selective_checkpoint,
                     use_scaled_init=use_scaled_init,
                     use_swiglu=use_swiglu,
+                    use_flash_attn=use_flash_attn,
                 )
                 for lid in range(num_layers)
             ]
@@ -358,7 +365,7 @@ class PackedFlashInternLm1D(nn.Module):
         if isinstance(cu_seqlens, list):
             assert len(cu_seqlens) == 1
             cu_seqlens = cu_seqlens[0].to(hidden_states.device)
-
+ 
         if cu_seqlens is not None:
             cu_seqlens = cu_seqlens.squeeze(0)
             hidden_states = hidden_states.squeeze(0)  # If cu_seqlens is passed in，it indicated a packed state，
@@ -456,6 +463,7 @@ def build_model_with_cfg(
     dropout_selective_checkpoint=True,
     use_scaled_init: bool = True,
     use_swiglu: bool = True,
+    use_flash_attn: bool = True,
 ):
     """
     Builde model with config
@@ -485,6 +493,7 @@ def build_model_with_cfg(
         dropout_selective_checkpoint (bool): It can only be enabled when checkpoint is disabled. True by default.
         use_scaled_init (bool): Whether to use scaled init. True by default.
         use_swiglu (bool): Whether to use swiglu. True by default.
+        use_flash_attn (bool): Whether to use flash-attn. True by default.
 
     """
 
@@ -507,6 +516,7 @@ def build_model_with_cfg(
         dropout_selective_checkpoint=dropout_selective_checkpoint,
         use_scaled_init=use_scaled_init,
         use_swiglu=use_swiglu,
+        use_flash_attn=use_flash_attn,
     )
 
     return _build_generic_model_1d(num_layers=num_layers, num_chunks=num_chunks, **cfg)
