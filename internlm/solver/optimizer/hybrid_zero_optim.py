@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
+import math
 from functools import partial
 
 import amp_C
 import torch
 import torch.distributed as dist
 from apex.multi_tensor_apply import multi_tensor_applier
-from torch._six import inf
 from torch.optim import Optimizer
 
 from internlm.core.context import Config, ParallelMode
@@ -33,6 +33,7 @@ from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
 from internlm.utils.parallel import is_model_parallel_parameter
 
+inf = math.inf
 logger = get_logger(__file__)
 
 

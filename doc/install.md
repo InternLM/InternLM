@@ -5,10 +5,10 @@
 - Python == 3.10
 - GCC == 10.2.0
 - MPFR == 4.1.0
-- CUDA == 11.7
-- Pytorch == 1.13.1+cu117
+- CUDA >= 11.7
+- Pytorch >= 1.13.1
 - Transformers >= 4.28.0
-- Flash-Attention == v1.0.5
+- Flash-Attention >= v1.0.5
 - Apex == 23.05
 - Ampere或者Hopper架构的GPU (例如H100, A100)
 - Linux OS
@@ -56,4 +56,14 @@ cd ../../../../
 cd ./third_party/apex
 pip install -v --disable-pip-version-check --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./
 cd ../../
+```
+
+### 环境镜像
+用户可以从 https://hub.docker.com/r/sunpengsdu/internlm 获取安装了 InternLM 运行环境的镜像，拉取镜像及启动容器的命令如下：
+```bash
+# 拉取镜像
+docker pull sunpengsdu/internlm:torch1.13-cuda11.7-flashatten1.0.5-centos
+# 启动容器
+docker run --gpus all -d -it --shm-size=2gb --name myinternlm sunpengsdu/internlm:torch1.13-cuda11.7-flashatten1.0.5-centos
+docker exec -it myinternlm bash
 ```

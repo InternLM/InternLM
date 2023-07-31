@@ -27,7 +27,7 @@ class WarmupScheduler(_LRScheduler):
 
     def state_dict(self):
         state_dict = {key: value for key, value in self.__dict__.items() if key not in "optimizer"}
-        if isinstance(state_dict["after_scheduler"], _LRScheduler):
+        if isinstance(state_dict["after_scheduler"], (_LRScheduler, _CosineAnnealingLR)):
             state_dict["after_scheduler_type"] = type(state_dict["after_scheduler"]).__name__
             state_dict["after_scheduler_dict"] = state_dict["after_scheduler"].state_dict()
             del state_dict["after_scheduler"]
@@ -40,7 +40,7 @@ class WarmupScheduler(_LRScheduler):
         for key in list(self.__dict__.keys()):
             if key in state_dict:
                 self.__dict__[key] = state_dict[key]
-        if isinstance(self.after_scheduler, _LRScheduler):
+        if isinstance(self.after_scheduler, (_LRScheduler, _CosineAnnealingLR)):
             assert type(self.after_scheduler).__name__ == state_dict["after_scheduler_type"]
             # state_dict['after_scheduler_dict'] = state_dict['after_scheduler'].state_dict()
             self.after_scheduler.load_state_dict(state_dict["after_scheduler_dict"])

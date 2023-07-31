@@ -160,5 +160,5 @@ if __name__ == "__main__":
     train_tokens, valid_tokens, train_samples, valid_samples = dump_bin_meta_bin(
         samples, args.output_path, args.split_ratio
     )
-    print(f"number of train dataset: {train_samples}, " "number of train dataset token: {train_tokens}")
-    print(f"number of validation dataset: {valid_samples}, " "number of validation dataset token: {valid_tokens}")
+    print(f"number of train dataset: {train_samples}, number of train dataset token: {train_tokens}")
+    print(f"number of validation dataset: {valid_samples}, number of validation dataset token: {valid_tokens}")
