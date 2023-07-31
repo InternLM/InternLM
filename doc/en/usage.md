@@ -8,16 +8,16 @@ Please refer to the [installation guide](./install.md) for instructions on how t
 
 ### Dataset Preparation (Pre-training)
 
-The dataset for InternLM training consists of a series of `bin` and `meta` files. To generate the training dataset, you need to use the `tokenizer` tool to tokenize the raw text data. The tokenizer model can be imported by specifying the model path in the `tools/tokenizer.py` script. The current provided model is `V7.model`. If you want to use a different model, you can modify the model path directly in the `tokenizer.py` script.
+The dataset for the InternLM training task includes a series of `bin` and `meta` files. A `tokenizer` is used to generate the training dataset from the original text files. The tokenizer model is imported by specifying the model parameter path in `tools/tokenizer.py`. Currently, `V7_sft.model` is provided to generate tokens. If you want to use a different model, you can directly modify the model parameter path in `tokenizer.py`.
 
-You can generate the `bin` and `meta` files for your raw data by running the following command, where the `raw_data_name` parameter represents the name of your raw data file, `input_file_type` represents the format of your raw data file (currently supports `txt`, `json`, and `jsonl`), and `bin` represents the path to save the generated `bin` files.
+You can run the following command to generate `bin` and `meta` files corresponding to the original data. The parameter `text_input_path` represents the path of the original text data, currently supporting `txt`, `json`, and `jsonl` formats, while `bin_output_path` represents the save path of the generated `bin` files.
 
 
 ```bash
-$ python tools/tokenizer.py --raw_data_name your_raw_data_file_name(without suffix) --input_file_type 'txt' or 'json' or 'jsonl' --bin your_output_bin_path
+$ python tools/tokenizer.py --text_input_path your_input_text_path --bin_output_path your_output_bin_path
 ```
 
-Here is an example of data processing (only the data processing example for the `txt` format is provided here, the data processing process for `json` and `jsonl` is exactly the same as for `txt`):
+Here is an example of data processing:
 
 Given a file `raw_data.txt` containing the raw dataset, the raw dataset is shown below:
 
@@ -30,7 +30,7 @@ Learn to be tolerant and understanding to establish truly harmonious interperson
 You can generate the `bin` and `meta` files by running the following command:
 
 ```bash
-$ python tools/tokenizer.py --raw_data_name raw_data --input_file_type 'text' --bin cn/output.bin
+$ python tools/tokenizer.py --text_input_path raw_data.txt --bin_output_path cn/output.bin
 ```
 
 It should be noted that the generated `bin` files need to be saved in one of the following directories: `cn`, `en`, `code`, `ja`, `ar`, or `kaoshi`, depending on the type of dataset.
@@ -174,7 +174,7 @@ parallel = dict(
   - When `size <= 0`, the size of the zero1 process group is equal to the size of the data parallel process group, so the optimizer state parameters will be split within the data parallel range.
   - When `size == 1`, zero1 is not used, and all data parallel groups retain the complete optimizer state parameters.
   - When `size > 1` and `size <= data_parallel_world_size`, the zero1 process group is a subset of the data parallel process group.
-- pipeline: pipeline parallel size, currently only supports 1, default value is 1
+- pipeline: pipeline parallel size, default value is 1
 - tensor: tensor parallel size, usually the number of GPUs per node, default value is 1
 
 Note: `Data parallel size = Total number of GPUs / Pipeline parallel size / Tensor parallel size`
@@ -192,7 +192,7 @@ $ srun -p internllm -N 2 -n 16 --ntasks-per-node=8 --gpus-per-task=1 python trai
 If you want to start distributed training on torch with 8 GPUs on a single node, use the following command:
 
 ```bash
-$ torchrun --nnodes=1 --nproc_per_node=8 train.py --config ./configs/7B_sft.py
+$ torchrun --nnodes=1 --nproc_per_node=8 train.py --config ./configs/7B_sft.py --launcher "torch"
 ```
 
 ### Training Results

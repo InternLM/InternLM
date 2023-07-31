@@ -138,11 +138,13 @@ def save_optimizer_checkpoint(optim, state_path):
     zero_rank = gpc.get_local_rank(ParallelMode.ZERO1)
     tp_rank = gpc.get_local_rank(ParallelMode.TENSOR)
     pp_rank = gpc.get_local_rank(ParallelMode.PIPELINE)
+    tp_size = gpc.get_world_size(ParallelMode.TENSOR)
+    pp_size = gpc.get_world_size(ParallelMode.PIPELINE)
     fp = f"optimizer_tp{tp_rank}_pp{pp_rank}_zo{zero_rank}.pt"
 
     states = optim.state_dict()
     if isinstance(optim, HybridZeroOptimizer):
-        if gpc.get_global_rank() < optim.zero_world_size:
+        if gpc.get_global_rank() < optim.zero_world_size * tp_size * pp_size:
             llm_save(os.path.join(state_path, fp), states)
             if "zero_devide_optim_plan" in states:
                 params_per_rank_id_dict = states.pop("zero_devide_optim_plan")

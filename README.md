@@ -26,9 +26,18 @@
 [🤔Reporting Issues](https://github.com/InternLM/InternLM/issues/new)
 
 [English](./README.md) |
-[简体中文](./README-zh-Hans.md)
+[简体中文](./README-zh-Hans.md) |
+[日本語](./README-ja-JP.md)
 
 </div>
+
+<p align="center">
+    👋 join us on <a href="https://discord.gg/xa29JuW87d" target="_blank">Discord</a> and <a href="https://github.com/InternLM/InternLM/assets/25839884/a6aad896-7232-4220-ac84-9e070c2633ce" target="_blank">WeChat</a>
+</p>
+
+
+
+
 
 ## Introduction
 
@@ -143,10 +152,10 @@ Please refer to [Usage Tutorial](./doc/en/usage.md) to start InternLM installati
 
 ### Convert to Transformers Format
 
-The model trained by InternLM can be easily converted to HuggingFace Transformers format, which is convenient for seamless docking with various open source projects in the community. With the help of `tools/convert2hf.py`, the weights saved during training can be converted into transformers format with one command
+The model trained by InternLM can be easily converted to HuggingFace Transformers format, which is convenient for seamless docking with various open source projects in the community. With the help of `tools/transformers/convert2hf.py`, the weights saved during training can be converted into transformers format with one command
 
 ```bash
-python convert2hf.py --src_folder origin_ckpt/ --tgt_folder hf_ckpt/ --tokenizer tokenizes/tokenizer.model
+python tools/transformers/convert2hf.py --src_folder origin_ckpt/ --tgt_folder hf_ckpt/ --tokenizer ./tools/V7_sft.model
 ```
 
 After conversion, it can be loaded as transformers by the following code

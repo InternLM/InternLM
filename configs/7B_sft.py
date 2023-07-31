@@ -110,6 +110,7 @@ model = dict(
     dtype="torch.bfloat16",
     norm_type="rmsnorm",
     layer_norm_epsilon=1e-5,
+    use_flash_attn=True,
 )
 """
 zero1 parallel:
@@ -118,11 +119,12 @@ zero1 parallel:
     2. if zero1 == 1, zero is not used, and all dp groups retain the full amount of model parameters.
     3. zero1 > 1 and zero1 <= dp world size, the world size of zero is a subset of dp world size.
         For smaller models, it is usually a better choice to split the parameters within nodes with a setting <= 8.
-pipeline parallel: pipeline parallel size, only 1 is accepted currently.
-tensor parallel: tensor parallel size, usually the number of GPUs per node, only 1 is accepted currently.
+pipeline parallel: pipeline parallel size.
+tensor parallel: tensor parallel size, usually the number of GPUs per node.
 """
 parallel = dict(
     zero1=8,
+    pipeline=2,
 )
 
 cudnn_deterministic = False

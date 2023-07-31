@@ -128,6 +128,14 @@ def args_sanity_check():
         logger.info(f"save_ckpt_folder: {gpc.config.ckpt.save_ckpt_folder}")
         logger.info(f"checkpoint_every: {gpc.config.ckpt.checkpoint_every}")
 
+    # tensorboard writer config
+    if "enable_tb" not in gpc.config:
+        gpc.config._add_item("enable_tb", True)
+    if "tensorboard_folder" not in gpc.config:
+        gpc.config._add_item("tensorboard_folder", None)
+    if "resume_tb_folder" not in gpc.config:
+        gpc.config._add_item("resume_tb_folder", None)
+
     # cudnn
     torch.backends.cudnn.benchmark = gpc.config.get("cudnn_benchmark", False)
     torch.backends.cudnn.deterministic = gpc.config.get("cudnn_deterministic", False)
