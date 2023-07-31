@@ -9,6 +9,8 @@ on:
     paths-ignore:
       - "docs/**"
       - "**.md"
+env:
+    DIR_PREFIX: ${{secrets.DIR_PREFIX}}
      
 jobs:
   dataset-preparation:
