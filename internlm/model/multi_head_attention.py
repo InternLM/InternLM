@@ -19,6 +19,7 @@ from internlm.core.context import global_context as gpc
 from internlm.model.embedding import RotaryEmbedding
 from internlm.model.linear import ColumnParallelLinear, RowParallelLinear
 
+
 class MHA(nn.Module):
     """
     Multi-head self-attention and cross-attention.

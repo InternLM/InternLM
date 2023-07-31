@@ -5,12 +5,13 @@ from typing import Optional
 
 import torch
 import torch.nn.functional as F
-from torch.distributed import ProcessGroup
 from torch import nn
+from torch.distributed import ProcessGroup
 
 from internlm.core.context import IS_TENSOR_PARALLEL, ParallelMode
 from internlm.core.context import global_context as gpc
-from internlm.model.utils import fused_dense_func_torch, reduce_scatter, all_reduce
+from internlm.model.utils import all_reduce, fused_dense_func_torch, reduce_scatter
+
 
 class ScaleColumnParallelLinear(nn.Linear):
     """
@@ -109,15 +110,20 @@ class RewardModelLinear(ScaleColumnParallelLinear):
 
 
 class ColumnParallelLinear(nn.Linear):
-
-    def __init__(self, in_features: int, out_features: int, process_group: ProcessGroup,
-                 bias: bool = True, sequence_parallel=True, device=None, dtype=None) -> None:
+    def __init__(
+        self,
+        in_features: int,
+        out_features: int,
+        process_group: ProcessGroup,
+        bias: bool = True,
+        sequence_parallel=True,
+        device=None,
+        dtype=None,
+    ) -> None:
         world_size = torch.distributed.get_world_size(process_group)
         if out_features % world_size != 0:
-            raise ValueError(f'out_features ({out_features}) must be divisible by '
-                             f'world_size ({world_size})')
-        super().__init__(in_features, out_features // world_size, bias=bias,
-                         device=device, dtype=dtype)
+            raise ValueError(f"out_features ({out_features}) must be divisible by " f"world_size ({world_size})")
+        super().__init__(in_features, out_features // world_size, bias=bias, device=device, dtype=dtype)
         self.process_group = process_group
         self.sequence_parallel = sequence_parallel
 
@@ -126,22 +132,28 @@ class ColumnParallelLinear(nn.Linear):
         # we do an all_gather of x before doing the matmul.
         # If not, then the input is already gathered.
 
-        return fused_dense_func_torch(x, self.weight, self.bias, process_group=self.process_group,
-                                sequence_parallel=self.sequence_parallel)
+        return fused_dense_func_torch(
+            x, self.weight, self.bias, process_group=self.process_group, sequence_parallel=self.sequence_parallel
+        )
 
 
 class RowParallelLinear(nn.Linear):
-
-    def __init__(self, in_features: int, out_features: int, process_group: ProcessGroup,
-                 bias: bool = True, sequence_parallel=True, device=None, dtype=None) -> None:
+    def __init__(
+        self,
+        in_features: int,
+        out_features: int,
+        process_group: ProcessGroup,
+        bias: bool = True,
+        sequence_parallel=True,
+        device=None,
+        dtype=None,
+    ) -> None:
         world_size = torch.distributed.get_world_size(process_group)
         rank = torch.distributed.get_rank(process_group)
         if in_features % world_size != 0:
-            raise ValueError(f'in_features ({in_features}) must be divisible by '
-                             f'world_size ({world_size})')
+            raise ValueError(f"in_features ({in_features}) must be divisible by " f"world_size ({world_size})")
         # Only rank 0 will have bias
-        super().__init__(in_features // world_size, out_features, bias=bias and rank == 0,
-                         device=device, dtype=dtype)
+        super().__init__(in_features // world_size, out_features, bias=bias and rank == 0, device=device, dtype=dtype)
         self.process_group = process_group
         self.sequence_parallel = sequence_parallel
 
