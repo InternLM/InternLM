@@ -17,8 +17,9 @@ from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.core.naive_amp import NaiveAMPModel
 from internlm.core.trainer import TrainState
-from internlm.data.batch_sampler import StaticBatchSampler
-from internlm.data.collaters import packed_collate_fn
+from internlm.data.batch_sampler import StaticBatchSampler, get_dpsampler_dataloader
+from internlm.data.collaters import jsonl_ds_collate_fn, packed_collate_fn
+from internlm.data.dataset import get_dataset_dict
 from internlm.data.dummy_dataset import RandomDataset
 from internlm.data.packed_dataset import (
     PackedDataset,
@@ -39,6 +40,7 @@ from internlm.utils.common import (
     launch_time,
     parse_args,
 )
+from internlm.utils.evaluation import evaluate_on_val_dls
 from internlm.utils.logger import get_logger, initialize_uniscale_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
 from internlm.utils.model_checkpoint import (
@@ -50,10 +52,10 @@ from internlm.utils.model_checkpoint import (
     save_checkpoint,
 )
 from internlm.utils.parallel import (
+    get_parallel_log_file_name,
     is_no_pp_or_last_stage,
     sync_model_param,
     sync_model_param_within_tp,
-    get_parallel_log_file_name,
 )
 from internlm.utils.registry import MODEL_INITIALIZER
 from internlm.utils.writer import Writer
@@ -183,6 +185,45 @@ def get_train_data_loader(num_worker: int = 0):
     )
 
     return train_dl, dataset_types
+
+
+def get_validation_data_loader(num_worker: int = 0):
+    data_cfg = gpc.config.data
+
+    if not data_cfg.valid_folder:
+        val_ds = RandomDataset(num_samples=gpc.get_world_size(ParallelMode.DATA) * 500, max_len=2048)
+    else:
+        val_ds = get_dataset_dict(folder=data_cfg.valid_folder, split="")
+
+    if not isinstance(val_ds, dict):
+        val_ds = {"val": val_ds}
+
+    val_collate_fn = partial(jsonl_ds_collate_fn, max_length_per_sample=gpc.config.SEQ_LEN)
+
+    val_dls = {}
+    for val_name, ds in val_ds.items():
+        # making the batch_size of validate larger can speed up the evaluation, but it should not be too large,
+        # otherwise too much data may be dropped
+        # with pp
+        batch_size = min(data_cfg.valid_bsz * data_cfg.micro_bsz, len(ds) // gpc.get_world_size(ParallelMode.DATA))
+        batch_size = batch_size // data_cfg.micro_bsz * data_cfg.micro_bsz
+        # with no pp
+        # batch_size = min(data_cfg.valid_bsz, len(ds) // gpc.get_world_size(ParallelMode.DATA))
+
+        if batch_size == 0 and gpc.is_rank_for_log():
+            logger.info(f"skip validate {val_name}.")
+            continue
+
+        val_dls[val_name] = get_dpsampler_dataloader(
+            ds, shuffle=False, num_workers=num_worker, batch_size=batch_size, collate_fn=val_collate_fn, drop_last=True
+        )  # drop_last=True, otherwise it may cause problems in the last batch
+
+        if gpc.is_rank_for_log():
+            logger.info(
+                f"load validate {val_name}, valid_batch {str(batch_size)} and samples {str(len(val_dls[val_name]))}."
+            )
+
+    return val_dls
 
 
 def load_new_batch(train_dl: DataLoader, train_iter: Iterable, train_state: TrainState):
@@ -348,6 +389,7 @@ def main(args):
     # init setting
     skip_batches = gpc.config.data.skip_batches
     total_steps = gpc.config.data.total_steps
+    valid_every = gpc.config.data.valid_every
     load_optimizer = gpc.config.ckpt.load_optimizer
     label_smoothing = gpc.config.loss.label_smoothing
     lr = gpc.config.adam.lr
@@ -429,8 +471,9 @@ def main(args):
     # initialize loss function
     criterion = FlashGPTLMLoss(parallel_output=True, label_smoothing=label_smoothing)
 
-    # initialize the train data loader
+    # initialize the train and validation data loader
     train_dl, dataset_types = get_train_data_loader(num_worker=4)
+    val_dls = get_validation_data_loader(num_worker=4)
     train_state.init_batch_sampler(train_dl)
 
     # Loading model weights must be done before zero is initialized.
@@ -547,8 +590,19 @@ def main(args):
 
         timer("one-batch").stop()
 
+        # evaluate on validation data loaders
+        if valid_every > 0 and train_state.step_count % valid_every == 0:
+            evaluate_on_val_dls(
+                trainer=trainer,
+                val_dls=val_dls,
+                writer=writer,
+                logger=logger,
+                step_count=train_state.step_count,
+                update_panel=uniscale_logger is not None,
+            )
+
         # checkpoint the training states in specific steps, which is determined by the args "checkpoint_every"
-        # # save batch sampler that tracks the true consumed samples
+        # save batch sampler that tracks the true consumed samples
         if enable_save_ckpt and train_state.step_count % checkpoint_every == 0:
             save_checkpoint(
                 folder=save_ckpt_folder,
