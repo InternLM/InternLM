@@ -1,8 +1,5 @@
 name: demo-in-readme
 on: 
-  push: 
-    branches:
-      - "ci/test"
   pull_request:
     branches:
       - "main"
