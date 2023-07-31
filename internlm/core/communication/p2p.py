@@ -14,11 +14,7 @@ from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.utils.common import get_current_device
 
-from .utils import (
-    gather_split_1d_tensor,
-    pre_activated_coroutine,
-    split_tensor_into_1d_equal_chunks,
-)
+from .utils import gather_split_1d_tensor, split_tensor_into_1d_equal_chunks
 
 TensorShape = Union[torch.Size, List[int], Tuple[int]]
 
@@ -261,10 +257,8 @@ def send_backward(input_tensor_grad, prev_rank=None, scatter_gather_tensors=Fals
         input_tensor_grad (Union[:class:`torch.Tensor`, List[:class:`torch.Tensor`]]): Tensor to be sent
         prev_rank (int, optional): The rank of the recipient of the tensor
     """
-    if not gpc.is_pipeline_first_stage():
-        _communicate(
-            object_send_prev=input_tensor_grad, prev_rank=prev_rank, scatter_gather_tensors=scatter_gather_tensors
-        )
+
+    _communicate(object_send_prev=input_tensor_grad, prev_rank=prev_rank, scatter_gather_tensors=scatter_gather_tensors)
 
 
 def send_forward_recv_backward(
@@ -430,7 +424,6 @@ def send_forward_backward_recv_forward_backward(
     return input_tensor, output_tensor_grad
 
 
-@pre_activated_coroutine
 def send_forward_and_recv_next_forward_async(
     output_tensor,
     recv_prev_shape: Union[torch.Size, List[torch.Size]] = None,
@@ -448,11 +441,11 @@ def send_forward_and_recv_next_forward_async(
 
         output_tensor = process_object_to_send(output_tensor, scatter_gather_tensors)
 
-        try:
+        if isinstance(output_tensor, torch.Tensor):
+            reqs.append(dist.P2POp(dist.isend, output_tensor, next_rank))
+        else:
             for tensor_to_comm in output_tensor:
                 reqs.append(dist.P2POp(dist.isend, tensor_to_comm, next_rank))
-        except TypeError:
-            reqs.append(dist.P2POp(dist.isend, output_tensor, next_rank))
 
     # prepare receive opreations
     if recv_prev_shape is not None:
@@ -462,11 +455,11 @@ def send_forward_and_recv_next_forward_async(
             recv_prev_shape, dtype, scatter_gather_tensors
         )
         # generate async receive opterations
-        try:
+        if isinstance(tensor_recv_prev, torch.Tensor):
+            reqs.append(dist.P2POp(dist.irecv, tensor_recv_prev, prev_rank))
+        else:
             for tensor_to_comm in tensor_recv_prev:
                 reqs.append(dist.P2POp(dist.irecv, tensor_to_comm, prev_rank))
-        except TypeError:
-            reqs.append(dist.P2POp(dist.irecv, tensor_recv_prev, prev_rank))
 
     if len(reqs) > 0:
         reqs = dist.batch_isend_irecv(reqs)
@@ -493,7 +486,6 @@ def send_forward_and_recv_next_forward_async(
     yield tensor_recv_prev
 
 
-@pre_activated_coroutine
 def send_backward_and_recv_next_backward_async(
     input_tensor,
     recv_next_shape: Union[torch.Size, List[torch.Size]] = None,
@@ -509,11 +501,11 @@ def send_backward_and_recv_next_backward_async(
 
         input_tensor = process_object_to_send(input_tensor, scatter_gather_tensors)
 
-        try:
+        if isinstance(input_tensor, torch.Tensor):
+            reqs.append(dist.P2POp(dist.isend, input_tensor, prev_rank))
+        else:
             for tensor_to_comm in input_tensor:
                 reqs.append(dist.P2POp(dist.isend, tensor_to_comm, prev_rank))
-        except TypeError:
-            reqs.append(dist.P2POp(dist.isend, input_tensor, prev_rank))
 
     # prepare receive opreations
     if recv_next_shape is not None:
@@ -523,11 +515,11 @@ def send_backward_and_recv_next_backward_async(
             recv_next_shape, dtype, scatter_gather_tensors
         )
         # generate async receive opreations
-        try:
+        if isinstance(tensor_recv_next, torch.Tensor):
+            reqs.append(dist.P2POp(dist.irecv, tensor_recv_next, next_rank))
+        else:
             for tensor_to_comm in tensor_recv_next:
                 reqs.append(dist.P2POp(dist.irecv, tensor_to_comm, next_rank))
-        except TypeError:
-            reqs.append(dist.P2POp(dist.irecv, tensor_recv_next, next_rank))
 
     if len(reqs) > 0:
         reqs = dist.batch_isend_irecv(reqs)
@@ -543,13 +535,13 @@ def send_backward_and_recv_next_backward_async(
 
     # 处理接收到的数据
     if recv_next_shape is not None and recv_next_split:
-        try:
+        if isinstance(tensor_recv_next, torch.Tensor):
+            tensor_recv_next = gather_split_1d_tensor(tensor_recv_next).view(recv_next_shape).requires_grad_()
+        else:
             for index in range(len(tensor_recv_next)):
                 tensor_recv_next[index] = (
                     gather_split_1d_tensor(tensor_recv_next[index]).view(recv_next_shape[index]).requires_grad_()
                 )
-        except TypeError:
-            tensor_recv_next = gather_split_1d_tensor(tensor_recv_next).view(recv_next_shape).requires_grad_()
 
     yield tensor_recv_next
 
@@ -579,10 +571,10 @@ class AsynCommunicator:
         return self._need_receive
 
     def start(self) -> None:
-        self._coroutine.send()
+        next(self._coroutine)
 
     def wait_and_receive(self) -> Union[torch.Tensor, List[torch.Tensor]]:
-        received = self._coroutine.send()
+        received = next(self._coroutine)
         self._coroutine.close()
 
         return received

@@ -124,14 +124,3 @@ def gather_split_1d_tensor(tensor: torch.Tensor) -> torch.Tensor:
     chunks = [gathered[i * numel : (i + 1) * numel] for i in range(world_size)]
     dist.all_gather(chunks, tensor, group=gpc.get_group(ParallelMode.TENSOR))
     return gathered
-
-
-# 一个用于预激活携程的装饰器
-def pre_activated_coroutine(func):
-    @wraps(func)
-    def primer(*args, **kwargs):
-        generator = func(*args, **kwargs)
-        next(generator)
-        return generator
-
-    return primer

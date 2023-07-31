@@ -96,7 +96,7 @@ def initialize_trainer(
                 tensor_shape=tensor_shape,
                 scatter_gather_tensors=scatter_gather,
                 scheduler_hooks=scheduler_hooks,
-                communication_overlap=False,  # TODO: chenxun
+                communication_overlap=True,  # TODO: chenxun
             )
         else:
             scheduler = PipelineScheduler(

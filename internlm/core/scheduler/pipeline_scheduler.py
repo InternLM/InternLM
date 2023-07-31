@@ -178,8 +178,6 @@ class PipelineScheduler(BaseScheduler):
         micro_batch_data["label"] = micro_batch_label
         self.microbatch_offset += self.microbatch_size
 
-        # unpack data process
-        # TODO by xyt
         return move_to_device(micro_batch_data)
 
     def _get_data_label_for_current_step(self, stage_output, micro_batch_data):
@@ -334,7 +332,7 @@ class PipelineScheduler(BaseScheduler):
 
             if not gpc.is_last_rank(ParallelMode.PIPELINE) and need_forward_meta:
                 comm.send_obj_meta(output_obj)
-                need_forward_meta = True  # send only once.
+                need_forward_meta = False  # send only once.
 
             # 发送本级流水线的前向计算输出，给下一级流水线做为前向计算的输入
             if not gpc.is_last_rank(ParallelMode.PIPELINE):
@@ -574,6 +572,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         gpc.set_virtual_pipeline_parallel_rank(0)
 
         self._num_chunks = num_chunks
+        self._communication_overlap = communication_overlap
         # switch 1f1b loop runner function according to communication overlap
         self._run_1f1b_loop = (
             self._run_1f1b_loop_with_overlap if communication_overlap else self._run_1f1b_loop_without_overlap
@@ -589,9 +588,9 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         self._output_objs = [[] for _ in range(num_chunks)]
         self._output_obj_grads = [[] for _ in range(num_chunks)]
 
-        self._input_obj_shapes = [tensor_shape for _ in range(num_chunks)]
+        self._input_obj_shapes = [self.tensor_shape for _ in range(num_chunks)]
         self._output_obj_shapes = [None for _ in range(num_chunks)]
-        self._send_tensor_shape_flags = [tensor_shape is None for _ in range(num_chunks)]
+        self._send_tensor_shape_flags = [self.tensor_shape is None for _ in range(num_chunks)]
 
     def _clear_state(self) -> None:
         self._accum_loss = None
@@ -600,7 +599,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         self._output_objs = [[] for _ in range(self._num_chunks)]
         self._output_obj_grads = [[] for _ in range(self._num_chunks)]
 
-        self._input_obj_shapes = [self._tensor_shape for _ in range(self._num_chunks)]
+        self._input_obj_shapes = [self.tensor_shape for _ in range(self._num_chunks)]
         self._output_obj_shapes = [None for _ in range(self._num_chunks)]
         self._send_tensor_shape_flags = [self.tensor_shape is None for _ in range(self._num_chunks)]
 
@@ -648,10 +647,8 @@ class InterleavedPipelineScheduler(PipelineScheduler):
             output_obj = engine.model[chunk_id].convert_to_fp32(output_obj)
         self._call_hooks("after_forward", output_obj)
 
-        self._output_objs[chunk_id].append(output_obj)
-
         if gpc.is_pipeline_last_stage():
-            self._call_hooks("post_helper_func", self)
+            self._call_hooks("post_helper_func", output_obj, label)
 
             if self._return_tensors is not None:
                 self._return_tensors.append((output_obj, label))
@@ -663,6 +660,8 @@ class InterleavedPipelineScheduler(PipelineScheduler):
                 loss_reduced = loss / self.num_microbatches
                 self._accum_loss.add_(loss_reduced.detach())
                 output_obj = loss_reduced
+
+        self._output_objs[chunk_id].append(output_obj)
 
         return output_obj
 
@@ -761,24 +760,42 @@ class InterleavedPipelineScheduler(PipelineScheduler):
 
             # Send and receive tensors as appropriate (send tensors computed
             # in this iteration; receive tensors for next iteration).
-            if k == (num_warmup_microsteps - 1) and receive_extra_backward:
-                input_obj, output_obj_grad = comm.send_forward_backward_recv_forward_backward(
-                    output_obj,
-                    None,  # no backward grad to send
-                    input_shape,
-                    self._output_obj_shapes[self._num_chunks - 1],
-                    dtype=self.dtype,
-                    scatter_gather_tensors=self.scatter_gather_tensors,
-                )
-
-                self._output_obj_grads[self._num_chunks - 1].append(output_obj_grad)
-            else:
+            if k != (num_warmup_microsteps - 1) or not receive_extra_backward:
+                # 正常的warmup通信过程，或者不需要为1f1b阶段准备backward的输入
                 input_obj = comm.send_forward_recv_forward(
                     output_obj,
                     input_shape,
                     dtype=self.dtype,
                     scatter_gather_tensors=self.scatter_gather_tensors,
                 )
+            else:
+                # Receive output_obj_grad for next backward, if receive_extra_backward is True.
+                if self._communication_overlap:
+                    # 在这种情况下，我们应该分开处理forward，backward通信，与overlap版本的1f1b阶段一致
+                    input_obj = comm.send_forward_recv_forward(
+                        output_obj,
+                        input_shape,
+                        dtype=self.dtype,
+                        scatter_gather_tensors=self.scatter_gather_tensors,
+                    )
+                    output_obj_grad = comm.send_backward_recv_backward(
+                        None,  # nothing to send
+                        self._output_obj_shapes[self._num_chunks - 1],
+                        dtype=self.dtype,
+                        scatter_gather_tensors=self.scatter_gather_tensors,
+                    )
+                    self._output_obj_grads[self._num_chunks - 1].append(output_obj_grad)
+                else:
+                    # 这种情况下，我们应该集中处理forward, backward通信，与non-overlap版本的1f1b阶段一致
+                    input_obj, output_obj_grad = comm.send_forward_backward_recv_forward_backward(
+                        output_obj,
+                        None,  # no backward grad to send
+                        input_shape,
+                        self._output_obj_shapes[self._num_chunks - 1],
+                        dtype=self.dtype,
+                        scatter_gather_tensors=self.scatter_gather_tensors,
+                    )
+                    self._output_obj_grads[self._num_chunks - 1].append(output_obj_grad)
 
             self._input_objs[next_forward_chunk_id].append(input_obj)
 
@@ -787,7 +804,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         engine: Engine,
         num_warmup_microsteps: int,
         num_1f1b_microsteps: int,
-        all_warmup_microbatches: bool = False,
+        all_warmup_microsteps: bool = False,
     ) -> None:
         # 1. 执行前向计算
         # 2. 检查backward输入是否ready
@@ -881,11 +898,12 @@ class InterleavedPipelineScheduler(PipelineScheduler):
             )
             backward_async_communicator.start()
 
-        if all_warmup_microbatches:
+        if all_warmup_microsteps:
             if not gpc.is_pipeline_last_stage():
                 self._output_obj_grads[self._num_chunks - 1].append(
                     comm.recv_backward(
                         self._output_obj_shapes[self._num_chunks - 1],
+                        dtype=self.dtype,
                         scatter_gather_tensors=self.scatter_gather_tensors,
                     )
                 )
@@ -893,8 +911,9 @@ class InterleavedPipelineScheduler(PipelineScheduler):
                 self._output_obj_grads[self._num_chunks - 1].append(None)
         else:
             output_obj_grad = backward_async_communicator.wait_and_receive()
-            if backward_async_communicator.need_receive():
-                self._output_obj_grads[num_1f1b_microsteps].append(output_obj_grad)
+            if backward_async_communicator.need_receive:
+                backward_chunk_id = self._get_chunk_by_microbatch(num_1f1b_microsteps, backward=True)
+                self._output_obj_grads[backward_chunk_id].append(output_obj_grad)
 
     def _run_1f1b_loop_without_overlap(
         self,
@@ -979,6 +998,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
                 self._output_obj_grads[self._num_chunks - 1].append(
                     comm.recv_backward(
                         self._output_obj_shapes[self._num_chunks - 1],
+                        dtype=self.dtype,
                         scatter_gather_tensors=self.scatter_gather_tensors,
                     )
                 )
@@ -1021,9 +1041,6 @@ class InterleavedPipelineScheduler(PipelineScheduler):
             forward_only=True,
         )
 
-        output, label = pack_return_tensors(self._return_tensors) if len(self._return_tensors) > 0 else (None, None)
-        return output, label, self._accum_loss
-
     def _forward_backward_step(self, engine: Engine):
         # Compute number of warmup and remaining microbatches.
         all_warmup_microsteps = False
@@ -1044,18 +1061,30 @@ class InterleavedPipelineScheduler(PipelineScheduler):
             num_warmup_steps = min(num_warmup_steps, num_microsteps)
         num_1f1b_microsteps = num_microsteps - num_warmup_steps
 
-        # Run warmup forward passes.
+        # 我们通常需要在WarmUp阶段结束时，为1f1b阶段准备额外的一个backward的数据，
+        # 因为1f1b阶段通常一次执行一组forward和backward，除了以下情况：
+        receive_extra_backward = not (
+            all_warmup_microsteps  # 只有warmup microsteps
+            or gpc.is_pipeline_last_stage(ignore_virtual=True)  # 该设备为最后一个pipeline stage
+        )
+
+        # 1. Warmup
         self._run_warmup_loop(
             engine,
             num_microsteps,
             num_warmup_steps,
-            receive_extra_backward=not (gpc.is_pipeline_last_stage(ignore_virtual=True) and all_warmup_microsteps),
+            receive_extra_backward=receive_extra_backward,
         )
 
-        # Run 1F1B in steady state.
-        self._run_1f1b_loop(engine, num_warmup_steps, num_1f1b_microsteps=num_1f1b_microsteps)
+        # 2. 1F1B
+        self._run_1f1b_loop(
+            engine,
+            num_warmup_steps,
+            num_1f1b_microsteps=num_1f1b_microsteps,
+            all_warmup_microsteps=all_warmup_microsteps,
+        )
 
-        # Run cooldown backward passes (flush out pipeline).
+        # 3. Cooldown
         self._run_cooldown_loop(engine, num_microsteps, num_1f1b_microsteps=num_1f1b_microsteps)
 
     def forward_backward_step(self, engine, data_iter, forward_only=False, return_loss=True, return_output_label=True):

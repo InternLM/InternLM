@@ -41,16 +41,6 @@ class NonPipelineScheduler(BaseScheduler):
         gradient_accumulation_size: int = 1,
         scheduler_hooks: Optional[List[SchedulerHook]] = None,
     ):
-        # check that non-pipeline schedule data process func only takes in one parameter
-        # which is the batch data
-        if data_process_func:
-            sig = inspect.signature(data_process_func)
-            assert len(sig.parameters) == 1, (
-                "The data_process_func only takes in one parameter for NonPipelineSchedule, "
-                "which is a tuple of tensors for the current batch, "
-                "i.e. data_process_func(dataloader_output)."
-            )
-
         self._grad_accum_size = gradient_accumulation_size
         self._grad_accum_batch_size = 1  # static batch size for flash attetion.
         self._grad_accum_offset = 0
@@ -79,7 +69,7 @@ class NonPipelineScheduler(BaseScheduler):
             label (Any): The label to be loaded.
         """
 
-        _data, _label = self.load_micro_batch(
+        _data, _label = self._load_micro_batch(
             data=data, label=label, offset=self._grad_accum_offset, micro_bsz=self._grad_accum_batch_size
         )
         self._grad_accum_offset += self._grad_accum_batch_size
