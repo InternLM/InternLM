@@ -10,7 +10,10 @@
             "tgs",
             "acc",
             "perplexity",
-            "fwd_bwd_time"
+            "fwd_bwd_time",
+            "val_loss",
+            "val_acc",
+            "val_perplexity"
         ],
         "viewers": [
             "wangguoteng",

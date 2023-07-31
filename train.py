@@ -191,24 +191,24 @@ def get_validation_data_loader(num_worker: int = 0):
     data_cfg = gpc.config.data
 
     if not data_cfg.valid_folder:
-        val_ds = RandomDataset(num_samples=gpc.get_world_size(ParallelMode.DATA) * 500, max_len=2048)
+        val_ds = RandomDataset(num_samples=gpc.get_world_size(ParallelMode.DATA) * 500, max_len=data_cfg.seq_len)
     else:
         val_ds = get_dataset_dict(folder=data_cfg.valid_folder, split="")
 
     if not isinstance(val_ds, dict):
         val_ds = {"val": val_ds}
 
-    val_collate_fn = partial(jsonl_ds_collate_fn, max_length_per_sample=gpc.config.SEQ_LEN)
+    val_collate_fn = partial(jsonl_ds_collate_fn, max_length_per_sample=data_cfg.seq_len)
 
     val_dls = {}
     for val_name, ds in val_ds.items():
         # making the batch_size of validate larger can speed up the evaluation, but it should not be too large,
         # otherwise too much data may be dropped
-        # with pp
-        batch_size = min(data_cfg.valid_bsz * data_cfg.micro_bsz, len(ds) // gpc.get_world_size(ParallelMode.DATA))
-        batch_size = batch_size // data_cfg.micro_bsz * data_cfg.micro_bsz
-        # with no pp
-        # batch_size = min(data_cfg.valid_bsz, len(ds) // gpc.get_world_size(ParallelMode.DATA))
+        if gpc.is_using_pp():
+            batch_size = min(data_cfg.valid_bsz * data_cfg.micro_bsz, len(ds) // gpc.get_world_size(ParallelMode.DATA))
+            batch_size = batch_size // data_cfg.micro_bsz * data_cfg.micro_bsz
+        else:
+            batch_size = min(data_cfg.valid_bsz, len(ds) // gpc.get_world_size(ParallelMode.DATA))
 
         if batch_size == 0 and gpc.is_rank_for_log():
             logger.info(f"skip validate {val_name}.")
@@ -220,7 +220,8 @@ def get_validation_data_loader(num_worker: int = 0):
 
         if gpc.is_rank_for_log():
             logger.info(
-                f"load validate {val_name}, valid_batch {str(batch_size)} and samples {str(len(val_dls[val_name]))}."
+                f"load validation dataset {val_name} with valid batch size {str(batch_size)} and "
+                f"samples {str(len(val_dls[val_name]))}."
             )
 
     return val_dls
@@ -473,7 +474,7 @@ def main(args):
 
     # initialize the train and validation data loader
     train_dl, dataset_types = get_train_data_loader(num_worker=4)
-    val_dls = get_validation_data_loader(num_worker=4)
+    val_dls = get_validation_data_loader()
     train_state.init_batch_sampler(train_dl)
 
     # Loading model weights must be done before zero is initialized.

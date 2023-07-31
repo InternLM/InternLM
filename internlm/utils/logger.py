@@ -4,7 +4,6 @@
 import logging
 import os
 
-
 LOGGER_NAME = "internlm"
 LOGGER_FORMAT = "%(asctime)s\t%(levelname)s %(filename)s:%(lineno)s in %(funcName)s -- %(message)s"
 LOGGER_LEVEL = "info"
