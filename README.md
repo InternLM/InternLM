@@ -165,10 +165,10 @@ Please refer to the [System Architecture document](./doc/en/structure.md) for fu
 
 InternLM deeply integrates Flash-Attention, Apex and other high-performance model operators to improve training efficiency. By building the Hybrid Zero technique, it achieves efficient overlap of computation and communication, significantly reducing cross-node communication traffic during training. InternLM supports expanding the 7B model from 8 GPUs to 1024 GPUs, with an acceleration efficiency of up to 90% at the thousand-GPU scale, a training throughput of over 180 TFLOPS, and an average of over 3600 tokens per GPU per second. The following table shows InternLM's scalability test data at different configurations:
 
-| Number of GPUs | 8    | 16   | 32   | 64   | 128  | 256  | 512  | 1024 |
-| -------------- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
-| TGS            | 4078 | 3939 | 3919 | 3944 | 3928 | 3920 | 3835 | 3625 |
-| TFLOPS         | 192  | 192  | 186  | 186  | 185  | 185  | 186  | 182  |
+| GPU Number         | 8   | 16  | 32  | 64  | 128  | 256  | 512  | 1024  |
+| ---------------- | ---- | ---- | ---- | ---- | ----- | ----- | ----- | ------ |
+| TGS | 4078 | 3939 | 3919 | 3944 | 3928  | 3920  | 3835  | 3625   |
+| TFLOPS  | 193 | 191  | 188  | 188  | 187   | 185   | 186   | 184    |
 
 TGS represents the average number of tokens processed per GPU per second. For more performance test data, please refer to the [Training Performance document](./doc/en/train_performance.md) for further details.
 
@@ -180,9 +180,9 @@ We appreciate all the contributors for their efforts to improve and enhance Inte
 
 InternLM codebase is an open-source project contributed by Shanghai AI Laboratory and researchers from different universities and companies. We would like to thank all the contributors for their support in adding new features to the project and the users for providing valuable feedback. We hope that this toolkit and benchmark can provide the community with flexible and efficient code tools for fine-tuning InternLM and developing their own models, thus continuously contributing to the open-source community. Special thanks to the two open-source projects, [flash-attention](https://github.com/HazyResearch/flash-attention) and [ColossalAI](https://github.com/hpcaitech/ColossalAI).
 
-## Open Source License
+## License
 
-The code in this repository is open-source under the Apache-2.0 license. The InternLM weights are fully open for academic research and also allow commercial use with written permission from the official team. For inquiries about commercial licenses and collaborations, please contact <internlm@pjlab.org.cn>.
+The code is licensed under Apache-2.0, while model weights are fully open for academic research and also allow **free** commercial usage. To apply for a commercial license, please fill in the [application form (English)](https://wj.qq.com/s2/12727483/5dba/)/[申请表（中文）](https://wj.qq.com/s2/12725412/f7c1/). For other questions or collaborations, please contact <internlm@pjlab.org.cn>.
 
 ## Citation
 
