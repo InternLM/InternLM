@@ -255,6 +255,7 @@ def record_current_batch_training_metrics(
     loss,
     grad_norm,
     metric,
+    update_panel,
 ):
     """
     Print some training metrics of current batch.
@@ -319,7 +320,24 @@ def record_current_batch_training_metrics(
             line += f"{key}={value} "
             writer.add_scalar(key=key, value=value, step=train_state.step_count)
 
-        logger.info(line)
+        if update_panel:
+            logger.info(
+                line,
+                extra={
+                    "step": batch_count,
+                    "lr": lr,
+                    "num_consumed_tokens": train_state.num_consumed_tokens,
+                    "grad_norm": grad_norm,
+                    "loss": loss.item(),
+                    "flops": tflops,
+                    "tgs": tk_per_gpu,
+                    "acc": acc_perplex["acc"],
+                    "perplexity": acc_perplex["perplexity"],
+                    "fwd_bwd_time": fwd_bwd_time,
+                },
+            )
+        else:
+            logger.info(line)
 
 
 def main(args):
@@ -524,6 +542,7 @@ def main(args):
             loss=loss,
             grad_norm=grad_norm,
             metric=metric,
+            update_panel=uniscale_logger is not None,
         )
 
         timer("one-batch").stop()
