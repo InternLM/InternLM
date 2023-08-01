@@ -8,8 +8,30 @@ on:
       - "**.md"
 env:
     DIR_PREFIX: ${{secrets.DIR_PREFIX}}
-     
+
 jobs:
+  check-requirements:
+    runs-on: [lmtest]
+    steps:
+    - uses: actions/checkout@v3
+      with:
+         fetch-depth: 2
+    - name: check-requirements
+      run: |
+        source activate internlm-env-test
+        changed_files=$(git diff --name-only -r HEAD^1 HEAD)
+        echo $changed_files
+        if [[ $changed_files =~ "runtime.txt" ]]; then
+          echo 'pip install -r requirements/runtime.txt'
+        fi
+
+        if [[ $changed_files =~ "torch.txt"  ]]; then
+          echo 'pip install -r requirements/torch.txt'
+        fi
+
+jobs:
+  if: ${{ always() }}
+  needs: check-requirements
   dataset-preparation:
     runs-on: [lmtest]
     steps:
