@@ -29,10 +29,9 @@ jobs:
           echo 'pip install -r requirements/torch.txt'
         fi
 
-jobs:
-  if: ${{ always() }}
-  needs: check-requirements
   dataset-preparation:
+    if: ${{ always() }}
+    needs: check-requirements
     runs-on: [lmtest]
     steps:
     - uses: actions/checkout@v3
@@ -49,6 +48,8 @@ jobs:
 
 
   train:
+    if: ${{ always() }}
+    needs: check-requirements
     runs-on: [lmtest]
     steps:
     - uses: actions/checkout@v3
@@ -66,6 +67,8 @@ jobs:
         rm -rf $GITHUB_WORKSPACE/llm_ckpts
 
   convert-model-then-load:
+    if: ${{ always() }}
+    needs: check-requirements
     runs-on: [lmtest]
     steps:
     - uses: actions/checkout@v3
@@ -81,6 +84,8 @@ jobs:
         rm -rf $GITHUB_WORKSPACE/hf_ckpt
   
   load-chat-model-in-hf:
+    if: ${{ always() }}
+    needs: check-requirements
     runs-on: [lmtest]
     steps:
     - uses: actions/checkout@v3
