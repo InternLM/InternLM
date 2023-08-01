@@ -4,14 +4,18 @@
 import hashlib
 import io
 import os
+import pickle
 import re
+import shutil
 import socket
 from enum import Enum
 from typing import Any, Dict, List, Union
 
 import boto3
 import botocore
+import numpy as np
 import torch
+from torch.serialization import FILE_LIKE
 
 from internlm.utils.common import SingletonMeta
 from internlm.utils.logger import get_logger
@@ -70,6 +74,12 @@ class StorageClient:
         raise NotImplementedError
 
 
+class LocalMetaInfo:
+    def __init__(self, client: StorageClient, dest_path: str) -> None:
+        self.client = client
+        self.dest_path = dest_path
+
+
 class Boto3MetaInfo:
     def __init__(self, client: StorageClient, bucket_name: str, endpoint: str, file_path: str) -> None:
         self.client = client
@@ -78,10 +88,10 @@ class Boto3MetaInfo:
         self.file_path = file_path
 
 
-class LocalMetaInfo:
-    def __init__(self, client: StorageClient, dest_path: str) -> None:
+class AliMetaInfo:
+    def __init__(self, client: StorageClient, file_path: str) -> None:
         self.client = client
-        self.dest_path = dest_path
+        self.file_path = file_path
 
 
 def unpack_meta(meta):
@@ -101,6 +111,56 @@ def compute_file_md5_by_chunk(file_name: str):
     return hash_md5.hexdigest()
 
 
+def try_import_oss2():
+    """
+    Try import oss2 module, if failed, return ``None``.
+
+    Returns:
+        (obj:`Module`): Imported module, or ``None`` when module not found.
+    """
+    try:
+        import oss2
+
+        return oss2
+    except ModuleNotFoundError as e:
+        raise ImportError(f"oss2 package import error! {e}")
+
+
+def save_executor(obj: object, f: FILE_LIKE, *args, stype="torch", pickle_protocol=pickle.DEFAULT_PROTOCOL, **kwargs):
+    """
+    Unified entry for different serialization methods.
+    """
+    if stype == "torch":
+        torch.save(obj, f, pickle_protocol=pickle_protocol, *args, **kwargs)
+    elif stype == "np":
+        np.save(f, obj, *args, **kwargs)
+    elif stype == "pickle":
+        pickle.dump(obj, f, *args, **kwargs)
+
+
+def load_executor(f: FILE_LIKE, *args, stype="torch", map_location="cpu", **kwargs):
+    """
+    Unified entry for different serialization methods.
+    """
+
+    if stype == "torch":
+        # On Alibaba Cloud, map_location="cpu" or map_location=torch.cuda.device('local_rank')
+        # torch.load will load the model to the last training GPU by default,
+        # which may cause multiple processes to load the model to the same GPU, resulting in cuda OOM.
+        return torch.load(f, map_location=map_location, *args, **kwargs)
+    elif stype == "np":
+        return np.load(f, *args, **kwargs)
+    elif stype == "pickle":
+        return pickle.load(f, *args, **kwargs)
+
+    raise AssertionError("Unknown load type, only support 'torch/np/pickle'")
+
+
+def get_local_meta(fp: str) -> LocalMetaInfo:
+    assert not fp.startswith("s3://"), f"Path '{fp}' is not a local path"
+    return LocalMetaInfo(None, fp)
+
+
 def get_boto3_meta(fp: str) -> Boto3MetaInfo:
     assert fp.startswith("s3://"), f"Path '{fp}' is not a boto3 url"
     parts = fp.lstrip("s3://").split(os.path.sep)
@@ -111,9 +171,53 @@ def get_boto3_meta(fp: str) -> Boto3MetaInfo:
     return Boto3MetaInfo(None, bucket_name, endpoint, os.path.sep.join(parts[1:]))
 
 
-def get_local_meta(fp: str) -> LocalMetaInfo:
+def get_ali_meta(fp: str) -> AliMetaInfo:
     assert not fp.startswith("s3://"), f"Path '{fp}' is not a local path"
-    return LocalMetaInfo(None, fp)
+    return AliMetaInfo(None, fp)
+
+
+class LocalClient(StorageClient):
+    """
+    Storage Client for local NFS.
+    """
+
+    def __init__(self, *args, **kwargs) -> None:  # pylint: disable=W0613
+        super().__init__(None)
+
+    @staticmethod
+    def sync_upload_fileobj(handler, fp: str, *args, saved_obj=None, **kwargs):
+        assert isinstance(handler, LocalClient)
+        assert saved_obj is not None
+        fp_dirname = os.path.dirname(fp)
+        if not os.path.exists(fp_dirname):
+            os.makedirs(fp_dirname, exist_ok=True)
+        torch.save(saved_obj, fp, *args, **kwargs)
+
+    @staticmethod
+    def load(handler, fp: str, *args, map_location="cpu", **kwargs):
+        assert isinstance(handler, LocalClient)
+        assert os.path.exists(fp), f"{fp} is not found!"
+        with open(fp, "rb") as f:
+            states = torch.load(f, map_location=map_location, *args, **kwargs)
+        return states
+
+    @staticmethod
+    def assert_fp_exists(handler, folder):
+        assert isinstance(handler, LocalClient)
+        assert os.path.exists(folder), folder
+
+    @staticmethod
+    def get_fns(handler, folder):
+        assert isinstance(handler, LocalClient)
+        assert os.path.exists(folder), f"folder '{folder}' not exists!"
+        fns = os.listdir(folder)
+        return fns
+
+    @staticmethod
+    def delete_obj(handler, fp: str):
+        assert isinstance(handler, LocalClient)
+        if not os.path.isdir(fp):
+            os.remove(fp)
 
 
 class Boto3Client(StorageClient):
@@ -223,48 +327,92 @@ class Boto3Client(StorageClient):
         return folder_name_list
 
 
-class LocalClient(StorageClient):
+class AliClient(StorageClient):
     """
-    Storage Client for local NFS.
+    Storage client for Alibaba Cloud.
     """
 
-    def __init__(self, *args, **kwargs) -> None:  # pylint: disable=W0613
-        super().__init__(None)
+    def __init__(self) -> None:
+        oss2 = try_import_oss2()
+        assert oss2 is not None
+        super().__init__(oss2)
 
-    @staticmethod
-    def sync_upload_fileobj(handler, fp: str, *args, saved_obj=None, **kwargs):
-        assert isinstance(handler, LocalClient)
-        assert saved_obj is not None
-        fp_dirname = os.path.dirname(fp)
-        if not os.path.exists(fp_dirname):
-            os.makedirs(fp_dirname, exist_ok=True)
-        torch.save(saved_obj, fp, *args, **kwargs)
+        access_key_id = os.getenv("OSS_TEST_ACCESS_KEY_ID", "")
+        access_key_secret = os.getenv("OSS_TEST_ACCESS_KEY_SECRET", "")
+        bucket_name = os.getenv("OSS_TEST_BUCKET", "pjlab-lingjun-a100-test")
+        endpoint = os.getenv("OSS_TEST_ENDPOINT", "oss-cn-wulanchabu-internal.aliyuncs.com")  # North China 6 (Ulanqab)
 
-    @staticmethod
-    def load(handler, fp: str, *args, map_location="cpu", **kwargs):
-        assert isinstance(handler, LocalClient)
-        assert os.path.exists(fp), f"{fp} is not found!"
-        with open(fp, "rb") as f:
-            states = torch.load(f, map_location=map_location, *args, **kwargs)
+        print(f"access_key_secret: {access_key_secret}")
+        try:
+            self.auth = self.handler.Auth(access_key_id, access_key_secret)
+            self.bucket = self.handler.Bucket(self.auth, endpoint, bucket_name)
+        except Exception as e:
+            raise RuntimeError(f"Error: Please Check your Alibaba Cloud oss config in {socket.gethostname()}, '{e}'")
+
+    def sync_upload_fileobj(self, handler, fp, *args, saved_obj, stype="torch", **kwargs):
+        assert isinstance(handler, AliClient)
+        try:
+            with io.BytesIO() as fileobj:
+                save_executor(saved_obj, fileobj, *args, stype=stype, **kwargs)
+                fileobj.seek(0, os.SEEK_END)
+                total_size = fileobj.tell()
+                fileobj.seek(0)
+
+                part_size = self.handler.determine_part_size(total_size, preferred_size=128 * MB)
+                key = fp
+                upload_id = self.bucket.init_multipart_upload(fp).upload_id
+
+                parts = []
+                part_number = 1
+                offset = 0
+                while offset < total_size:
+                    size_to_upload = min(part_size, total_size - offset)
+                    result = self.bucket.upload_part(
+                        key, upload_id, part_number, self.handler.SizedFileAdapter(fileobj, size_to_upload)
+                    )
+                    parts.append(
+                        self.handler.models.PartInfo(part_number, result.etag, size=size_to_upload, part_crc=result.crc)
+                    )
+
+                    offset += size_to_upload
+                    part_number += 1
+
+                self.bucket.complete_multipart_upload(key, upload_id, parts)
+        except Exception as e:
+            raise RuntimeError(
+                f"{socket.gethostname()} Error: Please Check your Alibaba Cloud oss config or network connection. '{e}'"
+            )
+
+    def load(self, handler, fp: str, *args, stype="torch", **kwargs):
+        assert isinstance(handler, AliClient)
+        assert self.bucket.object_exists(fp), f"{fp} is not found in {socket.gethostname()}"
+        object_stream = self.bucket.get_object(fp)  # return object is stream.
+        with io.BytesIO() as f:
+            shutil.copyfileobj(object_stream, f)
+            f.seek(0)
+            states = load_executor(f, stype=stype, *args, **kwargs)
         return states
 
-    @staticmethod
-    def assert_fp_exists(handler, folder):
-        assert isinstance(handler, LocalClient)
-        assert os.path.exists(folder), folder
+    def assert_fp_exists(self, handler, folder):
+        assert isinstance(handler, AliClient)
+        folder = folder.rstrip("/")
+        assert len(list(self.handler.ObjectIteratorV2(self.bucket, prefix=f"{folder}/"))) > 0, folder
 
-    @staticmethod
-    def get_fns(handler, folder):
-        assert isinstance(handler, LocalClient)
-        assert os.path.exists(folder), f"folder '{folder}' not exists!"
-        fns = os.listdir(folder)
-        return fns
+    def get_fns(self, handler, prefix):
+        assert isinstance(handler, AliClient)
+        prefix = prefix.rstrip("/")
+        folder_list = []
+        for obj in self.handler.ObjectIteratorV2(self.bucket, prefix=f"{prefix}/", delimiter="/", fetch_owner=False):
+            # aliyun api fns list returned is abs path, we need change to file path.
+            folder_list.append(obj.key.split("/")[-1])
+        return folder_list
 
-    @staticmethod
-    def delete_obj(handler, fp: str):
-        assert isinstance(handler, LocalClient)
-        if not os.path.isdir(fp):
-            os.remove(fp)
+    def delete_obj(self, handler, fp: str):
+        assert isinstance(handler, AliClient)
+        try:
+            self.bucket.delete_object(fp)
+        except Exception as e:
+            raise RuntimeError(f"Network Error: Please Check your Internet Connection in {socket.gethostname()}, '{e}'")
 
 
 class StorageManager(metaclass=SingletonMeta):
@@ -272,29 +420,30 @@ class StorageManager(metaclass=SingletonMeta):
     Storage Manager for saving or loading checkpoint.
     """
 
-    BACKEND_TYPE = {"boto3", "local"}
+    BACKEND_TYPE = {"local", "boto3", "ali"}
     BACKEND_INIT_METHOD = {
-        "boto3": Boto3Client,
         "local": LocalClient,
+        "boto3": Boto3Client,
+        "ali": AliClient,
     }
     CLI_DICT = {}
 
     def __init__(self) -> None:
         pass
 
-    def _get_client(self, path=str) -> Union[Boto3MetaInfo, LocalMetaInfo]:
+    def _get_client(self, path=str) -> Union[LocalMetaInfo, Boto3MetaInfo, AliMetaInfo]:
         """
         example:
         local:/path/to/checkpoint
         boto3:s3://model_weights/0331/120bi
 
         Args:
-            path (str): _description_
+            path (str): save or load file path.
         """
         try:
             backend, path = path.split(":", maxsplit=1)
         except Exception as exc:
-            raise AttributeError(f"Given path '{path}' is not startwith backend prefix:'local/boto3'") from exc
+            raise AttributeError(f"Given path '{path}' is not startwith backend prefix:'local/boto3/ali'") from exc
 
         init_args = (None,)
         if backend == "local":
@@ -311,13 +460,15 @@ class StorageManager(metaclass=SingletonMeta):
                 or "HTTPS_PROXY" in os.environ
             ):
                 raise RuntimeWarning(
-                    "HTTP/HTTPS proxy is detected when using boto3, incorrectly setting \
-the proxy may make boto3 unavailable or affect performance."
+                    "HTTP/HTTPS proxy is detected when using boto3, incorrectly setting "
+                    "the proxy may make boto3 unavailable or affect performance."
                 )
+        elif backend == "ali":
+            meta_info = get_ali_meta(path)
+            backend_key = backend
 
-        assert backend in StorageManager.BACKEND_TYPE, f"Unkown backend: {backend}"
+        assert backend in StorageManager.BACKEND_TYPE, f"Unknown backend: {backend}"
 
-        # boto3 backend need special treatment.
         if backend_key not in StorageManager.CLI_DICT:
             StorageManager.CLI_DICT.update({backend_key: StorageManager.BACKEND_INIT_METHOD[backend](*init_args)})
 
@@ -339,7 +490,6 @@ the proxy may make boto3 unavailable or affect performance."
         meta.client.sync_upload_fileobj(*unpack_meta(meta), *args, saved_obj=saved_obj, **kwargs)
 
     def load(self, load_path: str, *args, map_location="cpu", **kwargs) -> Any:
-
         meta = self._get_client(path=load_path)
         return meta.client.load(*unpack_meta(meta), map_location=map_location, *args, **kwargs)
 
