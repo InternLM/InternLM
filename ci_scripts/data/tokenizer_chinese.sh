@@ -1,7 +1,7 @@
 #!/bin/bash
 
-rm -rf $DIR_PREFIX/data/lm_data/cn_data/result.*
-srun -p llm2 python tools/tokenizer.py --text_input_path $DIR_PREFIX/data/lm_data/cn_data/raw_data.txt --bin_output_path $DIR_PREFIX/data/lm_data/cn_data/result.bin
+rm -rf /mnt/petrelfs/qa-caif-cicd/data/lm_data/cn_data/result.*
+srun -p llm python tools/tokenizer.py --text_input_path /mnt/petrelfs/qa-caif-cicd/data/lm_data/cn_data/raw_data.txt --bin_output_path /mnt/petrelfs/qa-caif-cicd/data/lm_data/cn_data/result.bin
 
 file_one="$DIR_PREFIX/data/lm_data/cn_data/result.bin"
 file_two="$DIR_PREFIX/data/lm_data/cn_data/result.bin.meta"
