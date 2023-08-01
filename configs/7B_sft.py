@@ -7,22 +7,29 @@ MLP_RATIO = 8 / 3
 NUM_LAYER = 32
 VOCAB_SIZE = 103168
 
+MODEL_ONLY_FOLDER = "local:llm_ckpts/xxxx"
 # Ckpt folder format:
 # fs: 'local:/mnt/nfs/XXX'
-# oss: 'boto3:s3://model_weights/XXX'
-MODEL_ONLY_FOLDER = "local:llm_ckpts/xxxx"
 SAVE_CKPT_FOLDER = "local:llm_ckpts"
 LOAD_CKPT_FOLDER = "local:llm_ckpts/49"
+
+# boto3 Ckpt folder format:
+# import os
+# BOTO3_IP = os.environ["BOTO3_IP"] # boto3 bucket endpoint
+# SAVE_CKPT_FOLDER = f"boto3:s3://model_weights.{BOTO3_IP}/internlm"
+# LOAD_CKPT_FOLDER = f"boto3:s3://model_weights.{BOTO3_IP}/internlm/snapshot/1/"
+CHECKPOINT_EVERY = 50
 ckpt = dict(
-    # Path to save training ckpt.
-    save_ckpt_folder=SAVE_CKPT_FOLDER,
-    # Path to continue training ckpt (load model weights and scheduler/context states).
-    # load_ckpt_folder=LOAD_CKPT_FOLDER,
-    # Path to initialize with given model weights.
-    # load_model_only_folder=MODEL_ONLY_FOLDER,
-    checkpoint_every=50,
-    # Wheter to load optimizer states when continuing training.
-    load_optimizer=True,
+    enable_save_ckpt=False,  # enable ckpt save.
+    save_ckpt_folder=SAVE_CKPT_FOLDER,  # Path to save training ckpt.
+    # load_ckpt_folder=LOAD_CKPT_FOLDER, # Ckpt path to resume training(load weights and scheduler/context states).
+    # load_model_only_folder=MODEL_ONLY_FOLDER, # Path to initialize with given model weights.
+    load_optimizer=True,  # Wheter to load optimizer states when continuing training.
+    checkpoint_every=CHECKPOINT_EVERY,
+    async_upload=True,  # async ckpt upload. (only work for boto3 ckpt)
+    async_upload_tmp_folder="/dev/shm/internlm_tmp_ckpt/",  # path for temporarily files during asynchronous upload.
+    snapshot_ckpt_folder="/".join([SAVE_CKPT_FOLDER, "snapshot"]),  # directory for snapshot ckpt storage path.
+    oss_snapshot_freq=int(CHECKPOINT_EVERY / 2),  # snapshot ckpt save frequency.
 )
 
 TRAIN_FOLDER = "/path/to/dataset"
