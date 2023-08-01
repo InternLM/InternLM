@@ -17,8 +17,5 @@
             "sunpeng",
             "yanhang"
         ]
-    },
-    "alert": {
-        "webhook": "https://open.feishu.cn/open-apis/bot/v2/hook/b9cee409-af2f-446d-8d98-1031621ddb35"
     }
 }
