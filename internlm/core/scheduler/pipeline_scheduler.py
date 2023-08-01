@@ -37,7 +37,8 @@ def get_tensor_shape():
             )
         else:
             tensor_shape = (
-                gpc.config.data["micro_bsz"], gpc.config.SEQ_LEN,
+                gpc.config.data["micro_bsz"],
+                gpc.config.SEQ_LEN,
                 gpc.config.HIDDEN_SIZE,
             )
         return tensor_shape
@@ -138,7 +139,7 @@ class PipelineScheduler(BaseScheduler):
                 micro_batch_data["input_ids"], micro_batch_data["cu_seqlens"]
             )
             micro_batch_label = self.data_process_func(micro_batch_label, micro_batch_data["cu_seqlens"])
-            
+
             micro_batch_data.pop("cu_seqlens")
             micro_batch_data.pop("indexes")
 

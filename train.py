@@ -39,7 +39,7 @@ from internlm.utils.common import (
     launch_time,
     parse_args,
 )
-from internlm.utils.logger import get_logger
+from internlm.utils.logger import get_logger, initialize_uniscale_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
 from internlm.utils.model_checkpoint import (
     load_context,
@@ -50,6 +50,7 @@ from internlm.utils.model_checkpoint import (
     save_checkpoint,
 )
 from internlm.utils.parallel import (
+    get_parallel_log_file_name,
     is_no_pp_or_last_stage,
     sync_model_param,
     sync_model_param_within_tp,
@@ -85,6 +86,17 @@ def initialize_distributed_env(config: str, launcher: str = "slurm", master_port
         )
     else:
         assert launcher in ["slurm", "torch"], "launcher only support slurm or torch"
+
+
+def initialize_llm_logger(start_time: str):
+    uniscale_logger = initialize_uniscale_logger(
+        job_name=gpc.config.JOB_NAME, launch_time=start_time, file_name=get_parallel_log_file_name()
+    )
+    if uniscale_logger is not None:
+        global logger
+        logger = uniscale_logger
+
+    return uniscale_logger
 
 
 def initialize_model():
@@ -254,6 +266,7 @@ def record_current_batch_training_metrics(
     loss,
     grad_norm,
     metric,
+    update_panel,
 ):
     """
     Print some training metrics of current batch.
@@ -318,7 +331,24 @@ def record_current_batch_training_metrics(
             line += f"{key}={value} "
             writer.add_scalar(key=key, value=value, step=train_state.step_count)
 
-        logger.info(line)
+        if update_panel:
+            logger.info(
+                line,
+                extra={
+                    "step": batch_count,
+                    "lr": lr,
+                    "num_consumed_tokens": train_state.num_consumed_tokens,
+                    "grad_norm": grad_norm,
+                    "loss": loss.item(),
+                    "flops": tflops,
+                    "tgs": tk_per_gpu,
+                    "acc": acc_perplex["acc"],
+                    "perplexity": acc_perplex["perplexity"],
+                    "fwd_bwd_time": fwd_bwd_time,
+                },
+            )
+        else:
+            logger.info(line)
 
 
 def main(args):
@@ -359,11 +389,16 @@ def main(args):
     dist.broadcast_object_list(objs, src=0)
     current_time = objs[0]
 
+    # initialize customed llm logger
+    uniscale_logger = initialize_llm_logger(start_time=current_time)
+
     # initialize customed llm writer
     with open(args.config, "r") as f:
         config_lines = f.readlines()
     writer = Writer(
+        job_name=gpc.config.JOB_NAME,
         launch_time=current_time,
+        file_name=get_parallel_log_file_name(),
         tensorboard_folder=gpc.config.tensorboard_folder,
         resume_tb_folder=gpc.config.resume_tb_folder,
         config=config_lines,
@@ -513,6 +548,7 @@ def main(args):
             loss=loss,
             grad_norm=grad_norm,
             metric=metric,
+            update_panel=uniscale_logger is not None,
         )
 
         timer("one-batch").stop()
