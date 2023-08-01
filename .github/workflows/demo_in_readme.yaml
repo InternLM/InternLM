@@ -12,6 +12,7 @@ env:
 jobs:
   check-requirements:
     runs-on: [lmtest]
+    environment: prefix
     steps:
     - uses: actions/checkout@v3
       with:
@@ -33,6 +34,7 @@ jobs:
     if: ${{ always() }}
     needs: check-requirements
     runs-on: [lmtest]
+    environment: prefix
     steps:
     - uses: actions/checkout@v3
 
@@ -51,6 +53,7 @@ jobs:
     if: ${{ always() }}
     needs: check-requirements
     runs-on: [lmtest]
+    environment: prefix
     steps:
     - uses: actions/checkout@v3
 
@@ -70,6 +73,7 @@ jobs:
     if: ${{ always() }}
     needs: check-requirements
     runs-on: [lmtest]
+    environment: prefix
     steps:
     - uses: actions/checkout@v3
 
@@ -86,6 +90,7 @@ jobs:
   load-chat-model-in-hf:
     if: ${{ always() }}
     needs: check-requirements
+    environment: prefix
     runs-on: [lmtest]
     steps:
     - uses: actions/checkout@v3
