@@ -88,6 +88,12 @@ def args_sanity_check():
     if "valid_folder" not in data:
         data._add_item("valid_folder", None)
 
+    if "valid_bsz" not in data:
+        data._add_item("valid_bsz", data.micro_num)
+
+    if "valid_every" not in data:
+        data._add_item("valid_every", 0)
+
     if gpc.is_rank_for_log():
         logger.info("+" * 15 + " Data Info " + "+" * 15)  # pylint: disable=W1201
         logger.info(f"seq_len: {data.seq_len}")
@@ -96,6 +102,8 @@ def args_sanity_check():
         logger.info(f"packed_length: {data.packed_length}")
         logger.info(f"pack_sample_into_one: {data.pack_sample_into_one}")
         logger.info(f"min_length: {data.min_length}")
+        logger.info(f"valid_bsz: {data.valid_bsz}")
+        logger.info(f"valid_every: {data.valid_every}")
 
     # processing the checkpoint config
     if "checkpoint_every" not in gpc.config.ckpt or gpc.config.ckpt.checkpoint_every <= 0:
