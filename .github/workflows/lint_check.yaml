@@ -1,6 +1,11 @@
 name: lint-check
 
-on: [push]
+on: 
+   push
+   pull_request:
+     branches:
+       - "main"
+       - "develop"
 
 env:
     DIR_PREFIX: ${{secrets.DIR_PREFIX}}
