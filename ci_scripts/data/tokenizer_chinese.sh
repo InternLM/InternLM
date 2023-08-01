@@ -1,7 +1,7 @@
 #!/bin/bash
 
 rm -rf /mnt/petrelfs/qa-caif-cicd/data/lm_data/cn_data/result.*
-srun -p llm2 python tools/tokenizer.py --text_input_path /mnt/petrelfs/qa-caif-cicd/data/lm_data/cn_data/raw_data.txt --bin_output_path /mnt/petrelfs/qa-caif-cicd/data/lm_data/cn_data/result.bin
+srun -p llm python tools/tokenizer.py --text_input_path /mnt/petrelfs/qa-caif-cicd/data/lm_data/cn_data/raw_data.txt --bin_output_path /mnt/petrelfs/qa-caif-cicd/data/lm_data/cn_data/result.bin
 
 file_one="/mnt/petrelfs/qa-caif-cicd/data/lm_data/cn_data/result.bin"
 file_two="/mnt/petrelfs/qa-caif-cicd/data/lm_data/cn_data/result.bin.meta"
