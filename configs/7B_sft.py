@@ -33,7 +33,9 @@ data = dict(
     micro_num=4,
     # packed_length = micro_bsz * SEQ_LEN
     micro_bsz=2,
+    # defaults to the value of micro_num
     valid_bsz=4,
+    # defaults to 0, means disable evaluate
     valid_every=50,
     pack_sample_into_one=False,
     total_steps=50000,
