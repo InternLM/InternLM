@@ -336,32 +336,47 @@ def record_current_batch_training_metrics(
 
 
 class SchedulerMetricHook(SchedulerHook):
-    def __init__(self, metric: Optional[Callable] = None) -> None:
+    def __init__(self, metric: Optional[Callable] = None, skip: bool = False) -> None:
         self._post_func = metric
+        self._skip = skip
+
+        if skip:
+            # init timer only.
+            timer("fwd")
+            timer("bwd")
+            timer("cal_loss")
+            timer("post_fn")
 
     def before_forward(self, scheduler, inputs) -> None:
-        timer("fwd").start()
+        if not self._skip:
+            timer("fwd").start()
 
     def after_forward(self, scheduler, outputs) -> None:
-        timer("fwd").stop()
+        if not self._skip:
+            timer("fwd").stop()
 
     def before_criterion(self, scheduler, outputs, label) -> None:
-        timer("cal_loss").start()
+        if not self._skip:
+            timer("cal_loss").start()
 
     def after_criterion(self, scheduler, loss) -> None:
-        timer("cal_loss").stop()
+        if not self._skip:
+            timer("cal_loss").stop()
 
     def before_backward(self, scheduler, outputs, outputs_grad) -> None:
-        timer("bwd").start()
+        if not self._skip:
+            timer("bwd").start()
 
     def after_backward(self, scheduler, inputs_grad) -> None:
-        timer("bwd").stop()
+        if not self._skip:
+            timer("bwd").stop()
 
     def post_helper_func(self, scheduler, outputs, label) -> None:
-        timer("post_fn").start()
-        if self._post_func is not None:
-            self._post_func(outputs, label)
-        timer("post_fn").stop()
+        if not self._skip:
+            timer("post_fn").start()
+            if self._post_func is not None:
+                self._post_func(outputs, label)
+            timer("post_fn").stop()
 
 
 def main(args):
@@ -465,9 +480,22 @@ def main(args):
         if load_optimizer:
             load_optimizer_checkpoint(load_resume_ckpt_folder, optimizer)
 
+    # initialize metric for calculating accuracy and perplexity
+    metric = AccPerplex(
+        device=torch.cuda.current_device(),
+        tp_pg=gpc.get_group(ParallelMode.TENSOR),
+        dp_pg=gpc.get_group(ParallelMode.DATA),
+        dataset_types=dataset_types,
+    )
+
     # initialize trainer
-    # TODO: fix metric
-    scheduler_hooks = [SchedulerMetricHook(metric=None)]
+    scheduler_hooks = [
+        SchedulerMetricHook(
+            metric=metric,
+            skip=gpc.is_using_pp() and gpc.config.parallel["pipeline"].get("interleaved_overlap", False),
+        ),
+    ]
+
     trainer, train_dl, _, _ = internlm.initialize_trainer(
         model=model,
         optimizer=optimizer,
@@ -480,14 +508,6 @@ def main(args):
 
     # initialize the batch skipper
     batch_skipper = BatchSkipper(skip_batches)
-
-    # initialize metric for calculating accuracy and perplexity
-    metric = AccPerplex(
-        device=torch.cuda.current_device(),
-        tp_pg=gpc.get_group(ParallelMode.TENSOR),
-        dp_pg=gpc.get_group(ParallelMode.DATA),
-        dataset_types=dataset_types,
-    )
 
     trainer.train()
 

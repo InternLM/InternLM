@@ -98,6 +98,8 @@ def initialize_trainer(
         if use_interleaved:
             if isinstance(model, nn.Sequential):
                 model = nn.ModuleList([model])
+
+            communication_overlap = gpc.config.parallel["pipeline"].get("interleaved_overlap", False)
             scheduler = InterleavedPipelineScheduler(
                 num_microbatches=gpc.config.NUM_MICRO_BATCHES,
                 num_chunks=gpc.config.model.num_chunks,
@@ -105,7 +107,7 @@ def initialize_trainer(
                 tensor_shape=tensor_shape,
                 scatter_gather_tensors=scatter_gather,
                 scheduler_hooks=scheduler_hooks,
-                communication_overlap=True,  # TODO: chenxun
+                communication_overlap=communication_overlap,
             )
         else:
             scheduler = PipelineScheduler(
