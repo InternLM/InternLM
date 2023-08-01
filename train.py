@@ -90,6 +90,17 @@ def initialize_distributed_env(config: str, launcher: str = "slurm", master_port
         assert launcher in ["slurm", "torch"], "launcher only support slurm or torch"
 
 
+def initialize_llm_logger(start_time: str):
+    uniscale_logger = initialize_uniscale_logger(
+        job_name=gpc.config.JOB_NAME, launch_time=start_time, file_name=get_parallel_log_file_name()
+    )
+    if uniscale_logger is not None:
+        global logger
+        logger = uniscale_logger
+
+    return uniscale_logger
+
+
 def initialize_model():
     """
     Initialize model.
@@ -422,12 +433,7 @@ def main(args):
     current_time = objs[0]
 
     # initialize customed llm logger
-    uniscale_logger = initialize_uniscale_logger(
-        job_name=gpc.config.JOB_NAME, launch_time=current_time, file_name=get_parallel_log_file_name()
-    )
-    if uniscale_logger is not None:
-        global logger
-        logger = uniscale_logger
+    uniscale_logger = initialize_llm_logger(start_time=current_time)
 
     # initialize customed llm writer
     with open(args.config, "r") as f:
