@@ -111,7 +111,6 @@ model = dict(
     dtype="torch.bfloat16",
     norm_type="rmsnorm",
     layer_norm_epsilon=1e-5,
-    use_flash_attn=True,
 )
 """
 zero1 parallel:
@@ -124,8 +123,7 @@ pipeline parallel: pipeline parallel size.
 tensor parallel: tensor parallel size, usually the number of GPUs per node.
 """
 parallel = dict(
-    zero1=4,
-    pipeline=2,
+    zero1=8,
 )
 
 cudnn_deterministic = False
