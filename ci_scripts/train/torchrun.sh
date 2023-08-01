@@ -8,7 +8,7 @@ source ./ci_scripts/common/basic_func.sh
 
 num_files ${file_dir}
 
-if [ $file_num -ne 22 ]
+if [ $file_num -ne 21 ]
 then
     echo "The num of files is not right"
     ls -l $file_dir

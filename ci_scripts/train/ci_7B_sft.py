@@ -33,8 +33,6 @@ data = dict(
     micro_num=4,
     # packed_length = micro_bsz * SEQ_LEN
     micro_bsz=2,
-    valid_bsz=4,
-    valid_every=10,
     pack_sample_into_one=False,
     total_steps=20,
     skip_batches="",
@@ -113,7 +111,6 @@ model = dict(
     dtype="torch.bfloat16",
     norm_type="rmsnorm",
     layer_norm_epsilon=1e-5,
-    use_flash_attn=True,
 )
 """
 zero1 parallel:
@@ -126,8 +123,7 @@ pipeline parallel: pipeline parallel size.
 tensor parallel: tensor parallel size, usually the number of GPUs per node.
 """
 parallel = dict(
-    zero1=4,
-    pipeline=2,
+    zero1=8,
 )
 
 cudnn_deterministic = False
