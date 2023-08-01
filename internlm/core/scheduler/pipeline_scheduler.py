@@ -85,24 +85,27 @@ def switch_optimizer_grad_sync_skip_mode(optimizer, skip: bool = True):
 
 
 class PipelineScheduler(BaseScheduler):
-    """A helper schedule class for pipeline parallelism running environment.
+    """
+    A helper schedule class for pipeline parallelism running environment.
     It uses non-interleaved 1F1B strategy. Other properties are similar as
     :class:`NonPipelineSchedule`.
 
     Args:
         num_microbatches (int): The number of microbatches.
+        dtype (torch.dtype): Type of data. torch.float by default.
         data_process_func (Callable, optional):
             The post processing function which receives a micro batch of data, and it will be executed
             in `load_micro_batch`.
         tensor_shape (torch.Size, optional): Specified shape in pipeline communication.
         scatter_gather_tensors (bool, optional):
             If set to `True`, communication will be reduced over pipeline when using 1D tensor parallelization.
+        scheduler_hooks (Optional[List[SchedulerHook]], optional): List of scheduler hooks.
     """
 
     def __init__(
         self,
-        num_microbatches,
-        dtype=torch.float,
+        num_microbatches: int,
+        dtype: torch.dtype = torch.float,
         data_process_func: Callable = None,
         tensor_shape: Union[torch.Size, List[int], Tuple[int]] = None,
         scatter_gather_tensors: bool = False,
@@ -219,10 +222,17 @@ class PipelineScheduler(BaseScheduler):
             getattr(hook, func_name)(self, *args, **kwargs)
 
     def _get_current_microbatch_id(self, step_id: int) -> int:
+        """
+        Get the current microbatch ID based on the step ID.
+        In 1f1b scheduler, the microbatch ID is the same as the step ID,
+        but it is important to note that the step ID is calculated separately
+        for forward and backward passes.
+        """
         return step_id
 
     def _forward_step(self, engine, input_obj, return_tensors, return_output_label=True, accum_loss=None):
-        """Forward step for passed-in model. If it is the first stage, the input tensor
+        """
+        Forward step for passed-in model. If it is the first stage, the input tensor
         is obtained from data_iterator, otherwise the passed-in input_obj is used.
         Returns output tensor. This is a helper function and can be ignored by users.
 
@@ -260,21 +270,21 @@ class PipelineScheduler(BaseScheduler):
         return output_obj
 
     def _backward_step(self, engine, step_id, input_obj, output_obj, output_obj_grad):
-        """Backward step through the passed-in output tensor. If it is the last stage, the
+        """
+        Backward step through the passed-in output tensor. If it is the last stage, the
         output_obj_grad is None, otherwise it is the gradients with respect to stage's output tensor.
         Returns the gradients with respect to the input tensor (None if first stage).
         This is a helper function and can be ignored by users.
 
         Args:
             engine (colossalai.engine.Engine): Colossalai engine for training and inference.
-            input_obj (Union[:class:`torch.Tensor`, List[:class:`torch.Tensor`]]): input tensor for this pipeline stage.
-            output_obj (Union[:class:`torch.Tensor`, List[:class:`torch.Tensor`]]): output tensor for this
-                pipeline stage.
-            output_obj_grad (Union[:class:`torch.Tensor`, List[:class:`torch.Tensor`]]): gradient of output tensor for
-                this pipeline stage.
+            step_id (int): The ID of the current step.
+            input_obj (Union[torch.Tensor, List[torch.Tensor]]): Input tensor for this stage.
+            output_obj (Union[torch.Tensor, List[torch.Tensor]]): Output tensor for this stage.
+            output_obj_grad (Union[torch.Tensor, List[torch.Tensor]]): Gradient of output tensor for this stage.
 
         Returns:
-            Union[:class:`torch.Tensor`, List[:class:`torch.Tensor`]]: gradient of input tensor.
+            Union[torch.Tensor, List[torch.Tensor]]: Gradient of input tensor.
         """
 
         # Retain the grad on the input_obj.
@@ -312,6 +322,25 @@ class PipelineScheduler(BaseScheduler):
         return input_obj_grad
 
     def _forward_only_step(self, engine, return_loss=True, return_output_label=True):
+        """
+        This function performs forward only computation process. The scheduling of microbatches is similar to the
+        warmup phase, where each microbatch first receives the forward input from the previous stage, then performs
+        the forward computation, and finally passes the forward computation output to the next stage. There are two
+        special cases to note:
+        1. The first stage of the pipeline does not need to receive forward input; its input comes from the dataloader.
+        2. The last stage of the pipeline does not need to send forward output; its output is returned to the user code
+           for processing.
+
+        Args:
+            engine (colossalai.engine.Engine): internlm engine for training and inference.
+            return_loss (bool, optional): Whether to return the accumulated loss.
+            return_output_label (bool, optional): Whether to return outputs and labels.
+
+        Returns:
+            Tuple[Union[torch.Tensor, None], Union[torch.Tensor, None], Union[torch.Tensor, None]]:
+                output, label, and accumulated loss.
+        """
+
         # Input, output tensors only need to be saved when doing backward passes
         return_tensors = []
         accum_loss = (
@@ -326,7 +355,7 @@ class PipelineScheduler(BaseScheduler):
 
         # Run all forward passes.
         for _ in range(self.num_microbatches):
-            # 对于中间的流水线而言，其需要从上游接收数据作为本级流水线的输入
+            # Receive input from the previous stage
             if not gpc.is_first_rank(ParallelMode.PIPELINE):
                 if forward_recv_shapes is None:
                     forward_recv_shapes = comm.recv_obj_meta()
@@ -338,7 +367,7 @@ class PipelineScheduler(BaseScheduler):
             else:
                 input_obj = None
 
-            # 执行前向计算
+            # Perform forward computation
             output_obj = self._forward_step(
                 engine,
                 input_obj,
@@ -347,12 +376,11 @@ class PipelineScheduler(BaseScheduler):
                 accum_loss=accum_loss,
             )
 
-            if not gpc.is_last_rank(ParallelMode.PIPELINE) and need_forward_meta:
-                comm.send_obj_meta(output_obj)
-                need_forward_meta = False  # send only once.
-
-            # 发送本级流水线的前向计算输出，给下一级流水线做为前向计算的输入
             if not gpc.is_last_rank(ParallelMode.PIPELINE):
+                if need_forward_meta:
+                    comm.send_obj_meta(output_obj)
+                    need_forward_meta = False  # send only once.
+                # Send the forward computation output to the next stage
                 comm.send_forward(output_obj, scatter_gather_tensors=self.scatter_gather_tensors)
 
         output, label = pack_return_tensors(return_tensors) if len(return_tensors) > 0 else (None, None)
@@ -360,11 +388,47 @@ class PipelineScheduler(BaseScheduler):
         return output, label, accum_loss
 
     def _forward_backward_step(self, engine, return_loss=True, return_output_label=True):
+        """
+        This function schedules the forward and backward computation of microbatches in the pipeline in a 1F1B manner.
+        It consists of three stages: warmup, 1F1B, and cooldown.
+
+        1. Warmup Stage:
+        The warmup stage performs num_warmup forward microsteps. The calculation of num_warmup is the pipeline length
+        minus the rank of the current pipeline minus 1. For each microstep, it receives data as input from the previous
+        stage, performs the forward computation, and then sends the result to the next stage.
+
+        2. 1F1B Stage:
+        The 1F1B stage consists of pairs of forward and backward microsteps. It performs num_1f1b_micropairs iterations,
+        where num_1f1b_micropairs is calculated as the total number of microbatches minus the number of microbatches in
+        the warmup stage. In each iteration, it first performs a forward computation, sends the result to the next
+        stage, receives input for the backward computation, performs the backward computation, and finally sends the
+        result to the previous stage to receive input for the next forward computation.
+
+        3. Cooldown Stage:
+        The cooldown stage performs the same number of iterations as the warmup stage. In each iteration, it receives
+        input for the backward computation, performs the backward computation, and finally sends the result to the
+        previous stage.
+
+        There are two special cases to consider:
+        1. The first stage of the pipeline does not need to receive forward input or send backward output. The last
+        stage does not need to send forward output or receive backward input.
+        2. Pay attention to the communication between stages and use additional communication to bridge the gap.
+
+        Args:
+            engine (Engine): The engine used for computation.
+            return_loss (bool, optional): Whether to return the accumulated loss.
+            return_output_label (bool, optional): Whether to return outputs and labels.
+
+        Returns:
+            Tuple[Union[torch.Tensor, None], Union[torch.Tensor, None], Union[torch.Tensor, None]]:
+            The output, label, and accumulated loss.
+        """
+
         num_warmup_microsteps = (
             gpc.get_world_size(ParallelMode.PIPELINE) - gpc.get_local_rank(ParallelMode.PIPELINE) - 1
         )
         num_warmup_microsteps = min(num_warmup_microsteps, self.num_microbatches)
-        num_1f1b_microsteps = self.num_microbatches - num_warmup_microsteps
+        num_1f1b_micropairs = self.num_microbatches - num_warmup_microsteps
 
         # Input, output tensors only need to be saved when doing backward passes
         input_objs = []
@@ -383,7 +447,7 @@ class PipelineScheduler(BaseScheduler):
 
         # Run warmup forward passes.
         for i in range(num_warmup_microsteps):
-            # 对于中间的流水线而言，其需要从上游接收数据作为本级流水线的输入
+            # Receive the input from the previous stage
             if not gpc.is_first_rank(ParallelMode.PIPELINE):
                 if forward_recv_shapes is None:
                     forward_recv_shapes = comm.recv_obj_meta()
@@ -395,7 +459,7 @@ class PipelineScheduler(BaseScheduler):
             else:
                 input_obj = None
 
-            # 执行前向计算
+            # Perform forward computation
             output_obj = self._forward_step(
                 engine,
                 input_obj,
@@ -414,7 +478,8 @@ class PipelineScheduler(BaseScheduler):
                     comm.send_obj_meta(output_obj)
                     need_forward_meta = False  # send only once.
 
-            # 发送本级流水线的前向计算输出，给下一级流水线做为前向计算的输入
+            # Send the output of forward computation of this pipeline stage to the next pipeline stage as input for
+            # forward computation
             if not gpc.is_last_rank(ParallelMode.PIPELINE):
                 comm.send_forward(output_obj, scatter_gather_tensors=self.scatter_gather_tensors)
 
@@ -424,7 +489,7 @@ class PipelineScheduler(BaseScheduler):
         # Before running 1F1B, need to receive first forward tensor.
         # If all microbatches are run in warmup / cooldown phase, then no need to
         # receive this tensor here.
-        if num_1f1b_microsteps > 0:
+        if num_1f1b_micropairs > 0:
             if not gpc.is_first_rank(ParallelMode.PIPELINE):
                 if forward_recv_shapes is None:
                     forward_recv_shapes = comm.recv_obj_meta(forward_recv_shapes)
@@ -437,8 +502,8 @@ class PipelineScheduler(BaseScheduler):
                 input_obj = None
 
         # Run 1F1B in steady state.
-        for i in range(num_1f1b_microsteps):
-            # 执行前向计算
+        for i in range(num_1f1b_micropairs // 2):
+            # Perform forward computation
             output_obj = self._forward_step(
                 engine,
                 input_obj,
@@ -468,7 +533,7 @@ class PipelineScheduler(BaseScheduler):
 
             input_obj_grad = self._backward_step(engine, i, input_obj, output_obj, output_obj_grad)
 
-            if i == (num_1f1b_microsteps - 1):
+            if i == (num_1f1b_micropairs - 1):
                 input_obj = None
                 if not gpc.is_first_rank(ParallelMode.PIPELINE):
                     comm.send_backward(
@@ -501,7 +566,7 @@ class PipelineScheduler(BaseScheduler):
                 output_obj_grad = None
 
             input_obj_grad = self._backward_step(
-                engine, num_1f1b_microsteps + i, input_obj, output_obj, output_obj_grad
+                engine, num_1f1b_micropairs + i, input_obj, output_obj, output_obj_grad
             )
 
             if not gpc.is_first_rank(ParallelMode.PIPELINE):
@@ -548,7 +613,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         self,
         num_microbatches: int,
         num_chunks: int,
-        dtype=torch.float,
+        dtype: torch.dtype = torch.float,
         data_process_func: Callable = None,
         tensor_shape: Union[torch.Size, List[int], Tuple[int]] = None,
         scatter_gather_tensors: bool = False,
@@ -562,11 +627,14 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         Args:
             num_microbatches (int): The number of microbatches.
             num_chunks (int): The number of model chunks.
+            dtype (torch.dtype, optional): The data type of the tensors. Default is torch.float.
             data_process_func (Callable, optional):
                 The preprocessing function which receives a batch of data, and it will be executed in `load_batch`.
             tensor_shape (torch.Size, optional): Specified shape in pipeline communication.
             scatter_gather_tensors (bool, optional):
                 If set to `True`, communication will be reduced over pipeline when using 1D tensor parallelization.
+            scheduler_hooks (List[SchedulerHook], optional): List of scheduler hooks. Default is None.
+            communication_overlap (bool, optional): Whether to enable communication overlap. Default is False.
         """
         assert (
             num_microbatches % gpc.get_world_size(ParallelMode.PIPELINE) == 0
@@ -683,6 +751,19 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         return output_obj
 
     def _backward_step(self, engine, chunk_id, step_id):
+        """
+        Backward step for passed-in model. If it is the last stage, the input tensor
+        is obtained from the previous forward step, otherwise the passed-in input_obj is used.
+        Returns input tensor gradient. This is a helper function and can be ignored by users.
+
+        Args:
+            engine (colossalai.engine.Engine): Colossalai engine for training and inference.
+            chunk_id (int): The id of model chunks.
+            step_id (int): The current step id.
+
+        Returns:
+            Union[:class:`torch.Tensor`, List[:class:`torch.Tensor`]]: input tensor gradient.
+        """
         gpc.set_virtual_pipeline_parallel_rank(chunk_id)
 
         if gpc.is_pipeline_last_stage() and len(self._output_obj_grads[chunk_id]) == 0:
@@ -725,8 +806,26 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         receive_extra_backward: bool = False,
         forward_only: bool = False,
     ) -> None:
-        # 执行WarmUp阶段，并为1f1b阶段做好数据准备
+        """
+        Run the warm-up loop and prepare data for the 1F1B stage.
 
+        During the warm-up process, for each execution, it first performs a forward computation,
+        and then sends the computation result to the next stage.
+        It also receives data for the next forward computation.
+        Since the input for the first forward computation is not considered initially,
+        it needs to receive data once at the beginning.
+
+        After the warm-up is completed, we need to prepare data for the 1F1B stage.
+        The data preparation process should be consistent with the communication method of the 1F1B stage.
+
+        Args:
+            engine (Engine): The engine to run the warm-up loop.
+            num_microsteps (int): The total number of microsteps.
+            num_warmup_microsteps (int): The number of warm-up microsteps.
+            receive_extra_backward (bool, optional): Whether to receive extra backward input for the 1F1B stage.
+                                                     Default is False.
+            forward_only (bool, optional): Whether to only perform forward pass. Default is False.
+        """
         if not gpc.is_pipeline_first_stage():
             if self._input_obj_shapes[0] is None:
                 self._input_obj_shapes[0] = comm.recv_obj_meta(self._input_obj_shapes[0])
@@ -778,7 +877,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
             # Send and receive tensors as appropriate (send tensors computed
             # in this iteration; receive tensors for next iteration).
             if k != (num_warmup_microsteps - 1) or not receive_extra_backward:
-                # 正常的warmup通信过程，或者不需要为1f1b阶段准备backward的输入
+                # Normal warm-up communication process, or no need to prepare backward input for the 1F1B stage
                 input_obj = comm.send_forward_recv_forward(
                     output_obj,
                     input_shape,
@@ -788,7 +887,8 @@ class InterleavedPipelineScheduler(PipelineScheduler):
             else:
                 # Receive output_obj_grad for next backward, if receive_extra_backward is True.
                 if self._communication_overlap:
-                    # 在这种情况下，我们应该分开处理forward，backward通信，与overlap版本的1f1b阶段一致
+                    # In this case, we should handle forward and backward communication separately, consistent with the
+                    # overlap version of the 1F1B stage
                     input_obj = comm.send_forward_recv_forward(
                         output_obj,
                         input_shape,
@@ -803,7 +903,8 @@ class InterleavedPipelineScheduler(PipelineScheduler):
                     )
                     self._output_obj_grads[self._num_chunks - 1].append(output_obj_grad)
                 else:
-                    # 这种情况下，我们应该集中处理forward, backward通信，与non-overlap版本的1f1b阶段一致
+                    # In this case, we should handle forward and backward communication together, consistent with the
+                    # non-overlap version of the 1F1B stage
                     input_obj, output_obj_grad = comm.send_forward_backward_recv_forward_backward(
                         output_obj,
                         None,  # no backward grad to send
@@ -820,20 +921,31 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         self,
         engine: Engine,
         num_warmup_microsteps: int,
-        num_1f1b_microsteps: int,
+        num_1f1b_micropairs: int,
         all_warmup_microsteps: bool = False,
     ) -> None:
-        # 1. 执行前向计算
-        # 2. 检查backward输入是否ready
-        # 3. 发送本次的forward输出，接收下一次的forward输入
-        # 4. 执行后向
-        # 5. 检查forward输入是否ready
-        # 6. 发送本次的backward输出，接收下次的backward输入
+        """
+        Run the 1F1B loop with overlap.
+
+        The 1F1B loop with overlap consists of the following steps:
+        1. Perform the forward pass.
+        2. Check if the backward input is ready.
+        3. Send the forward output and receive the forward input for the next iteration.
+        4. Perform the backward pass.
+        5. Check if the forward input is ready.
+        6. Send the backward output and receive the backward input for the next iteration.
+
+        Args:
+            engine (Engine): The engine to run the 1F1B loop.
+            num_warmup_microsteps (int): The number of warm-up microsteps.
+            num_1f1b_micropairs (int): The number of 1F1B micropairs.
+            all_warmup_microsteps (bool, optional): Whether to run all warm-up microsteps. Default is False.
+        """
 
         backward_async_communicator = None
 
         # Run 1F1B in steady state.
-        for k in range(num_1f1b_microsteps):
+        for k in range(num_1f1b_micropairs):
             forward_microstep_id = k + num_warmup_microsteps
             backward_microstep_id = k
             forward_chunk_id = self._get_chunk_by_microbatch(forward_microstep_id)
@@ -842,26 +954,26 @@ class InterleavedPipelineScheduler(PipelineScheduler):
             # 1. Forward pass.
             output_obj = self._forward_step(engine, forward_chunk_id)
 
-            # 2. 检查backward输入是否ready
+            # 2. Check if the backward input is ready.
             if backward_async_communicator is not None:
                 output_obj_grad = backward_async_communicator.wait_and_receive()
 
                 if backward_async_communicator.need_receive:
                     self._output_obj_grads[backward_chunk_id].append(output_obj_grad)
 
-            # 3. send forward ouputs and receive forward outputs from prev rank.
+            # 3. Send the forward outputs and receive the forward inputs from the previous rank.
 
-            # 判断是不是最后一个pp stage的最后一个model chunk，如果是则不需要传前向的结果
+            # Check if it is the last model chunk of the last pipeline stage, no need to send forward output.
             gpc.set_virtual_pipeline_parallel_rank(forward_chunk_id)
             if gpc.is_pipeline_last_stage():
                 output_obj = None
 
-            # 判断是否需要接受上一个rank的结果
-            # 如果是最后一个microbatsh，则没有下一次前向了，则不需要接收了。
-            recv_prev = True if k != (num_1f1b_microsteps - 1) else False
+            # Check if it needs to receive the results from the previous rank.
+            # If it is the last microbatch, there is no next forward pass, so no need to receive.
+            recv_prev = True if k != (num_1f1b_micropairs - 1) else False
 
             if gpc.is_pipeline_first_stage(ignore_virtual=True):
-                # First stage is ahead of last stage by (pipeline_parallel_size - 1).
+                # First stage is ahead of the last stage by (pipeline_parallel_size - 1).
                 next_forward_chunk_id = self._get_chunk_by_microbatch(forward_microstep_id - (self._pp_size - 1))
                 if next_forward_chunk_id == (self._num_chunks - 1):
                     recv_prev = False
@@ -886,17 +998,18 @@ class InterleavedPipelineScheduler(PipelineScheduler):
             if recv_prev:
                 self._input_objs[next_forward_chunk_id].append(input_obj)
 
-            # 6. 发送本次的backward输出，接收下次的backward输入
+            # 6. Send the backward output and receive the backward input for the next iteration.
             gpc.set_virtual_pipeline_parallel_rank(backward_chunk_id)
             if gpc.is_pipeline_first_stage():
                 input_obj_grad = None
 
             recv_next = True
             if gpc.is_pipeline_last_stage(ignore_virtual=True):
-                # 这里为什么必须通过first stage是不是最后一个chunk_model(=0)来判断last stage是否需要从上一层接收后向输入，
-                # 而不是直接从通过last stage是不是第一个chunk_model(=n-1)来判断。
-
-                # 最后一个stage比第一个stage提前了pipeline_parallel_size步，首先获取前置stage的chunk_id.
+                # Use whether the first stage is the last chunk model (=0) to determine if the last stage needs to
+                # receive backward input from the previous layer, instead of using whether the last stage is the
+                # first chunk model (=n-1)，and Why?
+                # The last stage is ahead of the first stage by pipeline_parallel_size steps, so first get the chunk_id
+                # of the previous stage.
                 next_backward_chunk_id = self._get_chunk_by_microbatch(
                     backward_microstep_id - (self._pp_size - 1), backward=True
                 )
@@ -929,17 +1042,33 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         else:
             output_obj_grad = backward_async_communicator.wait_and_receive()
             if backward_async_communicator.need_receive:
-                backward_chunk_id = self._get_chunk_by_microbatch(num_1f1b_microsteps, backward=True)
+                backward_chunk_id = self._get_chunk_by_microbatch(num_1f1b_micropairs, backward=True)
                 self._output_obj_grads[backward_chunk_id].append(output_obj_grad)
 
     def _run_1f1b_loop_without_overlap(
         self,
         engine: Engine,
         num_warmup_microsteps: int,
-        num_1f1b_microsteps: int,
+        num_1f1b_micropairs: int,
         all_warmup_microsteps: bool = False,
     ) -> None:
-        for k in range(num_1f1b_microsteps):
+        """
+        Run the 1F1B loop without overlap.
+
+        The 1F1B loop without overlap consists of the following steps:
+        1. Perform the forward pass.
+        2. Perform the backward pass.
+        3. Send the forward output of this iteration to the next stage, and send the backward output of this iteration
+           to the previous stage,
+        and receive the forward and backward inputs for the next iteration.
+
+        Args:
+            engine (Engine): The engine to use for computation.
+            num_warmup_microsteps (int): The number of warmup microsteps.
+            num_1f1b_micropairs (int): The number of 1F1B micro-pairs.
+            all_warmup_microsteps (bool, optional): Whether to run all warmup microsteps. Defaults to False.
+        """
+        for k in range(num_1f1b_micropairs):
             # Forward pass.
             forward_microstep_id = k + num_warmup_microsteps
             forward_chunk_id = self._get_chunk_by_microbatch(forward_microstep_id)
@@ -955,7 +1084,6 @@ class InterleavedPipelineScheduler(PipelineScheduler):
 
             # Determine if current stage has anything to send in either direction,
             # otherwise set obj to None.
-
             gpc.set_virtual_pipeline_parallel_rank(forward_chunk_id)
             if gpc.is_pipeline_last_stage():
                 output_obj = None
@@ -966,7 +1094,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
 
             # Determine if peers are sending, and where in data structure to put
             # received tensors.
-            recv_prev = k != (num_1f1b_microsteps - 1)
+            recv_prev = k != (num_1f1b_micropairs - 1)
 
             if gpc.is_pipeline_first_stage(ignore_virtual=True):
                 # First stage is ahead of last stage by (pipeline_parallel_size - 1).
@@ -1009,7 +1137,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
             if recv_next:
                 self._output_obj_grads[next_backward_chunk_id].append(output_obj_grad)
 
-        # receive nessary data for next cooldown loop
+        # receive necessary data for next cooldown loop
         if all_warmup_microsteps:
             if not gpc.is_pipeline_last_stage():
                 self._output_obj_grads[self._num_chunks - 1].append(
@@ -1022,8 +1150,20 @@ class InterleavedPipelineScheduler(PipelineScheduler):
             else:
                 self._output_obj_grads[self._num_chunks - 1].append(None)
 
-    def _run_cooldown_loop(self, engine: Engine, num_microsteps: int, num_1f1b_microsteps: int) -> None:
-        for k in range(num_1f1b_microsteps, num_microsteps):
+    def _run_cooldown_loop(self, engine: Engine, num_microsteps: int, num_1f1b_micropairs: int) -> None:
+        """
+        Run the cooldown loop.
+
+        The cooldown loop consists of the following steps:
+        1. Perform the backward step.
+        2. Send the backward output to the next stage and receive inputs for next backward.
+
+        Args:
+            engine (Engine): The engine to use for computation.
+            num_microsteps (int): The total number of microsteps.
+            num_1f1b_micropairs (int): The number of 1F1B micro-pairs.
+        """
+        for k in range(num_1f1b_micropairs, num_microsteps):
             chunk_id = self._get_chunk_by_microbatch(k, backward=True)
 
             input_obj_grad = self._backward_step(engine, chunk_id, k)
@@ -1076,13 +1216,14 @@ class InterleavedPipelineScheduler(PipelineScheduler):
             num_warmup_steps = (self._pp_size - self._pp_rank - 1) * 2
             num_warmup_steps += (self._num_chunks - 1) * self._pp_size
             num_warmup_steps = min(num_warmup_steps, num_microsteps)
-        num_1f1b_microsteps = num_microsteps - num_warmup_steps
+        num_1f1b_micropairs = num_microsteps - num_warmup_steps
 
-        # 我们通常需要在WarmUp阶段结束时，为1f1b阶段准备额外的一个backward的数据，
-        # 因为1f1b阶段通常一次执行一组forward和backward，除了以下情况：
+        # We usually need to prepare an extra backward data for the 1F1B stage when the WarmUp stage ends,
+        # because the 1F1B stage typically performs one forward and backward pass together,
+        # except in the following cases:
         receive_extra_backward = not (
-            all_warmup_microsteps  # 只有warmup microsteps
-            or gpc.is_pipeline_last_stage(ignore_virtual=True)  # 该设备为最后一个pipeline stage
+            all_warmup_microsteps  # Only warmup microsteps
+            or gpc.is_pipeline_last_stage(ignore_virtual=True)  # The rank is the last pipeline stage
         )
 
         # 1. Warmup
@@ -1097,12 +1238,12 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         self._run_1f1b_loop(
             engine,
             num_warmup_steps,
-            num_1f1b_microsteps=num_1f1b_microsteps,
+            num_1f1b_micropairs=num_1f1b_micropairs,
             all_warmup_microsteps=all_warmup_microsteps,
         )
 
         # 3. Cooldown
-        self._run_cooldown_loop(engine, num_microsteps, num_1f1b_microsteps=num_1f1b_microsteps)
+        self._run_cooldown_loop(engine, num_microsteps, num_1f1b_micropairs=num_1f1b_micropairs)
 
     def forward_backward_step(self, engine, data_iter, forward_only=False, return_loss=True, return_output_label=True):
         """Run interleaved 1F1B schedule (model split into model chunks), with

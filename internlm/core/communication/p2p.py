@@ -473,7 +473,7 @@ def send_forward_and_recv_next_forward_async(
     # To protect against race condition when using batch_isend_irecv()
     torch.cuda.synchronize()
 
-    # 处理接收到的数据
+    # Process received data
     if recv_prev_shape is not None and recv_prev_split:
         if isinstance(tensor_recv_prev, torch.Tensor):
             tensor_recv_prev = gather_split_1d_tensor(tensor_recv_prev).view(recv_prev_shape).requires_grad_()
@@ -533,7 +533,7 @@ def send_backward_and_recv_next_backward_async(
     # To protect against race condition when using batch_isend_irecv()
     torch.cuda.synchronize()
 
-    # 处理接收到的数据
+    # Process received data
     if recv_next_shape is not None and recv_next_split:
         if isinstance(tensor_recv_next, torch.Tensor):
             tensor_recv_next = gather_split_1d_tensor(tensor_recv_next).view(recv_next_shape).requires_grad_()
