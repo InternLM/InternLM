@@ -22,11 +22,11 @@ jobs:
         changed_files=$(git diff --name-only -r HEAD^1 HEAD)
         echo $changed_files
         if [[ $changed_files =~ "runtime.txt" ]]; then
-          echo 'pip install -r requirements/runtime.txt'
+          pip install -r requirements/runtime.txt
         fi
 
         if [[ $changed_files =~ "torch.txt"  ]]; then
-          echo 'pip install -r requirements/torch.txt'
+          pip install -r requirements/torch.txt
         fi
 
   dataset-preparation:

@@ -2,6 +2,9 @@ name: lint-check
 
 on: [push]
 
+env:
+    DIR_PREFIX: ${{secrets.DIR_PREFIX}}
+
 jobs:
   # lint check can be auto-executed by the workflow
   lint-check:
