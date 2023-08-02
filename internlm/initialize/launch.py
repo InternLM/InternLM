@@ -88,8 +88,8 @@ def args_sanity_check():
     if "valid_folder" not in data:
         data._add_item("valid_folder", None)
 
-    if "valid_bsz" not in data:
-        data._add_item("valid_bsz", data.micro_num)
+    if "valid_micro_num" not in data:
+        data._add_item("valid_micro_num", data.micro_num)
 
     if "valid_every" not in data:
         data._add_item("valid_every", 0)
@@ -102,7 +102,7 @@ def args_sanity_check():
         logger.info(f"packed_length: {data.packed_length}")
         logger.info(f"pack_sample_into_one: {data.pack_sample_into_one}")
         logger.info(f"min_length: {data.min_length}")
-        logger.info(f"valid_bsz: {data.valid_bsz}")
+        logger.info(f"valid_micro_num: {data.valid_micro_num}")
         logger.info(f"valid_every: {data.valid_every}")
 
     # processing the checkpoint config

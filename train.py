@@ -215,7 +215,9 @@ def get_validation_data_loader(num_worker: int = 0):
     for val_name, ds in val_ds.items():
         # making the batch_size of validate larger can speed up the evaluation, but it should not be too large,
         # otherwise too much data may be dropped
-        batch_size = min(data_cfg.valid_bsz * data_cfg.micro_bsz, len(ds) // gpc.get_world_size(ParallelMode.DATA))
+        batch_size = min(
+            data_cfg.valid_micro_num * data_cfg.micro_bsz, len(ds) // gpc.get_world_size(ParallelMode.DATA)
+        )
         batch_size = batch_size // data_cfg.micro_bsz * data_cfg.micro_bsz
 
         if batch_size == 0 and gpc.is_rank_for_log():
