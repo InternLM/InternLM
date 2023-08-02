@@ -133,7 +133,7 @@ class PipelineScheduler(BaseScheduler):
             data=self.batch_data, label=self.batch_label, offset=self.microbatch_offset, micro_bsz=self.microbatch_size
         )
         self.microbatch_offset += self.microbatch_size
-        if self.data_process_func and not self.forward_only:
+        if self.data_process_func:
             micro_batch_data["input_ids"] = self.data_process_func(
                 micro_batch_data["input_ids"], micro_batch_data["cu_seqlens"]
             )
@@ -310,7 +310,6 @@ class PipelineScheduler(BaseScheduler):
             forward_only or return_loss
         ), "The argument 'return_loss' has to be True when 'forward_only' is False, but got False."
         
-        self.forward_only = forward_only
         self.load_batch(engine, data_iter)
         num_warmup_microbatches = (
             gpc.get_world_size(ParallelMode.PIPELINE) - gpc.get_local_rank(ParallelMode.PIPELINE) - 1

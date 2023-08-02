@@ -12,6 +12,7 @@ from internlm.model.metrics import AccPerplex
 @contextmanager
 def switch_evaluation_no_pipeline_scheduler(trainer, grad_accum_size, grad_accum_batch_size):
     if not gpc.is_using_pp():
+        trainer.schedule.data_process_func = None
         prev_grad_accum_size = trainer.schedule._grad_accum_size
         prev_grad_accum_batch_size = trainer.schedule._grad_accum_batch_size
         try:
@@ -26,6 +27,7 @@ def switch_evaluation_no_pipeline_scheduler(trainer, grad_accum_size, grad_accum
 @contextmanager
 def switch_evaluation_pipeline_scheduler(trainer, num_microbatches, tensor_shape):
     if gpc.is_using_pp():
+        trainer.schedule.data_process_func = None
         prev_num_microbatches = trainer.schedule.num_microbatches
         prev_tensor_shape = trainer.schedule.tensor_shape
         try:

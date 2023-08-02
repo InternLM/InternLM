@@ -62,7 +62,7 @@ class NonPipelineScheduler(BaseScheduler):
         )
         self._grad_accum_offset += self._grad_accum_batch_size
 
-        if self.data_process_func and not self.forward_only:
+        if self.data_process_func:
             _data["input_ids"] = self.data_process_func(_data["input_ids"], _data["cu_seqlens"])
             _label = self.data_process_func(_label, _data["cu_seqlens"])
             _data.pop("cu_seqlens")
