@@ -19,7 +19,6 @@ from internlm.model.linear import (
     ScaleColumnParallelLinear,
 )
 from internlm.model.multi_head_attention import MHA
-from internlm.model.norm import RMSNormTorch
 from internlm.model.utils import gather_forward_split_backward, try_import_RMSNorm
 from internlm.solver.pipeline_utils import partition_uniform
 from internlm.utils.checkpoint import activation_checkpoint
