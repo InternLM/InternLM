@@ -51,3 +51,24 @@ $ python tools/tokenizer.py --text_input_path raw_data.txt --bin_output_path cn/
 例如，对于第一个`sequence`，`starting index`为 0，有 11 个`tokens`；对于第二个`sequence`，由于第一个`sequence`转换为`string`后的长度为`89`，因此它的`starting index`为 90，有 15 个`tokens`。
 
 `json`和`jsonl`类型的文件的`bin`和`meta`文件格式和`txt`一致，此处不再赘叙。
+
+# pal_inference.py
+在[GSM8K](https://huggingface.co/datasets/gsm8k)数据集上使用[PAL](https://github.com/reasoning-machines/pal)范式推理，使模型编写代码并通过Python解释器执行来解决数学问题。以下是使用示例：
+```bash
+python tools/pal_inference.py internlm/internlm-chat-7k ./output -v
+```
+其输出文件每一行包括输入的问题，正确答案，执行答案，得分，以及模型生成的Python代码块：
+```json
+{
+    "question": "Janet\u2019s ducks lay 16 eggs per day. She eats three for breakfast every morning and bakes muffins for her friends every day with four. She sells the remainder at the farmers' market daily for $2 per fresh duck egg. How much in dollars does she make every day at the farmers' market?",
+    "target": 18.0,
+    "answer": 18.0,
+    "score": 1,
+    "generation": ["```python\ndef solution():\n    eggs_per_day = 16\n    eggs_per_breakfast = 3\n    eggs_per_muffin = 4\n    eggs_used = eggs_per_day - eggs_per_breakfast - eggs_per_muffin\n    eggs_sold = eggs_used\n    price_per_egg = 2\n    eggs_made = eggs_sold * price_per_egg\n    result = eggs_made\n    return result\n```"]
+}
+```
+InternLM在GSM8K数据集中带工具和不带工具的性能表现：
+| Models | **InternLM-Chat-7B** |
+| --------------- | -------------------------- |
+| w/o tool           | 34.5                       |
+| w tool           | 39.2                       |
