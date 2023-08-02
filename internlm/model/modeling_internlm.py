@@ -5,7 +5,6 @@ import math
 from typing import Optional
 
 import torch
-from apex.normalization.fused_layer_norm import MixedFusedRMSNorm as RMSNorm
 from flash_attn.modules.embedding import ParallelGPT2Embeddings
 from flash_attn.modules.mlp import ParallelFusedMLP
 from torch import nn
@@ -20,7 +19,7 @@ from internlm.model.linear import (
     ScaleColumnParallelLinear,
 )
 from internlm.model.multi_head_attention import MHA
-from internlm.model.utils import gather_forward_split_backward
+from internlm.model.utils import gather_forward_split_backward, try_import_RMSNorm
 from internlm.solver.pipeline_utils import partition_uniform
 from internlm.utils.checkpoint import activation_checkpoint
 from internlm.utils.common import filter_kwargs
@@ -97,6 +96,7 @@ class PackedFlashBaseLayer1D(nn.Module):
 
         self.dropout1 = nn.Dropout(drop_rate)
         if norm_type == "rmsnorm":
+            RMSNorm = try_import_RMSNorm()
             self.norm1 = RMSNorm(hidden_size, eps=layer_norm_epsilon)
             self.norm2 = RMSNorm(hidden_size, eps=layer_norm_epsilon)
         else:
@@ -335,6 +335,7 @@ class PackedFlashInternLm1D(nn.Module):
         )
         if last:
             if norm_type == "rmsnorm":
+                RMSNorm = try_import_RMSNorm()
                 self.norm = RMSNorm(hidden_size, eps=layer_norm_epsilon)
             else:
                 self.norm = nn.LayerNorm(hidden_size, eps=layer_norm_epsilon)

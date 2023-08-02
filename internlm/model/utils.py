@@ -71,3 +71,18 @@ class _GatherForwardSplitBackward(torch.autograd.Function):
 
 def gather_forward_split_backward(input_, parallel_mode, dim):
     return _GatherForwardSplitBackward.apply(input_, parallel_mode, dim)
+
+
+def try_import_RMSNorm():
+    """
+    Try import MixFusedRMSNorm from apex, if failed, return our RMSNorm
+    
+    """
+    try:
+        from apex.normalization.fused_layer_norm import MixedFusedRMSNorm as RMSNorm
+        return RMSNorm
+    except ModuleNotFoundError as e:
+        import warnings
+        warnings.warn("The torch implementation for MixFusedRMSNorm is slower than apex. Please note this!")
+        from internlm.model.norm import RMSNormTorch as RMSNorm
+        return RMSNorm
