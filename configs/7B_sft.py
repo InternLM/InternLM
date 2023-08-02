@@ -26,12 +26,17 @@ ckpt = dict(
 )
 
 TRAIN_FOLDER = "/path/to/dataset"
+VALID_FOLDER = "/path/to/dataset"
 data = dict(
     seq_len=SEQ_LEN,
     # micro_num means the number of micro_batch contained in one gradient update
     micro_num=4,
     # packed_length = micro_bsz * SEQ_LEN
     micro_bsz=2,
+    # defaults to the value of micro_num
+    valid_micro_num=4,
+    # defaults to 0, means disable evaluate
+    valid_every=50,
     pack_sample_into_one=False,
     total_steps=50000,
     skip_batches="",
@@ -39,6 +44,7 @@ data = dict(
     # Datasets with less than 50 rows will be discarded
     min_length=50,
     # train_folder=TRAIN_FOLDER,
+    # valid_folder=VALID_FOLDER,
 )
 
 grad_scaler = dict(

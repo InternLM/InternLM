@@ -41,7 +41,6 @@ class NonPipelineScheduler(BaseScheduler):
         scheduler_hooks: Optional[List[SchedulerHook]] = None,
     ):
         self._grad_accum_size = gradient_accumulation_size
-        self._grad_accum_batch_size = 1  # static batch size for flash attetion.
         self._grad_accum_offset = 0
 
         self._hooks = scheduler_hooks
@@ -163,8 +162,9 @@ class NonPipelineScheduler(BaseScheduler):
         batch_data, batch_size = engine.load_batch(data_iter)
 
         assert (
-            batch_size == self._grad_accum_size
-        ), f"batch_size:{batch_size} must be equal to gradient accumulation steps:{self._grad_accum_size}"
+            batch_size % self._grad_accum_size == 0
+        ), f"batch_size:{batch_size} must be an integer multiple of gradient accumulation steps:{self._grad_accum_size}"
+        self._grad_accum_batch_size = batch_size // self._grad_accum_size
 
         data, label = batch_data
 

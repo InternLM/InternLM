@@ -185,7 +185,6 @@ class PipelineScheduler(BaseScheduler):
         micro_batch_data, micro_batch_label = self._load_micro_batch(
             data=self.batch_data, label=self.batch_label, offset=self.microbatch_offset, micro_bsz=self.microbatch_size
         )
-
         if self.data_process_func:
             micro_batch_data["input_ids"] = self.data_process_func(
                 micro_batch_data["input_ids"], micro_batch_data["cu_seqlens"]
