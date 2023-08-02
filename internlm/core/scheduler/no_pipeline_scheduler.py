@@ -35,7 +35,6 @@ class NonPipelineScheduler(BaseScheduler):
     """
 
     def __init__(self, data_process_func: Callable = None, gradient_accumulation_size: int = 1):
-
         self._grad_accum_size = gradient_accumulation_size
         self._grad_accum_batch_size = 1  # static batch size for flash attetion.
         self._grad_accum_offset = 0
@@ -145,10 +144,9 @@ class NonPipelineScheduler(BaseScheduler):
         batch_data, batch_size = engine.load_batch(data_iter)
 
         assert (
-            batch_size == self._grad_accum_size
-        ), f"batch_size:{batch_size} must be equal to gradient accumulation steps:{self._grad_accum_size}"
-        
-        self.forward_only = forward_only
+            batch_size % self._grad_accum_size == 0
+        ), f"batch_size:{batch_size} must be an integer multiple of gradient accumulation steps:{self._grad_accum_size}"
+
         data, label = batch_data
 
         loss = 0 if return_loss else None

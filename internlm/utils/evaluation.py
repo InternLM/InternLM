@@ -10,6 +10,20 @@ from internlm.model.metrics import AccPerplex
 
 
 @contextmanager
+def switch_evaluation_no_pipeline_scheduler(trainer, grad_accum_size, grad_accum_batch_size):
+    if not gpc.is_using_pp():
+        prev_grad_accum_size = trainer.schedule._grad_accum_size
+        prev_grad_accum_batch_size = trainer.schedule._grad_accum_batch_size
+        try:
+            trainer.schedule._grad_accum_size = grad_accum_size
+            trainer.schedule._grad_accum_batch_size = grad_accum_batch_size
+            yield
+        finally:
+            trainer.schedule._grad_accum_size = prev_grad_accum_size
+            trainer.schedule._grad_accum_batch_size = prev_grad_accum_batch_size
+
+
+@contextmanager
 def switch_evaluation_pipeline_scheduler(trainer, num_microbatches, tensor_shape):
     if gpc.is_using_pp():
         prev_num_microbatches = trainer.schedule.num_microbatches
@@ -60,9 +74,9 @@ def evaluate_on_val_dls(
         ):
             with torch.inference_mode():
                 if gpc.is_using_pp():
-                    val_bsz = len(batch[1])
-                    assert val_bsz % data_cfg.micro_bsz == 0
-                    num_microbatches = val_bsz // data_cfg.micro_bsz
+                    total_val_bsz = len(batch[1])
+                    assert total_val_bsz % data_cfg.micro_bsz == 0
+                    num_microbatches = total_val_bsz // data_cfg.micro_bsz
                     tensor_shape = torch.Size(
                         [data_cfg.micro_bsz, batch[0]["input_ids"].shape[1], gpc.config.HIDDEN_SIZE]
                     )
@@ -74,9 +88,17 @@ def evaluate_on_val_dls(
                             batch, forward_only=True, return_loss=True, return_output_label=False, post_fn=val_metric
                         )
                 else:
-                    _, _, loss = trainer.execute_schedule(
-                        batch, forward_only=True, return_loss=True, return_output_label=False, post_fn=val_metric
-                    )
+                    total_val_bsz = len(batch[1])
+                    assert total_val_bsz % data_cfg.micro_bsz == 0
+                    grad_accum_size = total_val_bsz // data_cfg.micro_bsz
+                    grad_accum_batch_size = data_cfg.micro_bsz
+
+                    with switch_evaluation_no_pipeline_scheduler(
+                        trainer=trainer, grad_accum_size=grad_accum_size, grad_accum_batch_size=grad_accum_batch_size
+                    ):
+                        _, _, loss = trainer.execute_schedule(
+                            batch, forward_only=True, return_loss=True, return_output_label=False, post_fn=val_metric
+                        )
             if verbose:
                 val_loss += loss.item()
 
