@@ -11,9 +11,9 @@ VOCAB_SIZE = 103168
 # fs: 'local:/mnt/nfs/XXX'
 # oss: 'boto3:s3://model_weights/XXX'
 MODEL_ONLY_FOLDER = "local:llm_ckpts/xxxx"
-#SAVE_CKPT_FOLDER = "local:llm_ckpts"
+# SAVE_CKPT_FOLDER = "local:llm_ckpts"
 SAVE_CKPT_FOLDER = "local:llm_ckpts"
-#LOAD_CKPT_FOLDER = "local:llm_ckpts/49"
+# LOAD_CKPT_FOLDER = "local:llm_ckpts/49"
 ckpt = dict(
     # Path to save training ckpt.
     save_ckpt_folder=SAVE_CKPT_FOLDER,
@@ -119,8 +119,8 @@ zero1 parallel:
     2. if zero1 == 1, zero is not used, and all dp groups retain the full amount of model parameters.
     3. zero1 > 1 and zero1 <= dp world size, the world size of zero is a subset of dp world size.
         For smaller models, it is usually a better choice to split the parameters within nodes with a setting <= 8.
-pipeline parallel: pipeline parallel size, only 1 is accepted currently.
-tensor parallel: tensor parallel size, usually the number of GPUs per node, only 1 is accepted currently.
+pipeline parallel: pipeline parallel size.
+tensor parallel: tensor parallel size, usually the number of GPUs per node.
 """
 parallel = dict(
     zero1=8,

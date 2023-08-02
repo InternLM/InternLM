@@ -187,6 +187,10 @@ def args_sanity_check():
         logger.info("+" * 15 + " beta2_scheduler Info " + "+" * 15)  # pylint: disable=W1201
         logger.info(f"beta2_scheduler: {gpc.config.beta2_scheduler}")
 
+    # process the model config
+    if "use_flash_attn" not in gpc.config.model:
+        gpc.config.model._add_item("use_flash_attn", True)
+
 
 def launch(
     config: Union[str, Path, Config, Dict],
