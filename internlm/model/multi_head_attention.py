@@ -17,7 +17,7 @@ from torch import nn
 from internlm.core.context import IS_TENSOR_PARALLEL, ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.model.embedding import RotaryEmbedding
-from internlm.model.linear import ColumnParallelLinear, RowParallelLinear
+from internlm.model.linear import ColumnParallelLinearTorch, RowParallelLinearTorch
 
 
 class MHA(nn.Module):
@@ -78,7 +78,7 @@ class MHA(nn.Module):
             self.rotary_emb = RotaryEmbedding(self.rotary_emb_dim, scale_base=rotary_emb_scale_base, device=device)
 
         # notice here should change bias=True
-        self.Wqkv = ColumnParallelLinear(
+        self.Wqkv = ColumnParallelLinearTorch(
             embed_dim,
             3 * embed_dim,
             process_group,
@@ -95,7 +95,7 @@ class MHA(nn.Module):
         )
 
         # output projection always have the bias (for now)
-        self.out_proj = RowParallelLinear(
+        self.out_proj = RowParallelLinearTorch(
             embed_dim, embed_dim, process_group, sequence_parallel=sequence_parallel, **factory_kwargs
         )
         # need to assign tp attribute so that internlm know it is tensor parallel module

@@ -7,8 +7,9 @@ import torch
 import torch.nn.functional as F
 from flash_attn.ops.fused_dense import FusedDenseFunc
 from torch import Tensor
-from torch.cuda.amp import custom_bwd, custom_fwd
+from torch.cuda.amp import custom_bwd
 from torch.distributed import ProcessGroup
+from flash_attn.utils.distributed import all_gather_raw, reduce_scatter_raw, all_reduce_raw
 
 from internlm.core.context import global_context as gpc
 
@@ -80,67 +81,6 @@ def gather_forward_split_backward(input_, parallel_mode, dim):
     return _GatherForwardSplitBackward.apply(input_, parallel_mode, dim)
 
 
-# the following communicators are adapted from https://github.com/Dao-AILab/flash-attention/blob/main/flash_attn/utils/distributed.py
-def all_gather_raw(input_: Tensor, process_group: ProcessGroup, async_op: bool = False):
-    world_size = torch.distributed.get_world_size(process_group)
-    output = torch.empty(world_size * input_.shape[0], *input_.shape[1:], dtype=input_.dtype, device=input_.device)
-    handle = torch.distributed.all_gather_into_tensor(
-        output, input_.contiguous(), group=process_group, async_op=async_op
-    )
-    return output, handle
-
-
-def reduce_scatter_raw(input_: Tensor, process_group: ProcessGroup, async_op: bool = False):
-    world_size = torch.distributed.get_world_size(process_group)
-    assert input_.shape[0] % world_size == 0
-    output = torch.empty(input_.shape[0] // world_size, *input_.shape[1:], dtype=input_.dtype, device=input_.device)
-    handle = torch.distributed.reduce_scatter_tensor(
-        output, input_.contiguous(), group=process_group, async_op=async_op
-    )
-    return output, handle
-
-
-def all_reduce_raw(input_: Tensor, process_group: ProcessGroup, async_op: bool = False):
-    input_ = input_.contiguous()
-    handle = torch.distributed.all_reduce(input_, group=process_group, async_op=async_op)
-    return input_, handle
-
-
-class ReduceScatterFunc(torch.autograd.Function):
-    """Reduce scatter the input from the sequence parallel region and concatenate."""
-
-    @staticmethod
-    def forward(ctx, input_: Tensor, process_group: ProcessGroup) -> Tensor:
-        ctx.process_group = process_group
-        output, _ = reduce_scatter_raw(input_, process_group)
-        return output
-
-    @staticmethod
-    def backward(ctx, grad_output: Tensor):
-        grad_input, _ = all_gather_raw(grad_output, ctx.process_group)
-        return grad_input, None
-
-
-class AllReduceFunc(torch.autograd.Function):
-    """Gather the input from sequence parallel region and concatenate."""
-
-    @staticmethod
-    def forward(ctx, input_: Tensor, process_group: ProcessGroup) -> Tensor:
-        ctx.process_group = process_group
-        output, _ = all_reduce_raw(input_, process_group)
-        return output
-
-    @staticmethod
-    def backward(ctx, grad_output: Tensor):
-        return grad_output, None
-
-
-# Supports autograd, but does not support async
-reduce_scatter = ReduceScatterFunc.apply
-# Supports autograd, but does not support async
-all_reduce = AllReduceFunc.apply
-
-
 def linear_bias_wgrad_torch(input, grad_output, has_d_bias):
     assert input.dtype == grad_output.dtype
     grad_weight = torch.matmul(grad_output.t(), input)
@@ -149,45 +89,7 @@ def linear_bias_wgrad_torch(input, grad_output, has_d_bias):
 
 
 # adpated from https://github.com/Dao-AILab/flash-attention/blob/main/flash_attn/ops/fused_dense.py
-class FusedDenseFuncTorch(torch.autograd.Function):
-    @staticmethod
-    @custom_fwd
-    def forward(ctx, x, weight, bias, return_residual=False, process_group=None, sequence_parallel=True):
-        """
-        If process_group is not None and sequence_parallel=True, we're doing Tensor Parallel
-        with sequence parallelism: we do an all_gather_raw of x before doing the matmul.
-        """
-        ctx.compute_weight_gradient = weight.requires_grad
-        ctx.return_residual = return_residual
-        ctx.process_group = process_group
-        ctx.sequence_parallel = sequence_parallel
-
-        if torch.is_autocast_enabled():
-            x = x.to(dtype=torch.get_autocast_gpu_dtype())
-        x = x.contiguous()
-        if process_group is not None and sequence_parallel:
-            # We want to kick off the all_gather early, before weight dtype conversion
-            total_x, handle_x = all_gather_raw(x, process_group, async_op=True)
-        else:
-            total_x = x
-
-        if torch.is_autocast_enabled():
-            weight = weight.to(dtype=torch.get_autocast_gpu_dtype())
-            bias = bias.to(dtype=torch.get_autocast_gpu_dtype()) if bias is not None else None
-        weight = weight.contiguous()
-        if process_group is not None and sequence_parallel:
-            handle_x.wait()
-        batch_shape, n = total_x.shape[:-1], total_x.shape[-1]
-        batch_dim = batch_shape.numel()
-        # https://github.com/pytorch/pytorch/blob/5b51849b48a7dbccd297286cc0110def4706f9e7/aten/src/ATen/native/cuda/Blas.cpp#L174
-        if min(batch_dim, n, *weight.shape) > 65535 * 32:
-            raise RuntimeError("fused_dense only supports matrix dims <= 2M")
-        output = F.linear(total_x, weight, bias)
-        if ctx.compute_weight_gradient:
-            ctx.save_for_backward(x, weight)
-        else:
-            ctx.save_for_backward(weight)
-        return output if not return_residual else (output, x)
+class FusedDenseFuncTorch(FusedDenseFunc):
 
     @staticmethod
     @custom_bwd
