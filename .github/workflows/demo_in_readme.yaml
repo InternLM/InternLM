@@ -7,7 +7,8 @@ on:
       - "docs/**"
       - "**.md"
 env:
-    DIR_PREFIX: ${{secrets.DIR_PREFIX}}
+    #DIR_PREFIX: ${{secrets.DIR_PREFIX}}
+    DIR_PREFIX: ${{vars.CI_PREFIX}}
 
 jobs:
   check-requirements:
@@ -43,6 +44,7 @@ jobs:
         source activate internlm-env-test
         echo "debuging"
         echo ${{secrets.DIR_PREFIX}}
+        echo ${{vars.CI_PREFIX}}
         echo "debuging"
         sh ./ci_scripts/data/tokenizer_chinese.sh
 
