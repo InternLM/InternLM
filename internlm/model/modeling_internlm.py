@@ -376,7 +376,7 @@ class PackedFlashInternLm1D(nn.Module):
         if isinstance(cu_seqlens, list):
             assert len(cu_seqlens) == 1
             cu_seqlens = cu_seqlens[0].to(hidden_states.device)
- 
+
         if cu_seqlens is not None:
             cu_seqlens = cu_seqlens.squeeze(0)
             hidden_states = hidden_states.squeeze(0)  # If cu_seqlens is passed in，it indicated a packed state，
