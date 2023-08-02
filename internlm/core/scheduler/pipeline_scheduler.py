@@ -502,7 +502,7 @@ class PipelineScheduler(BaseScheduler):
                 input_obj = None
 
         # Run 1F1B in steady state.
-        for i in range(num_1f1b_micropairs // 2):
+        for i in range(num_1f1b_micropairs):
             # Perform forward computation
             output_obj = self._forward_step(
                 engine,
@@ -969,21 +969,16 @@ class InterleavedPipelineScheduler(PipelineScheduler):
                 output_obj = None
 
             # Check if it needs to receive the results from the previous rank.
-            # If it is the last microbatch, there is no next forward pass, so no need to receive.
-            recv_prev = True if k != (num_1f1b_micropairs - 1) else False
-
-            if gpc.is_pipeline_first_stage(ignore_virtual=True):
-                # First stage is ahead of the last stage by (pipeline_parallel_size - 1).
-                next_forward_chunk_id = self._get_chunk_by_microbatch(forward_microstep_id - (self._pp_size - 1))
-                if next_forward_chunk_id == (self._num_chunks - 1):
-                    recv_prev = False
-                next_forward_chunk_id += 1
-            else:
-                next_forward_chunk_id = self._get_chunk_by_microbatch(forward_microstep_id + 1)
+            next_forward_chunk_id = self._get_chunk_by_microbatch(forward_microstep_id + 1)
+            with switch_virtual_pipeline_parallel_rank(next_forward_chunk_id):
+                if gpc.is_pipeline_first_stage() or k == num_1f1b_micropairs - 1:
+                    input_obj_shape = None
+                else:
+                    input_obj_shape = self._input_obj_shapes[next_forward_chunk_id]
 
             forward_async_communicator = comm.AsynCommunicator(
                 output_obj,
-                self._input_obj_shapes[next_forward_chunk_id] if recv_prev else None,
+                input_obj_shape,
                 self.dtype,
                 self.scatter_gather_tensors,
                 forward=True,
@@ -995,7 +990,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
             input_obj_grad = self._backward_step(engine, backward_chunk_id, backward_microstep_id)
 
             input_obj = forward_async_communicator.wait_and_receive()
-            if recv_prev:
+            if forward_async_communicator.need_receive:
                 self._input_objs[next_forward_chunk_id].append(input_obj)
 
             # 6. Send the backward output and receive the backward input for the next iteration.
@@ -1003,25 +998,16 @@ class InterleavedPipelineScheduler(PipelineScheduler):
             if gpc.is_pipeline_first_stage():
                 input_obj_grad = None
 
-            recv_next = True
-            if gpc.is_pipeline_last_stage(ignore_virtual=True):
-                # Use whether the first stage is the last chunk model (=0) to determine if the last stage needs to
-                # receive backward input from the previous layer, instead of using whether the last stage is the
-                # first chunk model (=n-1)，and Why?
-                # The last stage is ahead of the first stage by pipeline_parallel_size steps, so first get the chunk_id
-                # of the previous stage.
-                next_backward_chunk_id = self._get_chunk_by_microbatch(
-                    backward_microstep_id - (self._pp_size - 1), backward=True
-                )
-                if next_backward_chunk_id == 0:
-                    recv_next = False
-                next_backward_chunk_id -= 1
-            else:
-                next_backward_chunk_id = self._get_chunk_by_microbatch(backward_microstep_id + 1, backward=True)
+            next_backward_chunk_id = self._get_chunk_by_microbatch(backward_microstep_id + 1, backward=True)
+            with switch_virtual_pipeline_parallel_rank(next_backward_chunk_id):
+                if gpc.is_pipeline_last_stage():
+                    output_obj_shape = None
+                else:
+                    output_obj_shape = self._output_obj_shapes[next_backward_chunk_id]
 
             backward_async_communicator = comm.AsynCommunicator(
                 input_obj_grad,
-                self._output_obj_shapes[next_backward_chunk_id] if recv_next else None,
+                output_obj_shape,
                 self.dtype,
                 self.scatter_gather_tensors,
                 forward=False,
@@ -1094,28 +1080,19 @@ class InterleavedPipelineScheduler(PipelineScheduler):
 
             # Determine if peers are sending, and where in data structure to put
             # received tensors.
-            recv_prev = k != (num_1f1b_micropairs - 1)
-
-            if gpc.is_pipeline_first_stage(ignore_virtual=True):
-                # First stage is ahead of last stage by (pipeline_parallel_size - 1).
-                next_forward_chunk_id = self._get_chunk_by_microbatch(forward_microstep_id - (self._pp_size - 1))
-                if next_forward_chunk_id == (self._num_chunks - 1):
+            next_forward_chunk_id = self._get_chunk_by_microbatch(forward_microstep_id + 1)
+            with switch_virtual_pipeline_parallel_rank(next_forward_chunk_id):
+                if gpc.is_pipeline_first_stage() or k == num_1f1b_micropairs - 1:
                     recv_prev = False
-                next_forward_chunk_id += 1
-            else:
-                next_forward_chunk_id = self._get_chunk_by_microbatch(forward_microstep_id + 1)
+                else:
+                    recv_prev = True
 
-            recv_next = True
-            if gpc.is_pipeline_last_stage(ignore_virtual=True):
-                # Last stage is ahead of first stage by (pipeline_parallel_size - 1).
-                next_backward_chunk_id = self._get_chunk_by_microbatch(
-                    backward_microstep_id - (self._pp_size - 1), backward=True
-                )
-                if next_backward_chunk_id == 0:
+            next_backward_chunk_id = self._get_chunk_by_microbatch(backward_microstep_id + 1, backward=True)
+            with switch_virtual_pipeline_parallel_rank(next_backward_chunk_id):
+                if gpc.is_pipeline_last_stage():
                     recv_next = False
-                next_backward_chunk_id -= 1
-            else:
-                next_backward_chunk_id = self._get_chunk_by_microbatch(backward_microstep_id + 1, backward=True)
+                else:
+                    recv_next = True
 
             input_shape = self._input_obj_shapes[next_forward_chunk_id] if recv_prev else None
             output_shape = self._output_obj_shapes[next_backward_chunk_id] if recv_next else None

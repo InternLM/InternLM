@@ -101,7 +101,7 @@ def initialize_model():
             [
                 NaiveAMPModel(
                     model=_m,
-                    output_to_fp32=False,  # 由interleaved pipleline scheduler手动控制
+                    output_to_fp32=False,  # manually controlled by interleaved pipleline scheduler
                     dtype=gpc.config.model.get("dtype", torch.half),
                     sync_buffer=False,
                 )
