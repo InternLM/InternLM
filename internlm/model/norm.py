@@ -41,4 +41,4 @@ class RMSNormTorch(torch.nn.Module):
         init.ones_(self.weight)
 
     def extra_repr(self):
-        return "{normalized_shape}, eps={eps}, " "elementwise_affine={elementwise_affine}".format(**self.__dict__)
+        return "{normalized_shape}, eps={eps}, ".format(**self.__dict__)
