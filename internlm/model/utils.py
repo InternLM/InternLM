@@ -6,10 +6,14 @@ from typing import Optional
 import torch
 import torch.nn.functional as F
 from flash_attn.ops.fused_dense import FusedDenseFunc
+from flash_attn.utils.distributed import (
+    all_gather_raw,
+    all_reduce_raw,
+    reduce_scatter_raw,
+)
 from torch import Tensor
 from torch.cuda.amp import custom_bwd
 from torch.distributed import ProcessGroup
-from flash_attn.utils.distributed import all_gather_raw, reduce_scatter_raw, all_reduce_raw
 
 from internlm.core.context import global_context as gpc
 
@@ -90,7 +94,6 @@ def linear_bias_wgrad_torch(input, grad_output, has_d_bias):
 
 # adpated from https://github.com/Dao-AILab/flash-attention/blob/main/flash_attn/ops/fused_dense.py
 class FusedDenseFuncTorch(FusedDenseFunc):
-
     @staticmethod
     @custom_bwd
     def backward(ctx, grad_output, *args):

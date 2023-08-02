@@ -5,9 +5,9 @@ from typing import Optional
 
 import torch
 import torch.nn.functional as F
-from torch import nn
 from flash_attn.ops.fused_dense import ColumnParallelLinear, RowParallelLinear
-from flash_attn.utils.distributed import reduce_scatter, all_reduce
+from flash_attn.utils.distributed import all_reduce, reduce_scatter
+from torch import nn
 
 from internlm.core.context import IS_TENSOR_PARALLEL, ParallelMode
 from internlm.core.context import global_context as gpc
@@ -111,7 +111,6 @@ class RewardModelLinear(ScaleColumnParallelLinear):
 
 
 class ColumnParallelLinearTorch(ColumnParallelLinear):
-
     def forward(self, x):
         # If self.sequence_parallel is True, we're doing Tensor Parallel with sequence parallelism:
         # we do an all_gather of x before doing the matmul.
@@ -123,7 +122,6 @@ class ColumnParallelLinearTorch(ColumnParallelLinear):
 
 
 class RowParallelLinearTorch(RowParallelLinear):
-
     def forward(self, x):
         """
         We're doing Tensor Parallel with sequence parallelism: we do the matmul and then
