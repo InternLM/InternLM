@@ -41,6 +41,9 @@ jobs:
     - name: raw-chinese-data
       run: |
         source activate internlm-env-test
+        echo "debuging"
+        echo ${{secrets.DIR_PREFIX}}
+        echo "debuging"
         sh ./ci_scripts/data/tokenizer_chinese.sh
 
     - name: alpaca-data
