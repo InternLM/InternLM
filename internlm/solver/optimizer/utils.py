@@ -5,10 +5,8 @@ import math
 from abc import ABC, abstractmethod
 from typing import Dict, Optional
 
-import amp_C
 import torch
 import torch.distributed as dist
-from apex.multi_tensor_apply import multi_tensor_applier
 from torch import Tensor
 from torch._utils import _flatten_dense_tensors, _unflatten_dense_tensors
 
@@ -156,36 +154,36 @@ def sync_param(flat_tensor, tensor_list):
     for p, q in zip(tensor_list, updated_params):
         p.data = q.data
 
+def multi_tensor_l2norm_torch(tensor_list, per_tensor):
+    # Convert tensor_list elements to torch.float32
+    tensor_list = [tensor.float() for tensor in tensor_list]
+    norms_tensor = torch.stack([torch.norm(tensor, p=2) for tensor in tensor_list])
+    l2_norm = torch.norm(norms_tensor, p=2).unsqueeze(0)
+
+    if per_tensor:
+        per_tensor_norm = norms_tensor
+    else:
+        per_tensor_norm = torch.Tensor([]).to(norms_tensor.device)
+
+    return l2_norm, per_tensor_norm
 
 def calc_l2_norm(grads):
     norm = 0.0
     if len(grads) > 0:
-        dummy_overflow_buf = torch.cuda.IntTensor([0])
-        norm, _ = multi_tensor_applier(
-            amp_C.multi_tensor_l2norm, dummy_overflow_buf, [grads], False  # no per-parameter norm
-        )
+        try:
+            import amp_C
+            from apex.multi_tensor_apply import multi_tensor_applier
+            
+            dummy_overflow_buf = torch.cuda.IntTensor([0])
+            norm, _ = multi_tensor_applier(
+                amp_C.multi_tensor_l2norm, dummy_overflow_buf, [grads], False  # no per-parameter norm
+            )
+        except ModuleNotFoundError as e:
+            import warnings
+            warnings.warn("The torch implementation for cal_l2norm is slower than apex. Please note this!")
+            
+            norm, _ = multi_tensor_l2norm_torch(grads, False)
     return norm
-
-
-def calc_l2_norm_torch(grads):
-    def multi_tensor_l2norm_torch(tensor_list, per_tensor):
-        # Convert tensor_list elements to torch.float32
-        tensor_list = [tensor.float() for tensor in tensor_list]
-        norms_tensor = torch.stack([torch.norm(tensor, p=2) for tensor in tensor_list])
-        l2_norm = torch.norm(norms_tensor, p=2).unsqueeze(0)
-
-        if per_tensor:
-            per_tensor_norm = norms_tensor
-        else:
-            per_tensor_norm = torch.Tensor([]).to(norms_tensor.device)
-
-        return l2_norm, per_tensor_norm
-
-    norm = 0.0
-    if len(grads) > 0:
-        norm, _ = multi_tensor_l2norm_torch(grads, False)
-    return norm
-
 
 def calc_lp(grads, norm_type):
     norm = 0.0
@@ -195,7 +193,7 @@ def calc_lp(grads, norm_type):
     return norm
 
 
-def compute_norm(gradients, parameters, norm_type=2, use_apex=True):
+def compute_norm(gradients, parameters, norm_type=2):
     """Get the norm
     Arguments:
         gradients (Iterable[Tensor]): The gradient value.
@@ -249,10 +247,7 @@ def compute_norm(gradients, parameters, norm_type=2, use_apex=True):
                 raise RuntimeError("Should not arrive here")
 
         if norm_type == 2.0 and enable_cuda_kernels:
-            if use_apex:
-                tensor_parallel_norm = calc_l2_norm(tensor_parallel_grads) ** norm_type
-            else:
-                tensor_parallel_norm = calc_l2_norm_torch(tensor_parallel_grads) ** norm_type
+            tensor_parallel_norm = calc_l2_norm(tensor_parallel_grads) ** norm_type
         else:
             tensor_parallel_norm = calc_lp(tensor_parallel_grads, norm_type)
 
