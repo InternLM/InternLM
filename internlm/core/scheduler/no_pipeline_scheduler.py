@@ -63,7 +63,7 @@ class NonPipelineScheduler(BaseScheduler):
         )
         self._grad_accum_offset += self._grad_accum_batch_size
 
-        if self.data_process_func and "cu_seqlens" in _data:
+        if self.data_process_func and not self.forward_only:
             _data["input_ids"] = self.data_process_func(_data["input_ids"], _data["cu_seqlens"])
             _label = self.data_process_func(_label, _data["cu_seqlens"])
             _data.pop("cu_seqlens")
@@ -147,7 +147,8 @@ class NonPipelineScheduler(BaseScheduler):
         assert (
             batch_size == self._grad_accum_size
         ), f"batch_size:{batch_size} must be equal to gradient accumulation steps:{self._grad_accum_size}"
-
+        
+        self.forward_only = forward_only
         data, label = batch_data
 
         loss = 0 if return_loss else None
