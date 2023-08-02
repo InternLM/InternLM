@@ -176,6 +176,8 @@ def args_sanity_check():
     # process the model config
     if "use_flash_attn" not in gpc.config.model:
         gpc.config.model._add_item("use_flash_attn", True)
+    if "use_apex" not in gpc.config.model:
+        gpc.config.model._add_item("use_apex", True)
 
 
 def launch(
