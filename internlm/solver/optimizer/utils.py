@@ -160,7 +160,6 @@ def sync_param(flat_tensor, tensor_list):
 def calc_l2_norm(grads):
     norm = 0.0
     if len(grads) > 0:
-        # norm, _ = multi_tensor_l2norm_torch(grads, False)
         dummy_overflow_buf = torch.cuda.IntTensor([0])
         norm, _ = multi_tensor_applier(
             amp_C.multi_tensor_l2norm, dummy_overflow_buf, [grads], False  # no per-parameter norm
