@@ -4,11 +4,12 @@
 # adopted from https://github.com/hpcaitech/ColossalAI/blob/main/colossalai/engine
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Iterable
+from typing import Any, Callable, Iterable, Optional
 
 import torch
 
 from internlm.core.engine import Engine
+from internlm.utils.megatron_timers import megatron_timer as timer
 
 
 class BaseScheduler(ABC):
@@ -115,6 +116,10 @@ class BaseScheduler(ABC):
 
 
 class SchedulerHook(ABC):
+    """
+    Scheduler Hook.
+    """
+
     @abstractmethod
     def before_forward(self, scheduler, inputs) -> None:
         """Actions before forward"""
@@ -142,3 +147,51 @@ class SchedulerHook(ABC):
     @abstractmethod
     def post_helper_func(self, scheduler, outputs, label) -> None:
         """A post helper function"""
+
+
+class SchedulerMetricHook(SchedulerHook):
+    """
+    Scheduler Metric Hook.
+    """
+
+    def __init__(self, metric: Optional[Callable] = None, skip: bool = False) -> None:
+        self._post_func = metric
+        self._skip = skip
+
+        if skip:
+            # init timer only.
+            timer("fwd")
+            timer("bwd")
+            timer("cal_loss")
+            timer("post_fn")
+
+    def before_forward(self, scheduler, inputs) -> None:
+        if not self._skip:
+            timer("fwd").start()
+
+    def after_forward(self, scheduler, outputs) -> None:
+        if not self._skip:
+            timer("fwd").stop()
+
+    def before_criterion(self, scheduler, outputs, label) -> None:
+        if not self._skip:
+            timer("cal_loss").start()
+
+    def after_criterion(self, scheduler, loss) -> None:
+        if not self._skip:
+            timer("cal_loss").stop()
+
+    def before_backward(self, scheduler, outputs, outputs_grad) -> None:
+        if not self._skip:
+            timer("bwd").start()
+
+    def after_backward(self, scheduler, inputs_grad) -> None:
+        if not self._skip:
+            timer("bwd").stop()
+
+    def post_helper_func(self, scheduler, outputs, label) -> None:
+        if not self._skip:
+            timer("post_fn").start()
+            if self._post_func is not None:
+                self._post_func(outputs, label)
+            timer("post_fn").stop()

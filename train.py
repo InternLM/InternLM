@@ -5,7 +5,7 @@ import socket
 import time
 import traceback
 from functools import partial
-from typing import Callable, Iterable, Optional
+from typing import Iterable
 
 import torch
 import torch.distributed as dist
@@ -16,7 +16,7 @@ import internlm
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.core.naive_amp import NaiveAMPModel
-from internlm.core.scheduler import SchedulerHook
+from internlm.core.scheduler import SchedulerMetricHook
 from internlm.core.trainer import TrainState
 from internlm.data.batch_sampler import StaticBatchSampler, get_dpsampler_dataloader
 from internlm.data.collaters import jsonl_ds_collate_fn, packed_collate_fn
@@ -404,50 +404,6 @@ def record_current_batch_training_metrics(
             )
         else:
             logger.info(line)
-
-
-class SchedulerMetricHook(SchedulerHook):
-    def __init__(self, metric: Optional[Callable] = None, skip: bool = False) -> None:
-        self._post_func = metric
-        self._skip = skip
-
-        if skip:
-            # init timer only.
-            timer("fwd")
-            timer("bwd")
-            timer("cal_loss")
-            timer("post_fn")
-
-    def before_forward(self, scheduler, inputs) -> None:
-        if not self._skip:
-            timer("fwd").start()
-
-    def after_forward(self, scheduler, outputs) -> None:
-        if not self._skip:
-            timer("fwd").stop()
-
-    def before_criterion(self, scheduler, outputs, label) -> None:
-        if not self._skip:
-            timer("cal_loss").start()
-
-    def after_criterion(self, scheduler, loss) -> None:
-        if not self._skip:
-            timer("cal_loss").stop()
-
-    def before_backward(self, scheduler, outputs, outputs_grad) -> None:
-        if not self._skip:
-            timer("bwd").start()
-
-    def after_backward(self, scheduler, inputs_grad) -> None:
-        if not self._skip:
-            timer("bwd").stop()
-
-    def post_helper_func(self, scheduler, outputs, label) -> None:
-        if not self._skip:
-            timer("post_fn").start()
-            if self._post_func is not None:
-                self._post_func(outputs, label)
-            timer("post_fn").stop()
 
 
 def main(args):
