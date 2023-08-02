@@ -104,7 +104,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         clip_grad_norm = zero_cfg.clip_grad_norm
 
         super().__init__(optim=optimizer)
-        
+
         self.use_apex = use_apex
 
         self._dtype = self.optim.param_groups[0]["params"][0].dtype

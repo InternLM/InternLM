@@ -156,6 +156,7 @@ def sync_param(flat_tensor, tensor_list):
     for p, q in zip(tensor_list, updated_params):
         p.data = q.data
 
+
 def calc_l2_norm(grads):
     norm = 0.0
     if len(grads) > 0:
@@ -166,8 +167,8 @@ def calc_l2_norm(grads):
         )
     return norm
 
-def calc_l2_norm_torch(grads):
 
+def calc_l2_norm_torch(grads):
     def multi_tensor_l2norm_torch(tensor_list, per_tensor):
         # Convert tensor_list elements to torch.float32
         tensor_list = [tensor.float() for tensor in tensor_list]
@@ -185,6 +186,7 @@ def calc_l2_norm_torch(grads):
     if len(grads) > 0:
         norm, _ = multi_tensor_l2norm_torch(grads, False)
     return norm
+
 
 def calc_lp(grads, norm_type):
     norm = 0.0

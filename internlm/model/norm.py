@@ -3,13 +3,13 @@
 import numbers
 
 import torch
-from torch.nn.parameter import Parameter
 from torch.nn import init
+from torch.nn.parameter import Parameter
 
 
 def manual_rms_norm(input, normalized_shape, weight, eps):
     # layer norm should always be calculated in float32
-    dims = tuple(i for i in range(-1, -len(normalized_shape)-1, -1))
+    dims = tuple(i for i in range(-1, -len(normalized_shape) - 1, -1))
     variance = input.to(torch.float32).pow(2).mean(dims, keepdim=True)
     input = input * torch.rsqrt(variance + eps)
 
@@ -24,8 +24,7 @@ def manual_rms_norm(input, normalized_shape, weight, eps):
 
 
 class RMSNormTorch(torch.nn.Module):
-
-    def __init__(self, normalized_shape, eps=1e-5, **kwargs):
+    def __init__(self, normalized_shape, eps=1e-5):
         super().__init__()
 
         if isinstance(normalized_shape, numbers.Integral):
@@ -37,7 +36,7 @@ class RMSNormTorch(torch.nn.Module):
 
     def forward(self, input: torch.Tensor):
         return manual_rms_norm(input, self.normalized_shape, self.weight, self.eps)
-    
+
     def reset_parameters(self):
         init.ones_(self.weight)
 
