@@ -156,16 +156,35 @@ def sync_param(flat_tensor, tensor_list):
     for p, q in zip(tensor_list, updated_params):
         p.data = q.data
 
-
 def calc_l2_norm(grads):
     norm = 0.0
     if len(grads) > 0:
+        # norm, _ = multi_tensor_l2norm_torch(grads, False)
         dummy_overflow_buf = torch.cuda.IntTensor([0])
         norm, _ = multi_tensor_applier(
             amp_C.multi_tensor_l2norm, dummy_overflow_buf, [grads], False  # no per-parameter norm
         )
     return norm
 
+def calc_l2_norm_torch(grads):
+
+    def multi_tensor_l2norm_torch(tensor_list, per_tensor):
+        # Convert tensor_list elements to torch.float32
+        tensor_list = [tensor.float() for tensor in tensor_list]
+        norms_tensor = torch.stack([torch.norm(tensor, p=2) for tensor in tensor_list])
+        l2_norm = torch.norm(norms_tensor, p=2).unsqueeze(0)
+
+        if per_tensor:
+            per_tensor_norm = norms_tensor
+        else:
+            per_tensor_norm = torch.Tensor([]).to(norms_tensor.device)
+
+        return l2_norm, per_tensor_norm
+
+    norm = 0.0
+    if len(grads) > 0:
+        norm, _ = multi_tensor_l2norm_torch(grads, False)
+    return norm
 
 def calc_lp(grads, norm_type):
     norm = 0.0
@@ -175,7 +194,7 @@ def calc_lp(grads, norm_type):
     return norm
 
 
-def compute_norm(gradients, parameters, norm_type=2):
+def compute_norm(gradients, parameters, norm_type=2, use_apex=True):
     """Get the norm
     Arguments:
         gradients (Iterable[Tensor]): The gradient value.
@@ -229,7 +248,10 @@ def compute_norm(gradients, parameters, norm_type=2):
                 raise RuntimeError("Should not arrive here")
 
         if norm_type == 2.0 and enable_cuda_kernels:
-            tensor_parallel_norm = calc_l2_norm(tensor_parallel_grads) ** norm_type
+            if use_apex:
+                tensor_parallel_norm = calc_l2_norm(tensor_parallel_grads) ** norm_type
+            else:
+                tensor_parallel_norm = calc_l2_norm_torch(tensor_parallel_grads) ** norm_type
         else:
             tensor_parallel_norm = calc_lp(tensor_parallel_grads, norm_type)
 

@@ -5,7 +5,7 @@ import math
 from typing import Optional
 
 import torch
-from apex.normalization.fused_layer_norm import MixedFusedRMSNorm as RMSNorm
+from apex.normalization.fused_layer_norm import MixedFusedRMSNorm
 from flash_attn.modules.embedding import ParallelGPT2Embeddings
 from flash_attn.modules.mlp import ParallelFusedMLP
 from torch import nn
@@ -20,6 +20,7 @@ from internlm.model.linear import (
     ScaleColumnParallelLinear,
 )
 from internlm.model.multi_head_attention import MHA
+from internlm.model.norm import RMSNormTorch
 from internlm.model.utils import gather_forward_split_backward
 from internlm.solver.pipeline_utils import partition_uniform
 from internlm.utils.checkpoint import activation_checkpoint
@@ -70,6 +71,7 @@ class PackedFlashBaseLayer1D(nn.Module):
         use_scaled_init: bool = True,
         use_swiglu: bool = True,
         use_flash_attn: bool = True,
+        use_apex: bool = True,
     ):
         super().__init__()
         self.checkpoint = checkpoint
@@ -97,8 +99,12 @@ class PackedFlashBaseLayer1D(nn.Module):
 
         self.dropout1 = nn.Dropout(drop_rate)
         if norm_type == "rmsnorm":
-            self.norm1 = RMSNorm(hidden_size, eps=layer_norm_epsilon)
-            self.norm2 = RMSNorm(hidden_size, eps=layer_norm_epsilon)
+            if use_apex:
+                self.norm1 = MixedFusedRMSNorm(hidden_size, eps=layer_norm_epsilon)
+                self.norm2 = MixedFusedRMSNorm(hidden_size, eps=layer_norm_epsilon)
+            else:
+                self.norm1 = RMSNormTorch(hidden_size, eps=layer_norm_epsilon)
+                self.norm2 = RMSNormTorch(hidden_size, eps=layer_norm_epsilon)
         else:
             self.norm1 = nn.LayerNorm(hidden_size, eps=layer_norm_epsilon)
             self.norm2 = nn.LayerNorm(hidden_size, eps=layer_norm_epsilon)
@@ -278,6 +284,7 @@ class PackedFlashInternLm1D(nn.Module):
         use_scaled_init: bool = True,
         use_swiglu: bool = True,
         use_flash_attn: bool = True,
+        use_apex: bool = True,
     ):
         super().__init__()
 
@@ -329,13 +336,17 @@ class PackedFlashInternLm1D(nn.Module):
                     use_scaled_init=use_scaled_init,
                     use_swiglu=use_swiglu,
                     use_flash_attn=use_flash_attn,
+                    use_apex=use_apex,
                 )
                 for lid in range(num_layers)
             ]
         )
         if last:
             if norm_type == "rmsnorm":
-                self.norm = RMSNorm(hidden_size, eps=layer_norm_epsilon)
+                if use_apex:
+                    self.norm = MixedFusedRMSNorm(hidden_size, eps=layer_norm_epsilon)
+                else:
+                    self.norm = RMSNormTorch(hidden_size, eps=layer_norm_epsilon)
             else:
                 self.norm = nn.LayerNorm(hidden_size, eps=layer_norm_epsilon)
             self.head = head_cls(
@@ -464,6 +475,7 @@ def build_model_with_cfg(
     use_scaled_init: bool = True,
     use_swiglu: bool = True,
     use_flash_attn: bool = True,
+    use_apex: bool = True,
 ):
     """
     Builde model with config
@@ -494,6 +506,7 @@ def build_model_with_cfg(
         use_scaled_init (bool): Whether to use scaled init. True by default.
         use_swiglu (bool): Whether to use swiglu. True by default.
         use_flash_attn (bool): Whether to use flash-attn. True by default.
+        use_apex (bool): Whether to use apex. True by default.
 
     """
 
@@ -517,6 +530,7 @@ def build_model_with_cfg(
         use_scaled_init=use_scaled_init,
         use_swiglu=use_swiglu,
         use_flash_attn=use_flash_attn,
+        use_apex=use_apex,
     )
 
     return _build_generic_model_1d(num_layers=num_layers, num_chunks=num_chunks, **cfg)

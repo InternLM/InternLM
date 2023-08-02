@@ -87,6 +87,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         overlap_broadcast=False,
         grad_scal_cfg: Config = None,
         zero_cfg: Config = None,
+        use_apex: bool = True,
     ):
         # DynamicGradScaler related args
         initial_scale = grad_scal_cfg.fp16.initial_scale
@@ -103,6 +104,8 @@ class HybridZeroOptimizer(BaseOptimizer):
         clip_grad_norm = zero_cfg.clip_grad_norm
 
         super().__init__(optim=optimizer)
+        
+        self.use_apex = use_apex
 
         self._dtype = self.optim.param_groups[0]["params"][0].dtype
         self._cpu_offload = cpu_offload
@@ -525,6 +528,7 @@ class HybridZeroOptimizer(BaseOptimizer):
                 norm_group = compute_norm(
                     gradients=gradients,
                     parameters=parameters,
+                    use_apex=self.use_apex,
                 )
                 if norm_group == -1:
                     timer("cal_norm").stop()
