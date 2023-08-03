@@ -96,6 +96,7 @@ class PackedFlashBaseLayer1D(nn.Module):
 
         self.dropout1 = nn.Dropout(drop_rate)
         if norm_type == "rmsnorm":
+            RMSNorm = try_import_RMSNorm()
             self.norm1 = RMSNorm(hidden_size, eps=layer_norm_epsilon)
             self.norm2 = RMSNorm(hidden_size, eps=layer_norm_epsilon)
         else:
@@ -334,6 +335,7 @@ class PackedFlashInternLm1D(nn.Module):
         )
         if last:
             if norm_type == "rmsnorm":
+                RMSNorm = try_import_RMSNorm()
                 self.norm = RMSNorm(hidden_size, eps=layer_norm_epsilon)
             else:
                 self.norm = nn.LayerNorm(hidden_size, eps=layer_norm_epsilon)

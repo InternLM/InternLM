@@ -175,7 +175,6 @@ def multi_tensor_l2norm_torch(tensor_list, per_tensor):
 
     return l2_norm, per_tensor_norm
 
-
 def calc_l2_norm(grads):
     norm = 0.0
     if len(grads) > 0:
