@@ -44,7 +44,6 @@ jobs:
         source activate internlm-env-test
         sh ./ci_scripts/data/tokenizer_alpaca.sh
 
-
   train:
     if: ${{ always() }}
     needs: check-requirements
