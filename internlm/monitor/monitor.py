@@ -1,4 +1,3 @@
-import fcntl
 import os
 import signal
 import socket
@@ -19,10 +18,6 @@ FEISHU_WEBHOOK_ADDRESS = None
 LOSS = "LOSS"
 STEP_ID = "STEP_ID"
 LAST_ACTIVE_TIMESTAMP = "LAST_ACTIVE_TIMESTAMP"
-
-# file for filtering redundant alert messages
-ALERT_FILE_DIR = "/mnt/petrelfs/share_data/llm_data/llm_alert/"
-ALERT_FILE_PATH = "/mnt/petrelfs/share_data/llm_data/llm_alert/llm_alert.log"
 
 # max waiting seconds for checking training status
 MAX_WAITING_SECONDS = 300
@@ -116,35 +111,16 @@ class MonitorTracker(Thread):
         self.stopped = True
 
 
-def exception_should_be_alert(msg: str):
-    try:
-        with open(ALERT_FILE_PATH, "a+") as f:
-            fcntl.flock(f, fcntl.LOCK_EX)
-
-            f.seek(0)
-            if msg in f.read():
-                fcntl.flock(f, fcntl.LOCK_UN)
-                return False
-
-            f.write(msg)
-            fcntl.flock(f, fcntl.LOCK_UN)
-            return True
-    except Exception as err:
-        send_alert_message(address=FEISHU_WEBHOOK_ADDRESS, message=f"Failed to open ALERT file: {err}")
-        return True
-
-
 def monitor_exception(excp_info: str):
     if ENABLE_MONITOR:
         filtered_trace = excp_info.split("\n")[-10:]
         format_trace = ""
         for line in filtered_trace:
             format_trace += "\n" + line
-        if exception_should_be_alert(format_trace):
-            send_alert_message(
-                address=FEISHU_WEBHOOK_ADDRESS,
-                message=f"Catch Exception from {socket.gethostname()} with proc id {get_process_rank()}:{format_trace}",
-            )
+        send_alert_message(
+            address=FEISHU_WEBHOOK_ADDRESS,
+            message=f"Catch Exception from {socket.gethostname()} with proc id {get_process_rank()}:{format_trace}",
+        )
 
 
 def monitor_loss_spike(step_count, cur_step_loss):
@@ -195,16 +171,6 @@ def initialize_monitor(
     JOB_NAME = job_name
     FEISHU_WEBHOOK_ADDRESS = feishu_webhook_address
     set_env_var(key="JOB_NAME", value=job_name)
-
-    global ALERT_FILE_DIR, ALERT_FILE_PATH
-    ALERT_FILE_DIR = os.getenv("ALERT_FILE_DIR", ALERT_FILE_DIR)
-    ALERT_FILE_PATH = os.getenv(
-        "ALERT_FILE_PATH", f"/mnt/petrelfs/share_data/llm_data/llm_alert/{get_job_key()}_alert.log"
-    )
-    if get_process_rank() == 0 and not os.path.exists(ALERT_FILE_DIR):
-        os.makedirs(ALERT_FILE_DIR)
-    if get_process_rank() == 0 and os.path.exists(ALERT_FILE_PATH):
-        os.remove(ALERT_FILE_PATH)
 
     global MONITOR_THREAD
     MONITOR_THREAD = MonitorTracker(

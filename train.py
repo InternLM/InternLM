@@ -681,6 +681,8 @@ if __name__ == "__main__":
     except Exception:
         print(f"Raise exception from {hostname} with proc id: {proc_id}")
         traceback.print_exc()
-        monitor_exception(excp_info=traceback.format_exc())
+
+        if proc_id == 0:
+            monitor_exception(excp_info=traceback.format_exc())
     finally:
         stop_monitor()
