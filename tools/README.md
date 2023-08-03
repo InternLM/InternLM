@@ -53,7 +53,7 @@ $ python tools/tokenizer.py --text_input_path raw_data.txt --bin_output_path cn/
 `json`和`jsonl`类型的文件的`bin`和`meta`文件格式和`txt`一致，此处不再赘叙。
 
 # pal_inference.py
-在[GSM8K](https://huggingface.co/datasets/gsm8k)数据集上使用[PAL](https://github.com/reasoning-machines/pal)范式推理，使模型编写代码并通过Python解释器执行来解决数学问题。以下是使用示例：
+在 [GSM8K](https://huggingface.co/datasets/gsm8k) 数据集上使用 [PAL](https://github.com/reasoning-machines/pal) 范式推理，使模型编写代码并通过 Python 解释器执行来解决数学问题。以下是使用示例：
 ```bash
 python tools/pal_inference.py internlm/internlm-chat-7k ./output -v
 ```
