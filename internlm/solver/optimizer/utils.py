@@ -16,6 +16,14 @@ from internlm.utils.common import get_tensor_norm, move_norm_to_cuda
 from internlm.utils.logger import get_logger
 from internlm.utils.parallel import is_model_parallel_parameter
 
+try:
+    import amp_C
+    from apex.multi_tensor_apply import multi_tensor_applier
+    APEX_AVAILABLE = True
+except (ModuleNotFoundError, ImportError):
+    import warnings
+    APEX_AVAILABLE = False
+
 inf = math.inf
 
 logger = get_logger(__file__)
@@ -167,21 +175,17 @@ def multi_tensor_l2norm_torch(tensor_list, per_tensor):
 
     return l2_norm, per_tensor_norm
 
+
 def calc_l2_norm(grads):
     norm = 0.0
     if len(grads) > 0:
-        try:
-            import amp_C
-            from apex.multi_tensor_apply import multi_tensor_applier
-            
+        if APEX_AVAILABLE:
             dummy_overflow_buf = torch.cuda.IntTensor([0])
             norm, _ = multi_tensor_applier(
                 amp_C.multi_tensor_l2norm, dummy_overflow_buf, [grads], False  # no per-parameter norm
             )
-        except ModuleNotFoundError as e:
-            import warnings
+        else:
             warnings.warn("The torch implementation for cal_l2norm is slower than apex. Please note this!")
-            
             norm, _ = multi_tensor_l2norm_torch(grads, False)
     return norm
 
