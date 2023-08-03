@@ -25,9 +25,9 @@ ALERT_FILE_DIR = "/mnt/petrelfs/share_data/llm_data/llm_alert/"
 ALERT_FILE_PATH = "/mnt/petrelfs/share_data/llm_data/llm_alert/llm_alert.log"
 
 # max waiting seconds for checking training status
-MAX_WAITING_SECONDS = 600
+MAX_WAITING_SECONDS = 300
 # the limit multiple of previous loss value
-LOSS_SPIKE_LIMIT = 2.0
+LOSS_SPIKE_LIMIT = 1.5
 # loss value of last step
 LAST_STEP_LOSS = -1
 
@@ -130,7 +130,7 @@ def exception_should_be_alert(msg: str):
             fcntl.flock(f, fcntl.LOCK_UN)
             return True
     except Exception as err:
-        send_alert_message(message=f"Failed to open ALERT file: {err}")
+        send_alert_message(address=FEISHU_WEBHOOK_ADDRESS, message=f"Failed to open ALERT file: {err}")
         return True
 
 
@@ -142,6 +142,7 @@ def monitor_exception(excp_info: str):
             format_trace += "\n" + line
         if exception_should_be_alert(format_trace):
             send_alert_message(
+                address=FEISHU_WEBHOOK_ADDRESS,
                 message=f"Catch Exception from {socket.gethostname()} with proc id {get_process_rank()}:{format_trace}",
             )
 
@@ -152,12 +153,13 @@ def monitor_loss_spike(step_count, cur_step_loss):
         set_env_var(key=STEP_ID, value=step_count)
 
         global LAST_STEP_LOSS
-        if LAST_STEP_LOSS != -1 and cur_step_loss > 1.5 * LAST_STEP_LOSS:
+        if LAST_STEP_LOSS != -1 and cur_step_loss > LOSS_SPIKE_LIMIT * LAST_STEP_LOSS:
             send_alert_message(
+                address=FEISHU_WEBHOOK_ADDRESS,
                 message=(
                     f"Checking step by step: Loss spike may be happened in step {step_count}, "
                     f"loss value from {LAST_STEP_LOSS} to {cur_step_loss}, please check it."
-                )
+                ),
             )
         LAST_STEP_LOSS = cur_step_loss
 

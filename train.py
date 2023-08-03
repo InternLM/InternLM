@@ -491,7 +491,7 @@ def main(args):
         model_load_path = load_model_only_folder
     else:
         logger.info(
-            f"===========New Run {current_time} on host:{socket.gethostname()},global_rank={gpc.get_global_rank()}"
+            f"===========New Run {current_time} on host:{socket.gethostname()},rank={gpc.get_global_rank()},"
             f"tp={gpc.get_local_rank(ParallelMode.TENSOR)},pp={gpc.get_local_rank(ParallelMode.PIPELINE)},"
             f"dp={gpc.get_local_rank(ParallelMode.DATA)}==========="
         )
