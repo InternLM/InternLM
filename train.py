@@ -29,6 +29,16 @@ from internlm.data.packed_dataset import (
 from internlm.data.utils import DATASET_TYPE_IDS_MAP, unpack_data
 from internlm.model.loss import FlashGPTLMLoss
 from internlm.model.metrics import AccPerplex
+from internlm.monitor import (
+    LAST_ACTIVE_TIMESTAMP,
+    get_process_rank,
+    initialize_monitor,
+    monitor_exception,
+    monitor_loss_spike,
+    send_alert_message,
+    set_env_var,
+    stop_monitor,
+)
 from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
 from internlm.solver.optimizer import HybridZeroOptimizer
@@ -36,7 +46,6 @@ from internlm.utils.common import (
     BatchSkipper,
     get_master_node,
     get_megatron_flops,
-    get_process_rank,
     launch_time,
     parse_args,
 )
@@ -313,6 +322,8 @@ def record_current_batch_training_metrics(
     Print some training metrics of current batch.
     """
 
+    set_env_var(key=LAST_ACTIVE_TIMESTAMP, value=int(time.time()))
+
     if success_update in (0, True):
         train_state.num_consumed_tokens += batch[1].nelement() * gpc.get_world_size(ParallelMode.DATA)
     if is_no_pp_or_last_stage():
@@ -391,6 +402,9 @@ def record_current_batch_training_metrics(
         else:
             logger.info(line)
 
+        # if loss spike occurs, send alert info to feishu
+        monitor_loss_spike(step_count=batch_count, cur_step_loss=loss.item())
+
 
 def main(args):
     # initialize distributed environment
@@ -463,8 +477,8 @@ def main(args):
         model_load_path = load_model_only_folder
     else:
         logger.info(
-            f"===========New Run {current_time} on host:{socket.gethostname()},"
-            f"tp:{gpc.get_local_rank(ParallelMode.TENSOR)},pp={gpc.get_local_rank(ParallelMode.PIPELINE)},"
+            f"===========New Run {current_time} on host:{socket.gethostname()},global_rank={gpc.get_global_rank()}"
+            f"tp={gpc.get_local_rank(ParallelMode.TENSOR)},pp={gpc.get_local_rank(ParallelMode.PIPELINE)},"
             f"dp={gpc.get_local_rank(ParallelMode.DATA)}==========="
         )
 
@@ -574,6 +588,9 @@ def main(args):
             train_state.inf_nan_skip_batches += 1  # record the amount of updating parameters unsuccessfully.
             if grad_norm == -99.0 and gpc.is_rank_for_log():  # -99.0 encodes a specific failure case
                 logger.warning(f"Warning: skip parameter update at step {batch_count}.")
+                send_alert_message(
+                    address=args.alert_address, message=f"Warning: skip parameter update at step {batch_count}."
+                )
 
         # calculate and record the training metrics, eg. loss, accuracy and so on.
         record_current_batch_training_metrics(
@@ -626,8 +643,25 @@ def main(args):
 if __name__ == "__main__":
     args = parse_args()
 
+    hostname = socket.gethostname()
+    proc_id = get_process_rank()
+
+    # initialize monitor and alert
+    enable_monitor = args.monitor is True and args.job_name is not None and args.alert_address is not None
+    if enable_monitor:
+        initialize_monitor(job_name=args.job_name, feishu_webhook_address=args.alert_address)
+
     try:
+        if proc_id == 0:
+            send_alert_message(address=args.alert_address, message=f"Training in {hostname} is starting.")
+
         main(args)
+
+        if proc_id == 0:
+            send_alert_message(address=args.alert_address, message=f"Training in {hostname} completed.")
     except Exception:
-        print(f"Raise exception from {socket.gethostname()} with proc id: {get_process_rank()}")
+        print(f"Raise exception from {hostname} with proc id: {proc_id}")
         traceback.print_exc()
+        monitor_exception(excp_info=traceback.format_exc())
+    finally:
+        stop_monitor()
