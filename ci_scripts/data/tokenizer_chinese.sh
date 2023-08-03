@@ -1,19 +1,42 @@
 #!/bin/bash
+set -x
 
-rm -rf /mnt/petrelfs/qa-caif-cicd/data/lm_data/cn_data/result.*
-srun -p llm python tools/tokenizer.py --text_input_path /mnt/petrelfs/qa-caif-cicd/data/lm_data/cn_data/raw_data.txt --bin_output_path /mnt/petrelfs/qa-caif-cicd/data/lm_data/cn_data/result.bin
+source ./ci_scripts/common/variables.sh
+[[ -n ${DATA_VOLUME} ]] || { echo "should set DATA_VOLUME first before ci."; exit 1; }
 
-file_one="/mnt/petrelfs/qa-caif-cicd/data/lm_data/cn_data/result.bin"
-file_two="/mnt/petrelfs/qa-caif-cicd/data/lm_data/cn_data/result.bin.meta"
-file_list=($file_one $file_two)
+readonly DATA=${DATA_VOLUME}/lm_data/cn_data/raw_data.txt
+readonly RESULT=${DATA_VOLUME}/lm_data/cn_data/result.bin
+readonly RESULT_META=${DATA_VOLUME}/lm_data/cn_data/result.bin.meta
+readonly RESULTS=${DATA_VOLUME}/lm_data/cn_data/result.*
+exit_code=0
 
 source ./ci_scripts/common/basic_func.sh
-for file_path in ${file_list[@]};
-do
-if_exist $file_path
+
+echo "start to test tokenizer.py." 
+
+num=$(num_files "${RESULTS}")
+if [[ ${num} -gt 0 ]]; then
+    if ! rm -rf ${RESULTS}; then
+       echo "cleaning test data ${RESULTS} failed, exit."
+       exit 1
+    fi
+fi
+
+srun -p llm python tools/tokenizer.py --text_input_path ${DATA} --bin_output_path ${RESULT}
+[[ $? -ne 0 ]] && { echo "test tokenizer.py failed.";  exit_code=$(($exit_code + 1)); }
+
+file_list=($RESULT $RESULT_META)
+for file in ${file_list[@]}; do
+    if [[ ! -f ${file} ]]; then
+        echo "expect: ${file} exists, actual: not exist."
+        exit_code=$(($exit_code + 1))
+    fi
 done
 
-if [ $exit_code -ne 0 ]
-then
-    exit 1
+# clean the test files.
+if ! rm -rf ${RESULTS}/*; then
+   echo "cleaning cached file in ${RESULTS} failed."
+   exit_code=$(($exit_code + 1))
 fi
+
+exit $exit_code
