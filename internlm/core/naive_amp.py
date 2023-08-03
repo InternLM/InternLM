@@ -73,6 +73,17 @@ class NaiveAMPModel(nn.Module):
             input_ = input_.float()
         return input_
 
+    def convert_to_fp32(self, out):
+        """Converts the output to fp32"""
+        if isinstance(out, Tensor):
+            out = self._convert_to_fp32(out)
+        elif isinstance(out, (tuple, list)):
+            out = [self._convert_to_fp32(val) for val in out]
+        elif isinstance(out, dict):
+            out = {key: self._convert_to_fp32(val) for key, val in out.items()}
+
+        return out
+
     def _reduce_module_buffer(self):
         """
         All-reduces the buffers (e.g., running stats of batch normalization) across
@@ -121,10 +132,5 @@ class NaiveAMPModel(nn.Module):
         out = self.model(*args, **kwargs)
 
         if self._output_to_fp32:
-            if isinstance(out, Tensor):
-                out = self._convert_to_fp32(out)
-            elif isinstance(out, (tuple, list)):
-                out = [self._convert_to_fp32(val) for val in out]
-            elif isinstance(out, dict):
-                out = {key: self._convert_to_fp32(val) for key, val in out.items()}
+            out = self.convert_to_fp32(out)
         return out
