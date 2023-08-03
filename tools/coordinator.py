@@ -5,15 +5,16 @@ import os
 import socket
 import multiprocessing
 import threading
-from enum import Enum, unique
 import time
 import pickle
 import portpicker
 import re
 import shutil
 import eventlet
-from flask_socketio import SocketIO
+import subprocess
 
+from enum import Enum, unique
+from flask_socketio import SocketIO
 from loguru import logger
 from flask import Flask, request
 from prettytable import PrettyTable
@@ -177,6 +178,33 @@ def handle_scitofloat(config:str):
     
     return new_config
 
+
+def get_node_hostnames(nodelist:str):
+    hostnames = []
+
+    tmp_nodelist = copy.deepcopy(nodelist)
+    tmp_nodelist = tmp_nodelist.replace(" ", "")
+    tmp_nodelist = re.sub(r"[\[\]]", "", tmp_nodelist)
+    
+
+    tmplist = tmp_nodelist.split(",")
+    pattern1 = r"^\d+$"
+    pattern2 = r"^\d+-\d+$"
+    prefix = "-".join(tmplist[0].split("-")[:-1]) + "-"
+    
+    for tmpiter in tmplist:
+        if re.match(pattern1, tmpiter):
+            hostnames.append(prefix + tmpiter)
+        elif re.match(pattern2, tmpiter):
+            begin, end = int(tmpiter.split("-")[0]), int(tmpiter.split("-")[1])
+            hostnames.extend([prefix+str(i) for i in range(begin, end+1)])
+        else:
+            prefix = "-".join(tmpiter.split("-")[:-1]) + "-"
+            hostnames.append(tmpiter)
+            
+    return hostnames
+
+
 def exec_cmd(cmd_with_args: list, shell = False, env=None) -> str:
     results = ""
     with Popen(cmd_with_args, shell=shell, stdout=PIPE, stderr=STDOUT, env=env) as output:
@@ -184,6 +212,33 @@ def exec_cmd(cmd_with_args: list, shell = False, env=None) -> str:
             results += line.rstrip().decode() + "\n"
 
     return results
+
+def do_find_slow_node(timeout: int, nodelist: str):
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    test_script = os.path.join(current_dir, "nccl_test.sh")
+    
+    # handle nodelist
+    nodes=get_node_hostnames(nodelist)
+    
+    cmd = f"sh {test_script} {nodes}"
+    with Popen(cmd, shell=True, stdout=PIPE, stderr=STDOUT) as p:
+        try:
+            outs, errs = p.communicate(timeout=timeout)
+            print(outs.decode())
+            if errs:
+                print(errs.decode())
+        except subprocess.TimeoutExpired as e:
+            p.kill()
+    
+    exclude_nodestr = ""
+    if os.path.exists("exclude_nodes.log"):
+        with open("exclude_nodes.log", "r", encoding="utf-8") as f:
+            exclude_nodestr = f.read().strip()
+            exclude_nodestr = exclude_nodestr.replace("\n", "")
+    
+    return exclude_nodestr
+
+
 
 def get_slurm_jobinfo(jobid):
     sacct_cmd = (
@@ -235,7 +290,7 @@ def scancel_slurm_job(job_id: str, env=None):
     exec_cmd(scancel_cmd, env)
 
 
-def sbatch_slurm_job(job_info: dict, script_cfg: str,  env=None):
+def sbatch_slurm_job(job_info: dict, script_cfg: str, exclude_nodes: str, env=None):
     """
     submit a slurm sbatch job.
     return True if submit the job successfully, False if failed.
@@ -267,10 +322,13 @@ def sbatch_slurm_job(job_info: dict, script_cfg: str,  env=None):
             f"#SBATCH --cpus-per-task={cpus_per_task}\n",
             f"#SBATCH --gpus-per-task={gpus_per_task}\n",
             f"#SBATCH --output={jobname}_{now_time()}.log\n",
-            "\n",
-            run_cmd,
-            "\n"
             ]
+        if exclude_nodes != "":
+            lines.append(f"#SBATCH  --exclude={exclude_nodes}")
+        lines.extend([ "\n",
+            run_cmd,
+            "\n"])
+        
         f.writelines(lines)
     
     
@@ -312,7 +370,7 @@ def now_time():
 class Coordinator(object):
     """Coordinator"""
 
-    def __init__(self, ipaddr: str, port: str) -> None:
+    def __init__(self, ipaddr: str, port: str, nccl_test: bool, nccl_timeout: int = None) -> None:
         """init
 
         Args:
@@ -321,6 +379,8 @@ class Coordinator(object):
         """
         self._ip = ipaddr
         self._port = port
+        self.is_nccl_test = nccl_test
+        self.nccl_timeout = nccl_timeout
         self._lock = LockContext(type_=LockContextType.THREAD_LOCK)
         self._timeout = 1200
         self.jobname_map: Dict[str, JobInfo] = dict()  # job_name -> JobInfo
@@ -568,8 +628,11 @@ has nodelist: {job.nodelist}"
                         # get jobinfo
                         jobinfo = get_slurm_jobinfo(jobid)
                         
+                        exclude_nodes = ""
+                        if self.is_nccl_test:
+                            exclude_nodes = do_find_slow_node(self.nccl_timeout, jobinfo["nodelist"])
                         
-                        re, msg = sbatch_slurm_job(jobinfo,job.script_config, env=env)
+                        re, msg = sbatch_slurm_job(jobinfo,job.script_config, exclude_nodes,env=env)
                         if re is False:
                             logger.info(msg)
                     except Exception as e:
@@ -826,7 +889,13 @@ parser = argparse.ArgumentParser()
 
 if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=portpicker.pick_unused_port(), help="coordinator port")
+    parser.add_argument("--nccl_test", action="store_true", help="nccl test to find slow nodes")
+    parser.add_argument("--nccl_timeout", type=int, default=None, help="timeout for nccl test")
     args = parser.parse_args()
+    
+    if args.nccl_test and args.nccl_timeout is None:
+        raise RuntimeError("nccl_timeout should be set if `nccl_test` is true.")
+    
     debug = False
     coordinator_timeout = 240
 
@@ -847,7 +916,7 @@ if __name__ == "__main__":
         f.write(f"COORDIATOR_PORT={args.port}\n")
 
     def coordinator_run():
-        coordinator = Coordinator(ipaddr, str(args.port))
+        coordinator = Coordinator(ipaddr, str(args.port), args.nccl_test, args.nccl_timeout)
         coordinator_app = create_coordinator_app(coordinator)
         socketio = SocketIO(coordinator_app)
 

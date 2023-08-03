@@ -280,7 +280,8 @@ class ProcessFilter:
             if count > self.warmup:
                 sum += bw
         self.nodeinfo.ib_bw = sum / (self.iters - self.warmup)
-        printflock(f"RANK {self.rank} in HOST {self.nodeinfo.hostname} has outer busBw {self.nodeinfo.ib_bw} GB/s", flush=True)
+        if self.rank == 0:
+            printflock(f"RANK {self.rank} in HOST {self.nodeinfo.hostname} has outer busBw {self.nodeinfo.ib_bw} GB/s", flush=True)
         dist.destroy_process_group()
         
         if self.nodeinfo.ib_bw < self.ib_threshold and self.local_rank == 0:
@@ -347,7 +348,7 @@ if __name__ == "__main__":
     parser.add_argument("--launcher", type=str, default="slurm", help="launcher (slurm, k8s, torch)")
     parser.add_argument("--ib_threshold", type=float, default=18, help="IB bandwidth threshold")
     parser.add_argument("--nvlink_threshold", type=float, default=200, help="NVLink bandwidth threshold")
-    parser.add_argument("--buffersize", type=int, default=1024*1014*1024, help="test tensor buffer size")
+    parser.add_argument("--buffersize", type=int, default=2*1024*1014*1024, help="test tensor buffer size")
     parser.add_argument("--port", type=int, default=29500, help="torch distributed port")
     parser.add_argument("--local", action="store_true", help="nccl test on per node")
     parser.add_argument("--warmup", type=int, default=5, help="warm-up iters")

@@ -1,25 +1,30 @@
 #!/bin/bash
 
-launcher=dlc
-partition=llm2
+launcher=slurm
+partition=llm
+nodelist=$1
 
 gpus_per_node=8
 nnodes=4
 master_port=12345
 
-dlc_path="/cpfs01/shared/public/dlc"
-dlc_config_path="/cpfs01/user/jiaopenglong/.dlc.config"
-env_path="/cpfs01/shared/public/llm/llm-env/llm-env-20230605"
-image="pjlab-wulan-acr-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pjlab-eflops/chenxun-st:llm-test"
-workspace_id="ws1so95hgb5kn6ja"
+
+# dlc_path="/cpfs01/shared/public/dlc"
+# dlc_config_path="/cpfs01/user/jiaopenglong/.dlc.config"
+# env_path="/cpfs01/shared/public/llm/llm-env/llm-env-20230605"
+# image="pjlab-wulan-acr-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pjlab-eflops/chenxun-st:llm-test"
+# workspace_id="ws1so95hgb5kn6ja"
+
 pwd_path=$(pwd)
 
 slow_nodes=""
+good_nodes=""
+exclude_nodes=""
 
 function do_slurm(){
   local nodes=$1
   local num_nodes=$2
-  srun -p $partition -w $nodes -N $num_nodes --gpus-per-task 1 --ntasks-per-node=$gpus_per_node python find_slow_nodes.py --launcher slurm --port $master_port
+  srun -p $partition -w $nodes -N $num_nodes --gpus-per-task 1 --ntasks-per-node=$gpus_per_node python find_slow_nodes.py --launcher slurm --port $master_port --ib_threshold 25
 }
 
 function do_torch(){
@@ -49,7 +54,7 @@ function get_nodes_slurm(){
     rm -f tmp_nccltest.log
   fi
 
-  local nodestr=$(srun -p $partition -N $nnodes --gpus-per-task 1 --ntasks-per-node=$gpus_per_node bash -c 'python find_slow_nodes.py --gethost')
+  local nodestr=$(srun -p $partition -N $nnodes --gpus-per-task $gpus_per_node --ntasks-per-node=1 bash -c 'python find_slow_nodes.py --gethost')
   local nodearray=($(echo $nodestr | awk -F ' ' '{for(i=1; i<=NF; i++) print $i}'))
 
   nodes=$(printf "%s," "${nodearray[@]}")
@@ -83,9 +88,9 @@ function nccl_test(){
   local nodearray=($(echo $nodestr | awk -F ',' '{for(i=1; i<=NF; i++) print $i}'))
   echo $nodestr
   local num_group=${#nodearray[@]}
-  if [[ $launcher == "slurm" ]] ; then
+  if [[ "$launcher" -eq "slurm" ]] ; then
     do_slurm "$nodestr" "${num_group}"
-  elif [[ $launcher == "dlc" ]] ; then
+  elif [[ "$launcher" -eq "dlc" ]] ; then
     do_dlc "$nodestr" "${num_group}" "${nodearray[1]}"
   fi
 
@@ -118,11 +123,53 @@ function nccl_test(){
       local right_nodestr=${right_nodestr%,}
       nccl_test "${right_nodestr}"
     fi
+  else
+    good_nodes="${nodestr},$good_nodes"
   fi
 }
 
-get_nodes_dlc
-echo $nodes
-nccl_test "${nodes}"
+function screen_slow_nodes(){
+  if [[ "$slow_nodes" -eq "" ]] ; then
+    exclude_nodes=$slow_nodes
+  elif [[ "$good_nodes" -eq "" ]] ; then
+    exclude_nodes=$slow_nodes
+  else
+    local good_nodearray=($(echo $good_nodes | awk -F ',' '{for(i=1; i<=NF; i++) print $i}'))
+    local slow_nodearray=($(echo $slow_nodes | awk -F ',' '{for(i=1; i<=NF; i++) print $i}'))
+    local test_good_node=${good_nodearray[1]}
+    for slow_node in "${slow_nodearray[@]}"
+    do
+      local test_nodearray=($slow_node $test_good_node)
+      local num_test_nodearray=${#test_nodearray[@]}
+      local test_nodestr=$(printf "%s," "${test_nodearray[@]}")
+      if [[ "$launcher" -eq "slurm" ]] ; then
+        do_slurm "$test_nodestr" "${num_test_nodearray}"
+      elif [[ "$launcher" == "dlc" ]] ; then
+        do_dlc "$test_nodestr" "${num_test_nodearray}" "${test_nodearray[1]}"
+      fi
 
-echo $slow_nodes
+      if test -f tmp_nccltest.log ; then
+        rm -f tmp_nccltest.log
+        exclude_nodes="$slow_node,$exclude_nodes"
+      fi
+    done
+  fi
+
+  if test -f exclude_nodes.log ; then
+    rm -f exclude_nodes.log
+  fi
+
+  if [[ "$exclude_nodes" -ne "" ]] ; then
+    echo "$exclude_nodes" > exclude_nodes.log
+  fi
+}
+
+if [[ -z $nodelist ]] ; then
+  get_nodes_slurm
+else
+  nodes=$nodelist
+fi
+# nodes="SH-IDC1-10-140-0-153,SH-IDC1-10-140-0-150"
+nccl_test "${nodes}"
+screen_slow_nodes
+echo $exclude_nodes
