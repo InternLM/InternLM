@@ -115,6 +115,8 @@ venv.bak/
 *.pkl
 *.pkl.json
 *.log.json
+*.slurm
+*_env
 docs/modelzoo_statistics.md
 mmdet/.mim
 work_dirs/
@@ -125,6 +127,7 @@ compare_2_profiling_data/
 llm_logs/
 aim_logs/
 nvmelogs/
+json_logs/
 run_backup/
 runs/
 runs_bak/

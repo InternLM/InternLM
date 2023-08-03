@@ -1,4 +1,5 @@
 import argparse
+import ast
 import copy
 import os
 import socket
@@ -13,6 +14,7 @@ import shutil
 import eventlet
 from flask_socketio import SocketIO
 
+from loguru import logger
 from flask import Flask, request
 from prettytable import PrettyTable
 from datetime import datetime
@@ -128,7 +130,7 @@ class JobInfo:
             world_size (int):
             slurm_jobname (str):
             slurm_jobid (int):
-            script_config (dict):
+            script_config (str):
         """
         self.world_size = world_size
         self.slurm_jobname = slurm_jobname
@@ -162,6 +164,19 @@ class JobState(Enum):
     ABORT = 4
 
 
+def handle_scitofloat(config:str):
+    pattern = r'([+-]?\d+(\.\d+)?)([Ee])([+-]?\d+)'
+    sci_nums_list = re.findall(pattern, config)
+    new_config = copy.deepcopy(config)
+    print(sci_nums_list)
+    for itr in sci_nums_list:
+        float_num = float(itr[0]) * (10 ** int(itr[3]))
+        float_num =  f'{float_num:.20f}'
+        orig_num = f"{itr[0]}{itr[2]}{itr[3]}"
+        new_config = new_config.replace(orig_num, float_num)
+    
+    return new_config
+
 def exec_cmd(cmd_with_args: list, shell = False, env=None) -> str:
     results = ""
     with Popen(cmd_with_args, shell=shell, stdout=PIPE, stderr=STDOUT, env=env) as output:
@@ -183,21 +198,21 @@ def get_slurm_jobinfo(jobid):
 
 
     job_info = {}
-    job_info["jobid"] = tmp[-1][:100]
-    job_info["jobname"] = tmp[-1][100:201]
-    job_info["uid"] = tmp[-1][201:222]
-    job_info["user"] = tmp[-1][222:253]
-    job_info["state"] = tmp[-1][253:274]
-    job_info["quotatype"] = tmp[-1][274:295]
-    job_info["exitcode"] = tmp[-1][295:306]
-    job_info["cluster"] = tmp[-1][306:327]
-    job_info["virtual_partition"] = tmp[-1][327:358]
-    job_info["partition"] = tmp[-1][358:389]
-    job_info["alloc_cpus"] = tmp[-1][389:400]
-    job_info["alloc_gpus"] = tmp[-1][400:411]
-    job_info["alloc_nodes"] = tmp[-1][411:422]
-    job_info["nodelist"] = tmp[-1][422:678]
-    job_info["ntasks"] = tmp[2][678:709]
+    job_info["jobid"] = tmp[2][:100]
+    job_info["jobname"] = tmp[2][100:201]
+    job_info["uid"] = tmp[2][201:222]
+    job_info["user"] = tmp[2][222:253]
+    job_info["state"] = tmp[2][253:274]
+    job_info["quotatype"] = tmp[2][274:295]
+    job_info["exitcode"] = tmp[2][295:306]
+    job_info["cluster"] = tmp[2][306:327]
+    job_info["virtual_partition"] = tmp[2][327:358]
+    job_info["partition"] = tmp[2][358:389]
+    job_info["alloc_cpus"] = tmp[2][389:400]
+    job_info["alloc_gpus"] = tmp[2][400:411]
+    job_info["alloc_nodes"] = tmp[2][411:422]
+    job_info["nodelist"] = tmp[2][422:678]
+    job_info["ntasks"] = tmp[-1][678:709]
 
     for key in job_info:
         if key == "state":
@@ -216,11 +231,11 @@ def scancel_slurm_job(job_id: str, env=None):
 
     # scancel jobid
     scancel_cmd = ["scancel", f"{job_id}"]
-    print(scancel_cmd)
+    logger.info(scancel_cmd)
     exec_cmd(scancel_cmd, env)
 
 
-def sbatch_slurm_job(job_info: dict, script_cfg: dict,  env=None):
+def sbatch_slurm_job(job_info: dict, script_cfg: str,  env=None):
     """
     submit a slurm sbatch job.
     return True if submit the job successfully, False if failed.
@@ -228,7 +243,10 @@ def sbatch_slurm_job(job_info: dict, script_cfg: dict,  env=None):
 
     config=str(script_cfg)
     
-    run_cmd = f'python train.py --config {config}'
+    logger.info("sbatch job")
+    logger.info(config)
+    
+    run_cmd = f'srun python train.py --config "{config}" --auto_restart --launcher "slurm" '
     
     jobname=job_info['jobname']
     
@@ -241,16 +259,17 @@ def sbatch_slurm_job(job_info: dict, script_cfg: dict,  env=None):
     sbatch_filepath = f"sbatch_{jobname}.slurm"
     with open(sbatch_filepath, "w") as f:
         lines = [
-            "#!/bin/bash",
-            f"#SBATCH --partition={partition}",
-            f"#SBATCH --job-name={jobname}",
-            f"#SBATCH --ntasks={ntasks}",
-            f"#SBATCH --nodes={nodes}",
-            f"#SBATCH --cpus-per-task={cpus_per_task}",
-            f"#SBATCH --gpus-per-task={gpus_per_task}",
-            f"#SBATCH --output={jobname}_{now_time()}.log",
-            "",
-            run_cmd
+            "#!/bin/bash\n",
+            f"#SBATCH --partition={partition}\n",
+            f"#SBATCH --job-name={jobname}\n",
+            f"#SBATCH --ntasks={ntasks}\n",
+            f"#SBATCH --nodes={nodes}\n",
+            f"#SBATCH --cpus-per-task={cpus_per_task}\n",
+            f"#SBATCH --gpus-per-task={gpus_per_task}\n",
+            f"#SBATCH --output={jobname}_{now_time()}.log\n",
+            "\n",
+            run_cmd,
+            "\n"
             ]
         f.writelines(lines)
     
@@ -266,10 +285,10 @@ def sbatch_slurm_job(job_info: dict, script_cfg: dict,  env=None):
         if "slurm" in key.lower():
             sbatch_env.pop(key)
 
-    print(sbatch_cmd)
+    logger.info(sbatch_cmd)
 
     results = exec_cmd(sbatch_cmd, sbatch_env)
-    print(results)
+    logger.info(results)
 
     if "Submitted batch job" not in results:
         return False, f'submit sbatch job "{sbatch_cmd}" failed, please check it.'
@@ -317,7 +336,7 @@ class Coordinator(object):
         self.init_from_json()
         self._polling_thread.start()  # start polling
         self.restart_job_info: Dict[str, RestartInfo] = dict()  #
-        print(f"pwd: {os.getcwd()}", flush=True)
+        logger.info(f"pwd: {os.getcwd()}", flush=True)
         # self._rank_map : dict[str, dict[str, RankInfo]] = dict()    # slurm_jobID -> [rank -> RankInfo]
 
     def reset_job_state(self, job_id: str):
@@ -338,7 +357,7 @@ class Coordinator(object):
                 pf = os.path.join(self.json_preifx, name)
                 job_name, job_id = "_".join(name[0].split("_")[:-1]), name.split(".")[0].split("_")[-1]
                 # Only surviving tasks will we try to resume
-                if determine_job_is_alive(job_name, job_id):
+                if determine_job_is_alive(job_id):
                     with open(pf, "rb") as f:
                         data = pickle.load(f)
                     with self._lock:
@@ -347,16 +366,16 @@ class Coordinator(object):
                         job = self._job_map[job_id]
                         for _, rank_info in job.rank_map.items():
                             rank_info.last_report_time = time.time()  # prevent timeout
-                    print(f"resume job:{job_name}, jobid:{job_id} from dump file.")
+                    logger.info(f"resume job:{job_name}, jobid:{job_id} from dump file.")
                 else:
                     try:
                         os.remove(pf)
                     except Exception:
-                        print(f"del file: {pf} failed!")
+                        logger.error(f"del file: {pf} failed!")
                     else:
-                        print(f"del file: {pf} ok!")
+                        logger.info(f"del file: {pf} ok!")
 
-        print("resume ok.")
+        logger.info("resume ok.")
 
     def make_json_name(self, job_id, job_name):
         return "/".join([self.json_preifx, f"{job_name}_{job_id}.pt"])
@@ -379,7 +398,7 @@ class Coordinator(object):
         """
         stop the Coordinator
         """
-        print("stop the Coordinator...")
+        logger.info("stop the Coordinator...")
         self.stopped = True
 
     def del_json(self, job_id, job_name):
@@ -408,7 +427,7 @@ class Coordinator(object):
                 request_info["slurm_jobname"],
             )
             rankinfo = RankInfo(rank=rank, hostname=request_info["hostname"], device_id=request_info["device_id"])
-
+            logger.info(request_info["script_cfg"])
             with self._lock:
                 # If you haven't seen this slurm_id, initialize a series of status information
                 if slurm_jobname not in self.jobname_map:
@@ -418,14 +437,14 @@ class Coordinator(object):
                         slurm_jobid=slurm_id,
                         script_config=request_info["script_cfg"]
                     )
-                    print(f"Register new Jobname: {jobinfo}")
+                    logger.info(f"Register new Jobname: {jobinfo}")
                     self.jobname_map.update({slurm_jobname: jobinfo})  # update jobname_map
 
                 job = self.jobname_map[slurm_jobname]
                 job.rank_map.update({rank: rankinfo})
                 job.nodelist.add(rankinfo.hostname)
                 if slurm_id != job.slurm_jobid:
-                    print(f"Restart {job.slurm_jobname} the {job.restart_count}-th time")
+                    logger.info(f"Restart {job.slurm_jobname} the {job.restart_count}-th time")
                     job.restart_count += 1
                 job.slurm_jobid = slurm_id  # The slurm job id received at the time of register must be the latest
                 self._job_map.update({slurm_id: job})  # update _job_map
@@ -438,12 +457,12 @@ class Coordinator(object):
                     self.dump_json(slurm_id, slurm_jobname)
                     msg = f"Job {job.slurm_jobname} all processes are ready and start polling thread status, \
 has nodelist: {job.nodelist}"
-                    print(msg)
+                    logger.info(msg)
 
-            print(f"register: jobname: {slurm_id}, jobid: {slurm_jobname}, rank:{rank}")
+            logger.info(f"register: jobname: {slurm_id}, jobid: {slurm_jobname}, rank:{rank}")
             return True
         except Exception as e:
-            print(f"deal_with_register() meet feat error{e}, {request_info}")
+            logger.error(f"deal_with_register() meet feat error{e}, {request_info}")
             return False
 
     def deal_keep_alive(self, request_info: Dict):
@@ -494,7 +513,7 @@ has nodelist: {job.nodelist}"
             restart_job_ids = self.polling_check()
             # If polling_check returns, there is a task that needs to be restarted
             for jobid in restart_job_ids:
-                print(f"restart from job {jobid}")
+                logger.info(f"restart from job {jobid}")
                 job = self._job_map[jobid]
                 name = job.slurm_jobname
                 env = os.environ
@@ -503,9 +522,9 @@ has nodelist: {job.nodelist}"
                 try:  # Kill tasks that need to be restarted
                     scancel_slurm_job(jobid, env)
                 except Exception as e:
-                    print(e)
+                    logger.warning(e)
                 else:
-                    print(f"scancel {name}, {jobid}")
+                    logger.info(f"scancel {name}, {jobid}")
 
                 # we sleep 1 min for those reasons:
                 # 1. Prevent two consecutive restarts belonging to the same folder.
@@ -521,26 +540,30 @@ has nodelist: {job.nodelist}"
                 if time.time() - reinfo.latest_restart_time < 1200:
                     reinfo.restart_count += 1
                 else:
-                    print(f"Reset job: {name} restart-count")
+                    logger.info(f"Reset job: {name} restart-count")
                     # Reboots from a long time ago, we don't count restart attempts
                     reinfo.restart_count = 0
 
                 if reinfo.restart_count >= 3:
                     msg = f'Job "{job.slurm_jobname}" restarts three times and still fails, abort restart.'
-                    print(msg)
+                    logger.info(msg)
                     self.delete_job(job.slurm_jobid)
                 else:
                     # do the actual restart
                     try:
                         # update LOAD_CKPT_FOLDER
                         load_ckpt = None
-                        if not job.last_ckpt and "LOAD_CKPT_FOLDER" in job.script_config:
-                            load_ckpt = os.path.basename(job.script_config["LOAD_CKPT_FOLDER"])
+                        script_config = handle_scitofloat(job.script_config)
+                        script_config = ast.literal_eval(script_config)
+                        if not job.last_ckpt and "LOAD_CKPT_FOLDER" in script_config:
+                            load_ckpt = os.path.basename(script_config["LOAD_CKPT_FOLDER"])
                         elif job.last_ckpt:
                             load_ckpt = str(job.last_ckpt)
                         
                         if load_ckpt:
-                            job.script_config["LOAD_CKPT_FOLDER"] = os.path.join(job.script_config["SAVE_CKPT_FOLDER"], load_ckpt)
+                            script_config["LOAD_CKPT_FOLDER"] = os.path.join(script_config["SAVE_CKPT_FOLDER"], load_ckpt)
+                            script_config["ckpt"]["load_ckpt_folder"] = script_config["LOAD_CKPT_FOLDER"]
+                        job.script_config = str(script_config)
                         
                         # get jobinfo
                         jobinfo = get_slurm_jobinfo(jobid)
@@ -548,14 +571,14 @@ has nodelist: {job.nodelist}"
                         
                         re, msg = sbatch_slurm_job(jobinfo,job.script_config, env=env)
                         if re is False:
-                            print(msg)
+                            logger.info(msg)
                     except Exception as e:
-                        print(e)
+                        logger.error(e)
                     else:
-                        print(f"launch {job.slurm_jobname}")
+                        logger.info(f"launch {job.slurm_jobname}")
 
                     msg = f"Restart job:{job.slurm_jobname} for the {reinfo.restart_count}-th time"
-                    print(msg)
+                    logger.info(msg)
                     self.reset_job_state(jobid)
 
             # restart all, allow registion.
@@ -600,7 +623,7 @@ has nodelist: {job.nodelist}"
 
     def delete_job(self, jid: int):
         job = self._job_map[jid]
-        print(f"Del job: {job.slurm_jobname}")
+        logger.info(f"Del job: {job.slurm_jobname}")
         self.reset_job_state(jid)
         if job.job_state == JobState.COMPLETE:
             self.move_json(jid, job.slurm_jobname)
@@ -614,7 +637,7 @@ has nodelist: {job.nodelist}"
             return error[-20:]
 
     def polling_check(self):
-        print("Polling thread is launch!")
+        logger.info("Polling thread is launch!")
         while not self.stopped:
             restart_job_ids = set()
             delete_job_ids = set()
@@ -636,7 +659,7 @@ has nodelist: {job.nodelist}"
             job_map = copy.deepcopy(self._job_map)
             for jobid, job_info in job_map.items():
                 if job_info.is_hunman_scancel:  # Check if we killed it
-                    print(f'Human scncael job: "{jobid}" name:"{job_info.slurm_jobname}"')
+                    logger.info(f'Human scncael job: "{jobid}" name:"{job_info.slurm_jobname}"')
                     delete_job_ids.add(jobid)
                     continue
 
@@ -651,8 +674,12 @@ has nodelist: {job.nodelist}"
                         if time.time() - rankinfo.last_report_time > self._timeout:
                             catch_expection = True
                             msg = f"{rankinfo} keep alive TIMEOUT for {self._timeout} s"
-                            print(msg)
-                            restart_job_ids.add(jobid)  # pylint: disable=W0640
+                            logger.info(msg)
+                            
+                            if not determine_job_is_alive(jobid):
+                                delete_job_ids.add(jobid)
+                            else:
+                                restart_job_ids.add(jobid)  # pylint: disable=W0640
 
                         # loop the exception list of rank
                         if len(rankinfo.exception_list) > 0:
@@ -688,7 +715,7 @@ error that cannot restart, please restart manually. Error : {e}"
                                             do_alert = False
 
                                     if do_alert:
-                                        print(msg)
+                                        logger.info(msg)
 
                                 if record:
                                     # In fact, we can do news deduplication here.
@@ -766,6 +793,7 @@ def create_coordinator_app(coordinator: Coordinator):
     def keep_alive():
         coordinator.last_activity = time.time()
         ret_info = coordinator.deal_keep_alive(request.json)
+        logger.info(f"heartbeat: {request.json}")
         if ret_info:
             return build_ret(0)
         else:

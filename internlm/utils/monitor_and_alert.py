@@ -7,7 +7,6 @@ import os
 
 
 from internlm.utils.logger import get_logger
-from internlm.core.context import Config
 
 logger = get_logger(__file__)
 
@@ -38,7 +37,7 @@ def get_job_id():
 class Adapter(object):
     """Adapter"""
 
-    def __init__(self, rank: int, local_rank: int, cfg: Config, coordinator_ip: str = None, coordinator_port: int = None):
+    def __init__(self, rank: int, local_rank: int, cfg: str, coordinator_ip: str = None, coordinator_port: int = None):
         """
         Adapter acts as a client, each rank will initialize one, and will send registration information,
         heartbeat, and exception information to the Coordinator process.
@@ -61,7 +60,7 @@ class Adapter(object):
         self._local_rank = local_rank
         self._ip = socket.gethostbyname(socket.gethostname())
         self._last_update_request_addr_time = time.time()
-        self._cfg = cfg
+        self._cfg = str(cfg)
         
         self._register()
         # After more than fifteen minutes, try to reconnect to the Coordinator

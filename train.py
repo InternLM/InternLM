@@ -5,6 +5,7 @@ import ast
 import socket
 import time
 import traceback
+import os
 from functools import partial
 from typing import Iterable
 
@@ -14,7 +15,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 import internlm
-from internlm.core.context import ParallelMode
+from internlm.core.context import ParallelMode, Config
 from internlm.core.context import global_context as gpc
 from internlm.core.naive_amp import NaiveAMPModel
 from internlm.core.trainer import TrainState
@@ -336,8 +337,23 @@ def main(args):
     assert hasattr(gpc, "config") and gpc.config is not None
 
     # init monitor
-    if args.auto_restart and dist.get_global_rank() == 0:
-        init_local_adapter(dist.get_global_rank(), dist.get_rank(), gpc.config)
+    if args.auto_restart and dist.get_rank() == 0:
+        if os.path.exists("coordinator_env"):
+            with open("coordinator_env", "r", encoding="utf-8") as f:
+                lines = f.read().splitlines()
+                for line in lines:
+                    key, value = line.split("=")[0], line.split("=")[1]
+                    os.environ[key] = value
+        
+        train_config = None
+        if args.config.endswith(".py"):
+            train_config = str(Config.from_file(args.config))
+        else:
+            train_config = args.config
+        
+        init_local_adapter(dist.get_rank(), 0 , train_config)
+        
+        del train_config
 
     # init setting
     skip_batches = gpc.config.data.skip_batches
@@ -373,8 +389,11 @@ def main(args):
     current_time = objs[0]
 
     # initialize customed llm writer
-    with open(args.config, "r") as f:
-        config_lines = f.readlines()
+    if args.config.endswith(".py"):
+        with open(args.config, "r") as f:
+            config_lines = f.readlines()
+    else:
+        config_lines = args.config
     writer = Writer(
         launch_time=current_time,
         tensorboard_folder=gpc.config.tensorboard_folder,
@@ -510,7 +529,7 @@ def main(args):
             if grad_norm == -99.0 and gpc.is_rank_for_log():  # -99.0 encodes a specific failure case
                 logger.warning(f"Warning: skip parameter update at step {batch_count}.")
 
-        if args.auto_restart and dist.get_global_rank() == 0:
+        if args.auto_restart and dist.get_rank() == 0:
             num_tokens_in_batch = batch[1].nelement()
             tk_per_gpu = round(
                 num_tokens_in_batch
