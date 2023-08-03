@@ -16,17 +16,17 @@ from internlm.utils.common import get_tensor_norm, move_norm_to_cuda
 from internlm.utils.logger import get_logger
 from internlm.utils.parallel import is_model_parallel_parameter
 
+logger = get_logger(__file__)
+
 try:
     import amp_C
     from apex.multi_tensor_apply import multi_tensor_applier
     APEX_AVAILABLE = True
 except (ModuleNotFoundError, ImportError):
-    import warnings
+    logger.warn("The torch implementation for cal_l2norm is slower than apex. Please note this!")
     APEX_AVAILABLE = False
 
 inf = math.inf
-
-logger = get_logger(__file__)
 
 
 def flatten(input_):
@@ -184,7 +184,6 @@ def calc_l2_norm(grads):
                 amp_C.multi_tensor_l2norm, dummy_overflow_buf, [grads], False  # no per-parameter norm
             )
         else:
-            warnings.warn("The torch implementation for cal_l2norm is slower than apex. Please note this!")
             norm, _ = multi_tensor_l2norm_torch(grads, False)
     return norm
 

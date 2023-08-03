@@ -82,7 +82,8 @@ def try_import_RMSNorm():
         from apex.normalization.fused_layer_norm import MixedFusedRMSNorm as RMSNorm
         return RMSNorm
     except ModuleNotFoundError as e:
-        import warnings
-        warnings.warn("The torch implementation for MixFusedRMSNorm is slower than apex. Please note this!")
+        from internlm.utils.logger import get_logger
+        logger = get_logger(__file__)
+        logger.warn("The torch implementation for MixFusedRMSNorm is slower than apex. Please note this!")
         from internlm.model.norm import RMSNormTorch as RMSNorm
         return RMSNorm
