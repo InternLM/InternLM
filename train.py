@@ -421,10 +421,6 @@ def record_current_batch_training_metrics(
 
 
 def main(args):
-    # initialize distributed environment
-    initialize_distributed_env(config=args.config, launcher=args.launcher, master_port=args.port, seed=args.seed)
-    assert hasattr(gpc, "config") and gpc.config is not None
-
     # init setting
     skip_batches = gpc.config.data.skip_batches
     total_steps = gpc.config.data.total_steps
@@ -609,7 +605,7 @@ def main(args):
             if grad_norm == -99.0 and gpc.is_rank_for_log():  # -99.0 encodes a specific failure case
                 logger.warning(f"Warning: skip parameter update at step {batch_count}.")
                 send_alert_message(
-                    address=args.alert_address, message=f"Warning: skip parameter update at step {batch_count}."
+                    address=gpc.config.alert_address, message=f"Warning: skip parameter update at step {batch_count}."
                 )
 
         # calculate and record the training metrics, eg. loss, accuracy and so on.
@@ -663,22 +659,25 @@ def main(args):
 if __name__ == "__main__":
     args = parse_args()
 
+    # initialize distributed environment
+    initialize_distributed_env(config=args.config, launcher=args.launcher, master_port=args.port, seed=args.seed)
+    assert hasattr(gpc, "config") and gpc.config is not None
+
     hostname = socket.gethostname()
     proc_id = get_process_rank()
 
     # initialize monitor and alert
-    enable_monitor = args.monitor is True and args.job_name is not None and args.alert_address is not None
-    if enable_monitor:
-        initialize_monitor(job_name=args.job_name, feishu_webhook_address=args.alert_address)
+    if gpc.config.alert_address is not None:
+        initialize_monitor(job_name=gpc.config.JOB_NAME, feishu_webhook_address=gpc.config.alert_address)
 
     try:
         if proc_id == 0:
-            send_alert_message(address=args.alert_address, message=f"Training in {hostname} is starting.")
+            send_alert_message(address=gpc.config.alert_address, message=f"Training in {hostname} is starting.")
 
         main(args)
 
         if proc_id == 0:
-            send_alert_message(address=args.alert_address, message=f"Training in {hostname} completed.")
+            send_alert_message(address=gpc.config.alert_address, message=f"Training in {hostname} completed.")
     except Exception:
         print(f"Raise exception from {hostname} with proc id: {proc_id}")
         traceback.print_exc()

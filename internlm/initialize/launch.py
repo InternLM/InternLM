@@ -38,11 +38,7 @@ def get_default_parser():
     parser.add_argument("--local_rank", type=int, help="local rank on the node")
     parser.add_argument("--backend", type=str, default="nccl", help="backend for distributed communication")
     parser.add_argument("--seed", type=int, default=1024)
-    parser.add_argument("--job_name", default=None, type=str, help="The training job name.")
-    parser.add_argument(
-        "--monitor", default=False, action="store_true", help="If set True, start monitor and alert thread."
-    )
-    parser.add_argument("--alert_address", default=None, type=str, help="The feishu webhook address for alerting.")
+
     return parser
 
 
@@ -189,6 +185,10 @@ def args_sanity_check():
     # process the model config
     if "use_flash_attn" not in gpc.config.model:
         gpc.config.model._add_item("use_flash_attn", True)
+
+    # feishu webhook address for alerting
+    if "alert_address" not in gpc.config:
+        gpc.config._add_item("alert_address", None)
 
 
 def launch(
