@@ -6,6 +6,8 @@ on:
     paths-ignore:
       - "docs/**"
       - "**.md"
+    types:
+      - closed
 
 jobs:
   check-requirements:
