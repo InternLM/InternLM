@@ -427,7 +427,7 @@ def record_current_batch_training_metrics(
             logger.info(line)
 
         # if loss spike occurs, send alert info to feishu
-        monitor_loss_spike(step_count=batch_count, cur_step_loss=loss.item())
+        monitor_loss_spike(alert_address=gpc.config.alert_address, step_count=batch_count, cur_step_loss=loss.item())
 
 
 def main(args):
@@ -686,6 +686,6 @@ if __name__ == "__main__":
         print(f"Raise exception from {hostname} with rank id: {gpc.get_global_rank()}")
         traceback.print_exc()
 
-        monitor_exception(excp_info=traceback.format_exc())
+        monitor_exception(alert_address=gpc.config.alert_address, excp_info=traceback.format_exc())
     finally:
         stop_monitor()

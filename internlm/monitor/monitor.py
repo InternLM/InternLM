@@ -10,7 +10,6 @@ from internlm.monitor.alert import send_feishu_msg_with_webhook
 from .utils import get_job_key, set_env_var
 
 MONITOR_THREAD = None
-FEISHU_WEBHOOK_ADDRESS = None
 
 # env var key
 LOSS = "LOSS"
@@ -25,12 +24,12 @@ LOSS_SPIKE_LIMIT = 1.5
 LAST_STEP_LOSS = -1
 
 
-def send_alert_message(address: str = FEISHU_WEBHOOK_ADDRESS, title: str = None, message: str = None):
+def send_alert_message(address: str = None, title: str = None, message: str = None):
     """
     Send alert messages to the given Feishu webhook address in log rank.
 
     Args:
-        address (str): The alert address to be used to send message, defaults to FEISHU_WEBHOOK_ADDRESS.
+        address (str): The alert address to be used to send message, defaults to None.
         title (str): The message title, defaults to None.
         message (str): The message body, defaults to None.
     """
@@ -136,19 +135,19 @@ class MonitorTracker(Thread):
         self.stopped = True
 
 
-def monitor_exception(excp_info: str):
+def monitor_exception(alert_address: str, excp_info: str):
     """Catch and format exception information, send alert message to Feishu."""
     filtered_trace = excp_info.split("\n")[-10:]
     format_trace = ""
     for line in filtered_trace:
         format_trace += "\n" + line
     send_alert_message(
-        address=FEISHU_WEBHOOK_ADDRESS,
+        address=alert_address,
         message=f"Catch Exception from {socket.gethostname()} with rank id {gpc.get_global_rank()}:{format_trace}",
     )
 
 
-def monitor_loss_spike(step_count, cur_step_loss):
+def monitor_loss_spike(alert_address: str, step_count: int, cur_step_loss: float):
     """Check loss value, if loss spike occurs, send alert message to Feishu."""
     set_env_var(key=LOSS, value=cur_step_loss)
     set_env_var(key=STEP_ID, value=step_count)
@@ -156,7 +155,7 @@ def monitor_loss_spike(step_count, cur_step_loss):
     global LAST_STEP_LOSS
     if LAST_STEP_LOSS != -1 and cur_step_loss > LOSS_SPIKE_LIMIT * LAST_STEP_LOSS:
         send_alert_message(
-            address=FEISHU_WEBHOOK_ADDRESS,
+            address=alert_address,
             message=(
                 f"Checking step by step: Loss spike may be happened in step {step_count}, "
                 f"loss value from {LAST_STEP_LOSS} to {cur_step_loss}, please check it."
@@ -165,7 +164,7 @@ def monitor_loss_spike(step_count, cur_step_loss):
     LAST_STEP_LOSS = cur_step_loss
 
 
-def handle_sigterm(feishu_webhook_address: str = FEISHU_WEBHOOK_ADDRESS):
+def handle_sigterm(feishu_webhook_address: str):
     """Catch SIGTERM signal, and send alert message to Feishu."""
 
     def sigterm_handler(sys_signal, frame):
@@ -197,8 +196,6 @@ def initialize_monitor(
     """
 
     # initialize some variables for monitoring
-    global FEISHU_WEBHOOK_ADDRESS
-    FEISHU_WEBHOOK_ADDRESS = feishu_webhook_address
     set_env_var(key="JOB_NAME", value=job_name)
 
     # start a monitor thread, periodically check the training status
