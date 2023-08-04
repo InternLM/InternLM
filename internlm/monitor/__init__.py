@@ -1,6 +1,5 @@
 from .monitor import (
     LAST_ACTIVE_TIMESTAMP,
-    get_process_rank,
     initialize_monitor,
     monitor_exception,
     monitor_loss_spike,
@@ -11,7 +10,6 @@ from .utils import set_env_var
 
 __all__ = [
     "LAST_ACTIVE_TIMESTAMP",
-    "get_process_rank",
     "initialize_monitor",
     "monitor_exception",
     "monitor_loss_spike",

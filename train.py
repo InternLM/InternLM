@@ -32,7 +32,6 @@ from internlm.model.loss import FlashGPTLMLoss
 from internlm.model.metrics import AccPerplex
 from internlm.monitor import (
     LAST_ACTIVE_TIMESTAMP,
-    get_process_rank,
     initialize_monitor,
     monitor_exception,
     monitor_loss_spike,
@@ -101,6 +100,15 @@ def initialize_distributed_env(config: str, launcher: str = "slurm", master_port
 
 
 def initialize_llm_logger(start_time: str):
+    """
+    Initialize customed uniscale logger.
+
+    Args:
+        start_time (str): The launch time of current training job.
+
+    Returns: The instance of uniscale logger.
+    """
+
     uniscale_logger = initialize_uniscale_logger(
         job_name=gpc.config.JOB_NAME, launch_time=start_time, file_name=get_parallel_log_file_name()
     )
@@ -222,6 +230,8 @@ def get_train_data_loader(num_worker: int = 0):
 
 
 def get_validation_data_loader(num_worker: int = 0):
+    """Generate and return the validation data loader."""
+
     data_cfg = gpc.config.data
 
     if not data_cfg.valid_folder:
@@ -658,31 +668,24 @@ def main(args):
 
 if __name__ == "__main__":
     args = parse_args()
+    hostname = socket.gethostname()
 
     # initialize distributed environment
     initialize_distributed_env(config=args.config, launcher=args.launcher, master_port=args.port, seed=args.seed)
     assert hasattr(gpc, "config") and gpc.config is not None
-
-    hostname = socket.gethostname()
-    proc_id = get_process_rank()
 
     # initialize monitor and alert
     if gpc.config.alert_address is not None:
         initialize_monitor(job_name=gpc.config.JOB_NAME, feishu_webhook_address=gpc.config.alert_address)
 
     try:
-        if proc_id == 0:
-            send_alert_message(address=gpc.config.alert_address, message=f"Training in {hostname} is starting.")
-
+        send_alert_message(address=gpc.config.alert_address, message=f"Training in {hostname} is starting.")
         main(args)
-
-        if proc_id == 0:
-            send_alert_message(address=gpc.config.alert_address, message=f"Training in {hostname} completed.")
+        send_alert_message(address=gpc.config.alert_address, message=f"Training in {hostname} completed.")
     except Exception:
-        print(f"Raise exception from {hostname} with proc id: {proc_id}")
+        print(f"Raise exception from {hostname} with rank id: {gpc.get_global_rank()}")
         traceback.print_exc()
 
-        if proc_id == 0:
-            monitor_exception(excp_info=traceback.format_exc())
+        monitor_exception(excp_info=traceback.format_exc())
     finally:
         stop_monitor()

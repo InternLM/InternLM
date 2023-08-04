@@ -7,10 +7,8 @@ from threading import Thread
 from internlm.core.context import global_context as gpc
 from internlm.monitor.alert import send_feishu_msg_with_webhook
 
-from .utils import get_job_key, get_process_rank, set_env_var
+from .utils import get_job_key, set_env_var
 
-ENABLE_MONITOR = False
-JOB_NAME = None
 MONITOR_THREAD = None
 FEISHU_WEBHOOK_ADDRESS = None
 
@@ -28,7 +26,16 @@ LAST_STEP_LOSS = -1
 
 
 def send_alert_message(address: str = FEISHU_WEBHOOK_ADDRESS, title: str = None, message: str = None):
-    if ENABLE_MONITOR:
+    """
+    Send alert messages to the given Feishu webhook address in log rank.
+
+    Args:
+        address (str): The alert address to be used to send message, defaults to FEISHU_WEBHOOK_ADDRESS.
+        title (str): The message title, defaults to None.
+        message (str): The message body, defaults to None.
+    """
+
+    if address is not None and gpc.is_rank_for_log():
         send_feishu_msg_with_webhook(
             webhook=address,
             title=title if title else get_job_key(),
@@ -116,11 +123,10 @@ class MonitorTracker(Thread):
             message (str): The alerting message to be sent.
         """
 
-        if get_process_rank() == 0:
-            send_alert_message(
-                address=self.alert_address,
-                message=message,
-            )
+        send_alert_message(
+            address=self.alert_address,
+            message=message,
+        )
 
     def stop(self):
         """
@@ -131,43 +137,44 @@ class MonitorTracker(Thread):
 
 
 def monitor_exception(excp_info: str):
-    if ENABLE_MONITOR:
-        filtered_trace = excp_info.split("\n")[-10:]
-        format_trace = ""
-        for line in filtered_trace:
-            format_trace += "\n" + line
-        send_alert_message(
-            address=FEISHU_WEBHOOK_ADDRESS,
-            message=f"Catch Exception from {socket.gethostname()} with proc id {get_process_rank()}:{format_trace}",
-        )
+    """Catch and format exception information, send alert message to Feishu."""
+    filtered_trace = excp_info.split("\n")[-10:]
+    format_trace = ""
+    for line in filtered_trace:
+        format_trace += "\n" + line
+    send_alert_message(
+        address=FEISHU_WEBHOOK_ADDRESS,
+        message=f"Catch Exception from {socket.gethostname()} with rank id {gpc.get_global_rank()}:{format_trace}",
+    )
 
 
 def monitor_loss_spike(step_count, cur_step_loss):
-    if ENABLE_MONITOR:
-        set_env_var(key=LOSS, value=cur_step_loss)
-        set_env_var(key=STEP_ID, value=step_count)
+    """Check loss value, if loss spike occurs, send alert message to Feishu."""
+    set_env_var(key=LOSS, value=cur_step_loss)
+    set_env_var(key=STEP_ID, value=step_count)
 
-        global LAST_STEP_LOSS
-        if LAST_STEP_LOSS != -1 and cur_step_loss > LOSS_SPIKE_LIMIT * LAST_STEP_LOSS:
-            send_alert_message(
-                address=FEISHU_WEBHOOK_ADDRESS,
-                message=(
-                    f"Checking step by step: Loss spike may be happened in step {step_count}, "
-                    f"loss value from {LAST_STEP_LOSS} to {cur_step_loss}, please check it."
-                ),
-            )
-        LAST_STEP_LOSS = cur_step_loss
+    global LAST_STEP_LOSS
+    if LAST_STEP_LOSS != -1 and cur_step_loss > LOSS_SPIKE_LIMIT * LAST_STEP_LOSS:
+        send_alert_message(
+            address=FEISHU_WEBHOOK_ADDRESS,
+            message=(
+                f"Checking step by step: Loss spike may be happened in step {step_count}, "
+                f"loss value from {LAST_STEP_LOSS} to {cur_step_loss}, please check it."
+            ),
+        )
+    LAST_STEP_LOSS = cur_step_loss
 
 
 def handle_sigterm(feishu_webhook_address: str = FEISHU_WEBHOOK_ADDRESS):
+    """Catch SIGTERM signal, and send alert message to Feishu."""
+
     def sigterm_handler(sys_signal, frame):
         print("receive frame: ", frame)
         print("receive signal: ", sys_signal)
-        if get_process_rank() == 0:
-            send_alert_message(
-                address=feishu_webhook_address,
-                message=f"Process received signal {signal} and exited.",
-            )
+        send_alert_message(
+            address=feishu_webhook_address,
+            message=f"Process received signal {signal} and exited.",
+        )
 
     signal.signal(signal.SIGTERM, sigterm_handler)
 
@@ -175,35 +182,40 @@ def handle_sigterm(feishu_webhook_address: str = FEISHU_WEBHOOK_ADDRESS):
 def initialize_monitor(
     job_name: str,
     feishu_webhook_address: str,
-    max_waiting_seconds: float = MONITOR_INTERVAL_SECONDS,
+    monitor_interval: float = MONITOR_INTERVAL_SECONDS,
     loss_spike_limit: float = LOSS_SPIKE_LIMIT,
 ):
     """
-    1. Initialize some variables for monitoring.
-    2. Start a thread, periodically check the training status, if there is any
-        abnormality, send an alarm to Feishu.
-    3. Catch SIGTERM signal, and send alert message to Feishu.
+    Initialize monitor for checking training job status, loss spike and so on.
+
+    Args:
+        job_name (str): The training job name.
+        feishu_webhook_address (str): The Feishu webhook address for sending alert messages.
+        monitor_interval (float): The time of monitor interval in seconds, defaults to MONITOR_INTERVAL_SECONDS(300).
+        loss_spike_limit (float): The limit multiple of current loss to previous loss value, which means loss spike
+            may be occurs, defaults to LOSS_SPIKE_LIMIT(1.5).
     """
 
-    global ENABLE_MONITOR, JOB_NAME, FEISHU_WEBHOOK_ADDRESS
-    ENABLE_MONITOR = True
-    JOB_NAME = job_name
+    # initialize some variables for monitoring
+    global FEISHU_WEBHOOK_ADDRESS
     FEISHU_WEBHOOK_ADDRESS = feishu_webhook_address
     set_env_var(key="JOB_NAME", value=job_name)
 
+    # start a monitor thread, periodically check the training status
     global MONITOR_THREAD
     MONITOR_THREAD = MonitorTracker(
         alert_address=feishu_webhook_address,
-        check_interval=max_waiting_seconds,
+        check_interval=monitor_interval,
         loss_spike_limit=loss_spike_limit,
     )
 
+    # process SIGTERM signal
     handle_sigterm(feishu_webhook_address=feishu_webhook_address)
 
 
 def stop_monitor():
     """
-    1. Stop the monitor and alert thread.
+    Stop the monitor and alert thread.
     """
 
     if MONITOR_THREAD is not None:
