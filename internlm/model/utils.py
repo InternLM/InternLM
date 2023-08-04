@@ -171,4 +171,3 @@ def try_import_RMSNorm():
         logger.warn("The torch implementation for MixFusedRMSNorm is slower than apex. Please note this!")
         from internlm.model.norm import RMSNormTorch as RMSNorm
         return RMSNorm
-
