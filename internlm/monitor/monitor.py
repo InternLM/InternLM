@@ -19,8 +19,8 @@ LOSS = "LOSS"
 STEP_ID = "STEP_ID"
 LAST_ACTIVE_TIMESTAMP = "LAST_ACTIVE_TIMESTAMP"
 
-# max waiting seconds for checking training status
-MAX_WAITING_SECONDS = 300
+# the time seconds value of monitor interval
+MONITOR_INTERVAL_SECONDS = 300
 # the limit multiple of previous loss value
 LOSS_SPIKE_LIMIT = 1.5
 # loss value of last step
@@ -38,18 +38,23 @@ def send_alert_message(address: str = FEISHU_WEBHOOK_ADDRESS, title: str = None,
 
 class MonitorTracker(Thread):
     """
-    Track job status and alert to feishu during job training.
+    Track job status and alert to Feishu during job training.
+
+    Args:
+        alert_address (str): The Feishu webhook address for sending alerting messages.
+        check_interval (float): The interval in seconds for monitoring checks. Defaults to MONITOR_INTERVAL_SECONDS.
+        loss_spike_limit (float): The threshold for detecting loss value spikes. Defaults to LOSS_SPIKE_LIMIT.
     """
 
     def __init__(
         self,
-        feishu_webhook_address: str,
-        max_waiting_seconds: float = MAX_WAITING_SECONDS,
+        alert_address: str,
+        check_interval: float = MONITOR_INTERVAL_SECONDS,
         loss_spike_limit: float = LOSS_SPIKE_LIMIT,
     ):
         super().__init__()
-        self.feishu_webhook_address = feishu_webhook_address
-        self.max_waiting_seconds = max_waiting_seconds
+        self.alert_address = alert_address
+        self.check_interval = check_interval
         self.loss_spike_limit = loss_spike_limit
         self.last_active_time = -1
         self.last_loss_value = -1
@@ -58,50 +63,64 @@ class MonitorTracker(Thread):
 
     def run(self):
         """
-        Run the monitor tracker.
+        start the monitor tracker.
         """
 
         while not self.stopped:
             try:
-                # check training status
-                new_active_time = -1
-                if os.getenv(LAST_ACTIVE_TIMESTAMP) is not None:
-                    new_active_time = os.getenv(LAST_ACTIVE_TIMESTAMP)
-
-                if int(new_active_time) <= int(self.last_active_time) and new_active_time != -1:
-                    if get_process_rank() == 0:
-                        send_alert_message(
-                            address=self.feishu_webhook_address,
-                            message="Training may be in stuck status, please check it.",
-                        )
-
-                self.last_active_time = new_active_time
-
-                # check loss value
-                if gpc.is_rank_for_log():
-                    new_loss_value = -1
-                    new_step_id = -1
-                    if os.getenv(LOSS) is not None:
-                        new_loss_value = os.getenv(LOSS)
-                    if os.getenv(STEP_ID) is not None:
-                        new_step_id = os.getenv(STEP_ID)
-
-                    if (
-                        float(new_loss_value) / float(self.last_loss_value)
-                    ) > self.loss_spike_limit and new_loss_value != -1:
-                        assert int(new_step_id) >= 0
-
-                        send_alert_message(
-                            address=self.feishu_webhook_address,
-                            message=f"Checking periodically: Loss spike may be happened in step {new_step_id}, "
-                            f"loss value from {self.last_loss_value} to {new_loss_value}, please check it.",
-                        )
-
-                    self.last_loss_value = new_loss_value
+                self._check_stuck()
+                self._check_loss_spike()
             except Exception:
                 continue
+            time.sleep(self.check_interval)
 
-            time.sleep(self.max_waiting_seconds)
+    def _check_stuck(self):
+        """
+        Check training status for potential stuck condition.
+        """
+
+        new_active_time = -1
+        if os.getenv(LAST_ACTIVE_TIMESTAMP) is not None:
+            new_active_time = os.getenv(LAST_ACTIVE_TIMESTAMP)
+        if int(new_active_time) <= int(self.last_active_time) and new_active_time != -1:
+            self._send_alert("Training may be in stuck status, please check it.")
+        self.last_active_time = new_active_time
+
+    def _check_loss_spike(self):
+        """
+        Check for loss value spikes.
+        """
+
+        if gpc.is_rank_for_log():
+            new_loss_value = -1
+            new_step_id = -1
+            if os.getenv(LOSS) is not None:
+                new_loss_value = os.getenv(LOSS)
+            if os.getenv(STEP_ID) is not None:
+                new_step_id = os.getenv(STEP_ID)
+
+            if (float(new_loss_value) / float(self.last_loss_value)) > self.loss_spike_limit and new_loss_value != -1:
+                assert int(new_step_id) >= 0
+                self._send_alert(
+                    f"Checking periodically: Loss spike may be happened in step {new_step_id}, "
+                    f"loss value from {self.last_loss_value} to {new_loss_value}, please check it."
+                )
+
+            self.last_loss_value = new_loss_value
+
+    def _send_alert(self, message):
+        """
+        Send alerting message to the Feishu webhook address.
+
+        Args:
+            message (str): The alerting message to be sent.
+        """
+
+        if get_process_rank() == 0:
+            send_alert_message(
+                address=self.alert_address,
+                message=message,
+            )
 
     def stop(self):
         """
@@ -156,7 +175,7 @@ def handle_sigterm(feishu_webhook_address: str = FEISHU_WEBHOOK_ADDRESS):
 def initialize_monitor(
     job_name: str,
     feishu_webhook_address: str,
-    max_waiting_seconds: float = MAX_WAITING_SECONDS,
+    max_waiting_seconds: float = MONITOR_INTERVAL_SECONDS,
     loss_spike_limit: float = LOSS_SPIKE_LIMIT,
 ):
     """
@@ -174,8 +193,8 @@ def initialize_monitor(
 
     global MONITOR_THREAD
     MONITOR_THREAD = MonitorTracker(
-        feishu_webhook_address=feishu_webhook_address,
-        max_waiting_seconds=max_waiting_seconds,
+        alert_address=feishu_webhook_address,
+        check_interval=max_waiting_seconds,
         loss_spike_limit=loss_spike_limit,
     )
 
