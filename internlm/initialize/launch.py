@@ -184,6 +184,10 @@ def args_sanity_check():
     # process the model config
     if "use_flash_attn" not in gpc.config.model:
         gpc.config.model._add_item("use_flash_attn", True)
+    if "sequence_parallel" not in gpc.config.model:
+        gpc.config.model._add_item("sequence_parallel", False)
+    else:
+        assert not (gpc.config.model.sequence_parallel is True and gpc.config.model.use_flash_attn is False), "sequence parallel does not support use_flash_attn=False"
 
 
 def launch(
