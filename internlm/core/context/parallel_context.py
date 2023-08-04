@@ -464,7 +464,7 @@ class ParallelContext(metaclass=SingletonMeta):
         initializers.append(pgroup_initializer.Initializer_Zero1(*initializer_args))
         if self.pipeline_parallel_size > 1:
             initializers.append(pgroup_initializer.Initializer_Pipeline(*initializer_args))
-
+        
         for initializer in initializers:
             parallel_setting = initializer.init_dist_group()
             if isinstance(parallel_setting, list):

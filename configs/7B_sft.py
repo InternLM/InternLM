@@ -36,7 +36,7 @@ data = dict(
     # defaults to the value of micro_num
     valid_micro_num=4,
     # defaults to 0, means disable evaluate
-    valid_every=50,
+    valid_every=1,
     pack_sample_into_one=False,
     total_steps=100,
     skip_batches="",
@@ -135,7 +135,7 @@ tensor parallel: tensor parallel size, usually the number of GPUs per node.
 parallel = dict(
     zero1=-1,
     tensor=2,
-    # pipeline=dict(size=1, interleaved_overlap=True),
+    pipeline=dict(size=2, interleaved_overlap=True),
 )
 
 cudnn_deterministic = False
