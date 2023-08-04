@@ -162,8 +162,22 @@ def args_sanity_check():
             gpc.config.model.dtype = torch.bfloat16
         elif gpc.config.model.dtype in ("torch.float16", "torch.half"):
             gpc.config.model.dtype = torch.float16
+        elif gpc.config.model.dtype == "torch.float32":
+            assert gpc.config.model.use_flash_attn is False, "when using float32, the use_flash_attn must be False"
+            gpc.config.model.dtype = torch.float32
+        elif gpc.config.model.dtype == "torch.tf32":
+            assert gpc.config.model.use_flash_attn is False, "when using tf32, the use_flash_attn must be False"
+            torch.backends.cudnn.allow_tf32 = True
+            torch.backends.cuda.matmul.allow_tf32 = True
+            gpc.config.model.dtype = torch.float32
         else:
-            assert gpc.config.model.dtype in ["torch.float16", "torch.half", "torch.bfloat16"]
+            assert gpc.config.model.dtype in [
+                "torch.float16",
+                "torch.half",
+                "torch.bfloat16",
+                "torch.float32",
+                "torch.tf32",
+            ]
 
     if gpc.is_rank_for_log():
         logger.info("+" * 15 + " Model Info " + "+" * 15)  # pylint: disable=W1201
