@@ -138,6 +138,7 @@ class FeedForward(nn.Module):
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
         multiple_of: int = 256,
+        sequence_parallel: bool = False,
     ):
         super().__init__()
 
@@ -148,19 +149,19 @@ class FeedForward(nn.Module):
             hidden_features,
             process_group,
             bias,
-            sequence_parallel=False,
+            sequence_parallel=sequence_parallel,
             device=device,
             dtype=dtype,
         )
         self.w2 = ColumnParallelLinear(
-            in_features, hidden_features, process_group, bias, sequence_parallel=False, device=device, dtype=dtype
+            in_features, hidden_features, process_group, bias, sequence_parallel=sequence_parallel, device=device, dtype=dtype
         )
         self.w3 = RowParallelLinear(
             hidden_features,
             out_features,
             process_group,
             bias=bias,
-            sequence_parallel=False,
+            sequence_parallel=sequence_parallel,
             device=device,
             dtype=dtype,
         )

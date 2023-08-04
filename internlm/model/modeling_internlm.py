@@ -69,6 +69,7 @@ class PackedFlashBaseLayer1D(nn.Module):
         use_scaled_init: bool = True,
         use_swiglu: bool = True,
         use_flash_attn: bool = True,
+        sequence_parallel: bool = False,
     ):
         super().__init__()
         self.checkpoint = checkpoint
@@ -89,7 +90,7 @@ class PackedFlashBaseLayer1D(nn.Module):
             rotary_emb_dim=head_dim,
             rotary_emb_scale_base=0,
             use_flash_attn=use_flash_attn,
-            sequence_parallel=False,
+            sequence_parallel=sequence_parallel,
             device=device,
             dtype=dtype,
         )
@@ -111,6 +112,7 @@ class PackedFlashBaseLayer1D(nn.Module):
                 bias=False,
                 device=device,
                 dtype=dtype,
+                sequence_parallel=sequence_parallel,
             )
         else:
             self.mlp = ParallelFusedMLP(
@@ -121,7 +123,7 @@ class PackedFlashBaseLayer1D(nn.Module):
                 process_group=gpc.get_group(ParallelMode.TENSOR),
                 bias1=False,
                 bias2=False,
-                sequence_parallel=False,
+                sequence_parallel=sequence_parallel,
                 checkpoint_lvl=0,
                 heuristic="auto",
                 device=device,
@@ -277,6 +279,7 @@ class PackedFlashInternLm1D(nn.Module):
         use_scaled_init: bool = True,
         use_swiglu: bool = True,
         use_flash_attn: bool = True,
+        sequence_parallel: bool = False,
     ):
         super().__init__()
 
@@ -292,7 +295,7 @@ class PackedFlashInternLm1D(nn.Module):
             head_cls = ScaleColumnParallelLinear
         if first:
             if embed_split_hidden:
-                self.embedding = Embedding1D(num_embeddings=vocab_size, embedding_dim=hidden_size)
+                self.embedding = Embedding1D(num_embeddings=vocab_size, embedding_dim=hidden_size, sequence_parallel=sequence_parallel)
             else:
                 self.embedding = ParallelGPT2Embeddings(
                     embed_dim=hidden_size,
@@ -300,7 +303,7 @@ class PackedFlashInternLm1D(nn.Module):
                     max_position_embeddings=-1,
                     process_group=gpc.get_group(ParallelMode.TENSOR),
                     padding_idx=None,
-                    sequence_parallel=False,
+                    sequence_parallel=sequence_parallel,
                     device=device,
                     dtype=dtype,
                 )
@@ -328,6 +331,7 @@ class PackedFlashInternLm1D(nn.Module):
                     use_scaled_init=use_scaled_init,
                     use_swiglu=use_swiglu,
                     use_flash_attn=use_flash_attn,
+                    sequence_parallel=sequence_parallel,
                 )
                 for lid in range(num_layers)
             ]
@@ -342,7 +346,7 @@ class PackedFlashInternLm1D(nn.Module):
                 out_features=gpc.get_world_size(ParallelMode.TENSOR) if is_reward else vocab_size,
                 process_group=gpc.get_group(ParallelMode.TENSOR),
                 bias=False,
-                sequence_parallel=False,
+                sequence_parallel=sequence_parallel,
                 device=device,
                 dtype=dtype,
                 weight_scale=embed_grad_scale,
@@ -463,6 +467,7 @@ def build_model_with_cfg(
     use_scaled_init: bool = True,
     use_swiglu: bool = True,
     use_flash_attn: bool = True,
+    sequence_parallel: bool = True,
 ):
     """
     Builde model with config
@@ -516,6 +521,7 @@ def build_model_with_cfg(
         use_scaled_init=use_scaled_init,
         use_swiglu=use_swiglu,
         use_flash_attn=use_flash_attn,
+        sequence_parallel=sequence_parallel,
     )
 
     return _build_generic_model_1d(num_layers=num_layers, num_chunks=num_chunks, **cfg)
