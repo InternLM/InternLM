@@ -4,7 +4,7 @@ SEQ_LEN = 2048
 HIDDEN_SIZE = 5120
 NUM_ATTENTION_HEAD = 40
 MLP_RATIO = 8 / 3
-NUM_LAYER = 20
+NUM_LAYER = 40
 VOCAB_SIZE = 32000
 
 # Ckpt folder format:
@@ -30,7 +30,7 @@ VALID_FOLDER = "/path/to/dataset"
 data = dict(
     seq_len=SEQ_LEN,
     # micro_num means the number of micro_batch contained in one gradient update
-    micro_num=4,
+    micro_num=32,
     # packed_length = micro_bsz * SEQ_LEN
     micro_bsz=2,
     # defaults to the value of micro_num
@@ -134,8 +134,8 @@ tensor parallel: tensor parallel size, usually the number of GPUs per node.
 """
 parallel = dict(
     zero1=-1,
-    tensor=4,
-    # pipeline=dict(size=2, interleaved_overlap=True),
+    tensor=2,
+    pipeline=dict(size=4, interleaved_overlap=False),
 )
 
 cudnn_deterministic = False
