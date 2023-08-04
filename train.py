@@ -59,6 +59,10 @@ from internlm.utils.parallel import (
     sync_model_param_within_tp,
 )
 from internlm.utils.registry import MODEL_INITIALIZER
+from internlm.utils.simple_memory_profiler import (
+    SimpleMemoryProfiler,
+    build_activation_config,
+)
 from internlm.utils.writer import Writer
 
 # global llm logger
@@ -539,6 +543,19 @@ def main(args):
         beta2_scheduler=beta2_scheduler,
         scheduler_hooks=scheduler_hooks,
     )
+    
+    # initialize simple memory profiler
+    if args.profiling:
+        memory_profiler = SimpleMemoryProfiler(
+            model.model,
+            optimizer.optim,
+            log_folder=f"memory_trace/rank{gpc.get_global_rank()}_"
+            + f"dp{gpc.get_local_rank(ParallelMode.DATA)}_"
+            + f"tp{gpc.get_local_rank(ParallelMode.TENSOR)}",
+            activation_config=build_activation_config(gpc.config.model.num_layers),
+        )
+    else:
+        memory_profiler = None
 
     # initialize the batch skipper
     batch_skipper = BatchSkipper(skip_batches)
@@ -615,6 +632,9 @@ def main(args):
         )
 
         timer("one-batch").stop()
+        
+        if memory_profiler is not None:
+            memory_profiler.step()
 
         # evaluate on validation data loaders
         if valid_every > 0 and train_state.step_count % valid_every == 0:
