@@ -84,7 +84,6 @@ class _GatherForwardSplitBackward(torch.autograd.Function):
 def gather_forward_split_backward(input_, parallel_mode, dim):
     return _GatherForwardSplitBackward.apply(input_, parallel_mode, dim)
 
-
 def linear_bias_wgrad_torch(input, grad_output, has_d_bias):
     assert input.dtype == grad_output.dtype
     grad_weight = torch.matmul(grad_output.t(), input)
