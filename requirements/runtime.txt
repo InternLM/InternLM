@@ -11,5 +11,13 @@ pytest
 packaging
 boto3
 botocore
+flask
+flask_socketio
+eventlet
+loguru
+waitress
+prettytable
+portpicker
+requests
 torch-scatter
 -f https://data.pyg.org/whl/torch-1.13.0+cu117.html

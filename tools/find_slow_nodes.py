@@ -1,13 +1,11 @@
 # coding:utf-8
 import argparse
-import copy
 import fcntl
 import time
 import torch
 from torch import distributed as dist
 import os
 import socket
-import re
 import base64
 import hashlib
 import hmac
