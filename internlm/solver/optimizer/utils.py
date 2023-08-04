@@ -5,10 +5,8 @@ import math
 from abc import ABC, abstractmethod
 from typing import Dict, Optional
 
-import amp_C
 import torch
 import torch.distributed as dist
-from apex.multi_tensor_apply import multi_tensor_applier
 from torch import Tensor
 from torch._utils import _flatten_dense_tensors, _unflatten_dense_tensors
 
@@ -18,9 +16,17 @@ from internlm.utils.common import get_tensor_norm, move_norm_to_cuda
 from internlm.utils.logger import get_logger
 from internlm.utils.parallel import is_model_parallel_parameter
 
-inf = math.inf
-
 logger = get_logger(__file__)
+
+try:
+    import amp_C
+    from apex.multi_tensor_apply import multi_tensor_applier
+    APEX_AVAILABLE = True
+except (ModuleNotFoundError, ImportError):
+    logger.warn("The torch implementation for cal_l2norm is slower than apex. Please note this!")
+    APEX_AVAILABLE = False
+
+inf = math.inf
 
 
 def flatten(input_):
@@ -156,16 +162,30 @@ def sync_param(flat_tensor, tensor_list):
     for p, q in zip(tensor_list, updated_params):
         p.data = q.data
 
+def multi_tensor_l2norm_torch(tensor_list, per_tensor):
+    # Convert tensor_list elements to torch.float32
+    tensor_list = [tensor.float() for tensor in tensor_list]
+    norms_tensor = torch.stack([torch.norm(tensor, p=2) for tensor in tensor_list])
+    l2_norm = torch.norm(norms_tensor, p=2).unsqueeze(0)
+
+    if per_tensor:
+        per_tensor_norm = norms_tensor
+    else:
+        per_tensor_norm = torch.Tensor([]).to(norms_tensor.device)
+
+    return l2_norm, per_tensor_norm
 
 def calc_l2_norm(grads):
     norm = 0.0
     if len(grads) > 0:
-        dummy_overflow_buf = torch.cuda.IntTensor([0])
-        norm, _ = multi_tensor_applier(
-            amp_C.multi_tensor_l2norm, dummy_overflow_buf, [grads], False  # no per-parameter norm
-        )
+        if APEX_AVAILABLE:
+            dummy_overflow_buf = torch.cuda.IntTensor([0])
+            norm, _ = multi_tensor_applier(
+                amp_C.multi_tensor_l2norm, dummy_overflow_buf, [grads], False  # no per-parameter norm
+            )
+        else:
+            norm, _ = multi_tensor_l2norm_torch(grads, False)
     return norm
-
 
 def calc_lp(grads, norm_type):
     norm = 0.0
