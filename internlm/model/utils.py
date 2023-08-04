@@ -157,3 +157,18 @@ def fused_dense_func_torch(
         return FusedDenseFunc.apply(x, weight, bias, return_residual, process_group, sequence_parallel)
     else:
         return FusedDenseFuncTorch.apply(x, weight, bias, return_residual, process_group, sequence_parallel)
+
+def try_import_RMSNorm():
+    """
+    Try import MixFusedRMSNorm from apex, if failed, return our RMSNorm
+    
+    """
+    try:
+        from apex.normalization.fused_layer_norm import MixedFusedRMSNorm as RMSNorm
+        return RMSNorm
+    except ModuleNotFoundError as e:
+        from internlm.utils.logger import get_logger
+        logger = get_logger(__file__)
+        logger.warn("The torch implementation for MixFusedRMSNorm is slower than apex. Please note this!")
+        from internlm.model.norm import RMSNormTorch as RMSNorm
+        return RMSNorm

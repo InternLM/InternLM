@@ -16,6 +16,7 @@ import internlm
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.core.naive_amp import NaiveAMPModel
+from internlm.core.scheduler import SchedulerMetricHook
 from internlm.core.trainer import TrainState
 from internlm.data.batch_sampler import StaticBatchSampler, get_dpsampler_dataloader
 from internlm.data.collaters import jsonl_ds_collate_fn, packed_collate_fn
@@ -109,12 +110,25 @@ def initialize_model():
     """
 
     model = MODEL_INITIALIZER.get_module(module_name=gpc.config.model_type)(**(gpc.config.model))
-    model = NaiveAMPModel(
-        model=model,
-        output_to_fp32=is_no_pp_or_last_stage(),
-        dtype=gpc.config.model.get("dtype", torch.half),
-        sync_buffer=False,
-    )
+    if isinstance(model, nn.ModuleList):
+        model = nn.ModuleList(
+            [
+                NaiveAMPModel(
+                    model=_m,
+                    output_to_fp32=False,  # manually controlled by interleaved pipleline scheduler
+                    dtype=gpc.config.model.get("dtype", torch.half),
+                    sync_buffer=False,
+                )
+                for _m in model
+            ]
+        )
+    else:
+        model = NaiveAMPModel(
+            model=model,
+            output_to_fp32=is_no_pp_or_last_stage(),
+            dtype=gpc.config.model.get("dtype", torch.half),
+            sync_buffer=False,
+        )
 
     # This sync is very important, cause the model weights kept in optimizer are copied
     # from the origin parameters in the memory, so we should make sure the dp sync
@@ -500,19 +514,6 @@ def main(args):
         if load_optimizer:
             load_optimizer_checkpoint(load_resume_ckpt_folder, optimizer)
 
-    # initialize trainer
-    trainer, train_dl, _, _ = internlm.initialize_trainer(
-        model=model,
-        optimizer=optimizer,
-        criterion=criterion,
-        train_dataloader=train_dl,
-        lr_scheduler=lr_scheduler,
-        beta2_scheduler=beta2_scheduler,
-    )
-
-    # initialize the batch skipper
-    batch_skipper = BatchSkipper(skip_batches)
-
     # initialize metric for calculating accuracy and perplexity
     metric = AccPerplex(
         device=torch.cuda.current_device(),
@@ -520,6 +521,27 @@ def main(args):
         dp_pg=gpc.get_group(ParallelMode.DATA),
         dataset_types=dataset_types,
     )
+
+    # initialize trainer
+    scheduler_hooks = [
+        SchedulerMetricHook(
+            metric=metric,
+            skip=gpc.is_using_pp() and gpc.config.parallel["pipeline"].get("interleaved_overlap", False),
+        ),
+    ]
+
+    trainer, train_dl, _, _ = internlm.initialize_trainer(
+        model=model,
+        optimizer=optimizer,
+        criterion=criterion,
+        train_dataloader=train_dl,
+        lr_scheduler=lr_scheduler,
+        beta2_scheduler=beta2_scheduler,
+        scheduler_hooks=scheduler_hooks,
+    )
+
+    # initialize the batch skipper
+    batch_skipper = BatchSkipper(skip_batches)
 
     trainer.train()
 
@@ -558,9 +580,7 @@ def main(args):
 
         # do forward and backward
         timer("fwd-bwd").start()
-        _, _, loss = trainer.execute_schedule(
-            batch, forward_only=False, return_loss=True, return_output_label=False, post_fn=metric
-        )
+        _, _, loss = trainer.execute_schedule(batch, forward_only=False, return_loss=True, return_output_label=False)
         timer("fwd-bwd").stop()
 
         # update parameters, and returns (success_update, grad_norm)

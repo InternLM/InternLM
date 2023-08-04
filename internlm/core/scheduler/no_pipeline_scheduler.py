@@ -3,14 +3,14 @@
 
 # adopted from https://github.com/hpcaitech/ColossalAI/blob/main/colossalai/engine
 
-from typing import Any, Callable, Iterable
+from typing import Any, Callable, Iterable, List, Optional
 
 import torch
 
 from internlm.core.engine import Engine
 from internlm.utils.common import conditional_context
 
-from .base_scheduler import BaseScheduler
+from .base_scheduler import BaseScheduler, SchedulerHook
 
 
 class NonPipelineScheduler(BaseScheduler):
@@ -34,9 +34,16 @@ class NonPipelineScheduler(BaseScheduler):
             return data, label
     """
 
-    def __init__(self, data_process_func: Callable = None, gradient_accumulation_size: int = 1):
+    def __init__(
+        self,
+        data_process_func: Callable = None,
+        gradient_accumulation_size: int = 1,
+        scheduler_hooks: Optional[List[SchedulerHook]] = None,
+    ):
         self._grad_accum_size = gradient_accumulation_size
         self._grad_accum_offset = 0
+
+        self._hooks = scheduler_hooks
 
         super().__init__(data_process_func)
 
@@ -47,6 +54,10 @@ class NonPipelineScheduler(BaseScheduler):
            engine (internlm.core.Engine): InternLM engine for training and inference.
         """
         pass
+
+    def _call_hooks(self, func_name: str, *args, **kwargs) -> None:
+        for hook in self._hooks:
+            getattr(hook, func_name)(self, *args, **kwargs)
 
     def _load_accum_batch(self, data: Any, label: Any):
         """Loads a batch of data and label for gradient accumulation.
@@ -77,7 +88,6 @@ class NonPipelineScheduler(BaseScheduler):
         forward_only: bool = False,
         return_loss: bool = True,
         scale_loss: int = 1,
-        post_fn: Callable = None,
     ):
         """Trains one batch of data.
 
@@ -89,23 +99,27 @@ class NonPipelineScheduler(BaseScheduler):
                 be executed.
             return_loss (bool, optional): Loss will be returned if True.
             scale_loss (int, optional): The scale factor for the loss.
-            post_fn (Callable, optional): Call back function after executing data forward output.
         """
 
         # forward
         with conditional_context(torch.no_grad(), enable=forward_only):
+            self._call_hooks("before_forward", data)
             output = self._call_engine(engine, data)
+            self._call_hooks("after_forward", output)
 
-            if post_fn is not None:
-                post_fn(output, label)
+            self._call_hooks("post_helper_func", output, label)
 
             if return_loss:
+                self._call_hooks("before_criterion", output, label)
                 loss = self._call_engine_criterion(engine, output, label)
+                self._call_hooks("after_criterion", loss)
                 loss /= scale_loss
 
         # backward
         if not forward_only:
+            self._call_hooks("before_backward", None, None)
             engine.backward(loss)
+            self._call_hooks("after_backward", None)
 
         if not return_loss:
             loss = None
@@ -119,7 +133,6 @@ class NonPipelineScheduler(BaseScheduler):
         forward_only: bool = False,
         return_loss: bool = True,
         return_output_label: bool = True,
-        post_fn: Callable = None,
     ):
         """The process function that loads a batch of dataset and feeds it to the model.
         The returned labels and loss will None if :attr:`return_loss` is False.
@@ -131,7 +144,6 @@ class NonPipelineScheduler(BaseScheduler):
                 If True, the model is run for the forward pass, else back propagation will be executed.
             return_loss (bool, optional): Loss will be returned if True.
             return_output_label (bool, optional): Output and label will be returned if True.
-            post_fn (Callable, optional): Call back function after executing data forward output.
 
         Returns:
             Tuple[:class:`torch.Tensor`]: A tuple of (output, label, loss), loss and label could be None.
@@ -165,7 +177,7 @@ class NonPipelineScheduler(BaseScheduler):
             _data, _label = self._load_accum_batch(data, label)
 
             _output, _loss = self._train_one_batch(
-                _data, _label, engine, forward_only, return_loss, self._grad_accum_size, post_fn
+                _data, _label, engine, forward_only, return_loss, self._grad_accum_size
             )
 
             if return_loss:
