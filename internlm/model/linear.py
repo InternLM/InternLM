@@ -5,15 +5,13 @@ from typing import Optional
 
 import torch
 import torch.nn.functional as F
-from flash_attn.ops.fused_dense import (
-    ColumnParallelLinear,
-    RowParallelLinear,
-    fused_dense_func,
-)
+from flash_attn.ops.fused_dense import ColumnParallelLinear, RowParallelLinear
+from flash_attn.utils.distributed import all_reduce, reduce_scatter
 from torch import nn
 
 from internlm.core.context import IS_TENSOR_PARALLEL, ParallelMode
 from internlm.core.context import global_context as gpc
+from internlm.model.utils import fused_dense_func_torch
 
 
 class ScaleColumnParallelLinear(nn.Linear):
@@ -61,7 +59,7 @@ class ScaleColumnParallelLinear(nn.Linear):
             weight = self.weight * self.weight_scale + (1 - self.weight_scale) * self.weight.detach()
         else:
             weight = self.weight
-        return fused_dense_func(
+        return fused_dense_func_torch(
             input, weight, self.bias, process_group=self.process_group, sequence_parallel=self.sequence_parallel
         )
 
@@ -107,9 +105,31 @@ class RewardModelLinear(ScaleColumnParallelLinear):
             weight = self.weight * self.weight_scale + (1 - self.weight_scale) * self.weight.detach()
         else:
             weight = self.weight
-        return fused_dense_func(
+        return fused_dense_func_torch(
             input, weight, self.bias, process_group=self.process_group, sequence_parallel=self.sequence_parallel
         )
+
+
+class ColumnParallelLinearTorch(ColumnParallelLinear):
+    def forward(self, x):
+        # If self.sequence_parallel is True, we're doing Tensor Parallel with sequence parallelism:
+        # we do an all_gather of x before doing the matmul.
+        # If not, then the input is already gathered.
+
+        return fused_dense_func_torch(
+            x, self.weight, self.bias, process_group=self.process_group, sequence_parallel=self.sequence_parallel
+        )
+
+
+class RowParallelLinearTorch(RowParallelLinear):
+    def forward(self, x):
+        """
+        We're doing Tensor Parallel with sequence parallelism: we do the matmul and then
+        a reduce_scatter of the result.
+        """
+        out = fused_dense_func_torch(x, self.weight, self.bias)
+        reduce_fn = reduce_scatter if self.sequence_parallel else all_reduce
+        return reduce_fn(out, self.process_group)
 
 
 class FeedForward(nn.Module):
@@ -143,7 +163,7 @@ class FeedForward(nn.Module):
 
         hidden_features = multiple_of * ((hidden_features + multiple_of - 1) // multiple_of)
 
-        self.w1 = ColumnParallelLinear(
+        self.w1 = ColumnParallelLinearTorch(
             in_features,
             hidden_features,
             process_group,
@@ -152,10 +172,10 @@ class FeedForward(nn.Module):
             device=device,
             dtype=dtype,
         )
-        self.w2 = ColumnParallelLinear(
+        self.w2 = ColumnParallelLinearTorch(
             in_features, hidden_features, process_group, bias, sequence_parallel=False, device=device, dtype=dtype
         )
-        self.w3 = RowParallelLinear(
+        self.w3 = RowParallelLinearTorch(
             hidden_features,
             out_features,
             process_group,
