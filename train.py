@@ -282,10 +282,7 @@ def initialize_optimizer(model: nn.Module):
     )
 
     optimizer = HybridZeroOptimizer(
-        naive_optimizer,
-        grad_scal_cfg=gpc.config.grad_scaler,
-        zero_cfg=gpc.config.hybrid_zero_optimizer,
-        use_fp16= gpc.config.model.dtype is torch.float32,
+        naive_optimizer, grad_scal_cfg=gpc.config.grad_scaler, zero_cfg=gpc.config.hybrid_zero_optimizer
     )
 
     beta2_scheduler = Beta2Scheduler(optimizer=naive_optimizer, **gpc.config.beta2_scheduler)
