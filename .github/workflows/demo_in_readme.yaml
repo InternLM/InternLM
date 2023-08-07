@@ -15,7 +15,8 @@ jobs:
   check-requirements:
     runs-on: [lmtest]
     steps:
-    - run: |
+    - name: mask env
+      run: |
         echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
     - uses: actions/checkout@v3
       with:
@@ -38,7 +39,8 @@ jobs:
     needs: check-requirements
     runs-on: [lmtest]
     steps:
-    - run: |
+    - name: mask env 
+      run: |
         echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
     - uses: actions/checkout@v3
 
@@ -58,7 +60,8 @@ jobs:
     runs-on: [lmtest]
     timeout-minutes: 2
     steps:
-    - run: |
+    - name: mask env 
+      run: |
         echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
     - uses: actions/checkout@v3
 
@@ -79,7 +82,8 @@ jobs:
     needs: check-requirements
     runs-on: [lmtest]
     steps:
-    - run: |
+    - name: mask env
+      run: |
         echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
     - uses: actions/checkout@v3
 
@@ -98,7 +102,8 @@ jobs:
     needs: check-requirements
     runs-on: [lmtest]
     steps:
-    - run: |
+    - name: mask env 
+      run: |
         echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
     - uses: actions/checkout@v3
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -x
 
-readonly JOB_LOG=$GITHUB_WORKSPACE/${GITHUB_JOB}.log
+JOB_LOG=$GITHUB_WORKSPACE/${GITHUB_JOB}.log
 
 if [[ ! -f ${JOB_LOG} ]]; then
    echo "There is no ${JOB_LOG}. May be there is no job needed canceled"
