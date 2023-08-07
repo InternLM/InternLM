@@ -42,7 +42,7 @@ from internlm.utils.common import (
     launch_time,
     parse_args,
 )
-from internlm.utils.evaluation import evaluate_on_val_dls
+from internlm.utils.evaluation import evaluate_on_val_dls, switch_sequence_parallel_mode
 from internlm.utils.logger import get_logger, initialize_uniscale_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
 from internlm.utils.model_checkpoint import (
@@ -634,14 +634,15 @@ def main(args):
 
         # evaluate on validation data loaders
         if valid_every > 0 and train_state.step_count % valid_every == 0:
-            evaluate_on_val_dls(
-                trainer=trainer,
-                val_dls=val_dls,
-                writer=writer,
-                logger=logger,
-                step_count=train_state.step_count,
-                update_panel=uniscale_logger is not None,
-            )
+            with switch_sequence_parallel_mode():
+                evaluate_on_val_dls(
+                    trainer=trainer,
+                    val_dls=val_dls,
+                    writer=writer,
+                    logger=logger,
+                    step_count=train_state.step_count,
+                    update_panel=uniscale_logger is not None,
+                )
 
         # checkpoint the training states in specific steps, which is determined by the args "checkpoint_every"
         # save batch sampler that tracks the true consumed samples

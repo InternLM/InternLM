@@ -38,7 +38,7 @@ def get_default_parser():
     parser.add_argument("--local_rank", type=int, help="local rank on the node")
     parser.add_argument("--backend", type=str, default="nccl", help="backend for distributed communication")
     parser.add_argument("--seed", type=int, default=1024)
-
+    parser.add_argument("--profiling", default=True, action="store_true", help="enable/diable profiling.")
     return parser
 
 
@@ -199,6 +199,12 @@ def args_sanity_check():
     # process the model config
     if "use_flash_attn" not in gpc.config.model:
         gpc.config.model._add_item("use_flash_attn", True)
+    if "sequence_parallel" not in gpc.config.model:
+        gpc.config.model._add_item("sequence_parallel", False)
+    else:
+        assert not (
+            gpc.config.model.sequence_parallel is True and gpc.config.model.use_flash_attn is False
+        ), "sequence parallel does not support use_flash_attn=False"
 
     # feishu webhook address for alerting
     if "alert_address" not in gpc.config:
