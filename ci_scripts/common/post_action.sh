@@ -1,5 +1,5 @@
 #!/bin/bash
-#set -x
+set -x
 
 JOB_LOG=$GITHUB_WORKSPACE/${GITHUB_JOB}.log
 
@@ -8,10 +8,7 @@ if [[ ! -f ${JOB_LOG} ]]; then
    exit 0
 fi
 
-cat ${JOB_LOG}
 jobid=$(grep "queued and waiting" ${JOB_LOG} | grep -oP "\d+")
-echo "debug,show head 5 "
-head ${JOB_LOG}
 echo "jobid is ${jobid}"
 datetime=$(date '+%Y-%m-%d %H:%M:%S')
 echo "$datetime,The slurm job $jobid will be canceled"
