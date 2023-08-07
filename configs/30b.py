@@ -10,9 +10,9 @@ VOCAB_SIZE = 103168
 # Ckpt folder format:
 # fs: 'local:/mnt/nfs/XXX'
 # oss: 'boto3:s3://model_weights/XXX'
-MODEL_ONLY_FOLDER = "local:llm_ckpts/xxxx"
-SAVE_CKPT_FOLDER = "local:llm_ckpts"
-LOAD_CKPT_FOLDER = "local:llm_ckpts/49"
+MODEL_ONLY_FOLDER = None #"local:llm_ckpts/xxxx"
+SAVE_CKPT_FOLDER = None #"local:llm_ckpts"
+LOAD_CKPT_FOLDER = None #"local:llm_ckpts/49"
 ckpt = dict(
     # Path to save training ckpt.
     save_ckpt_folder=SAVE_CKPT_FOLDER,
@@ -33,7 +33,7 @@ data = dict(
     # packed_length = micro_bsz * SEQ_LEN
     micro_bsz=1,
     pack_sample_into_one=False,
-    total_steps=50,
+    total_steps=100,
     skip_batches="",
     rampup_batch_size="",
     # Datasets with less than 50 rows will be discarded
@@ -113,7 +113,7 @@ model = dict(
     dtype="torch.bfloat16",
     norm_type="rmsnorm",
     layer_norm_epsilon=1e-5,
-    sequence_parallel=False,
+    sequence_parallel=True,
     num_kv_attention_heads=8,
     num_chunks=1,
 )

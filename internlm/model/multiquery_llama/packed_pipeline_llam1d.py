@@ -516,7 +516,6 @@ class PackedFlashPipelineConvertedLLAMA1D2(nn.Module):
                 out_features=gpc.get_world_size(ParallelMode.TENSOR) if is_reward else vocab_size,
                 process_group=gpc.get_group(ParallelMode.TENSOR),
                 bias=False,
-                sequence_parallel=gpc.config.model.sequence_parallel,
                 device=device,
                 dtype=dtype,
                 weight_scale=embed_grad_scale,
