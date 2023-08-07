@@ -673,6 +673,8 @@ if __name__ == "__main__":
         try:
             main(args)
         except Exception:
-            print(f"Raise exception from {hostname} with rank id: {gpc.get_global_rank()}")
-            traceback.print_exc()
+            logger.error(
+                f"Raise exception from {hostname} with rank id: {gpc.get_global_rank()}",
+                exc_info=traceback.format_exc(),
+            )
             mm.monitor_exception(alert_address=gpc.config.alert_address, excp_info=traceback.format_exc())
