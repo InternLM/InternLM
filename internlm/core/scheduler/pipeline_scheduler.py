@@ -30,10 +30,17 @@ def get_tensor_shape():
 
     if hasattr(gpc.config, "SEQ_LEN") and hasattr(gpc.config.data, "micro_bsz") and hasattr(gpc.config, "HIDDEN_SIZE"):
         if gpc.config.model.use_flash_attn:
-            tensor_shape = (
-                gpc.config.SEQ_LEN * gpc.config.data["micro_bsz"],
-                gpc.config.HIDDEN_SIZE,
-            )
+            if gpc.config.model.sequence_parallel:
+                sequence_world_size = gpc.get_world_size(ParallelMode.TENSOR)
+                tensor_shape = (
+                    gpc.config.SEQ_LEN * gpc.config.data["micro_bsz"] // sequence_world_size,
+                    gpc.config.HIDDEN_SIZE,
+                )
+            else:
+                tensor_shape = (
+                    gpc.config.SEQ_LEN * gpc.config.data["micro_bsz"],
+                    gpc.config.HIDDEN_SIZE,
+                )
         else:
             tensor_shape = (
                 gpc.config.data["micro_bsz"],
@@ -132,6 +139,9 @@ class PipelineScheduler(BaseScheduler):
             and gpc.is_initialized(ParallelMode.TENSOR)
             and gpc.get_world_size(ParallelMode.TENSOR) > 1
         )
+        
+        if gpc.config.model.sequence_parallel:
+            self.scatter_gather_tensors = False
 
         # cache for the batch data
         self.batch_data = None
@@ -254,7 +264,6 @@ class PipelineScheduler(BaseScheduler):
 
         if gpc.is_last_rank(ParallelMode.PIPELINE):
             self._call_hooks("post_helper_func", output_obj, label)
-
             if return_output_label:
                 return_tensors.append((output_obj, label))
             if accum_loss is not None:

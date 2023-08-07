@@ -157,6 +157,35 @@ def fused_dense_func_torch(
     else:
         return FusedDenseFuncTorch.apply(x, weight, bias, return_residual, process_group, sequence_parallel)
 
+class _SplitForwardGatherBackward(torch.autograd.Function):
+    """
+    Split the input and keep only the corresponding chuck to the rank.
+    
+    Args:
+        input_: input matrix.
+        parallel_mode: parallel mode.
+        dim: dimension
+    """
+
+    @staticmethod
+    def symbolic(graph, input_):
+        return _split(input_)
+
+    @staticmethod
+    def forward(ctx, input_, parallel_mode, dim):
+        ctx.mode = parallel_mode
+        ctx.dim = dim
+        return _split(input_, parallel_mode, dim)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        return _gather(grad_output, ctx.mode, ctx.dim), None, None
+    
+
+def split_forward_gather_backward(input_, parallel_mode, dim):
+    return _SplitForwardGatherBackward.apply(input_, parallel_mode, dim)
+
+
 def try_import_RMSNorm():
     """
     Try import MixFusedRMSNorm from apex, if failed, return our RMSNorm
