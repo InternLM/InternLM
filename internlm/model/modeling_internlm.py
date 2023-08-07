@@ -73,8 +73,7 @@ class PackedFlashBaseLayer1D(nn.Module):
         super().__init__()
         self.checkpoint = checkpoint
         # dropout selective checkpoint can only be enabled when checkpoint is disabled.
-        # self.dropout_selective_checkpoint = dropout_selective_checkpoint is True and checkpoint is False
-        self.dropout_selective_checkpoint = False
+        self.dropout_selective_checkpoint = dropout_selective_checkpoint is True and checkpoint is False
         self.layer_idx = layer_idx
         self.use_flash_attn = use_flash_attn
 
