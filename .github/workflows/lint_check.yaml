@@ -10,8 +10,9 @@ on:
 jobs:
   # lint check can be auto-executed by the workflow
   lint-check:
-    runs-on: [internlm]
-    if: github.repository == 'InternLM/InternLM'
+    #runs-on: [internlm]
+    runs-on: ubuntu-latest
+    #if: github.repository == 'InternLM/InternLM'
     steps:
     - uses: actions/checkout@v3
 

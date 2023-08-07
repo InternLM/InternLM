@@ -7,11 +7,15 @@ on:
     paths-ignore:
       - "docs/**"
       - "**.md"
+env:
+  WORKSPACE_PREFIX: $(echo $GITHUB_WORKSPACE |cut -d '/' -f 1-4)
 
 jobs:
   check-requirements:
     runs-on: [lmtest]
     steps:
+    - run: |
+        echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
     - uses: actions/checkout@v3
       with:
          fetch-depth: 2
@@ -33,6 +37,8 @@ jobs:
     needs: check-requirements
     runs-on: [lmtest]
     steps:
+    - run: |
+        echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
     - uses: actions/checkout@v3
 
     - name: raw-chinese-data
@@ -50,6 +56,8 @@ jobs:
     needs: check-requirements
     runs-on: [lmtest]
     steps:
+    - run: |
+        echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
     - uses: actions/checkout@v3
 
     - name: slurm-train
@@ -69,6 +77,8 @@ jobs:
     needs: check-requirements
     runs-on: [lmtest]
     steps:
+    - run: |
+        echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
     - uses: actions/checkout@v3
 
     - name: convert-model-then-load
@@ -86,6 +96,8 @@ jobs:
     needs: check-requirements
     runs-on: [lmtest]
     steps:
+    - run: |
+        echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
     - uses: actions/checkout@v3
 
     - name: chat-model-in-hf
