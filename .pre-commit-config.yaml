@@ -1,72 +1,53 @@
-exclude: ^tests/data/
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
 repos:
-  - repo: https://github.com/PyCQA/flake8
-    rev: 5.0.4
+-   repo: https://github.com/psf/black
+    rev: '22.8.0'
     hooks:
-      - id: flake8
-  - repo: https://github.com/PyCQA/isort
-    rev: 5.11.5
+    -   id: black
+        args:
+        - --line-length=120
+-   repo: https://github.com/pycqa/isort
+    rev: '5.12.0'
     hooks:
-      - id: isort
-  - repo: https://github.com/pre-commit/mirrors-yapf
-    rev: v0.32.0
+    -   id: isort
+        name: isort
+        files: "\\.(py)$"
+        args:
+        - --profile=black
+-   repo: https://github.com/PyCQA/flake8
+    rev: '3.8.4'
     hooks:
-      - id: yapf
-  - repo: https://github.com/pre-commit/pre-commit-hooks
+    -   id: flake8
+        args:
+        - --ignore=F403,F405,W504,W503,E203
+        - --max-line-length=120
+-   repo: https://github.com/pre-commit/pygrep-hooks
+    rev: v1.9.0
+    hooks:
+    -   id: python-check-blanket-noqa
+-   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.3.0
     hooks:
-      - id: trailing-whitespace
-      - id: check-yaml
-      - id: end-of-file-fixer
-      - id: requirements-txt-fixer
-      - id: double-quote-string-fixer
-      - id: check-merge-conflict
-      - id: fix-encoding-pragma
-        args: ["--remove"]
-      - id: mixed-line-ending
-        args: ["--fix=lf"]
-  - repo: https://github.com/codespell-project/codespell
-    rev: v2.2.1
+    -   id: trailing-whitespace
+    -   id: end-of-file-fixer
+    -   id: check-added-large-files
+        args: ['--maxkb=100',--enforce-all]
+    -   id: check-json
+    -   id: check-docstring-first
+    -   id: check-yaml
+    -   id: debug-statements
+    -   id: mixed-line-ending
+-   repo: https://github.com/PyCQA/pylint/
+    rev: v2.17.2
     hooks:
-      - id: codespell
-  - repo: https://github.com/executablebooks/mdformat
-    rev: 0.7.9
-    hooks:
-      - id: mdformat
-        args: ["--number"]
-        additional_dependencies:
-          - mdformat-openmmlab
-          - mdformat_frontmatter
-          - linkify-it-py
-  - repo: https://github.com/myint/docformatter
-    rev: v1.3.1
-    hooks:
-      - id: docformatter
-        args: ["--in-place", "--wrap-descriptions", "79"]
-  - repo: https://github.com/asottile/pyupgrade
-    rev: v3.0.0
-    hooks:
-      - id: pyupgrade
-        args: ["--py36-plus"]
-  - repo: https://github.com/open-mmlab/pre-commit-hooks
-    rev: v0.2.0  # Use the ref you want to point at
-    hooks:
-      - id: check-copyright
-        args: ["mmcv", "tests", "--excludes", "mmcv/ops"]
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v0.812
-    hooks:
-      - id: mypy
-        exclude: |-
-          (?x)(
-              ^test
-              | ^docs
-          )
-  # - repo: local
-  #   hooks:
-  #     - id: clang-format
-  #       name: clang-format
-  #       description: Format files with ClangFormat
-  #       entry: clang-format -style=google -i
-  #       language: system
-  #       files: \.(c|cc|cxx|cpp|cu|h|hpp|hxx|cuh|proto)$
+    -   id: pylint
+        name: pylint
+        entry: pylint
+        language: system
+        types: [python]
+        args:
+            [
+                '--rcfile=.pylintrc',
+                '--disable=C0114,C0415,W0212,W0235,W0238,W0621,C0103,R1735,C2801,E0402,C0412,W0719,R1728,W1514,W0718,W0105,W0707,C0209,W0703'
+            ]
