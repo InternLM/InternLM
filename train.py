@@ -30,7 +30,7 @@ from internlm.data.packed_dataset import (
 from internlm.data.utils import DATASET_TYPE_IDS_MAP, unpack_data
 from internlm.model.loss import FlashGPTLMLoss
 from internlm.model.metrics import AccPerplex
-from internlm.monitor import send_alert_message, set_env_var
+from internlm.monitor import send_alert_message, set_env_var, initialize_monitor_manager
 from internlm.monitor.monitor import monitor_manager as mm
 from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
@@ -668,19 +668,11 @@ if __name__ == "__main__":
     initialize_distributed_env(config=args.config, launcher=args.launcher, master_port=args.port, seed=args.seed)
     assert hasattr(gpc, "config") and gpc.config is not None
 
-    # initialize monitor and alert
-    if gpc.config.alert_address is not None:
-        mm.start_monitor(job_name=gpc.config.JOB_NAME, alert_address=gpc.config.alert_address)
-        mm.handle_sigterm(alert_address=gpc.config.alert_address)
-
-    try:
-        send_alert_message(address=gpc.config.alert_address, message=f"Training in {hostname} is starting.")
-        main(args)
-        send_alert_message(address=gpc.config.alert_address, message=f"Training in {hostname} completed.")
-    except Exception:
-        print(f"Raise exception from {hostname} with rank id: {gpc.get_global_rank()}")
-        traceback.print_exc()
-
-        mm.monitor_exception(alert_address=gpc.config.alert_address, excp_info=traceback.format_exc())
-    finally:
-        mm.stop_monitor()
+    # initialize monitor manager context
+    with initialize_monitor_manager(job_name=gpc.config.JOB_NAME, alert_address=gpc.config.alert_address):
+        try:
+            main(args)
+        except Exception:
+            print(f"Raise exception from {hostname} with rank id: {gpc.get_global_rank()}")
+            traceback.print_exc()
+            mm.monitor_exception(alert_address=gpc.config.alert_address, excp_info=traceback.format_exc())

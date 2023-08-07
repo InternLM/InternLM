@@ -2,11 +2,13 @@ import os
 import signal
 import socket
 import time
+from contextlib import contextmanager
 from threading import Thread
 
 from internlm.core.context import global_context as gpc
 from internlm.monitor.alert import send_feishu_msg_with_webhook
 from internlm.utils.common import SingletonMeta
+
 from .utils import get_job_key, set_env_var
 
 
@@ -205,3 +207,20 @@ class MonitorManager(metaclass=SingletonMeta):
 
 
 monitor_manager = MonitorManager()
+
+
+@contextmanager
+def initialize_monitor_manager(job_name: str = None, alert_address: str = None):
+    if alert_address is not None:
+        try:
+            monitor_manager.start_monitor(job_name=job_name, alert_address=alert_address)
+            monitor_manager.handle_sigterm(alert_address=alert_address)
+            send_alert_message(address=alert_address, message=f"Training in {socket.gethostname()} is starting.")
+            yield
+        finally:
+            send_alert_message(
+                address=gpc.config.alert_address, message=f"Training in {socket.gethostname()} completed."
+            )
+            monitor_manager.stop_monitor()
+    else:
+        yield
