@@ -80,7 +80,7 @@ python pal_inference.py <model> <out_dir> [--dataset <dataset>] [--max_length <l
 # --eoh <end token>         用户输入结束标识符 (默认: "") 。
 # --eoa <end token>         模型输入结束标识符 (默认: "") 。
 # --eos <end token>         系统输入结束标识符. (默认: "") 。
-# --temperature， -t <temp> 生成过程中的采样温度（默认：1）。
+# --temperature， -t <temp> 生成过程中的采样温度（默认：1.0）。
 # --time_out <time>         执行生成的代码的最大时间（秒）（默认：100）。
 # --verbose, -v             打印代码错误信息（可选）。
 # --append, -a              将输出追加到历史结果中（可选）。
