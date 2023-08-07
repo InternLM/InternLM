@@ -1,33 +1,47 @@
 #!/bin/bash
+set -x
 
-rm -rf ./hf_ckpt/*
-python ./tools/transformers/convert2hf.py --src_folder /mnt/petrelfs/qa-caif-cicd/data/lm_data/alpaca_data/llm_ckpts/20 --tgt_folder hf_ckpt/ --tokenizer ./tools/V7_sft.model
+source ./ci_scripts/common/variables.sh
+[[ -n ${DATA_VOLUME} ]] || { echo "should set DATA_VOLUME first before ci, exit."; exit 1; }
+[[ -n ${GITHUB_WORKSPACE} ]] || { echo "should set GITHUB_WORKSPACE first before ci, exit."; exit 1; }
 
-#assert exists model
-file_one="$GITHUB_WORKSPACE/hf_ckpt/tokenizer.model"
-file_two="$GITHUB_WORKSPACE/hf_ckpt/config.json"
-file_three="$GITHUB_WORKSPACE/hf_ckpt/modeling_internlm.py"
-file_list=($file_one $file_two $file_three)
-file_dir="$GITHUB_WORKSPACE/hf_ckpt/*"
+readonly CKPTS_INPUT="${DATA_VOLUME}/lm_data/alpaca_data/llm_ckpts/20"
+readonly CKPTS_OUTPUT="${GITHUB_WORKSPACE}/hf_ckpt"
+readonly TOKENIZER="${GITHUB_WORKSPACE}/hf_ckpt/tokenizer.model"
+readonly CONFIG="${GITHUB_WORKSPACE}/hf_ckpt/config.json"
+readonly INERNLM="${GITHUB_WORKSPACE}/hf_ckpt/modeling_internlm.py"
+exit_code=0
+expected_num=9
 
 source ./ci_scripts/common/basic_func.sh
 
-for file_path in ${file_list[@]};
-do
-if_exist $file_path
+echo "start to test convert2hf.py."
+
+if [[ -d ${CKPTS_OUTPUT} ]]; then
+    if ! rm -rf ${CKPTS_OUTPUT}/*; then
+       echo "cleaning cached file in ${CKPTS_OUTPUT} failed, exit."
+       exit 1
+    fi
+fi
+
+python ./tools/transformers/convert2hf.py --src_folder ${CKPTS_INPUT} --tgt_folder ${CKPTS_OUTPUT} --tokenizer ./tools/V7_sft.model
+[[ $? -ne 0 ]] && { echo "test convert2hf.py failed.";  exit_code=$(($exit_code + 1)); }
+
+#assert exists model
+file_list=($TOKENIZER $CONFIG $INERNLM)
+for file in ${file_list[@]}; do
+    if [[ ! -f ${file} ]];then
+        echo "file ${file} does not exist."
+        exit_code=$(($exit_code + 1))
+    fi
 done
 
+num=$(num_files "${CKPTS_OUTPUT}")
 
-num_files ${file_dir}
-
-if [ $file_num -ne 9 ]
-then
-    echo "The num of files is not right"
-    ls -l $file_dir
+if [[ ${num} -ne ${expected_num} ]]; then
+    echo "expect: ${expected_num} files, actual: ${num} files."
     exit_code=$(($exit_code + 1)) 
 fi
 
-if [ $exit_code -ne 0 ]
-then
-    exit 1
-fi
+# NOTICE: should not remove the cached files, because the cached files will be used in the next test case.
+exit $exit_code

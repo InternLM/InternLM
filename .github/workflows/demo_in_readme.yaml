@@ -3,13 +3,33 @@ on:
   pull_request:
     branches:
       - "main"
-      - "develop"
     paths-ignore:
       - "docs/**"
       - "**.md"
-     
+
 jobs:
+  check-requirements:
+    runs-on: [lmtest]
+    steps:
+    - uses: actions/checkout@v3
+      with:
+         fetch-depth: 2
+    - name: check-requirements
+      run: |
+        source activate internlm-env-test
+        changed_files=$(git diff --name-only -r HEAD^1 HEAD)
+        echo $changed_files
+        if [[ $changed_files =~ "runtime.txt" ]]; then
+          pip install -r requirements/runtime.txt
+        fi
+
+        if [[ $changed_files =~ "torch.txt"  ]]; then
+          pip install -r requirements/torch.txt
+        fi
+
   dataset-preparation:
+    if: ${{ always() }}
+    needs: check-requirements
     runs-on: [lmtest]
     steps:
     - uses: actions/checkout@v3
@@ -24,8 +44,9 @@ jobs:
         source activate internlm-env-test
         sh ./ci_scripts/data/tokenizer_alpaca.sh
 
-
   train:
+    if: ${{ always() }}
+    needs: check-requirements
     runs-on: [lmtest]
     steps:
     - uses: actions/checkout@v3
@@ -43,6 +64,8 @@ jobs:
         rm -rf $GITHUB_WORKSPACE/llm_ckpts
 
   convert-model-then-load:
+    if: ${{ always() }}
+    needs: check-requirements
     runs-on: [lmtest]
     steps:
     - uses: actions/checkout@v3
@@ -58,6 +81,8 @@ jobs:
         rm -rf $GITHUB_WORKSPACE/hf_ckpt
   
   load-chat-model-in-hf:
+    if: ${{ always() }}
+    needs: check-requirements
     runs-on: [lmtest]
     steps:
     - uses: actions/checkout@v3

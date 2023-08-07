@@ -1,6 +1,11 @@
 name: lint-check
 
-on: [push]
+on: 
+  push:
+  pull_request:
+    branches:
+      - "main"
+      - "develop"
 
 jobs:
   # lint check can be auto-executed by the workflow
