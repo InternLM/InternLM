@@ -41,7 +41,7 @@ from internlm.utils.common import (
     launch_time,
     parse_args,
 )
-from internlm.utils.evaluation import evaluate_on_val_dls
+from internlm.utils.evaluation import evaluate_on_val_dls, switch_sequence_parallel_mode
 from internlm.utils.logger import get_logger, initialize_uniscale_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
 from internlm.utils.model_checkpoint import (
@@ -59,6 +59,10 @@ from internlm.utils.parallel import (
     sync_model_param_within_tp,
 )
 from internlm.utils.registry import MODEL_INITIALIZER
+from internlm.utils.simple_memory_profiler import (
+    SimpleMemoryProfiler,
+    build_activation_config,
+)
 from internlm.utils.writer import Writer
 
 # global llm logger
@@ -539,6 +543,19 @@ def main(args):
         beta2_scheduler=beta2_scheduler,
         scheduler_hooks=scheduler_hooks,
     )
+    
+    # initialize simple memory profiler
+    if args.profiling:
+        memory_profiler = SimpleMemoryProfiler(
+            model.model,
+            optimizer.optim,
+            log_folder=f"memory_trace/rank{gpc.get_global_rank()}_"
+            + f"dp{gpc.get_local_rank(ParallelMode.DATA)}_"
+            + f"tp{gpc.get_local_rank(ParallelMode.TENSOR)}",
+            activation_config=build_activation_config(gpc.config.model.num_layers),
+        )
+    else:
+        memory_profiler = None
 
     # initialize the batch skipper
     batch_skipper = BatchSkipper(skip_batches)
@@ -615,17 +632,21 @@ def main(args):
         )
 
         timer("one-batch").stop()
+        
+        if memory_profiler is not None:
+            memory_profiler.step()
 
         # evaluate on validation data loaders
         if valid_every > 0 and train_state.step_count % valid_every == 0:
-            evaluate_on_val_dls(
-                trainer=trainer,
-                val_dls=val_dls,
-                writer=writer,
-                logger=logger,
-                step_count=train_state.step_count,
-                update_panel=uniscale_logger is not None,
-            )
+            with switch_sequence_parallel_mode():
+                evaluate_on_val_dls(
+                    trainer=trainer,
+                    val_dls=val_dls,
+                    writer=writer,
+                    logger=logger,
+                    step_count=train_state.step_count,
+                    update_panel=uniscale_logger is not None,
+                )
 
         # checkpoint the training states in specific steps, which is determined by the args "checkpoint_every"
         # save batch sampler that tracks the true consumed samples

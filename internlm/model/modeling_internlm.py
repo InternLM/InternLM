@@ -73,7 +73,8 @@ class PackedFlashBaseLayer1D(nn.Module):
         super().__init__()
         self.checkpoint = checkpoint
         # dropout selective checkpoint can only be enabled when checkpoint is disabled.
-        self.dropout_selective_checkpoint = dropout_selective_checkpoint is True and checkpoint is False
+        # self.dropout_selective_checkpoint = dropout_selective_checkpoint is True and checkpoint is False
+        self.dropout_selective_checkpoint = False
         self.layer_idx = layer_idx
         self.use_flash_attn = use_flash_attn
 
@@ -89,7 +90,6 @@ class PackedFlashBaseLayer1D(nn.Module):
             rotary_emb_dim=head_dim,
             rotary_emb_scale_base=0,
             use_flash_attn=use_flash_attn,
-            sequence_parallel=False,
             device=device,
             dtype=dtype,
         )
@@ -121,7 +121,7 @@ class PackedFlashBaseLayer1D(nn.Module):
                 process_group=gpc.get_group(ParallelMode.TENSOR),
                 bias1=False,
                 bias2=False,
-                sequence_parallel=False,
+                sequence_parallel=gpc.config.model.sequence_parallel,
                 checkpoint_lvl=0,
                 heuristic="auto",
                 device=device,
@@ -300,7 +300,7 @@ class PackedFlashInternLm1D(nn.Module):
                     max_position_embeddings=-1,
                     process_group=gpc.get_group(ParallelMode.TENSOR),
                     padding_idx=None,
-                    sequence_parallel=False,
+                    sequence_parallel=gpc.config.model.sequence_parallel,
                     device=device,
                     dtype=dtype,
                 )
@@ -342,7 +342,6 @@ class PackedFlashInternLm1D(nn.Module):
                 out_features=gpc.get_world_size(ParallelMode.TENSOR) if is_reward else vocab_size,
                 process_group=gpc.get_group(ParallelMode.TENSOR),
                 bias=False,
-                sequence_parallel=False,
                 device=device,
                 dtype=dtype,
                 weight_scale=embed_grad_scale,
@@ -463,6 +462,7 @@ def build_model_with_cfg(
     use_scaled_init: bool = True,
     use_swiglu: bool = True,
     use_flash_attn: bool = True,
+    sequence_parallel: bool = False,
 ):
     """
     Builde model with config
