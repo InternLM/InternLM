@@ -22,7 +22,7 @@ class GenerationConfig:
 
 
 @torch.inference_mode()
-def generate_interactive(
+def generation_iterator(
     model: AutoModel,
     tokenizer: AutoTokenizer,
     prompt: str,
