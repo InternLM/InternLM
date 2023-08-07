@@ -106,7 +106,7 @@ python tools/pal_inference.py internlm/internlm-chat-7k ./output -v
 
 InternLM 在 GSM8K 数据集中带工具和不带工具的性能表现：
 
-| Models   | **InternLM-Chat-7B** |
+| Method   | **InternLM-Chat-7B** |
 | -------- | -------------------- |
 | w/o tool | 34.5                 |
 | w tool   | 39.2                 |

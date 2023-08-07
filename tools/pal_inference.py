@@ -1,3 +1,6 @@
+# This file is modified from:
+# hhttps://github.com/reasoning-machines/pal/blob/main/pal/core/interface.py
+#
 # Copyright 2022 PAL Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,7 +27,7 @@ import tqdm
 from datasets import load_dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from internlm.utils.interface import GenerationConfig, generate_interactive
+from internlm.utils.interface import GenerationConfig, generation_iterator
 from internlm.utils.timeout import Timeout
 
 
@@ -111,8 +114,8 @@ class GenericRuntime:
         return self._global_vars["answer"]
 
 
-class ProgramInternLMInterface:
-    """PAL interface wrap fun:`generate_interactive` to extract and execute
+class PALInterface:
+    """PAL interface wrap fun:`generation_iterator` to extract and execute
     generated code.
 
     Adapted from https://github.com/reasoning-machines/pal
@@ -145,7 +148,9 @@ class ProgramInternLMInterface:
         self.verbose = verbose
 
     def generate(self, prompt):
-        for cur_gen in generate_interactive(
+        # The api will generate response word by word
+        # we only need the last generation as the final results
+        for cur_gen in generation_iterator(
             model=self.model,
             tokenizer=self.tokenizer,
             prompt=prompt,
@@ -264,9 +269,7 @@ def main():
     generation_config = GenerationConfig(max_length=args.max_length, top_p=args.top_p, temperature=args.temperature)
 
     verbose = args.verbose
-    interface = ProgramInternLMInterface(
-        model=model, tokenizer=tokenizer, generation_config=generation_config, verbose=verbose
-    )
+    interface = PALInterface(model=model, tokenizer=tokenizer, generation_config=generation_config, verbose=verbose)
 
     if not os.path.exists(args.out_dir):
         os.makedirs(args.out_dir)

@@ -104,7 +104,7 @@ The output file contains each line with the input question, the correct answer, 
 
 InternLM performance in the GSM8K dataset with and without tools:
 
-| Models   | **InternLM-Chat-7B** |
+| Method   | **InternLM-Chat-7B** |
 | -------- | -------------------- |
 | w/o tool | 34.5                 |
 | w tool   | 39.2                 |
