@@ -31,6 +31,7 @@ MODEL_TYPE = "INTERNLM"
 logger = get_logger(__file__)
 RMSNorm = try_import_RMSNorm()
 
+
 class PackedFlashBaseLayer1D(nn.Module):
     """
     1D Packed Flash Base Layer.
@@ -461,7 +462,6 @@ def build_model_with_cfg(
     use_scaled_init: bool = True,
     use_swiglu: bool = True,
     use_flash_attn: bool = True,
-    sequence_parallel: bool = False,
 ):
     """
     Builde model with config

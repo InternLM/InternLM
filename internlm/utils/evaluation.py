@@ -6,8 +6,8 @@ from tqdm import tqdm
 
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
-from internlm.model.metrics import AccPerplex
 from internlm.core.scheduler import SchedulerMetricHook
+from internlm.model.metrics import AccPerplex
 
 
 @contextmanager
@@ -93,7 +93,11 @@ def evaluate_on_val_dls(
                     if gpc.config.model.sequence_parallel:
                         sequence_world_size = gpc.get_world_size(ParallelMode.TENSOR)
                         tensor_shape = torch.Size(
-                            [data_cfg.micro_bsz, batch[0]["input_ids"].shape[1] // sequence_world_size, gpc.config.HIDDEN_SIZE]
+                            [
+                                data_cfg.micro_bsz,
+                                batch[0]["input_ids"].shape[1] // sequence_world_size,
+                                gpc.config.HIDDEN_SIZE,
+                            ]
                         )
                     else:
                         tensor_shape = torch.Size(
