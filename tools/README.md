@@ -76,7 +76,7 @@ python pal_inference.py <model> <out_dir> [--dataset <dataset>] [--max_length <l
 # 可选参数:
 # --dataset <dataset>   用于代码生成的数据集名称（默认：gsm8k）。
 # --max_length <length> 模型最大输入 token 长度（默认：2048）。
-# --top_p <threshold>   候选token相加的概率阈值（默认：0.8）。
+# --top_p <threshold>   候选 token 相加的概率阈值（默认：0.8）。
 # --temperature <temp>  生成过程中的采样温度（默认：1）。
 # --time_out <time>     执行生成的代码的最大时间（秒）（默认：100）。
 # --verbose, -v         打印代码错误信息（可选）。
