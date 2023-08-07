@@ -111,7 +111,7 @@ def generate_interactive(
         next_token_scores = logits_warper(input_ids, next_token_scores)
 
         # sample
-        probs = nn.functional.softmax(next_token_scores, dim=-1)
+        probs = next_token_scores.softmax(dim=-1)
         if generation_config.do_sample:
             next_tokens = torch.multinomial(probs, num_samples=1).squeeze(1)
         else:
