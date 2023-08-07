@@ -111,6 +111,7 @@ model = dict(
     dtype="torch.bfloat16",
     norm_type="rmsnorm",
     layer_norm_epsilon=1e-5,
+    sequence_parallel=False,
 )
 """
 zero1 parallel:

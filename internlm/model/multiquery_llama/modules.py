@@ -61,7 +61,6 @@ class OneDConvertedParallelMHA2(nn.Module):
         rotary_emb_scale_base: int = 0,
         use_flash_attn: bool = False,
         checkpointing: bool = False,
-        sequence_parallel: bool = True,
         device: Optional[Union[str, torch.device]] = None,
         dtype: Optional[torch.dtype] = None,
         rot_embed_HF_impl: Optional[bool] = False,
@@ -90,15 +89,15 @@ class OneDConvertedParallelMHA2(nn.Module):
         self.num_kv_heads = num_kv_heads
 
         self.wq = ColumnParallelLinear(
-            embed_dim, embed_dim, process_group, bias=bias, sequence_parallel=sequence_parallel, **factory_kwargs
+            embed_dim, embed_dim, process_group, bias=bias, sequence_parallel=gpc.config.model.sequence_parallel, **factory_kwargs
         )
 
         self.wk = ColumnParallelLinear(
-            embed_dim, self.kv_dim, process_group, bias=bias, sequence_parallel=sequence_parallel, **factory_kwargs
+            embed_dim, self.kv_dim, process_group, bias=bias, sequence_parallel=gpc.config.model.sequence_parallel, **factory_kwargs
         )
 
         self.wv = ColumnParallelLinear(
-            embed_dim, self.kv_dim, process_group, bias=bias, sequence_parallel=sequence_parallel, **factory_kwargs
+            embed_dim, self.kv_dim, process_group, bias=bias, sequence_parallel=gpc.config.model.sequence_parallel, **factory_kwargs
         )
 
         # assert use_flash_attn
@@ -114,7 +113,7 @@ class OneDConvertedParallelMHA2(nn.Module):
 
         # output projection always have the bias (for now)
         self.wo = RowParallelLinear(
-            embed_dim, embed_dim, process_group, sequence_parallel=sequence_parallel, bias=bias, **factory_kwargs
+            embed_dim, embed_dim, process_group, sequence_parallel=gpc.config.model.sequence_parallel, bias=bias, **factory_kwargs
         )
 
         # need to assign tp attribute so that colossalai know it is tensor parallel module
@@ -397,19 +396,19 @@ class FeedForward(nn.Module):
             hidden_features,
             process_group,
             bias,
-            sequence_parallel=False,
+            sequence_parallel=gpc.config.model.sequence_parallel,
             device=device,
             dtype=dtype,
         )
         self.w3 = ColumnParallelLinear(
-            in_features, hidden_features, process_group, bias, sequence_parallel=False, device=device, dtype=dtype
+            in_features, hidden_features, process_group, bias, sequence_parallel=gpc.config.model.sequence_parallel, device=device, dtype=dtype
         )
         self.w2 = RowParallelLinear(
             hidden_features,
             out_features,
             process_group,
             bias=bias,
-            sequence_parallel=False,
+            sequence_parallel=gpc.config.model.sequence_parallel,
             device=device,
             dtype=dtype,
         )

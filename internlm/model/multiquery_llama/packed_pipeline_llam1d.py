@@ -136,7 +136,6 @@ class PackedFlashConvertedLLAMALayer1D2(nn.Module):
             rotary_emb_scale_base=0,
             use_flash_attn=True,
             checkpointing=False,
-            sequence_parallel=False,
             device=device,
             dtype=dtype,
             rot_embed_HF_impl=adapt_hf,
@@ -169,7 +168,7 @@ class PackedFlashConvertedLLAMALayer1D2(nn.Module):
                 process_group=gpc.get_group(ParallelMode.TENSOR),
                 bias1=not no_bias,
                 bias2=not no_bias,
-                sequence_parallel=False,
+                sequence_parallel=gpc.config.model.sequence_parallel,
                 checkpoint_lvl=0,
                 heuristic="auto",
                 device=device,
@@ -444,10 +443,6 @@ class PackedFlashPipelineConvertedLLAMA1D2(nn.Module):
         use_swiglu: bool = True,
     ):
         super().__init__()
-        if embed_split_hidden:
-            embed_cls = Embedding1D
-        else:
-            embed_cls = ParallelGPT2Embeddings
         if is_reward:
             head_cls = RewardModelLinear
         else:
@@ -463,15 +458,15 @@ class PackedFlashPipelineConvertedLLAMA1D2(nn.Module):
 
         if first:
             if embed_split_hidden:
-                self.tok_embeddings = embed_cls(num_embeddings=vocab_size, embedding_dim=hidden_size)
+                self.tok_embeddings = Embedding1D(num_embeddings=vocab_size, embedding_dim=hidden_size)
             else:
-                self.tok_embeddings = embed_cls(
+                self.tok_embeddings = ParallelGPT2Embeddings(
                     embed_dim=hidden_size,
                     vocab_size=vocab_size,
                     max_position_embeddings=-1,
                     process_group=gpc.get_group(ParallelMode.TENSOR),
                     padding_idx=None,
-                    sequence_parallel=False,
+                    sequence_parallel=gpc.config.model.sequence_parallel,
                     device=device,
                     dtype=dtype,
                 )
@@ -521,7 +516,7 @@ class PackedFlashPipelineConvertedLLAMA1D2(nn.Module):
                 out_features=gpc.get_world_size(ParallelMode.TENSOR) if is_reward else vocab_size,
                 process_group=gpc.get_group(ParallelMode.TENSOR),
                 bias=False,
-                sequence_parallel=False,
+                sequence_parallel=gpc.config.model.sequence_parallel,
                 device=device,
                 dtype=dtype,
                 weight_scale=embed_grad_scale,
@@ -664,6 +659,7 @@ def Packed_Flash_Converted_LLAMA_exlarge_pipeline_1D2(
     use_scaled_init: bool = True,
     use_swiglu: bool = True,
     use_flash_attn: bool = True,
+    sequence_parallel: bool=False,
 ):
     assert model_type == "llama", f"Only support llama for this initilization, not `{model_type}`"
     # residual_in_fp32 cannot be used temporarily because this parameter requires inconsistent data types to
