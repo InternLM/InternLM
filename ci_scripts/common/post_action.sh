@@ -9,6 +9,9 @@ if [[ ! -f ${JOB_LOG} ]]; then
 fi
 
 jobid=$(grep "queued and waiting" ${JOB_LOG} | grep -oP "\d+")
+echo "debug,show head 5 "
+head ${JOB_LOG}
+echo "jobid is ${jobid}"
 datetime=$(date '+%Y-%m-%d %H:%M:%S')
 echo "$datetime,The slurm job $jobid will be canceled"
 scancel $jobid
