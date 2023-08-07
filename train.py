@@ -30,15 +30,8 @@ from internlm.data.packed_dataset import (
 from internlm.data.utils import DATASET_TYPE_IDS_MAP, unpack_data
 from internlm.model.loss import FlashGPTLMLoss
 from internlm.model.metrics import AccPerplex
-from internlm.monitor import (
-    LAST_ACTIVE_TIMESTAMP,
-    initialize_monitor,
-    monitor_exception,
-    monitor_loss_spike,
-    send_alert_message,
-    set_env_var,
-    stop_monitor,
-)
+from internlm.monitor import send_alert_message, set_env_var
+from internlm.monitor.monitor import monitor_manager as mm
 from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
 from internlm.solver.optimizer import HybridZeroOptimizer
@@ -346,7 +339,7 @@ def record_current_batch_training_metrics(
     Print some training metrics of current batch.
     """
 
-    set_env_var(key=LAST_ACTIVE_TIMESTAMP, value=int(time.time()))
+    set_env_var(key="LAST_ACTIVE_TIMESTAMP", value=int(time.time()))
 
     if success_update in (0, True):
         train_state.num_consumed_tokens += batch[1].nelement() * gpc.get_world_size(ParallelMode.DATA)
@@ -427,7 +420,7 @@ def record_current_batch_training_metrics(
             logger.info(line)
 
         # if loss spike occurs, send alert info to feishu
-        monitor_loss_spike(alert_address=gpc.config.alert_address, step_count=batch_count, cur_step_loss=loss.item())
+        mm.monitor_loss_spike(alert_address=gpc.config.alert_address, step_count=batch_count, cur_step_loss=loss.item())
 
 
 def main(args):
@@ -676,7 +669,8 @@ if __name__ == "__main__":
 
     # initialize monitor and alert
     if gpc.config.alert_address is not None:
-        initialize_monitor(job_name=gpc.config.JOB_NAME, feishu_webhook_address=gpc.config.alert_address)
+        mm.start_monitor(job_name=gpc.config.JOB_NAME, alert_address=gpc.config.alert_address)
+        mm.handle_sigterm(alert_address=gpc.config.alert_address)
 
     try:
         send_alert_message(address=gpc.config.alert_address, message=f"Training in {hostname} is starting.")
@@ -686,6 +680,6 @@ if __name__ == "__main__":
         print(f"Raise exception from {hostname} with rank id: {gpc.get_global_rank()}")
         traceback.print_exc()
 
-        monitor_exception(alert_address=gpc.config.alert_address, excp_info=traceback.format_exc())
+        mm.monitor_exception(alert_address=gpc.config.alert_address, excp_info=traceback.format_exc())
     finally:
-        stop_monitor()
+        mm.stop_monitor()
