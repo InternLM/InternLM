@@ -38,7 +38,6 @@ class ScaleColumnParallelLinear(nn.Linear):
         out_features: int,
         process_group: Optional[torch.distributed.ProcessGroup],
         bias: bool = True,
-        sequence_parallel: bool = True,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
         weight_scale: int = 1,
@@ -48,7 +47,6 @@ class ScaleColumnParallelLinear(nn.Linear):
             raise ValueError(f"out_features ({out_features}) must be divisible by " f"world_size ({world_size})")
         super().__init__(in_features, out_features // world_size, bias=bias, device=device, dtype=dtype)
         self.process_group = process_group
-        self.sequence_parallel = sequence_parallel
         self.weight_scale = weight_scale
 
     def forward(self, input):  # pylint: disable=W0622
@@ -60,7 +58,7 @@ class ScaleColumnParallelLinear(nn.Linear):
         else:
             weight = self.weight
         return fused_dense_func_torch(
-            input, weight, self.bias, process_group=self.process_group, sequence_parallel=self.sequence_parallel
+            input, weight, self.bias, process_group=self.process_group, sequence_parallel=gpc.config.model.sequence_parallel
         )
 
 
@@ -87,12 +85,11 @@ class RewardModelLinear(ScaleColumnParallelLinear):
         out_features: int,
         process_group: Optional[torch.distributed.ProcessGroup],
         bias: bool = True,
-        sequence_parallel: bool = True,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
         weight_scale: int = 1,
     ) -> None:
-        super().__init__(in_features, out_features, process_group, bias, sequence_parallel, device, dtype, weight_scale)
+        super().__init__(in_features, out_features, process_group, bias, device, dtype, weight_scale)
         torch.distributed.broadcast(self.weight, gpc.get_ranks_in_group(ParallelMode.TENSOR)[0], process_group)
         if bias:
             torch.distributed.broadcast(self.bias, gpc.get_ranks_in_group(ParallelMode.TENSOR)[0], process_group)
@@ -106,7 +103,7 @@ class RewardModelLinear(ScaleColumnParallelLinear):
         else:
             weight = self.weight
         return fused_dense_func_torch(
-            input, weight, self.bias, process_group=self.process_group, sequence_parallel=self.sequence_parallel
+            input, weight, self.bias, process_group=self.process_group, sequence_parallel=gpc.config.model.sequence_parallel
         )
 
 
@@ -168,19 +165,19 @@ class FeedForward(nn.Module):
             hidden_features,
             process_group,
             bias,
-            sequence_parallel=False,
+            sequence_parallel=gpc.config.model.sequence_parallel,
             device=device,
             dtype=dtype,
         )
         self.w2 = ColumnParallelLinearTorch(
-            in_features, hidden_features, process_group, bias, sequence_parallel=False, device=device, dtype=dtype
+            in_features, hidden_features, process_group, bias, sequence_parallel=gpc.config.model.sequence_parallel, device=device, dtype=dtype
         )
         self.w3 = RowParallelLinearTorch(
             hidden_features,
             out_features,
             process_group,
             bias=bias,
-            sequence_parallel=False,
+            sequence_parallel=gpc.config.model.sequence_parallel,
             device=device,
             dtype=dtype,
         )

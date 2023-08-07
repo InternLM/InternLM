@@ -118,6 +118,7 @@ model = dict(
     layer_norm_epsilon=1e-5,
     use_flash_attn=True,
     num_chunks=1,  # if num_chunks > 1, interleaved pipeline scheduler is used.
+    sequence_parallel=False,
 )
 """
 zero1 parallel:
