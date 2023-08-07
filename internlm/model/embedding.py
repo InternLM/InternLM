@@ -7,6 +7,7 @@ import rotary_emb
 import torch
 import torch.nn.functional as F
 from einops import rearrange
+from flash_attn.layers.rotary import ApplyRotaryEmb as LegacyApplyRotaryEmb
 from flash_attn.layers.rotary import ApplyRotaryEmbQKV_ as LegacyApplyRotaryEmbQKV_
 from torch import Tensor, nn
 
@@ -111,6 +112,7 @@ class ApplyRotaryEmbQKV_(torch.autograd.Function):
 
 apply_rotary_emb_qkv_ = ApplyRotaryEmbQKV_.apply
 legacy_apply_rotary_embed_qkv = LegacyApplyRotaryEmbQKV_.apply
+legacy_apply_rotary_embed = LegacyApplyRotaryEmb.apply
 
 
 class RotaryEmbedding(torch.nn.Module):
@@ -181,11 +183,29 @@ class RotaryEmbedding(torch.nn.Module):
 
     def forward(self, qkv: torch.Tensor, **kwargs):
         if kwargs.get("indexes", None) is not None:
-            return self._forward(qkv, kwargs.pop("indexes"))
+            if kwargs.get("mode", "") == "single":
+                return self._single_forward(qkv, kwargs.pop("indexes"))
+            else:
+                return self._forward(qkv, kwargs.pop("indexes"))
         if kwargs.get("inference_params", None) is not None:
             return self._eval_forward(qkv, seqlen_offset=kwargs.get("inference_params", None).sequence_len_offset)
         else:
-            return self._eval_forward(qkv)
+            if kwargs.get("mode", "") == "single":
+                return self._single_eval_forward(qkv, kwargs.pop("seqlen_offset"))
+            else:
+                return self._eval_forward(qkv)
+
+    def _single_forward(self, x, indexes=0):
+        assert self.scale is None
+        self._update_cos_sin_cache(x, indexes)
+        x = x[None, ...]
+        ret = legacy_apply_rotary_embed(x, self._cos_cached[indexes], self._sin_cached[indexes]).squeeze(0)
+        return ret
+
+    def _single_eval_forward(self, x, seqlen_offset=0):
+        assert self.scale is None
+        self._update_cos_sin_cache(x, seqlen_offset + x.shape[1])
+        return legacy_apply_rotary_embed(x, self._cos_cached[seqlen_offset:], self._sin_cached[seqlen_offset:])
 
     def _forward(self, qkv: torch.Tensor, indexes=0) -> Tuple[torch.Tensor, torch.Tensor]:
         self._update_cos_sin_cache(qkv, indexes)

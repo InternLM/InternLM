@@ -1,8 +1,8 @@
 JOB_NAME = "30b_train"
 
 SEQ_LEN = 4096
-HIDDEN_SIZE = 6656
-NUM_ATTENTION_HEAD = 52
+HIDDEN_SIZE = 6144
+NUM_ATTENTION_HEAD = 48
 MLP_RATIO = 8 / 3
 NUM_LAYER = 60
 VOCAB_SIZE = 103168
@@ -108,10 +108,14 @@ model = dict(
     num_layers=NUM_LAYER,
     mlp_ratio=MLP_RATIO,
     apply_post_layer_norm=False,
+    no_bias=True,
+    deepnorm=False,
     dtype="torch.bfloat16",
     norm_type="rmsnorm",
     layer_norm_epsilon=1e-5,
     sequence_parallel=False,
+    num_kv_attention_heads=8,
+    num_chunks=1,
 )
 """
 zero1 parallel:
@@ -126,7 +130,7 @@ tensor parallel: tensor parallel size, usually the number of GPUs per node, only
 parallel = dict(
     zero1=-1,
     tensor=dict(size=8),
-    pipeline=dict(size=1),
+    pipeline=dict(size=2),
 )
 
 cudnn_deterministic = False

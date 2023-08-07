@@ -157,8 +157,8 @@ class OneDConvertedParallelMHA2(nn.Module):
 
         if inference_params is None:
             if self.rotary_emb_dim > 0:
-                q = self.rotary_emb.single_eval_forward(q)
-                k = self.rotary_emb.single_eval_forward(k)
+                q = self.rotary_emb.forward(q, seqlen_offset=0, mode="single")
+                k = self.rotary_emb.forward(k, seqlen_offset=0, mode="single")
             if not self.checkpointing:
                 kv = torch.concat([k.unsqueeze(2), v.unsqueeze(2)], dim=2)
                 context = self.inner_cross_attn(q, kv)
@@ -176,11 +176,11 @@ class OneDConvertedParallelMHA2(nn.Module):
                         if empties[i] != 0:
                             moved_q[i][: -empties[i]] = q[i][empties[i] :]
                             moved_k[i][: -empties[i]] = k[i][empties[i] :]
-                    moved_q = self.rotary_emb.single_eval_forward(
-                        moved_q, seqlen_offset=inference_params.sequence_len_offset
+                    moved_q = self.rotary_emb.forward(
+                        moved_q, seqlen_offset=inference_params.sequence_len_offset, mode="single"
                     )
-                    moved_k = self.rotary_emb.single_eval_forward(
-                        moved_k, seqlen_offset=inference_params.sequence_len_offset
+                    moved_k = self.rotary_emb.forward(
+                        moved_k, seqlen_offset=inference_params.sequence_len_offset, mode="single"
                     )
                     for i in range(len(empties)):
                         if empties[i] != 0:
@@ -192,19 +192,23 @@ class OneDConvertedParallelMHA2(nn.Module):
                 else:
                     q = q.squeeze(1)
                     k = k.squeeze(1)
-                    q = self.rotary_emb.single_forward(
+                    q = self.rotary_emb.forward(
                         q,
-                        inference_params.sequence_len_offset * torch.ones(q.size(0), dtype=torch.int, device=q.device)
+                        indexes=inference_params.sequence_len_offset
+                        * torch.ones(q.size(0), dtype=torch.int, device=q.device)
                         - empties,
+                        mode="single",
                     ).unsqueeze(1)
-                    k = self.rotary_emb.single_forward(
+                    k = self.rotary_emb.forward(
                         k,
-                        inference_params.sequence_len_offset * torch.ones(k.size(0), dtype=torch.int, device=k.device)
+                        indexes=inference_params.sequence_len_offset
+                        * torch.ones(k.size(0), dtype=torch.int, device=k.device)
                         - empties,
+                        mode="single",
                     ).unsqueeze(1)
             else:
-                q = self.rotary_emb.single_eval_forward(q, seqlen_offset=inference_params.sequence_len_offset)
-                k = self.rotary_emb.single_eval_forward(k, seqlen_offset=inference_params.sequence_len_offset)
+                q = self.rotary_emb.forward(q, seqlen_offset=inference_params.sequence_len_offset, mode="single")
+                k = self.rotary_emb.forward(k, seqlen_offset=inference_params.sequence_len_offset, mode="single")
 
             kv = torch.stack([k, v], dim=2)
 
@@ -321,8 +325,8 @@ class OneDConvertedParallelMHA2(nn.Module):
             k = torch.cat([k[..., ::2], k[..., 1::2]], dim=-1)
 
         indexes = kwargs.pop("indexes")
-        q = self.rotary_emb.single_forward(q, indexes)
-        k = self.rotary_emb.single_forward(k, indexes)
+        q = self.rotary_emb.forward(q, indexes=indexes, mode="single")
+        k = self.rotary_emb.forward(k, indexes=indexes, mode="single")
 
         if inference_params is None:
             if not self.checkpointing:
