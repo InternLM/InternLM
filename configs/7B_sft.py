@@ -10,9 +10,9 @@ VOCAB_SIZE = 103168
 # Ckpt folder format:
 # fs: 'local:/mnt/nfs/XXX'
 # oss: 'boto3:s3://model_weights/XXX'
-MODEL_ONLY_FOLDER = None #"local:llm_ckpts/xxxx"
-SAVE_CKPT_FOLDER = None #"local:llm_ckpts"
-LOAD_CKPT_FOLDER = None #"local:llm_ckpts/49"
+MODEL_ONLY_FOLDER = "local:llm_ckpts/xxxx"
+SAVE_CKPT_FOLDER = "local:llm_ckpts"
+LOAD_CKPT_FOLDER = "local:llm_ckpts/49"
 ckpt = dict(
     # Path to save training ckpt.
     save_ckpt_folder=SAVE_CKPT_FOLDER,
@@ -36,9 +36,9 @@ data = dict(
     # defaults to the value of micro_num
     valid_micro_num=4,
     # defaults to 0, means disable evaluate
-    valid_every=1,
+    valid_every=50,
     pack_sample_into_one=False,
-    total_steps=100,
+    total_steps=50000,
     skip_batches="",
     rampup_batch_size="",
     # Datasets with less than 50 rows will be discarded
@@ -133,9 +133,8 @@ pipeline parallel (dict):
 tensor parallel: tensor parallel size, usually the number of GPUs per node.
 """
 parallel = dict(
-    zero1=-1,
-    tensor=4,
-    pipeline=dict(size=2, interleaved_overlap=True),
+    zero1=8,
+    pipeline=dict(size=1, interleaved_overlap=True),
 )
 
 cudnn_deterministic = False
