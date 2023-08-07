@@ -13,6 +13,8 @@ from internlm.core.context import IS_TENSOR_PARALLEL, ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.model.embedding import RotaryEmbedding
 
+attn_activation_size_printed = False
+
 
 class OneDConvertedParallelMHA2(nn.Module):
     """
@@ -89,15 +91,30 @@ class OneDConvertedParallelMHA2(nn.Module):
         self.num_kv_heads = num_kv_heads
 
         self.wq = ColumnParallelLinear(
-            embed_dim, embed_dim, process_group, bias=bias, sequence_parallel=gpc.config.model.sequence_parallel, **factory_kwargs
+            embed_dim,
+            embed_dim,
+            process_group,
+            bias=bias,
+            sequence_parallel=gpc.config.model.sequence_parallel,
+            **factory_kwargs,
         )
 
         self.wk = ColumnParallelLinear(
-            embed_dim, self.kv_dim, process_group, bias=bias, sequence_parallel=gpc.config.model.sequence_parallel, **factory_kwargs
+            embed_dim,
+            self.kv_dim,
+            process_group,
+            bias=bias,
+            sequence_parallel=gpc.config.model.sequence_parallel,
+            **factory_kwargs,
         )
 
         self.wv = ColumnParallelLinear(
-            embed_dim, self.kv_dim, process_group, bias=bias, sequence_parallel=gpc.config.model.sequence_parallel, **factory_kwargs
+            embed_dim,
+            self.kv_dim,
+            process_group,
+            bias=bias,
+            sequence_parallel=gpc.config.model.sequence_parallel,
+            **factory_kwargs,
         )
 
         # assert use_flash_attn
@@ -113,7 +130,12 @@ class OneDConvertedParallelMHA2(nn.Module):
 
         # output projection always have the bias (for now)
         self.wo = RowParallelLinear(
-            embed_dim, embed_dim, process_group, sequence_parallel=gpc.config.model.sequence_parallel, bias=bias, **factory_kwargs
+            embed_dim,
+            embed_dim,
+            process_group,
+            sequence_parallel=gpc.config.model.sequence_parallel,
+            bias=bias,
+            **factory_kwargs,
         )
 
         # need to assign tp attribute so that colossalai know it is tensor parallel module
@@ -343,6 +365,10 @@ class OneDConvertedParallelMHA2(nn.Module):
                     softmax_scale=self.inner_cross_attn_softmax_scale,
                     causal=self.inner_cross_attn_causal,
                 )
+                global attn_activation_size_printed
+                if gpc.get_global_rank() == 0 and not attn_activation_size_printed:
+                    print(f"### attn activation size: {context.element_size() * context.nelement()}")
+                    attn_activation_size_printed = True
             else:
                 context = torch.utils.checkpoint.checkpoint(
                     flash_attn_varlen_kvpacked_func,
@@ -405,7 +431,13 @@ class FeedForward(nn.Module):
             dtype=dtype,
         )
         self.w3 = ColumnParallelLinear(
-            in_features, hidden_features, process_group, bias, sequence_parallel=gpc.config.model.sequence_parallel, device=device, dtype=dtype
+            in_features,
+            hidden_features,
+            process_group,
+            bias,
+            sequence_parallel=gpc.config.model.sequence_parallel,
+            device=device,
+            dtype=dtype,
         )
         self.w2 = RowParallelLinear(
             hidden_features,

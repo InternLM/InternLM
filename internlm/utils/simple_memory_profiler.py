@@ -9,7 +9,7 @@ import torch
 
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
-from internlm.solver.pipeline_utils import partition_uniform
+from internlm.solver.pipeline_utils import partition_uniform_with_embed
 
 mb = 1024 * 1024
 
@@ -587,33 +587,35 @@ def build_activation_config(num_layers: int, num_chunks: int = 1) -> List[str]:
         pipeline_size = 1
         pipeline_rank = 0
 
-    all_parts = partition_uniform(num_layers, pipeline_size, num_chunks)
+    all_parts = partition_uniform_with_embed(num_layers, pipeline_size, num_chunks)
     parts = all_parts[pipeline_rank]
     start, end = parts[0]
     num_blocks = end - start
 
     block_conf_tmpl = [
-        "mixer.rotary_emb",
-        "mixer.Wqkv",
-        "mixer.inner_attn",
-        "mixer.inner_cross_attn",
-        "mixer.out_proj",
+        "attention.rotary_emb",
+        "attention.Wq",
+        "attention.Wk",
+        "attention.Wv",
+        # "attention.inner_attn",
+        # "attention.inner_cross_attn",
+        "attention.wo",
         # "dropout1", # skip when dropout_selective_checkpoint is True
         # "dropout2", # skip when dropout_selective_checkpoint is True
-        "norm1",
-        "norm2",
-        "mlp.w1",
-        "mlp.w2",
-        "mlp.w3",
+        "attention_norm",
+        "ffn_norm",
+        "feed_forward.w1",
+        "feed_forward.w2",
+        "feed_forward.w3",
     ]
 
     block_conf = []
     for block_id in range(num_blocks):
-        block_conf += [f"blocks.{block_id}.{layer}" for layer in block_conf_tmpl]
+        block_conf += [f"layers.{block_id}.{layer}" for layer in block_conf_tmpl]
 
     # We don't need to care about whether the embedding, norm, and head layers exist in the model after partitioning.
     # If they don't exist, they will be automatically ignored when registering activation trace hooks.
-    activation_conf = ["embedding", "norm", "head"] + block_conf
+    activation_conf = ["tok_embeddings", "norm", "output"] + block_conf
 
     return activation_conf
 

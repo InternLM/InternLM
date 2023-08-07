@@ -658,9 +658,12 @@ def Packed_Flash_Converted_LLAMA_exlarge_pipeline_1D2(
     use_scaled_init: bool = True,
     use_swiglu: bool = True,
     use_flash_attn: bool = True,
-    sequence_parallel: bool=False,
+    sequence_parallel: bool = False,
 ):
     assert model_type == "llama", f"Only support llama for this initilization, not `{model_type}`"
+
+    del use_flash_attn, sequence_parallel
+
     # residual_in_fp32 cannot be used temporarily because this parameter requires inconsistent data types to
     # be passed between pipelines, which requires significant modifications to colossalai.
     cfg = dict(
