@@ -15,7 +15,6 @@
 import argparse
 import copy
 import json
-import logging
 import os
 import signal
 import warnings
@@ -26,89 +25,137 @@ import torch
 import torch.nn as nn
 import tqdm
 from datasets import load_dataset
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from transformers.generation.utils import (
-    GenerationConfig,
-    LogitsProcessorList,
-    StoppingCriteriaList,
-)
+from transformers import AutoModel, AutoModelForCausalLM, AutoTokenizer
+from transformers.generation.utils import (LogitsProcessorList,
+                                           StoppingCriteriaList)
 from transformers.utils import logging
 
 logger = logging.get_logger(__name__)
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="PAL Inference")
-    parser.add_argument("model", type=str)
-    parser.add_argument("out_dir", type=str)
-    parser.add_argument("--dataset", default="gsm8k", type=str)
-    parser.add_argument("--max_length", default=2048, type=int)
-    parser.add_argument("--top_p", default=0.8, type=float)
-    parser.add_argument("--temperature", default=1, type=float)
-    parser.add_argument("--time_out", default=100, type=float)
-    parser.add_argument("--verbose", "-v", action="store_true", help="Print code error information")
-    parser.add_argument("--append", "-a", action="store_true", help="Append output to history results")
+    parser = argparse.ArgumentParser(description='PAL Inference')
+    parser.add_argument('model',
+                        type=str,
+                        help='Path to the pre-trained LLM used for inference.')
+    parser.add_argument(
+        'out_dir',
+        type=str,
+        help='Name of the output folder where generated code snippets will be saved.'
+    )
+    parser.add_argument(
+        '--dataset',
+        default='gsm8k',
+        type=str,
+        help='Name of the dataset used for code generation (default: gsm8k).')
+    parser.add_argument(
+        '--max_length',
+        default=2048,
+        type=int,
+        help='Maximum input token length for the natural language description (default: 2048).'
+    )
+    parser.add_argument(
+        '--top_p',
+        default=0.8,
+        type=float,
+        help='Probability threshold to choose sample tokens during generation (default: 0.8).'
+    )
+    parser.add_argument(
+        '--temperature',
+        default=1,
+        type=float,
+        help='Temperature of token sampling during generation (default: 1).')
+    parser.add_argument(
+        '--time_out',
+        default=100,
+        type=float,
+        help='Maximum time allowed for executing generated code (default: 100).'
+    )
+    parser.add_argument(
+        '--verbose',
+        '-v',
+        action='store_true',
+        help='Print code error information when executing generated code (optional).'
+    )
+    parser.add_argument(
+        '--append',
+        '-a',
+        action='store_true',
+        help='Append output to the history results (optional).')
     args = parser.parse_args()
     return args
 
 
+@dataclass
+class GenerationConfig:
+    max_length: Optional[int] = None
+    top_p: Optional[float] = None
+    temperature: Optional[float] = None
+    do_sample: Optional[bool] = True
+    repetition_penalty: Optional[float] = 1.0
+
+
 @torch.inference_mode()
 def generate_interactive(
-    model,
-    tokenizer,
-    prompt,
+    model: AutoModel,
+    tokenizer: AutoTokenizer,
+    prompt: str,
     generation_config: Optional[GenerationConfig] = None,
     logits_processor: Optional[LogitsProcessorList] = None,
     stopping_criteria: Optional[StoppingCriteriaList] = None,
-    prefix_allowed_tokens_fn: Optional[Callable[[int, torch.Tensor], List[int]]] = None,
+    prefix_allowed_tokens_fn: Optional[Callable[[int, torch.Tensor],
+                                                List[int]]] = None,
     additional_eos_token_id: Optional[int] = None,
     **kwargs,
 ):
-    inputs = tokenizer([prompt], padding=True, return_tensors="pt")
-    input_length = len(inputs["input_ids"][0])
+    inputs = tokenizer([prompt], padding=True, return_tensors='pt')
+    input_length = len(inputs['input_ids'][0])
     for k, v in inputs.items():
         inputs[k] = v.cuda()
-    input_ids = inputs["input_ids"]
-    batch_size, input_ids_seq_length = input_ids.shape[0], input_ids.shape[-1]
+    input_ids = inputs['input_ids']
+    batch_size, input_ids_seq_length = input_ids.shape[0], input_ids.shape[
+        -1]  # noqa: F841
     if generation_config is None:
         generation_config = model.generation_config
     generation_config = copy.deepcopy(generation_config)
     model_kwargs = generation_config.update(**kwargs)
-    bos_token_id, eos_token_id = generation_config.bos_token_id, generation_config.eos_token_id
+    bos_token_id, eos_token_id = generation_config.bos_token_id, generation_config.eos_token_id  # noqa: F841
     if isinstance(eos_token_id, int):
         eos_token_id = [eos_token_id]
     if additional_eos_token_id is not None:
         eos_token_id.append(additional_eos_token_id)
-    has_default_max_length = kwargs.get("max_length") is None and generation_config.max_length is not None
+    has_default_max_length = kwargs.get(
+        'max_length') is None and generation_config.max_length is not None
     if has_default_max_length and generation_config.max_new_tokens is None:
         warnings.warn(
             f"Using `max_length`'s default ({generation_config.max_length}) to control the generation length. "
-            "This behaviour is deprecated and will be removed from the config in v5 of Transformers -- we"
-            " recommend using `max_new_tokens` to control the maximum length of the generation.",
+            'This behaviour is deprecated and will be removed from the config in v5 of Transformers -- we'
+            ' recommend using `max_new_tokens` to control the maximum length of the generation.',
             UserWarning,
         )
     elif generation_config.max_new_tokens is not None:
         generation_config.max_length = generation_config.max_new_tokens + input_ids_seq_length
         if not has_default_max_length:
             logger.warn(
-                f"Both `max_new_tokens` (={generation_config.max_new_tokens}) and `max_length`(="
-                f"{generation_config.max_length}) seem to have been set. `max_new_tokens` will take precedence. "
-                "Please refer to the documentation for more information. "
-                "(https://huggingface.co/docs/transformers/main/en/main_classes/text_generation)",
+                f'Both `max_new_tokens` (={generation_config.max_new_tokens}) and `max_length`(='
+                f'{generation_config.max_length}) seem to have been set. `max_new_tokens` will take precedence. '
+                'Please refer to the documentation for more information. '
+                '(https://huggingface.co/docs/transformers/main/en/main_classes/text_generation)',
                 UserWarning,
             )
 
     if input_ids_seq_length >= generation_config.max_length:
-        input_ids_string = "input_ids"
+        input_ids_string = 'input_ids'
         logger.warning(
-            f"Input length of {input_ids_string} is {input_ids_seq_length}, but `max_length` is set to"
-            f" {generation_config.max_length}. This can lead to unexpected behavior. You should consider"
-            " increasing `max_new_tokens`."
-        )
+            f'Input length of {input_ids_string} is {input_ids_seq_length}, but `max_length` is set to'
+            f' {generation_config.max_length}. This can lead to unexpected behavior. You should consider'
+            ' increasing `max_new_tokens`.')
 
     # 2. Set generation parameters if not already defined
-    logits_processor = logits_processor if logits_processor is not None else LogitsProcessorList()
-    stopping_criteria = stopping_criteria if stopping_criteria is not None else StoppingCriteriaList()
+    logits_processor = logits_processor if logits_processor is not None else LogitsProcessorList(
+    )
+    stopping_criteria = stopping_criteria if stopping_criteria is not None else StoppingCriteriaList(
+    )
 
     logits_processor = model._get_logits_processor(
         generation_config=generation_config,
@@ -119,14 +166,15 @@ def generate_interactive(
     )
 
     stopping_criteria = model._get_stopping_criteria(
-        generation_config=generation_config, stopping_criteria=stopping_criteria
-    )
+        generation_config=generation_config,
+        stopping_criteria=stopping_criteria)
     logits_warper = model._get_logits_warper(generation_config)
 
     unfinished_sequences = input_ids.new(input_ids.shape[0]).fill_(1)
     scores = None
     while True:
-        model_inputs = model.prepare_inputs_for_generation(input_ids, **model_kwargs)
+        model_inputs = model.prepare_inputs_for_generation(
+            input_ids, **model_kwargs)
         # forward pass to get next token
         outputs = model(
             **model_inputs,
@@ -150,8 +198,10 @@ def generate_interactive(
 
         # update generated ids, model inputs, and length for next step
         input_ids = torch.cat([input_ids, next_tokens[:, None]], dim=-1)
-        model_kwargs = model._update_model_kwargs_for_generation(outputs, model_kwargs, is_encoder_decoder=False)
-        unfinished_sequences = unfinished_sequences.mul((min(next_tokens != i for i in eos_token_id)).long())
+        model_kwargs = model._update_model_kwargs_for_generation(
+            outputs, model_kwargs, is_encoder_decoder=False)
+        unfinished_sequences = unfinished_sequences.mul(
+            (min(next_tokens != i for i in eos_token_id)).long())
 
         output_token_ids = input_ids[0].cpu().tolist()
         output_token_ids = output_token_ids[input_length:]
@@ -162,34 +212,20 @@ def generate_interactive(
 
         yield response
         # stop when each sentence is finished, or if we exceed the maximum length
-        if unfinished_sequences.max() == 0 or stopping_criteria(input_ids, scores):
+        if unfinished_sequences.max() == 0 or stopping_criteria(
+                input_ids, scores):
             break
 
 
-class timeout:
-    def __init__(self, seconds=1, error_message="Timeout"):
-        self.seconds = seconds
-        self.error_message = error_message
-
-    def timeout_handler(self, signum, frame):
-        raise TimeoutError(self.error_message)
-
-    def __enter__(self):
-        signal.signal(signal.SIGALRM, self.timeout_handler)
-        signal.alarm(self.seconds)
-
-    def __exit__(self, type, value, traceback):
-        signal.alarm(0)
-
-
 class GenericRuntime:
-    GLOBAL_DICT = {}
+    GLOBAL_DICT: dict = {}
     LOCAL_DICT = None
-    HEADERS = []
+    HEADERS: List = []
 
     def __init__(self):
         self._global_vars = copy.copy(self.GLOBAL_DICT)
-        self._local_vars = copy.copy(self.LOCAL_DICT) if self.LOCAL_DICT else None
+        self._local_vars = copy.copy(
+            self.LOCAL_DICT) if self.LOCAL_DICT else None
 
         for c in self.HEADERS:
             self.exec_code(c)
@@ -206,37 +242,50 @@ class GenericRuntime:
 
     @property
     def answer(self):
-        return self._global_vars["answer"]
+        return self._global_vars['answer']
 
 
-@dataclass
-class GenerationConfig:
-    max_length: Optional[int] = None
-    top_p: Optional[float] = None
-    temperature: Optional[float] = None
-    do_sample: Optional[bool] = True
-    repetition_penalty: Optional[float] = 1.0
+class Timeout:
+
+    def __init__(self, seconds=1, error_message='Timeout'):
+        self.seconds = seconds
+        self.error_message = error_message
+
+    def timeout_handler(self, signum, frame):
+        raise TimeoutError(self.error_message)
+
+    def __enter__(self):
+        signal.signal(signal.SIGALRM, self.timeout_handler)
+        signal.alarm(self.seconds)
+
+    def __exit__(self, type, value, traceback):
+        signal.alarm(0)
 
 
 class ProgramInternLMInterface:
+
     def __init__(
         self,
         model: AutoModelForCausalLM,
         tokenizer: AutoTokenizer,
         generation_config: GenerationConfig,
         additional_eos_token_id: int = 103028,
-        get_answer_expr: str = "solution()",
+        get_answer_expr: str = 'solution()',
         verbose: bool = False,
     ):
-        """PAL interface wrap fun:`generate_interactive` to extract and execute generated code
+        """PAL interface wrap fun:`generate_interactive` to extract and execute
+        generated code.
 
         Args:
-            get_answer_expr (str): The function name of generated code
-            verbose (bool): Print generated response
-
+            model (AutoModelForCausalLM)
+            tokenizer (AutoTokenizer)
+            generation_config (GenerationConfig): Decode strategies
+            additional_eos_token_id (int): End of sentence token id, default: 103028
+            get_answer_expr (str): The function name of generated code, default: "solution()"
+            verbose (bool): Print error information
         """
         self.runtime = GenericRuntime()
-        self.history = []
+        self.history: List = []
         self.model = model
         self.tokenizer = tokenizer
         self.generation_config = generation_config
@@ -246,11 +295,11 @@ class ProgramInternLMInterface:
 
     def generate(self, prompt):
         for cur_gen in generate_interactive(
-            model=self.model,
-            tokenizer=self.tokenizer,
-            prompt=prompt,
-            additional_eos_token_id=self.additional_eos_token_id,
-            **asdict(self.generation_config),
+                model=self.model,
+                tokenizer=self.tokenizer,
+                prompt=prompt,
+                additional_eos_token_id=self.additional_eos_token_id,
+                **asdict(self.generation_config),
         ):
             continue
         # Get final response
@@ -260,16 +309,16 @@ class ProgramInternLMInterface:
         return code
 
     def process_generation_to_code(self, gens: str):
-        if "```python" in gens:
-            gens = gens.split("```python")[1].split("```")[0]
-        elif "```" in gens:
-            gens = gens.split("```")[1].split("```")[0]
-        code = gens.split("\n")
+        if '```python' in gens:
+            gens = gens.split('```python')[1].split('```')[0]
+        elif '```' in gens:
+            gens = gens.split('```')[1].split('```')[0]
+        code = gens.split('\n')
         return code
 
     def run(self, prompt, time_out: float = 100):
         code = self.generate(prompt)
-        with timeout(time_out):
+        with Timeout(time_out):
             try:
                 exec_result = self.execute(code)
             except Exception as e:
@@ -277,9 +326,8 @@ class ProgramInternLMInterface:
                     print(e)
         return exec_result
 
-    def execute(self, code: Optional[List[str]] = None):
-        code = code if code else self.code
-        self.runtime.exec_code("\n".join(code))
+    def execute(self, code: List[str]):
+        self.runtime.exec_code('\n'.join(code))
         return self.runtime.eval_code(self.answer_expr)
 
     def clear_history(self):
@@ -287,27 +335,30 @@ class ProgramInternLMInterface:
 
 
 def load_model(args):
-    model = AutoModelForCausalLM.from_pretrained(args.model, trust_remote_code=True).to(torch.bfloat16).cuda()
-    tokenizer = AutoTokenizer.from_pretrained(args.model, trust_remote_code=True)
+    model = AutoModelForCausalLM.from_pretrained(args.model,
+                                                 trust_remote_code=True).to(
+                                                     torch.bfloat16).cuda()
+    tokenizer = AutoTokenizer.from_pretrained(args.model,
+                                              trust_remote_code=True)
     return model, tokenizer
 
 
 def load_data(args):
-    # Load GSM8k test data from huggingface dataset
-    assert args.dataset == "gsm8k", "Only support GSM8K by now."
-
-    gsm8k = load_dataset(path=args.dataset, name="main")
-    test_set = gsm8k["test"]
-    input_data = []
-    for data in test_set:
-        question = data["question"]
-        target = float(data["answer"].split("#")[-1].replace(",", ""))
-        input_data.append({"question": question, "target": target})
+    # Load data from huggingface dataset
+    if args.dataset == 'gsm8k':
+        gsm8k = load_dataset(path=args.dataset, name='main')
+        test_set = gsm8k['test']
+        input_data = []
+        for data in test_set:
+            question = data['question']
+            target = float(data['answer'].split('#')[-1].replace(',', ''))
+            input_data.append({'question': question, 'target': target})
+    else:
+        raise NotImplementedError
     return input_data
 
 
-PROMPT = """
-<|System|>:You are a helpful assistant which use tools to solve mathematical reasoning questions. The tools you can use are:
+PROMPT = """<|System|>:You are a helpful assistant which use tools to solve mathematical reasoning questions. The tools you can use are:
 PythonExecutor: It can execute Python code. The code must be a function, and the function name must be 'solution'. The example format is as follows:
 ```python
 def solution():
@@ -358,58 +409,63 @@ def main():
 
     args = parse_args()
 
-    print("load model begin.")
+    print('load model begin.')
     model, tokenizer = load_model(args)
-    print("load model end.")
+    print('load model end.')
 
-    generation_config = GenerationConfig(max_length=args.max_length, top_p=args.top_p, temperature=args.temperature)
+    generation_config = GenerationConfig(max_length=args.max_length,
+                                         top_p=args.top_p,
+                                         temperature=args.temperature)
 
     verbose = args.verbose
-    itf = ProgramInternLMInterface(
-        model=model, tokenizer=tokenizer, generation_config=generation_config, verbose=verbose
-    )
+    interface = ProgramInternLMInterface(model=model,
+                                         tokenizer=tokenizer,
+                                         generation_config=generation_config,
+                                         verbose=verbose)
 
     if not os.path.exists(args.out_dir):
         os.makedirs(args.out_dir)
-    savepath = os.path.join(args.out_dir, args.dataset + ".json")
+    savepath = os.path.join(args.out_dir, args.dataset + '.json')
 
     # Load from history results
     if args.append and os.path.exists(savepath):
         lines = open(savepath).readlines()
         num_skip_exps = len(lines)
-        scores = [x["score"] for x in map(json.loads, lines)]
+        scores = [x['score'] for x in map(json.loads, lines)]
     else:
         num_skip_exps = 0
         scores = []
 
     examples = load_data(args)
-    with open(savepath, "a" if args.append else "w") as f:
-        pbar = tqdm.tqdm(examples[num_skip_exps:], initial=num_skip_exps, total=len(examples))
+    with open(savepath, 'a' if args.append else 'w') as f:
+        pbar = tqdm.tqdm(examples[num_skip_exps:],
+                         initial=num_skip_exps,
+                         total=len(examples))
         for x in pbar:
-            question = x["question"]
+            question = x['question']
             result = copy.copy(x)
 
             try:
-                ans = itf.run(prompt=PROMPT.format(question=question), time_out=args.time_out)
-                ans = float(ans)
-                score = 1 if abs(ans - x["target"]) < 1e-3 else 0
+                answer = interface.run(prompt=PROMPT.format(question=question),
+                                       time_out=args.time_out)
+                answer = float(answer)
+                score = 1 if abs(answer - x['target']) < 1e-3 else 0
             except Exception as e:
-                if verbose:
-                    print(e)
-                ans = ""
+                if verbose: print(e)
+                answer = ''
                 score = 0
             scores.append(score)
-            result["answer"] = ans
-            result["score"] = score
-            result["generation"] = itf.history
-            f.write(json.dumps(result) + "\n")
+            result['answer'] = answer
+            result['score'] = score
+            result['generation'] = interface.history
+            f.write(json.dumps(result) + '\n')
 
-            itf.clear_history()
+            interface.clear_history()
             f.flush()
 
-    print(f"Accuracy - {sum(scores) / len(scores)}")
+    print(f'{args.model}: Accuracy - {sum(scores) / len(scores)}')
     torch.cuda.empty_cache()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
