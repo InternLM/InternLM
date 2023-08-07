@@ -19,7 +19,7 @@ if [[ -d ${CKPTS20_PATH} ]]; then
     fi
 fi
 
-srun -p llm --quotatype=spot -n 8 --ntasks-per-node=8 --gpus-per-task=1 python train.py --config ./ci_scripts/train/ci_7B_sft.py
+nohup srun -p llm --quotatype=spot -n 8 --ntasks-per-node=8 --gpus-per-task=1 python train.py --config ./ci_scripts/train/ci_7B_sft.py | tee -a ${GITHUB_JOB}.log
 [[ $? -ne 0 ]] && { echo "test slurm training failed.";  exit_code=$(($exit_code + 1)); }
 
 num=$(num_files "${CKPTS20_OUTPUT}")

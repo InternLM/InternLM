@@ -1,5 +1,6 @@
 name: demo-in-readme
 on: 
+  push:
   pull_request:
     branches:
       - "main"
@@ -55,6 +56,7 @@ jobs:
     if: ${{ always() }}
     needs: check-requirements
     runs-on: [lmtest]
+    timeout-minutes: 2
     steps:
     - run: |
         echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
@@ -87,7 +89,7 @@ jobs:
         export PYTHONPATH=$PWD:$PYTHONPATH
         sh ./ci_scripts/model/convert_to_hf.sh 
         cd ./hf_ckpt
-        srun -p llm python ../ci_scripts/model/loaded_as_transformer.py
+        nohup srun -p llm python ../ci_scripts/model/loaded_as_transformer.py | tee -a ${GITHUB_JOB}.log
         cd ..
         rm -rf $GITHUB_WORKSPACE/hf_ckpt
   
@@ -103,4 +105,4 @@ jobs:
     - name: chat-model-in-hf
       run: |
         source activate internlm-env-test
-        srun -p llm python ./ci_scripts/model/demo_load_7B_chat_model.py
+        nohup srun -p llm python ./ci_scripts/model/demo_load_7B_chat_model.py | tee -a ${GITHUB_JOB}.log
