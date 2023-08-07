@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x
+#set -x
 
 JOB_LOG=$GITHUB_WORKSPACE/${GITHUB_JOB}.log
 

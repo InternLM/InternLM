@@ -93,7 +93,7 @@ jobs:
         export PYTHONPATH=$PWD:$PYTHONPATH
         sh ./ci_scripts/model/convert_to_hf.sh 
         cd ./hf_ckpt
-        nohup srun -p llm python ../ci_scripts/model/loaded_as_transformer.py | tee -a ${GITHUB_JOB}.log
+        nohup srun -p llm python ../ci_scripts/model/loaded_as_transformer.py | tee -a ../${GITHUB_JOB}.log
         cd ..
         rm -rf $GITHUB_WORKSPACE/hf_ckpt
   
@@ -110,4 +110,6 @@ jobs:
     - name: chat-model-in-hf
       run: |
         source activate internlm-env-test
-        nohup srun -p llm python ./ci_scripts/model/demo_load_7B_chat_model.py | tee -a ${GITHUB_JOB}.log
+        nohup srun -p llm python ./ci_scripts/model/demo_load_7B_chat_model.py 2>&1 | tee -a ${GITHUB_JOB}.log
+        cat ${GITHUB_JOB}.log
+        echo "end catk"
