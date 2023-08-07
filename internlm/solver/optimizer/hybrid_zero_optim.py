@@ -25,6 +25,7 @@ from internlm.solver.optimizer.utils import (
     split_half_float_double,
     sync_param,
 )
+from internlm.model.moe import is_moe_param
 from internlm.utils.common import get_current_device
 from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
@@ -285,7 +286,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         for group_id in range(self.num_param_groups):
             param_group = self._fp16_param_groups[group_id]
             for param in param_group:
-                if param.requires_grad:
+                if param.requires_grad and not is_moe_param(param):
                     reduce_rank = None
 
                     def _define_and_attach(param, reduce_rank=None):

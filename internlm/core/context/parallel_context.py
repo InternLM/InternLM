@@ -143,6 +143,7 @@ class ParallelContext(metaclass=SingletonMeta):
         self.pipeline_parallel_size = 1
         self.tensor_parallel_size = 1
         self.zero1_parallel_size = -1
+        self.expert_parallel_size = -1
         self.num_processes_on_current_node = -1
         self.virtual_pipeline_parallel_size = None
         self.virtual_pipeline_parallel_rank = None
@@ -442,6 +443,9 @@ class ParallelContext(metaclass=SingletonMeta):
         # instead, it should be calculated based on other parallel config
         self.data_parallel_size = self.world_size // (self.pipeline_parallel_size * self.tensor_parallel_size)
 
+        # TODO : data parallel size can be different with expert parallel size
+        self.expert_parallel_size = self.data_parallel_size
+
         if self.zero1_parallel_size <= 0:
             self.zero1_parallel_size = self.data_parallel_size
 
@@ -454,6 +458,7 @@ class ParallelContext(metaclass=SingletonMeta):
             self.pipeline_parallel_size,
             self.tensor_parallel_size,
             self.zero1_parallel_size,
+            self.expert_parallel_size,
         ]
 
         # run initialization of different process groups
@@ -464,6 +469,8 @@ class ParallelContext(metaclass=SingletonMeta):
         initializers.append(pgroup_initializer.Initializer_Zero1(*initializer_args))
         if self.pipeline_parallel_size > 1:
             initializers.append(pgroup_initializer.Initializer_Pipeline(*initializer_args))
+        if self.config.model.num_experts > 1:
+            initializers.append(pgroup_initializer.Initializer_Expert(*initializer_args))
         for initializer in initializers:
             parallel_setting = initializer.init_dist_group()
             if isinstance(parallel_setting, list):

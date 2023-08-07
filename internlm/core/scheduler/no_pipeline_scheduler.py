@@ -88,6 +88,7 @@ class NonPipelineScheduler(BaseScheduler):
         forward_only: bool = False,
         return_loss: bool = True,
         scale_loss: int = 1,
+        moe_loss_coeff: float = 1.0,
     ):
         """Trains one batch of data.
 
@@ -104,7 +105,7 @@ class NonPipelineScheduler(BaseScheduler):
         # forward
         with conditional_context(torch.no_grad(), enable=forward_only):
             self._call_hooks("before_forward", data)
-            output = self._call_engine(engine, data)
+            output, moe_losses = self._call_engine(engine, data)
             self._call_hooks("after_forward", output)
 
             self._call_hooks("post_helper_func", output, label)
@@ -113,7 +114,9 @@ class NonPipelineScheduler(BaseScheduler):
                 self._call_hooks("before_criterion", output, label)
                 loss = self._call_engine_criterion(engine, output, label)
                 self._call_hooks("after_criterion", loss)
-                loss /= scale_loss
+                moe_loss = sum(moe_losses) * moe_loss_coeff
+                loss += moe_loss
+                loss /= scale_loss ## TODO: check whether mos_loss should be scaled
 
         # backward
         if not forward_only:
@@ -133,6 +136,7 @@ class NonPipelineScheduler(BaseScheduler):
         forward_only: bool = False,
         return_loss: bool = True,
         return_output_label: bool = True,
+        moe_loss_coeff: float = 1.0,
     ):
         """The process function that loads a batch of dataset and feeds it to the model.
         The returned labels and loss will None if :attr:`return_loss` is False.
@@ -177,7 +181,7 @@ class NonPipelineScheduler(BaseScheduler):
             _data, _label = self._load_accum_batch(data, label)
 
             _output, _loss = self._train_one_batch(
-                _data, _label, engine, forward_only, return_loss, self._grad_accum_size
+                _data, _label, engine, forward_only, return_loss, self._grad_accum_size, moe_loss_coeff
             )
 
             if return_loss:

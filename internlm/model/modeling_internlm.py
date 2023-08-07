@@ -18,6 +18,7 @@ from internlm.model.linear import (
     RewardModelLinear,
     ScaleColumnParallelLinear,
 )
+from internlm.model.moe import MoE
 from internlm.model.multi_head_attention import MHA
 from internlm.model.utils import gather_forward_split_backward, try_import_RMSNorm
 from internlm.solver.pipeline_utils import partition_uniform
@@ -49,6 +50,7 @@ class PackedFlashBaseLayer1D(nn.Module):
         device (Optional[Union[str, torch.device]]): The device will be used.
         norm_type (str): Use RMS norm or layernorm."rmsnorm" by default.
         use_flash_attn (bool): Whether use flash-attn. True by default.
+        num_experts (int): The number of experts. <=1 means dense, >1 means MoE. 1 by default.
     """
 
     def __init__(
@@ -69,6 +71,7 @@ class PackedFlashBaseLayer1D(nn.Module):
         use_scaled_init: bool = True,
         use_swiglu: bool = True,
         use_flash_attn: bool = True,
+        num_experts: int = 1,
     ):
         super().__init__()
         self.checkpoint = checkpoint
@@ -101,37 +104,57 @@ class PackedFlashBaseLayer1D(nn.Module):
             self.norm1 = nn.LayerNorm(hidden_size, eps=layer_norm_epsilon)
             self.norm2 = nn.LayerNorm(hidden_size, eps=layer_norm_epsilon)
 
-        if use_swiglu:
-            self.mlp = FeedForward(
+        ## TODO: replace num_experts and epsize with function parameter
+        self.num_experts = num_experts
+        ep_size = gpc.get_world_size(ParallelMode.EXPERT)
+        if num_experts <= 1: # dense, not MoE
+            if use_swiglu:
+                self.mlp = FeedForward(
+                    hidden_size,
+                    int(hidden_size * mlp_ratio),
+                    out_features=hidden_size,
+                    process_group=gpc.get_group(ParallelMode.TENSOR),
+                    bias=False,
+                    device=device,
+                    dtype=dtype,
+                )
+            else:
+                self.mlp = ParallelFusedMLP(
+                    hidden_size,
+                    int(hidden_size * mlp_ratio),
+                    out_features=hidden_size,
+                    activation="gelu_approx",
+                    process_group=gpc.get_group(ParallelMode.TENSOR),
+                    bias1=False,
+                    bias2=False,
+                    sequence_parallel=gpc.config.model.sequence_parallel,
+                    checkpoint_lvl=0,
+                    heuristic="auto",
+                    device=device,
+                    dtype=dtype,
+                )
+        else:
+            expert = torch.nn.ModuleList([FeedForward(
                 hidden_size,
-                int(hidden_size * mlp_ratio),
+                int(hidden_size * gpc.config.model.mlp_ratio),
                 out_features=hidden_size,
                 process_group=gpc.get_group(ParallelMode.TENSOR),
                 bias=False,
-                device=device,
-                dtype=dtype,
-            )
-        else:
-            self.mlp = ParallelFusedMLP(
-                hidden_size,
-                int(hidden_size * mlp_ratio),
-                out_features=hidden_size,
-                activation="gelu_approx",
-                process_group=gpc.get_group(ParallelMode.TENSOR),
-                bias1=False,
-                bias2=False,
-                sequence_parallel=gpc.config.model.sequence_parallel,
-                checkpoint_lvl=0,
-                heuristic="auto",
-                device=device,
-                dtype=dtype,
-            )
+                device=torch.device("cuda"),
+                dtype=torch.float,
+            ) for i in range(num_experts // ep_size)])
+            # TODO: test moe for now, need more parameter such as: capacity_factor, eval_capacity_factor, min_capacity, drop_tokens
+            self.mlp = MoE(hidden_size=hidden_size,
+                         expert=expert,
+                         ep_size=ep_size,
+                         num_experts=num_experts,
+                         k=1)
         self.dropout2 = nn.Dropout(drop_rate)
         self.use_swiglu = use_swiglu
         self.use_scaled_init = use_scaled_init
         self.residual_in_fp32 = residual_in_fp32  # only make sense when using prenorm
         self.return_residual = False
-        self.reset_parameters()
+        self.reset_parameters() ## TODO: check this should be changed when moe is added
 
     def reset_parameters(self):
         with torch.no_grad():
@@ -163,7 +186,7 @@ class PackedFlashBaseLayer1D(nn.Module):
         if self.checkpoint and self.training:
             return activation_checkpoint(
                 self._forward, False, hidden_states, cu_seqlens, indexes, inference_params, max_seqlen
-            )
+            ) ##TODO: check whether this will be affected by moe
         else:
             return self._forward(hidden_states, cu_seqlens, indexes, inference_params, max_seqlen)
 
@@ -213,9 +236,14 @@ class PackedFlashBaseLayer1D(nn.Module):
         if self.residual_in_fp32:
             residual = residual.to(torch.float32)
 
-        hidden_states = self.mlp(hidden_states)
+        # MLP.
+        moe_loss = torch.tensor(0.0, device=hidden_states.device, dtype=hidden_states.dtype)
+        if self.num_experts <= 1:
+            hidden_states = self.mlp(hidden_states)
+        else:
+            hidden_states, moe_loss, _ = self.mlp(hidden_states)
 
-        return hidden_states + residual
+        return hidden_states + residual, moe_loss
 
 
 class PackedFlashInternLm1D(nn.Module):
@@ -246,6 +274,7 @@ class PackedFlashInternLm1D(nn.Module):
         residual_in_fp32 (bool): Whether to use residual in fp32. False by default.
         norm_type (str): Normalization type. Use RMSNorm or LayerNorm. "rmsnorm" by default.
         use_flash_attn (bool): Whether to use flash-attn. True by default.
+        num_experts (int): The number of experts. <=1 means dense, >1 means MoE. 1 by default.
 
     """
 
@@ -276,6 +305,7 @@ class PackedFlashInternLm1D(nn.Module):
         use_scaled_init: bool = True,
         use_swiglu: bool = True,
         use_flash_attn: bool = True,
+        num_experts: bool = 1,
     ):
         super().__init__()
 
@@ -327,6 +357,7 @@ class PackedFlashInternLm1D(nn.Module):
                     use_scaled_init=use_scaled_init,
                     use_swiglu=use_swiglu,
                     use_flash_attn=use_flash_attn,
+                    num_experts=num_experts,
                 )
                 for lid in range(num_layers)
             ]
@@ -374,14 +405,16 @@ class PackedFlashInternLm1D(nn.Module):
             indexes = indexes[0]
         max_seqlen = (cu_seqlens[1:] - cu_seqlens[:-1]).max().item() if cu_seqlens is not None else None
 
+        moe_losses = []
         for _, block in enumerate(self.blocks):
-            hidden_states = block(
+            hidden_states, mos_loss = block(
                 hidden_states,
                 cu_seqlens=cu_seqlens,
                 indexes=indexes,
                 inference_params=inference_params,
                 max_seqlen=max_seqlen,
             )
+            moe_losses.append(mos_loss)
 
         if hasattr(self, "norm"):
             hidden_states = self.norm(hidden_states.float())
@@ -390,7 +423,7 @@ class PackedFlashInternLm1D(nn.Module):
 
         if not self.parallel_output:
             hidden_states = gather_forward_split_backward(hidden_states, ParallelMode.TENSOR, dim=-1)
-        return hidden_states
+        return hidden_states, moe_losses
 
 
 def _build_generic_model_1d(num_layers, num_chunks, device=torch.device("cuda"), **kwargs):
@@ -462,6 +495,7 @@ def build_model_with_cfg(
     use_swiglu: bool = True,
     use_flash_attn: bool = True,
     sequence_parallel: bool = False,
+    num_experts: int = 1,
 ):
     """
     Builde model with config
@@ -492,6 +526,7 @@ def build_model_with_cfg(
         use_scaled_init (bool): Whether to use scaled init. True by default.
         use_swiglu (bool): Whether to use swiglu. True by default.
         use_flash_attn (bool): Whether to use flash-attn. True by default.
+        num_experts (int): The number of experts. <=1 means dense, >1 means MoE. 1 by default.
 
     """
 
@@ -515,6 +550,7 @@ def build_model_with_cfg(
         use_scaled_init=use_scaled_init,
         use_swiglu=use_swiglu,
         use_flash_attn=use_flash_attn,
+        num_experts=num_experts,
     )
 
     return _build_generic_model_1d(num_layers=num_layers, num_chunks=num_chunks, **cfg)

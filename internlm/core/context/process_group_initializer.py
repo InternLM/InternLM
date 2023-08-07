@@ -31,6 +31,9 @@ class ParallelMode(Enum):
     # zero1 parallel
     ZERO1 = "zero1"
 
+    # expert parallel
+    EXPERT = "expert"
+
 
 class ProcessGroupInitializer(ABC):
     """An object, knowing the parallelism configuration, that initializes parallel groups.
@@ -42,6 +45,7 @@ class ProcessGroupInitializer(ABC):
         pipeline_parallel_size (int): Size of pipeline parallel.
         tensor_parallel_size (int): Size of tensor parallel.
         zero1_parallel_size (int): Size of zero1 parallel.
+        expert_parallel_size (int): Size of expert parallel.
     """
 
     def __init__(
@@ -52,6 +56,7 @@ class ProcessGroupInitializer(ABC):
         pipeline_parallel_size: int,
         tensor_parallel_size: int,
         zero1_parallel_size: int,
+        expert_parallel_size: int,
     ):
         self.rank = rank
         self.world_size = world_size
@@ -59,6 +64,7 @@ class ProcessGroupInitializer(ABC):
         self.pipeline_parallel_size = pipeline_parallel_size
         self.tensor_parallel_size = tensor_parallel_size
         self.zero1_parallel_size = zero1_parallel_size
+        self.expert_parallel_size = expert_parallel_size
         super().__init__()
 
     @abstractmethod
@@ -76,6 +82,7 @@ class Initializer_Data(ProcessGroupInitializer):
         pipeline_parallel_size (int): Size of pipeline parallel.
         tensor_parallel_size (int): Size of tensor parallel.
         zero1_parallel_size (int): Size of zero1 parallel.
+        expert_parallel_size (int): Size of expert parallel.
     """
 
     def __init__(self, *args, **kwargs):
@@ -127,6 +134,7 @@ class Initializer_Model(ProcessGroupInitializer):
         pipeline_parallel_size (int): Size of pipeline parallel.
         tensor_parallel_size (int): Size of tensor parallel.
         zero1_parallel_size (int): Size of zero1 parallel.
+        expert_parallel_size (int): Size of expert parallel.
     """
 
     def __init__(self, *args, **kwargs):
@@ -178,6 +186,7 @@ class Initializer_Pipeline(ProcessGroupInitializer):
         pipeline_parallel_size (int): Size of pipeline parallel
         tensor_parallel_size (int): Size of tensor parallel
         zero1_parallel_size (int): Size of zero1 parallel.
+        expert_parallel_size (int): Size of expert parallel.
     """
 
     def __init__(self, *args, **kwargs):
@@ -238,6 +247,7 @@ class Initializer_Tensor(ProcessGroupInitializer):
         pipeline_parallel_size (int): Size of pipeline parallel.
         tensor_parallel_size (int): Size of tensor parallel.
         zero1_parallel_size (int): Size of zero1 parallel.
+        expert_parallel_size (int): Size of expert parallel.
     """
 
     def __init__(self, *args, **kwargs):
@@ -288,6 +298,7 @@ class Initializer_Zero1(ProcessGroupInitializer):
         pipeline_parallel_size (int): Size of pipeline parallel.
         tensor_parallel_size (int): Size of tensor parallel.
         zero1_parallel_size (int): Size of zero-1 parallel.
+        expert_parallel_size (int): Size of expert parallel.
     """
 
     def __init__(self, *args, **kwargs):
@@ -330,5 +341,61 @@ class Initializer_Zero1(ProcessGroupInitializer):
                     process_group = group
                     cpu_group = group_cpu
                     ranks_in_group = ranks
+
+        return local_rank, group_world_size, process_group, cpu_group, ranks_in_group, mode
+    
+class Initializer_Expert(ProcessGroupInitializer):
+    """A ProcessGroupInitializer for zero-1 parallelism.
+
+    Args:
+        rank (int): The rank of current process.
+        world_size (int): Size of whole communication world.
+        data_parallel_size (int): Size of data parallel.
+        pipeline_parallel_size (int): Size of pipeline parallel.
+        tensor_parallel_size (int): Size of tensor parallel.
+        zero1_parallel_size (int): Size of zero-1 parallel.
+        expert_parallel_size (int): Size of expert parallel.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.num_expert_parallel_group = self.world_size // self.expert_parallel_size
+
+        assert self.world_size % self.num_expert_parallel_group == 0
+
+        # TODO: to match expert parallel with differnt data parallel size
+        assert self.data_parallel_size == self.expert_parallel_size
+
+    def init_dist_group(self, use_cpu: bool = False):
+        """Initialize expert parallel groups, and assign local_ranks and groups to each gpu.
+
+        Example: world_size = 8, model_parallel_size = 2, expert_parallel_size = 4
+            model_parallel_group = [0,1], [2,3], [4,5], [6,7]
+            expert_parallel_group = [0,2,4,6], [1,3,5,7]
+
+        Returns:
+            Tuple (local_rank, group_world_size, process_group, ranks_in_group, mode):
+                A expert parallelism's information tuple.
+        """
+        local_rank = None
+        ranks_in_group = None
+        process_group = None
+        cpu_group = None
+        group_world_size = None
+        mode = ParallelMode.EXPERT
+
+        for i in range(self.num_expert_parallel_group):
+            ranks = list(range(i, self.world_size, self.num_expert_parallel_group))
+            group = dist.new_group(ranks)
+            if use_cpu:
+                group_cpu = dist.new_group(ranks, backend="gloo") if dist.get_backend() != "gloo" else group
+            else:
+                group_cpu = None
+            if self.rank in ranks:
+                local_rank = ranks.index(self.rank)
+                group_world_size = len(ranks)
+                process_group = group
+                cpu_group = group_cpu
+                ranks_in_group = ranks
 
         return local_rank, group_world_size, process_group, cpu_group, ranks_in_group, mode

@@ -77,6 +77,7 @@ hybrid_zero_optimizer = dict(
 
 loss = dict(
     label_smoothing=0,
+    moe_loss_coeff=1.0,
 )
 
 adam = dict(
@@ -119,6 +120,7 @@ model = dict(
     use_flash_attn=True,
     num_chunks=1,  # if num_chunks > 1, interleaved pipeline scheduler is used.
     sequence_parallel=False,
+    num_experts=8,
 )
 """
 zero1 parallel:
