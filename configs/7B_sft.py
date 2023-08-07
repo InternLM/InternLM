@@ -103,7 +103,7 @@ beta2_scheduler = dict(
 )
 
 model = dict(
-    checkpoint=True,
+    checkpoint=False,
     num_attention_heads=NUM_ATTENTION_HEAD,
     embed_split_hidden=True,
     vocab_size=VOCAB_SIZE,
@@ -134,7 +134,7 @@ tensor parallel: tensor parallel size, usually the number of GPUs per node.
 """
 parallel = dict(
     zero1=-1,
-    tensor=2,
+    tensor=4,
     pipeline=dict(size=2, interleaved_overlap=True),
 )
 

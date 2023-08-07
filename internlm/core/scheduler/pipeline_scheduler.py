@@ -264,7 +264,6 @@ class PipelineScheduler(BaseScheduler):
 
         if gpc.is_last_rank(ParallelMode.PIPELINE):
             self._call_hooks("post_helper_func", output_obj, label)
-
             if return_output_label:
                 return_tensors.append((output_obj, label))
             if accum_loss is not None:
