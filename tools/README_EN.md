@@ -65,20 +65,23 @@ Perform reasoning using [PAL](https://github.com/reasoning-machines/pal) on the 
 
 ```bash
 # Usage:
-python pal_inference.py <model> <out_dir> [--dataset <dataset>] [--max_length <length>] [--top_p <threshold>] [--temperature <temp>] [--time_out <time>] [--verbose, -v] [--append, -a]
+python pal_inference.py <model> <out_dir> [--dataset <dataset>] [--max_length <length>] [--top_p <threshold>] [--eoh <end token>] [--eoa <end token>] [--eos <end token>] [--temperature <temp>] [--time_out <time>] [--verbose, -v] [--append, -a]
 
 # Parameters:
-# <model>             Path to the model used for inference.
-# <out_dir>           Generated code will be saved in the specified output folder.
+# <model>                   Path to the model used for inference.
+# <out_dir>                 Generated code will be saved in the specified output folder.
 
 # Optional arguments:
-# --dataset <dataset>   Dataset name used for code generation (default: gsm8k).
-# --max_length <length> Model's maximum input token length (default: 2048).
-# --top_p <threshold>   Probability threshold for candidate tokens (default: 0.8).
-# --temperature <temp>  Sampling temperature during generation (default: 1).
-# --time_out <time>     Maximum time (in seconds) for executing the generated code (default: 100).
-# --verbose, -v         Print code error messages (optional).
-# --append, -a          Append the output to historical results (optional).
+# --dataset <dataset>       Dataset name used for code generation (default: gsm8k).
+# --max_length <length>     Model's maximum input token length (default: 2048).
+# --top_p <threshold>       Probability threshold for candidate tokens (default: 0.8).
+# --eoh <end token>         End of human (user) token. (default: "").
+# --eoa <end token>         End of assistant (bot) token. (default: "").
+# --eos <end token>         End of system token. (default: "").
+# --temperature, -t <temp>  Sampling temperature during generation (default: 1.0).
+# --time_out <time>         Maximum time (in seconds) for executing the generated code (default: 100).
+# --verbose, -v             Print code error messages (optional).
+# --append, -a              ppend the output to historical results (optional).
 ```
 
 Below is an example of usage:

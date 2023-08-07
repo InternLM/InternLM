@@ -67,20 +67,23 @@ $ python tools/tokenizer.py --text_input_path raw_data.txt --bin_output_path cn/
 
 ```python
 # 用法:
-python pal_inference.py <model> <out_dir> [--dataset <dataset>] [--max_length <length>] [--top_p <threshold>] [--temperature <temp>] [--time_out <time>] [--verbose, -v] [--append, -a]
+python pal_inference.py <model> <out_dir> [--dataset <dataset>] [--max_length <length>] [--top_p <threshold>] [--eoh <end token>] [--eoa <end token>] [--eos <end token>] [--temperature <temp>] [--time_out <time>] [--verbose, -v] [--append, -a]
 
 # 参数:
-# <model>             用于推理的模型的路径。
-# <out_dir>           生成代码将保存在指定的输出文件夹中。
+# <model>                   用于推理的模型的路径。
+# <out_dir>                 生成代码将保存在指定的输出文件夹中。
 
 # 可选参数:
-# --dataset <dataset>   用于代码生成的数据集名称（默认：gsm8k）。
-# --max_length <length> 模型最大输入 token 长度（默认：2048）。
-# --top_p <threshold>   候选 token 相加的概率阈值（默认：0.8）。
-# --temperature <temp>  生成过程中的采样温度（默认：1）。
-# --time_out <time>     执行生成的代码的最大时间（秒）（默认：100）。
-# --verbose, -v         打印代码错误信息（可选）。
-# --append, -a          将输出追加到历史结果中（可选）。
+# --dataset <dataset>       用于代码生成的数据集名称（默认：gsm8k）。
+# --max_length <length>     模型最大输入 token 长度（默认：2048）。
+# --top_p <threshold>       候选 token 相加的概率阈值（默认：0.8）。
+# --eoh <end token>         用户输入结束标识符 (默认: "") 。
+# --eoa <end token>         模型输入结束标识符 (默认: "") 。
+# --eos <end token>         系统输入结束标识符. (默认: "") 。
+# --temperature， -t <temp> 生成过程中的采样温度（默认：1）。
+# --time_out <time>         执行生成的代码的最大时间（秒）（默认：100）。
+# --verbose, -v             打印代码错误信息（可选）。
+# --append, -a              将输出追加到历史结果中（可选）。
 ```
 
 以下是使用示例：
