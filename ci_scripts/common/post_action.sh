@@ -8,6 +8,7 @@ if [[ ! -f ${JOB_LOG} ]]; then
    exit 0
 fi
 
+cat ${JOB_LOG}
 jobid=$(grep "queued and waiting" ${JOB_LOG} | grep -oP "\d+")
 echo "debug,show head 5 "
 head ${JOB_LOG}
