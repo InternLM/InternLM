@@ -2,6 +2,14 @@ import signal
 
 
 class Timeout:
+    """Timer to execute code
+
+    Adapted from https://github.com/reasoning-machines/pal
+
+    Args:
+        seconds (float): The maximum seconds to execute code
+        error_message (str)
+    """
     def __init__(self, seconds=1, error_message="Timeout"):
         self.seconds = seconds
         self.error_message = error_message
