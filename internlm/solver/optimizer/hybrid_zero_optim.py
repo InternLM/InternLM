@@ -75,7 +75,7 @@ class BaseOptimizer(Optimizer):
         return self.optim.add_param_group(*args, **kwargs)
 
     def step(self, *args, **kwargs):
-        return self.optim.step(*args, **kwargs)
+        return self.optim.step(*args, **kwargs), None
 
     def zero_grad(self, *args, **kwargs):
         self.optim.zero_grad(*args, **kwargs)
@@ -94,6 +94,47 @@ class BaseOptimizer(Optimizer):
 
     def clip_grad_norm(self):
         pass
+
+
+class FSDPadaptOptimizer(BaseOptimizer):
+    '''
+    optimizer for Pytorch FSDP
+    reserve some functions of hybirdoptim:
+        grad_scaler;
+    '''
+    def __init__(
+            self, 
+            optimizer: Optimizer,
+            grad_scal_cfg: Config = None,   
+            zero_cfg: Config = None, 
+        ):
+        super().__init__(optim=optimizer)
+        
+        # gradient scaler
+        self.grad_scaler = DynamicGradScaler(
+            initial_scale=grad_scal_cfg.fp16.initial_scale,
+            min_scale=grad_scal_cfg.fp16.min_scale,
+            growth_factor=grad_scal_cfg.growth_factor,
+            backoff_factor=grad_scal_cfg.backoff_factor,
+            growth_interval=grad_scal_cfg.fp16.growth_interval,
+            hysteresis=grad_scal_cfg.hysteresis,
+            max_scale=grad_scal_cfg.max_scale,
+        )
+
+        # clip gradient
+        self._clip_grad_norm = zero_cfg.clip_grad_norm
+    
+    @property
+    def loss_scale(self):
+        return self.grad_scaler.scale
+
+    def backward(self, loss, retain_graph=False):
+        loss = self.loss_scale * loss
+        loss.backward(retain_graph=retain_graph)
+
+    def step(self, *args, **kwargs):
+        self.optim.step(*args, **kwargs)
+        return True, None
 
 
 class HybridZeroOptimizer(BaseOptimizer):
@@ -242,13 +283,15 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         # intialize communication stream for
         # communication-compuation overlapping
-        if self._overlap_communication:
-            self._comm_stream = torch.cuda.Stream()
+        if gpc.config.data.use_communication:
+            if self._overlap_communication:
+                self._comm_stream = torch.cuda.Stream()
 
         # reduction hook is only used if overlapping communication
         # if it is stage 1 without overlapping, no hook will be attached
-        if self._overlap_communication:
-            self._attach_reduction_hook()
+        if gpc.config.data.use_communication:
+            if self._overlap_communication:
+                self._attach_reduction_hook()
 
     @property
     def zero_local_rank(self):
@@ -497,25 +540,26 @@ class HybridZeroOptimizer(BaseOptimizer):
         """
         assert closure is None, "closure is not supported by step()"
 
-        timer("sync_grad").start()
-        # if not overlapping communication (no reduction hook is attached)
-        # we need to manually reduce these gradients
-        if not self._overlap_communication:
-            for group_id in range(len(self._fp16_param_groups)):
-                for param in self._fp16_param_groups[group_id]:
-                    if param.grad is not None:
-                        self._store_and_try_reduce_grads_by_bucket(param)
+        if gpc.config.data.use_communication:
+            timer("sync_grad").start()
+            # if not overlapping communication (no reduction hook is attached)
+            # we need to manually reduce these gradients
+            if not self._overlap_communication:
+                for group_id in range(len(self._fp16_param_groups)):
+                    for param in self._fp16_param_groups[group_id]:
+                        if param.grad is not None:
+                            self._store_and_try_reduce_grads_by_bucket(param)
 
-        # we need to reduce the gradients left in the communication bucket
-        self._reduce_grads_stored_in_bucket()
+            # we need to reduce the gradients left in the communication bucket
+            self._reduce_grads_stored_in_bucket()
 
-        # clear reduced grads
-        if self._overlap_communication:
-            torch.cuda.synchronize()
-            self._param_store.clear_grads_of_previous_reduced_params()
+            # clear reduced grads
+            if self._overlap_communication:
+                torch.cuda.synchronize()
+                self._param_store.clear_grads_of_previous_reduced_params()
 
-        self._sync_grad()
-        timer("sync_grad").stop()
+            self._sync_grad()
+            timer("sync_grad").stop()
 
         return self._step(closure=closure)
 

@@ -1,10 +1,10 @@
-JOB_NAME = "7b_train"
+JOB_NAME = "13b_train"
 
 SEQ_LEN = 2048
-HIDDEN_SIZE = 4096
-NUM_ATTENTION_HEAD = 32
+HIDDEN_SIZE = 6656
+NUM_ATTENTION_HEAD = 52
 MLP_RATIO = 8 / 3 
-NUM_LAYER = 32
+NUM_LAYER = 60
 VOCAB_SIZE = 103168
 
 # Ckpt folder format:
@@ -68,7 +68,7 @@ grad_scaler = dict(
 
 hybrid_zero_optimizer = dict(
     # Enable low_level_optimzer overlap_communication
-    zero_overlap_communication=True,
+    zero_overlap_communication=False,
     # bucket size for nccl communication params
     reduce_bucket_size=512 * 1024 * 1024,
     # grad clipping
@@ -103,7 +103,7 @@ beta2_scheduler = dict(
 )
 
 model = dict(
-    checkpoint=False,  # The proportion of layers for activation aheckpointing, the optional value are True/False/[0-1]
+    checkpoint=True,  # The proportion of layers for activation aheckpointing, the optional value are True/False/[0-1]
     num_attention_heads=NUM_ATTENTION_HEAD,
     embed_split_hidden=True,
     vocab_size=VOCAB_SIZE,
@@ -133,3 +133,5 @@ parallel = dict(
 
 cudnn_deterministic = False
 cudnn_benchmark = False
+
+# https://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@github.com/InternLM/InternLM.git

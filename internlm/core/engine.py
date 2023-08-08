@@ -112,8 +112,8 @@ class Engine:
             success (bool): Whether the parameter update was successful.
             grad_norm (float): The norm of the gradient after clipping.
         """
-        self._all_reduce_gradients()
-        self.optimizer.clip_grad_norm(self.model, self._clip_grad_norm)
+        # self._all_reduce_gradients()
+        # self.optimizer.clip_grad_norm(self.model, self._clip_grad_norm)
 
         success, grad_norm = self.optimizer.step()
 

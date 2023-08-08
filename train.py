@@ -29,7 +29,7 @@ from internlm.data.utils import DATASET_TYPE_IDS_MAP
 from internlm.model.loss import FlashGPTLMLoss
 from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
-from internlm.solver.optimizer.hybrid_zero_optim import HybridZeroOptimizer
+from internlm.solver.optimizer.hybrid_zero_optim import FSDPadaptOptimizer, HybridZeroOptimizer
 from internlm.utils.common import (
     BatchSkipper,
     get_master_node,
@@ -54,14 +54,25 @@ from internlm.utils.parallel import (
     sync_model_param_within_tp,
 )
 from internlm.utils.registry import MODEL_INITIALIZER
-from internlm.utils.simple_memory_profiler import (
-    SimpleMemoryProfiler,
-    build_activation_config,
-)
 
 # global llm logger
 logger = get_logger(__file__)
 
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.distributed.fsdp.fully_sharded_data_parallel import (
+    CPUOffload,
+    BackwardPrefetch,
+    ShardingStrategy,
+    MixedPrecision,
+)
+from torch.distributed.fsdp.wrap import (
+    size_based_auto_wrap_policy,
+    transformer_auto_wrap_policy,
+    enable_wrap,
+    wrap,
+)
+import functools
+from internlm.model.modeling_internlm import PackedFlashBaseLayer1D
 
 def initialize_distributed_env(config: str, launcher: str = "slurm", master_port: int = 8888, seed: int = 1024):
     """
@@ -111,11 +122,64 @@ def initialize_model():
     # This sync is very important, cause the model weights kept in optimizer are copied
     # from the origin parameters in the memory, so we should make sure the dp sync
     # does not influence the model weights in optimizer be different with the origin parameters.
-    sync_model_param(model, parallel_mode=ParallelMode.DATA)
+    # under Pytorch FSDP setting, there's no need to sync param manually
+    if not gpc.config.data.use_fsdp:
+        sync_model_param(model, parallel_mode=ParallelMode.DATA)
 
     # This function is needed to make sure parameters that are not splitted by tensor parallelism are
     # the same across tensor parallelism.
-    sync_model_param_within_tp(model)
+    if not gpc.config.data.use_fsdp:    
+        sync_model_param_within_tp(model)
+
+    # hook for debug
+    def test_hook(module, grad_in, grad_out = None):
+        lst = []
+        lst.append(f"name: {module.__class__}")
+        lst.append(f"in_len:{len(grad_in)}")
+        if grad_out is not None:
+            lst.append(f"out_len:{len(grad_out)}")
+            if isinstance(grad_out[0], torch.Tensor):
+                lst.append(grad_out[0][:2, :2])
+        lst.append(f"{gpc.get_local_rank(ParallelMode.DATA), torch.cuda.memory_allocated()/1e9} GiB")
+        print(lst, flush=True)
+
+    def decorate(info, func):
+        def warper(module, grad_in, grad_out = None):
+            if not gpc.is_rank_for_log(): return 
+            print(info, end='', flush=True)
+            func(module, grad_in, grad_out)
+        return warper
+
+    if gpc.config.data.hook_debug:
+        for child in model.children():
+            child.register_full_backward_hook(hook=decorate("backward:", test_hook))
+            child.register_forward_pre_hook(hook=decorate("forward:", test_hook))
+            if hasattr(child, "blocks"):
+                for md in child.blocks:
+                    for ch in md.children():
+                        ch.register_full_backward_hook(hook=decorate("\t\tbackward:", test_hook))
+                        ch.register_forward_pre_hook(hook=decorate("\t\tforward:", test_hook))
+            for ch in child.children():
+                ch.register_full_backward_hook(hook=decorate("\tbackward:", test_hook))
+                ch.register_forward_pre_hook(hook=decorate("\tforward:", test_hook))
+
+    # FSDP warpper
+    if gpc.config.data.use_fsdp:
+        my_auto_wrap_policy = functools.partial(
+            size_based_auto_wrap_policy, min_num_params=20000
+        )
+        transformer_wrap_policy = functools.partial(
+            transformer_auto_wrap_policy,
+            transformer_layer_cls = {PackedFlashBaseLayer1D}
+        )
+        mx = MixedPrecision(
+            param_dtype=torch.float16, reduce_dtype=torch.float16, buffer_dtype=torch.float16)
+        model = FSDP(module=model, 
+                     sharding_strategy=ShardingStrategy.FULL_SHARD,
+                     auto_wrap_policy=transformer_wrap_policy,
+                     #mixed_precision=mx, 
+                     #device_id=torch.cuda.current_device()
+                    )
 
     return model
 
@@ -236,9 +300,14 @@ def initialize_optimizer(model: nn.Module):
         eps=adam_cfg.adam_eps,
     )
 
-    optimizer = HybridZeroOptimizer(
-        naive_optimizer, grad_scal_cfg=gpc.config.grad_scaler, zero_cfg=gpc.config.hybrid_zero_optimizer
-    )
+    if not gpc.config.data.use_fsdp and gpc.config.data.use_communication:
+        optimizer = HybridZeroOptimizer(
+            naive_optimizer, grad_scal_cfg=gpc.config.grad_scaler, zero_cfg=gpc.config.hybrid_zero_optimizer
+        )
+    else:
+        optimizer = FSDPadaptOptimizer(
+            naive_optimizer, grad_scal_cfg=gpc.config.grad_scaler, zero_cfg=gpc.config.hybrid_zero_optimizer
+        )
 
     beta2_scheduler = Beta2Scheduler(optimizer=naive_optimizer, **gpc.config.beta2_scheduler)
 
@@ -318,6 +387,8 @@ def record_current_batch_training_metrics(
         fwd_bwd_time = round(timer("fwd-bwd").elapsed(), 2)
         line += f"fwd_bwd_time={fwd_bwd_time}"
 
+        line += f",max_cuda_mem={torch.cuda.max_memory_allocated()/1e9} GiB"
+        torch.cuda.reset_peak_memory_stats()
         logger.info(line)
 
 
@@ -398,6 +469,10 @@ def main(args):
 
     optimizer, beta2_scheduler, lr_scheduler = initialize_optimizer(model=model)
 
+    logger.info(
+        "  rank {}, {}, GiB was allocated".format(gpc.get_local_rank(ParallelMode.DATA), torch.cuda.memory_allocated()/1e9)
+    )
+
     # Loading other persistent training states.
     if load_resume_ckpt_folder is not None:
         # load lr scheduler states.
@@ -419,19 +494,6 @@ def main(args):
         lr_scheduler=lr_scheduler,
         beta2_scheduler=beta2_scheduler,
     )
-
-    # initialize simple memory profiler
-    if args.profiling:
-        memory_profiler = SimpleMemoryProfiler(
-            model.model,
-            optimizer.optim,
-            log_folder=f"memory_trace/rank{gpc.get_global_rank()}_"
-            + f"dp{gpc.get_local_rank(ParallelMode.DATA)}_"
-            + f"tp{gpc.get_local_rank(ParallelMode.TENSOR)}",
-            activation_config=build_activation_config(gpc.config.model.num_layers),
-        )
-    else:
-        memory_profiler = None
 
     # initialize the batch skipper
     batch_skipper = BatchSkipper(skip_batches)
@@ -481,7 +543,6 @@ def main(args):
             train_state.inf_nan_skip_batches += 1  # record the amount of updating parameters unsuccessfully.
             if grad_norm == -99.0 and gpc.is_rank_for_log():  # -99.0 encodes a specific failure case
                 logger.warning(f"Warning: skip parameter update at step {batch_count}.")
-
         # calculate and record the training metrics, eg. loss, accuracy and so on.
         record_current_batch_training_metrics(
             get_tflops_func=get_tflops_func,
@@ -500,9 +561,6 @@ def main(args):
 
         timer("one-batch").stop()
 
-        if memory_profiler is not None:
-            memory_profiler.step()
-
         # checkpoint the training states in specific steps, which is determined by the args "checkpoint_every"
         # # save batch sampler that tracks the true consumed samples
         if enable_save_ckpt and train_state.step_count % checkpoint_every == 0:
@@ -514,16 +572,18 @@ def main(args):
                 train_state=train_state,
                 model_config=gpc.config.model,
             )
-
+        if gpc.config.data.hook_debug: break
     # wait for all checkpoint uploads to be completed
     dist.barrier()
 
 
 if __name__ == "__main__":
     args = parse_args()
-
     try:
         main(args)
     except Exception:
         print(f"Raise exception from {socket.gethostname()} with proc id: {get_process_rank()}")
         traceback.print_exc()
+
+    # a = torch.tensor([]).type(torch.float16)
+    # b = a.as_strided([256, 256], [1, 256], 53067008)
