@@ -343,7 +343,8 @@ class Initializer_Zero1(ProcessGroupInitializer):
                     ranks_in_group = ranks
 
         return local_rank, group_world_size, process_group, cpu_group, ranks_in_group, mode
-    
+
+
 class Initializer_Expert(ProcessGroupInitializer):
     """A ProcessGroupInitializer for zero-1 parallelism.
 
