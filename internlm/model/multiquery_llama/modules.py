@@ -367,7 +367,6 @@ class OneDConvertedParallelMHA2(nn.Module):
                 )
                 global attn_activation_size_printed
                 if gpc.get_global_rank() == 0 and not attn_activation_size_printed:
-                    print(f"### attn activation size: {context.element_size() * context.nelement()}")
                     attn_activation_size_printed = True
             else:
                 context = torch.utils.checkpoint.checkpoint(

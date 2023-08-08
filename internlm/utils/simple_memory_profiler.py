@@ -620,6 +620,16 @@ def build_activation_config(num_layers: int, num_chunks: int = 1) -> List[str]:
     return activation_conf
 
 
+def print_current_memory_status(prefix: str, ranks: list):
+    if gpc.get_global_rank() in ranks:
+        print(f"{prefix}: torch.cuda.memory_allocated: {(torch.cuda.memory_allocated() / 1024 / 1024)} mb", flush=True)
+        print(f"{prefix}: torch.cuda.memory_reserved: {(torch.cuda.memory_reserved() / 1024 / 1024)} mb", flush=True)
+        print(
+            f"{prefix}: torch.cuda.max_memory_allocated: {(torch.cuda.max_memory_allocated() / 1024 / 1024)} mb",
+            flush=True,
+        )
+
+
 if __name__ == "__main__":
 
     class SimpleModel(torch.nn.Module):

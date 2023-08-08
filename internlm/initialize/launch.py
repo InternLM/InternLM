@@ -38,7 +38,7 @@ def get_default_parser():
     parser.add_argument("--local_rank", type=int, help="local rank on the node")
     parser.add_argument("--backend", type=str, default="nccl", help="backend for distributed communication")
     parser.add_argument("--seed", type=int, default=1024)
-    parser.add_argument("--profiling", default=True, action="store_true", help="enable/diable profiling.")
+    parser.add_argument("--profiling", default=False, action="store_true", help="enable/disable profiling.")
     return parser
 
 
@@ -202,7 +202,9 @@ def args_sanity_check():
     if "sequence_parallel" not in gpc.config.model:
         gpc.config.model._add_item("sequence_parallel", False)
     else:
-        assert not (gpc.config.model.sequence_parallel is True and gpc.config.model.use_flash_attn is False), "sequence parallel does not support use_flash_attn=False"
+        assert not (
+            gpc.config.model.sequence_parallel is True and gpc.config.model.use_flash_attn is False
+        ), "sequence parallel does not support use_flash_attn=False"
 
 
 def launch(

@@ -10,9 +10,9 @@ VOCAB_SIZE = 103168
 # Ckpt folder format:
 # fs: 'local:/mnt/nfs/XXX'
 # oss: 'boto3:s3://model_weights/XXX'
-MODEL_ONLY_FOLDER = None #"local:llm_ckpts/xxxx"
-SAVE_CKPT_FOLDER = None #"local:llm_ckpts"
-LOAD_CKPT_FOLDER = None #"local:llm_ckpts/49"
+MODEL_ONLY_FOLDER = None  # "local:llm_ckpts/xxxx"
+SAVE_CKPT_FOLDER = None  # "local:llm_ckpts"
+LOAD_CKPT_FOLDER = None  # "local:llm_ckpts/49"
 ckpt = dict(
     # Path to save training ckpt.
     save_ckpt_folder=SAVE_CKPT_FOLDER,
@@ -62,7 +62,7 @@ grad_scaler = dict(
 
 hybrid_zero_optimizer = dict(
     # Enable low_level_optimzer overlap_communication
-    zero_overlap_communication=True,
+    zero_overlap_communication=False,
     # bucket size for nccl communication params
     reduce_bucket_size=512 * 1024 * 1024,
     # grad clipping
@@ -130,7 +130,7 @@ tensor parallel: tensor parallel size, usually the number of GPUs per node, only
 parallel = dict(
     zero1=-1,
     tensor=dict(size=8),
-    pipeline=dict(size=2),
+    pipeline=dict(size=1),
 )
 
 cudnn_deterministic = False

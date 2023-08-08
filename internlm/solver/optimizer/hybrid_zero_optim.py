@@ -28,6 +28,7 @@ from internlm.solver.optimizer.utils import (
 from internlm.utils.common import get_current_device
 from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
+from internlm.utils.simple_memory_profiler import print_current_memory_status
 
 from .utils import compute_norm
 
@@ -506,6 +507,9 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         # check for overflow
         found_inf = self._check_overflow()
+
+        # print_current_memory_status("after xxx_1", [0])
+
         # Because you may encounter inf when computing norm
         timer("cal_norm").start()
         norm_groups = []
@@ -535,6 +539,8 @@ class HybridZeroOptimizer(BaseOptimizer):
                     break
                 norm_groups.append(norm_group)
 
+        # print_current_memory_status("after xxx_2", [0])
+
         loss_scale = float(self.loss_scale.item())  # backup
         if not gpc.config.model.dtype is torch.float32:
             self.grad_scaler.update(found_inf)
@@ -546,6 +552,8 @@ class HybridZeroOptimizer(BaseOptimizer):
             self.zero_grad()
             return False, None
 
+        # print_current_memory_status("after xxx_3", [0])
+
         # copy the grad of fp16 param to fp32 param
         single_grad_partition_groups = []
         global_norm = 0
@@ -554,14 +562,16 @@ class HybridZeroOptimizer(BaseOptimizer):
             # The following operations are performed only on the rank to which parameters are assigned.
             if not self.param_group_has_params[group_id]:
                 continue
-            gradients = self._grad_store.get_averaged_gradients_by_group(group_id)
 
             # create flat gradient for the flat fp32 params
-            fp16_avg_grads = gradients
-            flat_fp16_avg_grads = flatten(fp16_avg_grads)
+            gradients = self._grad_store.get_averaged_gradients_by_group(group_id)
+            flat_fp16_avg_grads = flatten(gradients)
+            self._grad_store.reset_average_gradients_by_group(group_id)
+            del gradients  # release cuda memory
 
             dtype = self._fp32_flat_param_groups_of_current_rank[group_id].dtype
             flat_fp32_avg_grads = flat_fp16_avg_grads.to(dtype)
+            del flat_fp16_avg_grads  # release cuda memory
 
             param_shape = self._fp32_flat_param_groups_of_current_rank[group_id].shape
             assert (
@@ -571,8 +581,8 @@ class HybridZeroOptimizer(BaseOptimizer):
             single_grad_partition_groups.append(flat_fp32_avg_grads)
             device = self._fp32_flat_param_groups_of_current_rank[group_id].device
             self._fp32_flat_param_groups_of_current_rank[group_id].grad = flat_fp32_avg_grads.to(device)
-            self._grad_store._averaged_gradients[group_id] = []
-            self._grad_store._averaged_gradients[group_id] = []
+
+        # print_current_memory_status("after xxx_4", [0])
 
         # unscale and clip grads
         # get the global norm
@@ -584,6 +594,8 @@ class HybridZeroOptimizer(BaseOptimizer):
             if len(single_grad_partition_groups) != 0:
                 self._unscale_and_clip_grads(single_grad_partition_groups, global_norm, loss_scale)
 
+        # print_current_memory_status("after xxx_5", [0])
+
         timer("cal_norm").stop()
         # update the parameters
         timer("step").start()
@@ -592,8 +604,13 @@ class HybridZeroOptimizer(BaseOptimizer):
         # to send them updated their own parameters.
         if self.has_params:
             self.optim.step()
+
+            # print_current_memory_status("after xxx_6", [0])
+
             # release the fp32 grad
             release_param_grad(self._fp32_flat_param_groups_of_current_rank.values())
+
+            # print_current_memory_status("after xxx_7", [0])
             # update fp16 partition updated by the current rank
             for group_id in range(len(self._fp16_param_groups)):
                 if self.param_group_has_params[group_id]:
@@ -603,8 +620,12 @@ class HybridZeroOptimizer(BaseOptimizer):
                     fp32_param = self._fp32_flat_param_groups_of_current_rank[group_id]
                     fp16_param.data.copy_(fp32_param)
 
+            # print_current_memory_status("after xxx_8", [0])
+
         # TODO: support broadcast overlap
         self.broadcast_params(overlap=False)
+
+        # print_current_memory_status("after xxx_9", [0])
 
         timer("step").stop()
         # update gradients may not be needed here, because the sync_params function is used in initialization,
