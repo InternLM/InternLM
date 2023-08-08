@@ -81,8 +81,8 @@ class MoE(torch.nn.Module):
         self.num_local_experts = num_experts // self.ep_size
 
         logger.info(
-            f"""Creating MoE layer with num_experts: {num_experts} | num_local_experts:
-            {self.num_local_experts} | expert_parallel_size: {self.ep_size}"""
+            f"Creating MoE layer with num_experts: {num_experts} | num_local_experts:"
+            f"{self.num_local_experts} | expert_parallel_size: {self.ep_size}"
         )
 
         assert noisy_gate_policy is None or noisy_gate_policy in ["None", "Jitter", "RSample"], (

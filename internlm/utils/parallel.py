@@ -5,6 +5,7 @@ import torch.distributed as dist
 
 from internlm.core.context import IS_TENSOR_PARALLEL, ParallelMode
 from internlm.core.context import global_context as gpc
+from internlm.model.moe import is_moe_param
 
 
 def is_model_parallel_parameter(p):
@@ -20,8 +21,13 @@ def sync_model_param(model, parallel_mode):
     """
     if gpc.is_initialized(parallel_mode) and gpc.get_world_size(parallel_mode) > 1:
         for param in model.parameters():
-            ranks = gpc.get_ranks_in_group(parallel_mode)
-            dist.broadcast(param, src=ranks[0], group=gpc.get_group(parallel_mode))
+            if is_moe_param(param):
+                # TODO: moe expert param need to sync in expert data parallel group
+                # now we do not support expert data parallel
+                pass
+            else:
+                ranks = gpc.get_ranks_in_group(parallel_mode)
+                dist.broadcast(param, src=ranks[0], group=gpc.get_group(parallel_mode))
 
 
 def sync_model_param_within_tp(model):
