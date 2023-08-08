@@ -10,21 +10,24 @@ https://github.com/microsoft/DeepSpeed/blob/master/deepspeed/moe/experts.py
 
 # DeepSpeed Team
 
+from typing import Union, cast
+
 import torch
-import copy
 from torch.nn import Module, ModuleList
-from typing import TYPE_CHECKING, Any, Optional, Tuple, Union, cast
+
 
 class Experts(torch.nn.Module):
+    """
+    Local Experts.
+    """
 
     def __init__(self, experts: Union[Module, ModuleList], num_local_experts=1):
-        super(Experts, self).__init__()
+        super().__init__()
 
-        # TODO: We can not deepcopy FeedForward since it contains a process_group in submodules 
+        # TODO: We can not deepcopy FeedForward since it contains a process_group in submodules
         # self.experts = torch.nn.ModuleList([copy.deepcopy(expert) for i in range(num_local_experts)])
-            
 
-        if type(experts) == ModuleList:
+        if isinstance(experts, ModuleList):
             self.experts = cast(ModuleList, experts)
         else:
             self.experts = ModuleList([experts])
@@ -33,7 +36,7 @@ class Experts(torch.nn.Module):
         # TODO: revisit allreduce for moe.gate...
         for expert in self.experts:
             # TODO: Create param groups to handle expert + data case (e.g. param.group = moe_group)
-            for name, param in expert.named_parameters():
+            for _, param in expert.named_parameters():
                 param.all_reduce = False
 
     def forward(self, inputs):
@@ -41,7 +44,7 @@ class Experts(torch.nn.Module):
         expert_outputs = []
         for chunk, expert in zip(chunks, self.experts):
             out = expert(chunk)
-            if type(out) is tuple:
+            if isinstance(out, tuple):
                 out = out[0]  # Ignore the bias term for now
             expert_outputs += [out]
 
