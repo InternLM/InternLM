@@ -29,6 +29,7 @@ from internlm.solver.optimizer.utils import (
 from internlm.utils.common import get_current_device
 from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
+from internlm.monitor import send_alert_message
 
 from .utils import compute_norm
 
@@ -543,6 +544,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         if found_inf:
             if gpc.is_rank_for_log():
                 logger.warning("Overflow occurs, please check it.")
+                send_alert_message(address=gpc.config.alert_address, message="Overflow occurs, please check it.")
             self._grad_store._averaged_gradients = dict()
             self.zero_grad()
             return False, None
