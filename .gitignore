@@ -142,3 +142,4 @@ core.*
 
 # Run
 llm_ckpts
+memory_trace
