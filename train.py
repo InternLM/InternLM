@@ -46,12 +46,12 @@ from internlm.utils.evaluation import evaluate_on_val_dls, switch_sequence_paral
 from internlm.utils.logger import get_logger, initialize_uniscale_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
 from internlm.utils.model_checkpoint import (
+    CheckpointSaveManager,
     load_context,
     load_model_checkpoint,
     load_optimizer_checkpoint,
     load_sampler,
     load_scheduler,
-    save_checkpoint,
 )
 from internlm.utils.parallel import (
     get_parallel_log_file_name,
@@ -432,11 +432,6 @@ def main(args):
     label_smoothing = gpc.config.loss.label_smoothing
     lr = gpc.config.adam.lr
 
-    # ckpt setting
-    save_ckpt_folder = gpc.config.ckpt.save_ckpt_folder
-    enable_save_ckpt = gpc.config.ckpt.enable_ckpt
-    checkpoint_every = gpc.config.ckpt.checkpoint_every
-
     load_model_only_folder = gpc.config.ckpt.get("load_model_only_folder", None)
     load_resume_ckpt_folder = gpc.config.ckpt.get("load_ckpt_folder", None)
 
@@ -526,6 +521,14 @@ def main(args):
         # load optimzier states.
         if load_optimizer:
             load_optimizer_checkpoint(load_resume_ckpt_folder, optimizer)
+
+    ckpt_save_manager = CheckpointSaveManager(
+        ckpt_config=gpc.config.ckpt,
+        model=model,
+        optimizer=optimizer,
+        lr_scheduler=lr_scheduler,
+        model_config=gpc.config.model,
+    )
 
     # initialize metric for calculating accuracy and perplexity
     metric = AccPerplex(
@@ -645,19 +648,10 @@ def main(args):
                 )
 
         # checkpoint the training states in specific steps, which is determined by the args "checkpoint_every"
-        # save batch sampler that tracks the true consumed samples
-        if enable_save_ckpt and train_state.step_count % checkpoint_every == 0:
-            save_checkpoint(
-                folder=save_ckpt_folder,
-                model=model,
-                optimizer=optimizer,
-                scheduler=lr_scheduler,
-                train_state=train_state,
-                model_config=gpc.config.model,
-            )
+        # # save batch sampler that tracks the true consumed samples
+        ckpt_save_manager.try_save_checkpoint(train_state)
 
-    # wait for all checkpoint uploads to be completed
-    dist.barrier()
+    ckpt_save_manager.wait_async_upload_finish()
 
 
 if __name__ == "__main__":

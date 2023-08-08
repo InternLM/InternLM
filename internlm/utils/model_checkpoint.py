@@ -4,6 +4,7 @@
 import copy
 import os
 import time
+from enum import Enum
 from typing import Dict
 
 import torch
@@ -15,9 +16,21 @@ from internlm.solver.optimizer import HybridZeroOptimizer
 from internlm.utils.common import get_current_device
 from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
-from internlm.utils.storage_manager import get_fns, llm_load, llm_save
+from internlm.utils.storage_manager import (
+    get_fns,
+    get_storage_manager,
+    llm_load,
+    llm_save,
+)
 
 logger = get_logger(__file__)
+
+quit_signal_handler = None
+
+
+class CheckpointType(Enum):
+    NORMAL_CHECKPOINT = 1
+    SNAPSHOT_CHECKPOINT = 2
 
 
 def get_model_topology(model):
@@ -289,3 +302,77 @@ def load_scheduler(ckpt_path: str, lr_scheduler, optimizer, learning_rate, train
 
     if gpc.is_rank_for_log():
         logger.info(f"reload load_scheduler:{lr_scheduler}")
+
+
+class CheckpointSaveManager:
+    """StorageManagerContext"""
+
+    def __init__(
+        self,
+        ckpt_config,
+        model,
+        optimizer,
+        lr_scheduler,
+        model_config,
+    ) -> None:
+        """
+        CheckpointSaveManager is used to decide when to store ckpt. If it is an asynchronous
+        upload mode, you must call wait_async_upload_finish at the end of the program to wait
+        for the asynchronous ckpt upload to complete.
+
+        Args:
+            ckpt_config (dict): model checkpoint config.
+            model (nn.module): model obj
+            optimizer (object): optimzier obj.
+            lr_scheduler (object): lr_scheduler obj.
+            model_config (dict): model config.
+        """
+        self.enable_save_ckpt = ckpt_config.enable_save_ckpt
+        self.checkpoint_every = ckpt_config.checkpoint_every
+        self.save_ckpt_folder = ckpt_config.save_ckpt_folder
+        self.snapshot_ckpt_folder = ckpt_config.snapshot_ckpt_folder
+        self.oss_snapshot_freq: int = ckpt_config.oss_snapshot_freq
+        self.storage_manager = get_storage_manager()
+        self.snapshot_counter = 0
+
+        self.model = model
+        self.optimizer = optimizer
+        self.lr_scheduler = lr_scheduler
+        self.model_config = model_config
+
+    def try_save_checkpoint(self, train_state):
+        if not self.enable_save_ckpt:
+            return
+
+        save_ckpts, save_type = False, CheckpointType.NORMAL_CHECKPOINT
+        if self.oss_snapshot_freq > 1 and train_state.step_count % self.oss_snapshot_freq == 0:
+            save_ckpts, save_type = True, CheckpointType.SNAPSHOT_CHECKPOINT
+        if train_state.step_count % self.checkpoint_every == 0:
+            save_ckpts, save_type = True, CheckpointType.NORMAL_CHECKPOINT
+        if save_ckpts is False:
+            if quit_signal_handler is not None:
+                save_ckpts, save_type = quit_signal_handler(train_state)
+
+        if save_ckpts:
+            # Wait for the previous round of asynchronous upload storage to complete.
+            self.storage_manager.wait()
+            if save_type == CheckpointType.SNAPSHOT_CHECKPOINT:
+                # Snapshot number, with only two snapshots written alternately.
+                self.snapshot_counter = (self.snapshot_counter + 1) % 2
+                save_ckpt_folder = os.path.join(self.snapshot_ckpt_folder, f"{self.snapshot_counter}")
+            else:
+                save_ckpt_folder = self.save_ckpt_folder
+
+            save_checkpoint(
+                folder=save_ckpt_folder,
+                model=self.model,
+                optimizer=self.optimizer,
+                scheduler=self.lr_scheduler,
+                train_state=train_state,
+                model_config=self.model_config,
+            )
+
+    def wait_async_upload_finish(self):
+        """wait for all checkpoint uploads to be completed"""
+        self.storage_manager.wait()
+        torch.distributed.barrier()
