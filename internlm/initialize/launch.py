@@ -202,7 +202,13 @@ def args_sanity_check():
     if "sequence_parallel" not in gpc.config.model:
         gpc.config.model._add_item("sequence_parallel", False)
     else:
-        assert not (gpc.config.model.sequence_parallel is True and gpc.config.model.use_flash_attn is False), "sequence parallel does not support use_flash_attn=False"
+        assert not (
+            gpc.config.model.sequence_parallel is True and gpc.config.model.use_flash_attn is False
+        ), "sequence parallel does not support use_flash_attn=False"
+
+    # feishu webhook address for alerting
+    if "alert_address" not in gpc.config:
+        gpc.config._add_item("alert_address", None)
 
 
 def launch(

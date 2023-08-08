@@ -30,6 +30,8 @@ from internlm.data.packed_dataset import (
 from internlm.data.utils import DATASET_TYPE_IDS_MAP, unpack_data
 from internlm.model.loss import FlashGPTLMLoss
 from internlm.model.metrics import AccPerplex
+from internlm.monitor import initialize_monitor_manager, send_alert_message, set_env_var
+from internlm.monitor.monitor import monitor_manager as mm
 from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
 from internlm.solver.optimizer import HybridZeroOptimizer
@@ -37,7 +39,6 @@ from internlm.utils.common import (
     BatchSkipper,
     get_master_node,
     get_megatron_flops,
-    get_process_rank,
     launch_time,
     parse_args,
 )
@@ -92,6 +93,15 @@ def initialize_distributed_env(config: str, launcher: str = "slurm", master_port
 
 
 def initialize_llm_logger(start_time: str):
+    """
+    Initialize customed uniscale logger.
+
+    Args:
+        start_time (str): The launch time of current training job.
+
+    Returns: The instance of uniscale logger.
+    """
+
     uniscale_logger = initialize_uniscale_logger(
         job_name=gpc.config.JOB_NAME, launch_time=start_time, file_name=get_parallel_log_file_name()
     )
@@ -213,6 +223,8 @@ def get_train_data_loader(num_worker: int = 0):
 
 
 def get_validation_data_loader(num_worker: int = 0):
+    """Generate and return the validation data loader."""
+
     data_cfg = gpc.config.data
 
     if not data_cfg.valid_folder:
@@ -327,6 +339,8 @@ def record_current_batch_training_metrics(
     Print some training metrics of current batch.
     """
 
+    set_env_var(key="LAST_ACTIVE_TIMESTAMP", value=int(time.time()))
+
     if success_update in (0, True):
         train_state.num_consumed_tokens += batch[1].nelement() * gpc.get_world_size(ParallelMode.DATA)
     if is_no_pp_or_last_stage():
@@ -405,12 +419,11 @@ def record_current_batch_training_metrics(
         else:
             logger.info(line)
 
+        # if loss spike occurs, send alert info to feishu
+        mm.monitor_loss_spike(alert_address=gpc.config.alert_address, step_count=batch_count, cur_step_loss=loss.item())
+
 
 def main(args):
-    # initialize distributed environment
-    initialize_distributed_env(config=args.config, launcher=args.launcher, master_port=args.port, seed=args.seed)
-    assert hasattr(gpc, "config") and gpc.config is not None
-
     # init setting
     skip_batches = gpc.config.data.skip_batches
     total_steps = gpc.config.data.total_steps
@@ -477,8 +490,8 @@ def main(args):
         model_load_path = load_model_only_folder
     else:
         logger.info(
-            f"===========New Run {current_time} on host:{socket.gethostname()},"
-            f"tp:{gpc.get_local_rank(ParallelMode.TENSOR)},pp={gpc.get_local_rank(ParallelMode.PIPELINE)},"
+            f"===========New Run {current_time} on host:{socket.gethostname()},rank={gpc.get_global_rank()},"
+            f"tp={gpc.get_local_rank(ParallelMode.TENSOR)},pp={gpc.get_local_rank(ParallelMode.PIPELINE)},"
             f"dp={gpc.get_local_rank(ParallelMode.DATA)}==========="
         )
 
@@ -594,6 +607,9 @@ def main(args):
             train_state.inf_nan_skip_batches += 1  # record the amount of updating parameters unsuccessfully.
             if grad_norm == -99.0 and gpc.is_rank_for_log():  # -99.0 encodes a specific failure case
                 logger.warning(f"Warning: skip parameter update at step {batch_count}.")
+                send_alert_message(
+                    address=gpc.config.alert_address, message=f"Warning: skip parameter update at step {batch_count}."
+                )
 
         # calculate and record the training metrics, eg. loss, accuracy and so on.
         record_current_batch_training_metrics(
@@ -646,9 +662,19 @@ def main(args):
 
 if __name__ == "__main__":
     args = parse_args()
+    hostname = socket.gethostname()
 
-    try:
-        main(args)
-    except Exception:
-        print(f"Raise exception from {socket.gethostname()} with proc id: {get_process_rank()}")
-        traceback.print_exc()
+    # initialize distributed environment
+    initialize_distributed_env(config=args.config, launcher=args.launcher, master_port=args.port, seed=args.seed)
+    assert hasattr(gpc, "config") and gpc.config is not None
+
+    # initialize monitor manager context
+    with initialize_monitor_manager(job_name=gpc.config.JOB_NAME, alert_address=gpc.config.alert_address):
+        try:
+            main(args)
+        except Exception:
+            logger.error(
+                f"Raise exception from {hostname} with rank id: {gpc.get_global_rank()}",
+                exc_info=traceback.format_exc(),
+            )
+            mm.monitor_exception(alert_address=gpc.config.alert_address, excp_info=traceback.format_exc())

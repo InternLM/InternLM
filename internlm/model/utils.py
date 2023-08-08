@@ -16,6 +16,9 @@ from torch.cuda.amp import custom_bwd
 from torch.distributed import ProcessGroup
 
 from internlm.core.context import global_context as gpc
+from internlm.utils.logger import get_logger
+
+logger = get_logger(__file__)
 
 
 def _split(input_, parallel_mode, dim=-1):
@@ -83,6 +86,7 @@ class _GatherForwardSplitBackward(torch.autograd.Function):
 
 def gather_forward_split_backward(input_, parallel_mode, dim):
     return _GatherForwardSplitBackward.apply(input_, parallel_mode, dim)
+
 
 def linear_bias_wgrad_torch(input, grad_output, has_d_bias):
     assert input.dtype == grad_output.dtype
@@ -157,10 +161,11 @@ def fused_dense_func_torch(
     else:
         return FusedDenseFuncTorch.apply(x, weight, bias, return_residual, process_group, sequence_parallel)
 
+
 class _SplitForwardGatherBackward(torch.autograd.Function):
     """
     Split the input and keep only the corresponding chuck to the rank.
-    
+
     Args:
         input_: input matrix.
         parallel_mode: parallel mode.
@@ -180,7 +185,7 @@ class _SplitForwardGatherBackward(torch.autograd.Function):
     @staticmethod
     def backward(ctx, grad_output):
         return _gather(grad_output, ctx.mode, ctx.dim), None, None
-    
+
 
 def split_forward_gather_backward(input_, parallel_mode, dim):
     return _SplitForwardGatherBackward.apply(input_, parallel_mode, dim)
@@ -189,14 +194,14 @@ def split_forward_gather_backward(input_, parallel_mode, dim):
 def try_import_RMSNorm():
     """
     Try import MixFusedRMSNorm from apex, if failed, return our RMSNorm
-    
+
     """
     try:
         from apex.normalization.fused_layer_norm import MixedFusedRMSNorm as RMSNorm
+
         return RMSNorm
-    except ModuleNotFoundError as e:
-        from internlm.utils.logger import get_logger
-        logger = get_logger(__file__)
+    except ModuleNotFoundError:
         logger.warn("The torch implementation for MixFusedRMSNorm is slower than apex. Please note this!")
         from internlm.model.norm import RMSNormTorch as RMSNorm
+
         return RMSNorm
