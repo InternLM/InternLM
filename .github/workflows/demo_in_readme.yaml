@@ -58,7 +58,7 @@ jobs:
     if: ${{ always() }}
     needs: check-requirements
     runs-on: [lmtest]
-    timeout-minutes: 2
+    timeout-minutes: 20
     steps:
     - name: mask env 
       run: |
