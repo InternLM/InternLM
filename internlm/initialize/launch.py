@@ -40,7 +40,7 @@ def get_default_parser():
     parser.add_argument("--backend", type=str, default="nccl", help="backend for distributed communication")
     parser.add_argument("--seed", type=int, default=1024)
     parser.add_argument("--profiling", default=True, action="store_true", help="enable/diable profiling.")
-    parser.add_argument("--auto_restart", action="store_true", help="auto_restart flag")
+    parser.add_argument("--auto_restart", action="store_true", help="enable/diable auto_restart")
     return parser
 
 

@@ -30,3 +30,17 @@ def get_job_name():
 
 def get_job_key():
     return f"{get_job_id()}_{get_job_name()}"
+
+
+def get_world_size():
+    # We do not use torch's interface get_world_size to obtain the worldsize to prevent
+    # errors when the init_process_group is not called.
+    if os.getenv("SLURM_NPROCS") is not None:
+        ntasks = int(os.environ["SLURM_NPROCS"])
+    elif os.getenv("WORLD_SIZE") is not None:
+        # In k8s env, we use $WORLD_SIZE.
+        ntasks = int(os.environ["WORLD_SIZE"])
+    else:
+        ntasks = 1
+
+    return ntasks

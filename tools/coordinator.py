@@ -1,6 +1,7 @@
 import argparse
 import ast
 import copy
+import json
 import multiprocessing
 import os
 import pickle
@@ -18,6 +19,7 @@ from typing import Dict, Set
 
 import eventlet
 import portpicker
+import requests
 from flask import Flask, request
 from flask_socketio import SocketIO
 from loguru import logger
@@ -41,6 +43,56 @@ def delete_proxy():
         del os.environ["HTTP_PROXY"]
     if "HTTPS_PROXY" in os.environ:
         del os.environ["HTTPS_PROXY"]
+
+
+def send_feishu_msg_with_webhook(webhook: str, title: str, message: str):
+    """
+    Use Feishu robot to send messages with the given webhook.
+
+    Args:
+        webhook (str): The webhook to be used to send message.
+        title (str): The message title.
+        message (str): The message body.
+
+    Returns:
+        The response from the request. Or catch the exception and return None.
+
+    Raises:
+        Exception: An exception rasied by the HTTP post request.
+
+    """
+    res = None
+    if not webhook:
+        return res
+    headers = {"Content-Type": "application/json;charset=utf-8"}
+    msg_body = {
+        "timestamp": int(time.time()),
+        "msg_type": "post",
+        "content": {
+            "post": {
+                "zh_cn": {
+                    "title": title,
+                    "content": [
+                        [
+                            {
+                                "tag": "text",
+                                "text": message,
+                            },
+                        ],
+                    ],
+                },
+            },
+        },
+    }
+
+    try:
+        res = requests.post(webhook, data=json.dumps(msg_body), headers=headers, timeout=30)
+        res = res.json()
+        logger.info(f"Feishu webhook response: {res}")
+    except Exception as err:  # pylint: disable=W0703
+        logger.error(f"HTTP Post error: {err}")
+
+    return res
 
 
 @unique
@@ -254,33 +306,39 @@ def exec_cmd(cmd_with_args: list, shell=False, env=None) -> str:
 def do_find_slow_node(timeout: int, ib_threshold: float, jobinfo: Dict):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     test_script = os.path.join(current_dir, "nccl_test.sh")
+    exclude_nodestr = ""
 
     # handle nodelist
     nodes = get_node_hostnames(jobinfo["nodelist"])
-    nodes_str = ",".join(nodes)
-    launcher = "slurm"
-    vp = jobinfo["virtual_partition"]
+    if len(nodes) == 1:  # not test nccl for single node
+        jobid = jobinfo["jobid"]
+        logger.info(f"Job {jobid} runs on a single node: {nodes[0]}")
+        exclude_nodestr = f"{nodes[0]},"
+    else:
+        nodes_str = ",".join(nodes)
+        launcher = "slurm"
+        vp = jobinfo["virtual_partition"]
 
-    cmd = f"sh {test_script} --launcher {launcher}  --partition {vp}  --ib_threshold \
-{ib_threshold}  --nodelist  {nodes_str}"
-    logger.info(cmd)
-    with Popen(cmd, shell=True, stdout=PIPE, stderr=STDOUT) as p:
-        try:
-            outs, errs = p.communicate(timeout=timeout)
-            print(outs.decode())
-            if errs:
-                print(errs.decode())
-        except subprocess.TimeoutExpired:
-            p.kill()
-            logger.warning(f"nccl test exceeded the maximum time limit of {timeout} seconds")
+        cmd = f"sh {test_script} --launcher {launcher}  --partition {vp}  --ib_threshold \
+    {ib_threshold}  --nodelist  {nodes_str}"
+        logger.info(cmd)
+        with Popen(cmd, shell=True, stdout=PIPE, stderr=STDOUT) as p:
+            try:
+                outs, errs = p.communicate(timeout=timeout)
+                print(outs.decode())
+                if errs:
+                    print(errs.decode())
+            except subprocess.TimeoutExpired:
+                p.kill()
+                logger.warning(f"nccl test exceeded the maximum time limit of {timeout} seconds")
 
-    exclude_nodestr = ""
+    exclude_nodestr_fromfile = ""
     if os.path.exists("exclude_nodes.log"):
         with open("exclude_nodes.log", "r", encoding="utf-8") as f:
-            exclude_nodestr = f.read().strip()
-            exclude_nodestr = exclude_nodestr.replace("\n", "")
+            exclude_nodestr_fromfile = f.read().strip()
+            exclude_nodestr_fromfile = exclude_nodestr_fromfile.replace("\n", "")
 
-    return exclude_nodestr
+    return exclude_nodestr + exclude_nodestr_fromfile
 
 
 def get_slurm_jobinfo(jobid):
@@ -401,15 +459,17 @@ def determine_job_is_alive(slurm_job_id: str):
     return True
 
 
-def now_time():
-    return datetime.now().strftime("%b%d_%H-%M-%S")
-
-
 class Coordinator(object):
     """Coordinator"""
 
     def __init__(
-        self, ipaddr: str, port: str, nccl_test: bool, nccl_timeout: int = None, ib_threshold: float = None
+        self,
+        ipaddr: str,
+        port: str,
+        nccl_test: bool,
+        nccl_timeout: int = None,
+        ib_threshold: float = None,
+        alert_address: str = None,
     ) -> None:
         """init
 
@@ -422,6 +482,7 @@ class Coordinator(object):
         self.is_nccl_test = nccl_test
         self.nccl_timeout = nccl_timeout
         self.ib_threshold = ib_threshold
+        self.alert_address = alert_address
         self._lock = LockContext(type_=LockContextType.THREAD_LOCK)
         self._timeout = 1200
         self._job_map: Dict[str, JobInfo] = dict()  # slurm_jobID -> JobInfo
@@ -438,6 +499,9 @@ class Coordinator(object):
         self.restart_job_info: Dict[str, RestartInfo] = dict()  #
         logger.info(f"pwd: {os.getcwd()}", flush=True)
         # self._rank_map : dict[str, dict[str, RankInfo]] = dict()    # slurm_jobID -> [rank -> RankInfo]
+        send_feishu_msg_with_webhook(
+            self.alert_address, "Coordinator", f"{now_time()} coordinator started on {self._ip} with port {self._port}"
+        )
 
     def reset_job_state(self, origin_jobid: str, new_jobid: str):
         # Reset information about slurm id and rank in job_info.
@@ -515,8 +579,8 @@ class Coordinator(object):
             pass
 
     def get_jobinfo_key(self, jobid: str):
-        for jobid_itr in self._job_map:
-            if self._job_map[jobid_itr].slurm_jobid == jobid:
+        for jobid_itr, jobinfo in self._job_map.items():
+            if jobinfo.slurm_jobid == jobid:
                 return jobid_itr
         return None
 
@@ -698,6 +762,12 @@ has nodelist: {job.nodelist}"
                             logger.info(
                                 f"Restart job:{job.slurm_jobname} jobid: {jobid} for the {reinfo.restart_count}-th time"
                             )
+                            send_feishu_msg_with_webhook(
+                                self.alert_address,
+                                "Coordinator",
+                                f"{now_time()} {origin_jobid} restart_count: \
+{reinfo.restart_count}, new_jobid: {new_jobid}",
+                            )
 
                     except Exception as e:
                         logger.exception(e)
@@ -784,9 +854,12 @@ has nodelist: {job.nodelist}"
                         if time.time() - rankinfo.last_report_time > self._timeout:
                             catch_expection = True
                             logger.info(f"{rankinfo} keep alive TIMEOUT for {self._timeout} s")
+                            msg = f"{now_time()} jobid: {job_info.slurm_jobid} "  # pylint: disable=W0640
+                            msg += f"rank: {rank} keep alive TIMEOUT for {self._timeout} s"
+                            send_feishu_msg_with_webhook(self.alert_address, "Coordinator", msg)
 
-                            if not determine_job_is_alive(jobid):
-                                delete_job_ids.add(jobid)
+                            if not determine_job_is_alive(jobid):  # pylint: disable=W0640
+                                delete_job_ids.add(jobid)  # pylint: disable=W0640
                             else:
                                 restart_job_ids.add(jobid)  # pylint: disable=W0640
 
@@ -936,6 +1009,9 @@ if __name__ == "__main__":
     parser.add_argument("--nccl_test", action="store_true", help="nccl test to find slow nodes")
     parser.add_argument("--nccl_timeout", type=int, default=None, help="timeout for nccl test (seconds)")
     parser.add_argument("--ib_threshold", type=float, default=None, help="ib rate threshold (GB/s)")
+    parser.add_argument(
+        "--alert_address", type=str, default=None, help="the Feishu webhook address for sending alerting messages"
+    )
     args = parser.parse_args()
 
     if args.nccl_test:
@@ -965,7 +1041,9 @@ if __name__ == "__main__":
         f.write(f"COORDIATOR_PORT={args.port}\n")
 
     def coordinator_run():
-        coordinator = Coordinator(ipaddr, str(args.port), args.nccl_test, args.nccl_timeout, args.ib_threshold)
+        coordinator = Coordinator(
+            ipaddr, str(args.port), args.nccl_test, args.nccl_timeout, args.ib_threshold, args.alert_address
+        )
         coordinator_app = create_coordinator_app(coordinator)
         socketio = SocketIO(coordinator_app)
 

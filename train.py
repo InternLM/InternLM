@@ -34,6 +34,7 @@ from internlm.model.loss import FlashGPTLMLoss
 from internlm.model.metrics import AccPerplex
 from internlm.monitor import initialize_monitor_manager, send_alert_message, set_env_var
 from internlm.monitor.monitor import monitor_manager as mm
+from internlm.monitor.restart import init_local_adapter, send_exception, send_keep_alive
 from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
 from internlm.solver.optimizer import HybridZeroOptimizer
@@ -54,11 +55,6 @@ from internlm.utils.model_checkpoint import (
     load_optimizer_checkpoint,
     load_sampler,
     load_scheduler,
-)
-from internlm.utils.monitor_and_alert import (
-    init_local_adapter,
-    send_exception,
-    send_keep_alive,
 )
 from internlm.utils.parallel import (
     get_parallel_log_file_name,
@@ -344,6 +340,7 @@ def record_current_batch_training_metrics(
     grad_norm,
     metric,
     update_panel,
+    send_heartbeat,
 ):
     """
     Print some training metrics of current batch.
@@ -428,6 +425,9 @@ def record_current_batch_training_metrics(
             )
         else:
             logger.info(line)
+
+        if send_heartbeat:
+            send_keep_alive(train_state.step_count, loss, tk_per_gpu, tflops, gpc.config.ckpt.checkpoint_every)
 
         # if loss spike occurs, send alert info to feishu
         mm.monitor_loss_spike(alert_address=gpc.config.alert_address, step_count=batch_count, cur_step_loss=loss.item())
@@ -562,6 +562,7 @@ def main(args):
     trainer, train_dl, _, _ = internlm.initialize_trainer(
         model=model,
         optimizer=optimizer,
+        criterion=criterion,
         lr_scheduler=lr_scheduler,
         beta2_scheduler=beta2_scheduler,
         scheduler_hooks=scheduler_hooks,
@@ -625,19 +626,6 @@ def main(args):
                     address=gpc.config.alert_address, message=f"Warning: skip parameter update at step {batch_count}."
                 )
 
-        if args.auto_restart:
-            num_tokens_in_batch = batch[1].nelement()
-            tk_per_gpu = round(
-                num_tokens_in_batch
-                * gpc.get_world_size(ParallelMode.DATA)
-                / gpc.get_world_size(ParallelMode.GLOBAL)
-                / (time.time() - start_time),
-                2,
-            )
-
-            tflops = get_tflops_func((time.time() - start_time))
-            send_keep_alive(train_state.step_count, loss, tk_per_gpu, tflops, checkpoint_every)
-
         # calculate and record the training metrics, eg. loss, accuracy and so on.
         record_current_batch_training_metrics(
             get_tflops_func=get_tflops_func,
@@ -655,6 +643,7 @@ def main(args):
             grad_norm=grad_norm,
             metric=metric,
             update_panel=uniscale_logger is not None,
+            send_heartbeat=args.auto_restart,
         )
 
         timer("one-batch").stop()
@@ -686,20 +675,41 @@ if __name__ == "__main__":
     initialize_distributed_env(config=args.config, launcher=args.launcher, master_port=args.port, seed=args.seed)
     assert hasattr(gpc, "config") and gpc.config is not None
 
+    # initialize autorestart
+    if args.auto_restart:
+        if os.path.exists("coordinator_env"):
+            with open("coordinator_env", "r", encoding="utf-8") as f:
+                lines = f.read().splitlines()
+                for line in lines:
+                    key, value = line.split("=")[0], line.split("=")[1]
+                    os.environ[key] = value
+
+        train_config = None
+        if args.config.endswith(".py"):
+            train_config = str(Config.from_file(args.config))
+        else:
+            train_config = args.config
+
+        if gpc.is_rank_for_log():
+            init_local_adapter(gpc.get_global_rank(), gpc.get_global_rank() % torch.cuda.device_count(), train_config)
+
+        del train_config
+
     # initialize monitor manager context
     with initialize_monitor_manager(job_name=gpc.config.JOB_NAME, alert_address=gpc.config.alert_address):
         try:
             main(args)
         except Exception:
+            filtered_trace = traceback.format_exc().split("\n")[-10:]
+            format_trace = ""
+            for line in filtered_trace:
+                format_trace += "\n" + line
+
             logger.error(
                 f"Raise exception from {hostname} with rank id: {gpc.get_global_rank()}",
-                exc_info=traceback.format_exc(),
+                exc_info=format_trace,
             )
-            mm.monitor_exception(alert_address=gpc.config.alert_address, excp_info=traceback.format_exc())
+            mm.monitor_exception(alert_address=gpc.config.alert_address, excp_info=format_trace)
 
-        filtered_trace = traceback.format_exc().split("\n")[-10:]
-        format_trace = ""
-        for line in filtered_trace:
-            format_trace += "\n" + line
-        if args.auto_restart:
-            send_exception(format_trace)
+            if args.auto_restart:
+                send_exception(format_trace)

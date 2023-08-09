@@ -9,31 +9,11 @@ import torch
 
 from internlm.utils.logger import get_logger
 
+from .utils import get_job_id, get_world_size
+
 logger = get_logger(__file__)
 
 local_adapter = None
-
-
-def get_world_size():
-    # We do not use torch's interface get_world_size to obtain the worldsize to prevent
-    # errors when the init_process_group is not called.
-    if os.getenv("SLURM_NPROCS") is not None:
-        ntasks = int(os.environ["SLURM_NPROCS"])
-    elif os.getenv("WORLD_SIZE") is not None:
-        # In k8s env, we use $WORLD_SIZE.
-        ntasks = int(os.environ["WORLD_SIZE"])
-    else:
-        ntasks = 1
-
-    return ntasks
-
-
-def get_job_id():
-    job_id = "none"
-    if os.getenv("SLURM_JOB_ID") is not None:
-        job_id = os.getenv("SLURM_JOB_ID")
-
-    return job_id
 
 
 class Adapter(object):
@@ -66,14 +46,10 @@ class Adapter(object):
         self._register()
         # After more than fifteen minutes, try to reconnect to the Coordinator
         # self.last_active_time = time.time()
-        # self.server_is_dead = False
-        # self._port = portpicker.pick_unused_port()
 
     def _send_requests(self, meta_data: Dict, msg_type: str, show_log=False, timeout=10):
         result = None
         max_retry = 3
-        # if self.server_is_dead == True:
-        #     return None
         while True:
             if max_retry == 0:
                 break
