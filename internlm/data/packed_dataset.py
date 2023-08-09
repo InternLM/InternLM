@@ -185,7 +185,7 @@ class PackedDataset(torch.utils.data.Dataset):
 
         out = {"tokens": pack, "cu_seqlens": cu_seqlens, "indexes": indexes, "labels": labels, "type_ids": type_ids}
         return out
-    
+
     def __getitem__(self, item: int) -> Dict:
         """Given the index, it returns a dict as
         {
@@ -199,7 +199,7 @@ class PackedDataset(torch.utils.data.Dataset):
         if gpc.config.model.use_flash_attn:
             pos_before, token_id_before, pos_after, token_id_after = self.mapping(item)
             return self.build_pack(pos_before, token_id_before, pos_after, token_id_after)
-        
+
         return self.build_unpack(item)
 
 

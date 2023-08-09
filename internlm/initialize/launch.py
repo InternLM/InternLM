@@ -11,6 +11,7 @@ import torch
 from internlm.core.context import Config
 from internlm.core.context import global_context as gpc
 from internlm.utils.logger import get_logger
+from internlm.utils.storage_manager import init_storage_manager
 
 logger = get_logger(__file__)
 
@@ -38,6 +39,7 @@ def get_default_parser():
     parser.add_argument("--local_rank", type=int, help="local rank on the node")
     parser.add_argument("--backend", type=str, default="nccl", help="backend for distributed communication")
     parser.add_argument("--seed", type=int, default=1024)
+    parser.add_argument("--profiling", default=True, action="store_true", help="enable/diable profiling.")
     parser.add_argument("--auto_restart", action="store_true", help="auto_restart flag")
     return parser
 
@@ -89,6 +91,12 @@ def args_sanity_check():
     if "valid_folder" not in data:
         data._add_item("valid_folder", None)
 
+    if "valid_micro_num" not in data:
+        data._add_item("valid_micro_num", data.micro_num)
+
+    if "valid_every" not in data:
+        data._add_item("valid_every", 0)
+
     if gpc.is_rank_for_log():
         logger.info("+" * 15 + " Data Info " + "+" * 15)  # pylint: disable=W1201
         logger.info(f"seq_len: {data.seq_len}")
@@ -97,6 +105,8 @@ def args_sanity_check():
         logger.info(f"packed_length: {data.packed_length}")
         logger.info(f"pack_sample_into_one: {data.pack_sample_into_one}")
         logger.info(f"min_length: {data.min_length}")
+        logger.info(f"valid_micro_num: {data.valid_micro_num}")
+        logger.info(f"valid_every: {data.valid_every}")
 
     # processing the checkpoint config
     if "checkpoint_every" not in gpc.config.ckpt or gpc.config.ckpt.checkpoint_every <= 0:
@@ -114,19 +124,43 @@ def args_sanity_check():
     if "load_model_only_folder" not in gpc.config.ckpt:
         gpc.config.ckpt._add_item("load_model_only_folder", None)
 
+    if "async_upload" not in gpc.config.ckpt:
+        gpc.config.ckpt._add_item("async_upload", False)
+    else:
+        if gpc.config.ckpt.async_upload:
+            assert "save_ckpt_folder" in gpc.config.ckpt
+            if "boto3:" not in gpc.config.ckpt.save_ckpt_folder:
+                if gpc.is_rank_for_log():
+                    logger.warning(
+                        "Storing ckpt on file system does not support asynchronous storage, will use sync save!"
+                    )
+                gpc.config.ckpt.async_upload = False
+            else:
+                if "async_upload_tmp_folder" not in gpc.config.ckpt:
+                    gpc.config.ckpt._add_item("async_upload_tmp_folder", "/dev/shm/internlm_tmp_ckpt/")
+
+    if "snapshot_ckpt_folder" not in gpc.config.ckpt:
+        gpc.config.ckpt._add_item("snapshot_ckpt_folder", os.path.join(gpc.config.ckpt.save_ckpt_folder), "snapshot")
+
+    if "oss_snapshot_freq" not in gpc.config.ckpt and gpc.config.ckpt.checkpoint_every != float("inf"):
+        gpc.config.ckpt._add_item("oss_snapshot_freq", gpc.config.ckpt.checkpoint_every / 2)
+        assert gpc.config.ckpt.oss_snapshot_freq > 0
+
     assert not (
         gpc.config.ckpt.load_ckpt_folder is not None and gpc.config.ckpt.load_model_only_folder is not None
     ), "'load_ckpt_folder' and 'load_model_only_folder' cannot be set at the same time."
 
-    gpc.config.ckpt._add_item(
-        "enable_ckpt", gpc.config.ckpt.save_ckpt_folder is not None and gpc.config.ckpt.checkpoint_every > 0
-    )
+    if "enable_save_ckpt" not in gpc.config.ckpt:
+        gpc.config.ckpt._add_item("enable_save_ckpt", False)
 
     if gpc.is_rank_for_log():
         logger.info("+" * 15 + " Ckpt Info " + "+" * 15)  # pylint: disable=W1201
-        logger.info(f"is enable save ckpt: {gpc.config.ckpt.enable_ckpt}")
+        logger.info(f"is enable save ckpt: {gpc.config.ckpt.enable_save_ckpt}")
         logger.info(f"save_ckpt_folder: {gpc.config.ckpt.save_ckpt_folder}")
         logger.info(f"checkpoint_every: {gpc.config.ckpt.checkpoint_every}")
+
+    # initialization storage manager
+    init_storage_manager(gpc.config.ckpt)
 
     # tensorboard writer config
     if "enable_tb" not in gpc.config:
@@ -155,8 +189,22 @@ def args_sanity_check():
             gpc.config.model.dtype = torch.bfloat16
         elif gpc.config.model.dtype in ("torch.float16", "torch.half"):
             gpc.config.model.dtype = torch.float16
+        elif gpc.config.model.dtype == "torch.float32":
+            assert gpc.config.model.use_flash_attn is False, "when using float32, the use_flash_attn must be False"
+            gpc.config.model.dtype = torch.float32
+        elif gpc.config.model.dtype == "torch.tf32":
+            assert gpc.config.model.use_flash_attn is False, "when using tf32, the use_flash_attn must be False"
+            torch.backends.cudnn.allow_tf32 = True
+            torch.backends.cuda.matmul.allow_tf32 = True
+            gpc.config.model.dtype = torch.float32
         else:
-            assert gpc.config.model.dtype in ["torch.float16", "torch.half", "torch.bfloat16"]
+            assert gpc.config.model.dtype in [
+                "torch.float16",
+                "torch.half",
+                "torch.bfloat16",
+                "torch.float32",
+                "torch.tf32",
+            ]
 
     if gpc.is_rank_for_log():
         logger.info("+" * 15 + " Model Info " + "+" * 15)  # pylint: disable=W1201
@@ -173,6 +221,20 @@ def args_sanity_check():
 
         logger.info("+" * 15 + " beta2_scheduler Info " + "+" * 15)  # pylint: disable=W1201
         logger.info(f"beta2_scheduler: {gpc.config.beta2_scheduler}")
+
+    # process the model config
+    if "use_flash_attn" not in gpc.config.model:
+        gpc.config.model._add_item("use_flash_attn", True)
+    if "sequence_parallel" not in gpc.config.model:
+        gpc.config.model._add_item("sequence_parallel", False)
+    else:
+        assert not (
+            gpc.config.model.sequence_parallel is True and gpc.config.model.use_flash_attn is False
+        ), "sequence parallel does not support use_flash_attn=False"
+
+    # feishu webhook address for alerting
+    if "alert_address" not in gpc.config:
+        gpc.config._add_item("alert_address", None)
 
 
 def launch(

@@ -13,7 +13,7 @@ from torch import Tensor, nn
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 
-from .utils import gather_forward_split_backward
+from .utils import gather_forward_split_backward, split_forward_gather_backward
 
 
 class Embedding1D(nn.Module):
@@ -55,6 +55,9 @@ class Embedding1D(nn.Module):
         output_parallel = F.embedding(input_, self.weight, self.padding_idx, *self.embed_args, **self.embed_kwargs)
 
         output = gather_forward_split_backward(output_parallel, ParallelMode.TENSOR, dim=-1)
+
+        if gpc.config.model.sequence_parallel:
+            output = split_forward_gather_backward(output, ParallelMode.TENSOR, dim=1)
 
         return output
 

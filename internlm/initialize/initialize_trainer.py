@@ -3,7 +3,7 @@
 
 # adopted from https://github.com/hpcaitech/ColossalAI/blob/main/colossalai/initialize
 
-from typing import Callable, Iterable, Optional, Tuple
+from typing import Callable, Iterable, List, Optional, Tuple
 
 from torch import nn
 from torch.nn.modules.loss import _Loss
@@ -15,12 +15,13 @@ from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.core.engine import Engine
 from internlm.core.gradient_handler import PipelineSharedModuleGradientHandler
-from internlm.core.scheduler.no_pipeline_scheduler import NonPipelineScheduler
-from internlm.core.scheduler.pipeline_scheduler import (
+from internlm.core.scheduler import (
     InterleavedPipelineScheduler,
+    NonPipelineScheduler,
     PipelineScheduler,
-    get_tensor_shape,
+    SchedulerHook,
 )
+from internlm.core.scheduler.pipeline_scheduler import get_tensor_shape
 from internlm.core.trainer import Trainer
 from internlm.data.utils import unpack_data
 from internlm.solver.beta2_scheduler import Beta2Scheduler
@@ -36,6 +37,7 @@ def initialize_trainer(
     test_dataloader: Optional[Iterable] = None,
     lr_scheduler: Optional[_LRScheduler] = None,
     beta2_scheduler: Optional[Beta2Scheduler] = None,
+    scheduler_hooks: Optional[List[SchedulerHook]] = None,
 ) -> Tuple[Trainer, DataLoader, DataLoader, _LRScheduler]:
     """Core function to wrap the essential training components with our functionality based on the config which is
     loaded into gpc.config.
@@ -85,10 +87,6 @@ def initialize_trainer(
     if gpc.is_using_pp():
         gpc.config.NUM_MICRO_BATCHES = gpc.config.data.micro_num
         tensor_shape = get_tensor_shape()
-        # if gpc.config.model.use_flash_attn:
-            # tensor_shape = get_tensor_shape()
-        # else:
-            # tensor_shape = None
         use_interleaved = (
             hasattr(gpc.config, "model") and hasattr(gpc.config.model, "num_chunks") and gpc.config.model.num_chunks > 1
         )
@@ -96,12 +94,16 @@ def initialize_trainer(
         if use_interleaved:
             if isinstance(model, nn.Sequential):
                 model = nn.ModuleList([model])
+
+            communication_overlap = gpc.config.parallel["pipeline"].get("interleaved_overlap", False)
             scheduler = InterleavedPipelineScheduler(
                 num_microbatches=gpc.config.NUM_MICRO_BATCHES,
-                num_model_chunks=gpc.config.model.num_chunks,
+                num_chunks=gpc.config.model.num_chunks,
                 dtype=gpc.config.model["dtype"],
                 tensor_shape=tensor_shape,
                 scatter_gather_tensors=scatter_gather,
+                scheduler_hooks=scheduler_hooks,
+                communication_overlap=communication_overlap,
             )
         else:
             scheduler = PipelineScheduler(
@@ -110,9 +112,14 @@ def initialize_trainer(
                 dtype=gpc.config.model["dtype"],
                 tensor_shape=tensor_shape,
                 scatter_gather_tensors=scatter_gather,
+                scheduler_hooks=scheduler_hooks,
             )
     else:
-        scheduler = NonPipelineScheduler(data_process_func=data_fn, gradient_accumulation_size=gpc.config.data.gradient_accumulation)
+        scheduler = NonPipelineScheduler(
+            data_process_func=data_fn,
+            gradient_accumulation_size=gpc.config.data.gradient_accumulation,
+            scheduler_hooks=scheduler_hooks,
+        )
 
     # initialize engine for trainer
     engine = Engine(

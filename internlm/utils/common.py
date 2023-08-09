@@ -34,18 +34,6 @@ def get_master_node():
     return result
 
 
-def get_process_rank():
-    proc_rank = -1
-    if os.getenv("SLURM_PROCID") is not None:
-        proc_rank = int(os.getenv("SLURM_PROCID"))
-    elif os.getenv("RANK") is not None:
-        # In k8s env, we use $RANK.
-        proc_rank = int(os.getenv("RANK"))
-
-    # assert proc_rank != -1, "get_process_rank cant't get right process rank!"
-    return proc_rank
-
-
 def move_norm_to_cuda(norm: Union[float, torch.Tensor]) -> Union[float, torch.Tensor]:
     if torch.is_tensor(norm) and norm.device.type != "cuda":
         norm = norm.to(torch.cuda.current_device())
