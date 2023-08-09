@@ -612,20 +612,23 @@ def _build_generic_converted_llama_pipeline_1d2(num_layers, num_chunks, device=t
         )  # If there is no content in the final layer, assign the last layer.
         kwargs["device"] = device
         kwargs["start_layer_idx"] = start
+
         chunk = PackedFlashPipelineConvertedLLAMA1D2(
             **filter_kwargs(PackedFlashPipelineConvertedLLAMA1D2.__init__, kwargs)
         ).to(device)
 
+        setattr(chunk, "first_layer", start)
+        setattr(chunk, "last_layer", end)
+
         models.append(chunk)
-    assert len(parts) == 1, "Only one chunk of model is supported..."
+
     torch.distributed.barrier()
 
     if len(models) == 1:
         model = models[0]
     else:
         model = nn.ModuleList(models)
-    setattr(model, "first_layer", start)
-    setattr(model, "last_layer", end)
+
     return model
 
 

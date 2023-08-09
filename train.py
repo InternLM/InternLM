@@ -313,10 +313,12 @@ def initialize_optimizer(model: nn.Module):
 
 def initialize_llm_profile(args, model, optimizer, log_folder_prefix):
     if args.profiling:
+        assert gpc.config.model["num_chunks"] == 1, "Only support num_chunks = 1"
+
         llm_profiler = torch.profiler.profile
         memory_profiler = SimpleMemoryProfiler(
-            model,
-            optimizer,
+            model.model,
+            optimizer.optim,
             log_folder=f"{log_folder_prefix}/memory/rank{gpc.get_global_rank()}_"
             + f"dp{gpc.get_local_rank(ParallelMode.DATA)}_"
             + f"tp{gpc.get_local_rank(ParallelMode.TENSOR)}_"
@@ -574,7 +576,7 @@ def main(args):
     train_iter = iter(train_dl)
 
     torch_profiler, memory_profiler = initialize_llm_profile(
-        args, model.model, optimizer.optim, log_folder_prefix=gpc.config.JOB_NAME
+        args, model, optimizer, log_folder_prefix=gpc.config.JOB_NAME
     )
 
     with torch_profiler(
