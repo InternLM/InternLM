@@ -30,6 +30,7 @@ from internlm.data.packed_dataset import (
 from internlm.data.utils import DATASET_TYPE_IDS_MAP, unpack_data
 from internlm.model.loss import FlashGPTLMLoss
 from internlm.model.metrics import AccPerplex
+from internlm.model.moe import has_moe_layers
 from internlm.monitor import initialize_monitor_manager, send_alert_message, set_env_var
 from internlm.monitor.monitor import monitor_manager as mm
 from internlm.solver.beta2_scheduler import Beta2Scheduler
@@ -247,7 +248,7 @@ def get_validation_data_loader(num_worker: int = 0):
         batch_size = batch_size // data_cfg.micro_bsz * data_cfg.micro_bsz
 
         if batch_size == 0 and gpc.is_rank_for_log():
-            logger.info(f"skip validate {val_name}.")
+            logger.info(f"skip validate {val_name}.")  # pylint: disable=W1203
             continue
 
         val_dls[val_name] = get_dpsampler_dataloader(
@@ -255,7 +256,7 @@ def get_validation_data_loader(num_worker: int = 0):
         )  # drop_last=True, otherwise it may cause problems in the last batch
 
         if gpc.is_rank_for_log():
-            logger.info(
+            logger.info(  # pylint: disable=W1203
                 f"load validation dataset {val_name} with valid batch size {str(batch_size)} and "
                 f"samples {str(len(val_dls[val_name]))}."
             )
@@ -307,8 +308,12 @@ def initialize_optimizer(model: nn.Module):
         eps=adam_cfg.adam_eps,
     )
 
+    has_moe = has_moe_layers(model)
     optimizer = HybridZeroOptimizer(
-        naive_optimizer, grad_scal_cfg=gpc.config.grad_scaler, zero_cfg=gpc.config.hybrid_zero_optimizer
+        naive_optimizer,
+        grad_scal_cfg=gpc.config.grad_scaler,
+        zero_cfg=gpc.config.hybrid_zero_optimizer,
+        has_moe=has_moe,
     )
 
     beta2_scheduler = Beta2Scheduler(optimizer=naive_optimizer, **gpc.config.beta2_scheduler)
@@ -472,19 +477,19 @@ def main(args):
 
     model_load_path = None
     if load_resume_ckpt_folder is not None:
-        logger.info(
+        logger.info(  # pylint: disable=W1203
             f"===========Resume training from `{load_resume_ckpt_folder}` {current_time} on host:"
             f"{socket.gethostname()}==========="
         )
         model_load_path = load_resume_ckpt_folder
     elif load_model_only_folder is not None:
-        logger.info(
+        logger.info(  # pylint: disable=W1203
             f"===========SFT training from `{load_model_only_folder}` {current_time} on host:"
             f"{socket.gethostname()}==========="
         )
         model_load_path = load_model_only_folder
     else:
-        logger.info(
+        logger.info(  # pylint: disable=W1203
             f"===========New Run {current_time} on host:{socket.gethostname()},rank={gpc.get_global_rank()},"
             f"tp={gpc.get_local_rank(ParallelMode.TENSOR)},pp={gpc.get_local_rank(ParallelMode.PIPELINE)},"
             f"dp={gpc.get_local_rank(ParallelMode.DATA)}==========="
@@ -580,7 +585,7 @@ def main(args):
         train_state.num_consumed_samples_in_epoch += len(batch[1])
         if batch_skipper(batch_count):  # skip this batch
             if gpc.is_rank_for_log():
-                logger.info(f"Skip batch count:`{batch_count}`...")
+                logger.info(f"Skip batch count:`{batch_count}`...")  # pylint: disable=W1203
             timer("one-batch").stop()
             continue
 
@@ -596,7 +601,13 @@ def main(args):
 
         # do forward and backward
         timer("fwd-bwd").start()
-        _, _, loss = trainer.execute_schedule(batch, forward_only=False, return_loss=True, return_output_label=False, moe_loss_coeff = gpc.config.loss.moe_loss_coeff)
+        _, _, loss = trainer.execute_schedule(
+            batch,
+            forward_only=False,
+            return_loss=True,
+            return_output_label=False,
+            moe_loss_coeff=gpc.config.loss.moe_loss_coeff,
+        )
         timer("fwd-bwd").stop()
 
         # update parameters, and returns (success_update, grad_norm)
@@ -609,7 +620,7 @@ def main(args):
         else:
             train_state.inf_nan_skip_batches += 1  # record the amount of updating parameters unsuccessfully.
             if grad_norm == -99.0 and gpc.is_rank_for_log():  # -99.0 encodes a specific failure case
-                logger.warning(f"Warning: skip parameter update at step {batch_count}.")
+                logger.warning(f"Warning: skip parameter update at step {batch_count}.")  # pylint: disable=W1203
                 send_alert_message(
                     address=gpc.config.alert_address, message=f"Warning: skip parameter update at step {batch_count}."
                 )
@@ -667,7 +678,7 @@ if __name__ == "__main__":
         try:
             main(args)
         except Exception:
-            logger.error(
+            logger.error(  # pylint: disable=W1203
                 f"Raise exception from {hostname} with rank id: {gpc.get_global_rank()}",
                 exc_info=traceback.format_exc(),
             )

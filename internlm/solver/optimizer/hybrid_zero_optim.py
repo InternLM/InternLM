@@ -10,6 +10,7 @@ from torch.optim import Optimizer
 from internlm.core.context import Config, ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.model.moe import is_moe_param
+from internlm.monitor import send_alert_message
 from internlm.solver.optimizer.store import (
     BucketStore,
     GradientStore,
@@ -29,7 +30,6 @@ from internlm.solver.optimizer.utils import (
 from internlm.utils.common import get_current_device
 from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
-from internlm.monitor import send_alert_message
 
 from .utils import compute_norm
 
@@ -89,6 +89,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         overlap_broadcast=False,
         grad_scal_cfg: Config = None,
         zero_cfg: Config = None,
+        has_moe: bool = False,
     ):
         # DynamicGradScaler related args
         if gpc.config.model.dtype is torch.float32:
@@ -108,6 +109,8 @@ class HybridZeroOptimizer(BaseOptimizer):
         clip_grad_norm = zero_cfg.clip_grad_norm
 
         super().__init__(optim=optimizer)
+
+        self.has_moe = has_moe
 
         self._dtype = self.optim.param_groups[0]["params"][0].dtype
         self._cpu_offload = cpu_offload
@@ -277,7 +280,9 @@ class HybridZeroOptimizer(BaseOptimizer):
                 no_params_ranks.append(rank)
 
         if gpc.is_rank_for_log():
-            logger.info(f"Number of elements on ranks: {numel_per_rank}, rank:{gpc.get_global_rank()}")
+            logger.info(  # pylint: disable=W1203
+                f"Number of elements on ranks: {numel_per_rank}, rank:{gpc.get_global_rank()}"
+            )
 
         return params_per_rank, set(no_params_ranks)
 
@@ -503,6 +508,20 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         return self._step(closure=closure)
 
+    def _get_norm_with_moe_layers(self, norm_groups):
+        # all_groups_norm_old = all_groups_norm
+        # Need to allreduce(avg) the norms across different ranks because moe params will not be synced during allreduce
+        pg = gpc.get_group(ParallelMode.DATA)
+        print(type(norm_groups))
+        scaled_norm = norm_groups * 1.0 / float(gpc.get_world_size(ParallelMode.DATA))
+        scaled_norm_tensor = torch.tensor(
+            scaled_norm, device=self._fp32_flat_param_groups_of_current_rank[0].device, dtype=torch.float
+        )
+        dist.all_reduce(scaled_norm_tensor, group=pg)
+        all_groups_norm = scaled_norm_tensor.item()
+        # print(f"old = {all_groups_norm_old} and new = {all_groups_norm} at rank: {deepspeed.comm.get_rank()}")
+        return all_groups_norm
+
     def _step(self, closure=None):
         assert closure is None, "closure is not supported by step()"
 
@@ -581,6 +600,9 @@ class HybridZeroOptimizer(BaseOptimizer):
         # get the global norm
         if self._clip_grad_norm > 0:
             global_norm = sum(norm_groups) ** 0.5
+
+        if self.has_moe:
+            global_norm = self._get_norm_with_moe_layers(global_norm)
 
         # the following operations are performed only on the rank to which parameters are assigned.
         if gpc.config.model.dtype is not torch.float32:
