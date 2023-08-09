@@ -1,21 +1,82 @@
 #!/bin/bash
 
-launcher=slurm
-partition=llm
-nodelist=$1
+options=$(getopt -o a:b:c:d:e:f:g:h:i:j:k:l: --long launcher:,partition:,nodelist:,gpus_per_node:,nnodes:,ib_threshold:,master_port:,dlc_path:,dlc_config_path:,env_path:,image:,workspace_id: -- "$@")
 
-gpus_per_node=8
-nnodes=4
-master_port=12345
+eval set -- "$options"
+
+while true; do
+  case $1 in
+    -a | --launcher) shift; launcher=$1 ; shift ;;
+    -b | --partition) shift; partition=$1 ; shift ;;
+    -c | --nodelist) shift; nodelist=$1 ; shift ;;
+    -d | --gpus_per_node) shift; gpus_per_node=$1 ; shift ;;
+    -e | --nnodes) shift; nnodes=$1 ; shift ;;
+    -f | --ib_threshold) shift; ib_threshold=$1 ; shift ;;
+    -g | --master_port) shift; master_port=$1 ; shift ;;
+    -h | --dlc_path) shift; dlc_path=$1 ; shift ;;
+    -i | --dlc_config_path) shift; dlc_config_path=$1 ; shift ;;
+    -j | --env_path) shift; env_path=$1 ; shift ;;
+    -k | --image) shift; image=$1 ; shift ;;
+    -l | --workspace_id) shift; workspace_id=$1 ; shift ;;
+    --) shift; break ;;
+    *) echo "Invalid option: $1"; exit 1 ;;
+  esac
+done
+
+optional_launchers=("slurm" "dlc")
+if [[ -z "$launcher" ]]; then
+  launcher="slurm"
+  echo "Warning: launcher is set to 'slurm'"
+fi
+if [[ ! "${optional_launchers[@]}" =~ "$launcher" ]]; then
+  echo "Error: launcher should in ('slurm' 'dlc')"
+  exit 1
+fi
+if [[ -z "$partition"  && "$launcher" == "slurm" ]]; then
+  echo "Error: partition is required if launcher is slurm."
+  exit 1
+fi
+if [[ -z "$gpus_per_node" ]]; then
+  gpus_per_node=8
+fi
+if [[ -z "$nnodes" && -z "$nodelist" ]]; then
+  echo "Error: one of nnodes or nodelist should be set"
+  exit 1
+fi
+if [[ -z "$nnodes" && "$launcher" == "dlc" ]]; then
+  echo "Error: nnodes should be set if launcher is dlc"
+  exit 1
+fi
+if [[ -z "$ib_threshold" ]]; then
+  ib_threshold=25
+  echo "Warning: ib_threshold is set to 25"
+fi
+if [[ -z "$master_port" ]]; then
+  master_port=12345
+fi
+if [[ -z "$dlc_path" && "$launcher" == "dlc" ]]; then
+  echo "Error: dlc_path should be set if launcher is dlc"
+  exit 1
+fi
+if [[ -z "$dlc_config_path" && "$launcher" == "dlc" ]]; then
+  echo "Error: dlc_config_path should be set if launcher is dlc"
+  exit 1
+fi
+if [[ -z "$env_path" && "$launcher" == "dlc" ]]; then
+  echo "Error: env_path should be set if launcher is dlc"
+  exit 1
+fi
+if [[ -z "$image" && "$launcher" == "dlc" ]]; then
+  echo "image: nnodes should be set if launcher is dlc"
+  exit 1
+fi
+if [[ -z "$workspace_id" && "$launcher" == "dlc" ]]; then
+  echo "workspace_id: nnodes should be set if launcher is dlc"
+  exit 1
+fi
 
 
-# dlc_path="/cpfs01/shared/public/dlc"
-# dlc_config_path="/cpfs01/user/jiaopenglong/.dlc.config"
-# env_path="/cpfs01/shared/public/llm/llm-env/llm-env-20230605"
-# image="pjlab-wulan-acr-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pjlab-eflops/chenxun-st:llm-test"
-# workspace_id="ws1so95hgb5kn6ja"
-
-pwd_path=$(pwd)
+script_path=$(dirname "$(realpath "$0")")
 
 slow_nodes=""
 good_nodes=""
@@ -24,12 +85,12 @@ exclude_nodes=""
 function do_slurm(){
   local nodes=$1
   local num_nodes=$2
-  srun -p $partition -w $nodes -N $num_nodes --gpus-per-task 1 --ntasks-per-node=$gpus_per_node python find_slow_nodes.py --launcher slurm --port $master_port --ib_threshold 25
+  srun -p $partition -w $nodes -N $num_nodes --gpus-per-task 1 --ntasks-per-node=$gpus_per_node python $script_path/find_slow_nodes.py --launcher slurm --port $master_port --ib_threshold $ib_threshold
 }
 
 function do_torch(){
   local master_addr=$1
-  torchrun --master_addr $master_addr --master_port $master_port --nnodes $nnodes --nproc_per_node $gpus_per_node find_slow_nodes.py --launcher torch --port $master_port
+  torchrun --master_addr $master_addr --master_port $master_port --nnodes $nnodes --nproc_per_node $gpus_per_node $script_path/find_slow_nodes.py --launcher torch --port $master_port --ib_threshold $ib_threshold
 }
 
 function do_dlc(){
@@ -37,11 +98,11 @@ function do_dlc(){
   local num_nodes=$2
   local master_addr=$3
   local cmd="source ${env_path} && \
-cd ${pwd_path} && \
+cd ${script_path} && \
 torchrun --master_addr \$MASTER_ADDR \
 --master_port $master_port --nnodes \$WORLD_SIZE \
 --nproc_per_node $gpus_per_node --node_rank \$RANK \
-find_slow_nodes.py --launcher torch --port $master_port"
+find_slow_nodes.py --launcher torch --port $master_port --ib_threshold $ib_threshold"
   ${dlc_path} --config ${dlc_config_path} create job --name "nccltest" --interactive \
 --kind PyTorchJob --node_names $nodes \
 --worker_count $num_nodes --worker_cpu 24 --worker_gpu $gpus_per_node \
@@ -68,7 +129,7 @@ function get_nodes_dlc(){
 
   local cmd="source ${env_path} && \
 export DLC_CONFIG=$dlc_config_path && \
-cd ${pwd_path} && \
+cd ${script_path} && \
 python find_slow_nodes.py --launcher k8s --gethost"
 
   ${dlc_path} --config ${dlc_config_path} create job --name gethostname --interactive \
@@ -88,9 +149,9 @@ function nccl_test(){
   local nodearray=($(echo $nodestr | awk -F ',' '{for(i=1; i<=NF; i++) print $i}'))
   echo $nodestr
   local num_group=${#nodearray[@]}
-  if [[ "$launcher" -eq "slurm" ]] ; then
+  if [[ "$launcher" == "slurm" ]] ; then
     do_slurm "$nodestr" "${num_group}"
-  elif [[ "$launcher" -eq "dlc" ]] ; then
+  elif [[ "$launcher" == "dlc" ]] ; then
     do_dlc "$nodestr" "${num_group}" "${nodearray[1]}"
   fi
 
@@ -129,9 +190,9 @@ function nccl_test(){
 }
 
 function screen_slow_nodes(){
-  if [[ "$slow_nodes" -eq "" ]] ; then
+  if [[ "$slow_nodes" == "" ]] ; then
     exclude_nodes=$slow_nodes
-  elif [[ "$good_nodes" -eq "" ]] ; then
+  elif [[ "$good_nodes" == "" ]] ; then
     exclude_nodes=$slow_nodes
   else
     local good_nodearray=($(echo $good_nodes | awk -F ',' '{for(i=1; i<=NF; i++) print $i}'))
@@ -142,7 +203,7 @@ function screen_slow_nodes(){
       local test_nodearray=($slow_node $test_good_node)
       local num_test_nodearray=${#test_nodearray[@]}
       local test_nodestr=$(printf "%s," "${test_nodearray[@]}")
-      if [[ "$launcher" -eq "slurm" ]] ; then
+      if [[ "$launcher" == "slurm" ]] ; then
         do_slurm "$test_nodestr" "${num_test_nodearray}"
       elif [[ "$launcher" == "dlc" ]] ; then
         do_dlc "$test_nodestr" "${num_test_nodearray}" "${test_nodearray[1]}"
@@ -156,11 +217,14 @@ function screen_slow_nodes(){
   fi
 
   if test -f exclude_nodes.log ; then
+    local old_exclude_nodes_origin=$(cat exclude_nodes.log)
     rm -f exclude_nodes.log
   fi
 
-  if [[ "$exclude_nodes" -ne "" ]] ; then
-    echo "$exclude_nodes" > exclude_nodes.log
+  local fininal_exclude_nodes_str="${old_exclude_nodes_origin}${exclude_nodes}"
+  echo "exclude_nodes: $fininal_exclude_nodes_str"
+  if [[ "$fininal_exclude_nodes_str" != "" ]] ; then
+    echo "$fininal_exclude_nodes_str" > exclude_nodes.log
   fi
 }
 
@@ -169,7 +233,7 @@ if [[ -z $nodelist ]] ; then
 else
   nodes=$nodelist
 fi
-# nodes="SH-IDC1-10-140-0-153,SH-IDC1-10-140-0-150"
+
 nccl_test "${nodes}"
 screen_slow_nodes
 echo $exclude_nodes

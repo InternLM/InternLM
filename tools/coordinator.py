@@ -1,30 +1,46 @@
 import argparse
 import ast
 import copy
-import os
-import socket
 import multiprocessing
-import threading
-import time
+import os
 import pickle
-import portpicker
 import re
 import shutil
-import eventlet
+import socket
 import subprocess
-
-from enum import Enum, unique
-from flask_socketio import SocketIO
-from loguru import logger
-from flask import Flask, request
-from prettytable import PrettyTable
+import threading
+import time
 from datetime import datetime
-from waitress import serve
-from typing import Dict,Set
-from enum import Enum
+from enum import Enum, unique
 from subprocess import PIPE, STDOUT, Popen
 from threading import Thread
-from datetime import datetime
+from typing import Dict, Set
+
+import eventlet
+import portpicker
+from flask import Flask, request
+from flask_socketio import SocketIO
+from loguru import logger
+from prettytable import PrettyTable
+from waitress import serve
+
+
+def now_time():
+    return datetime.now().strftime("%b%d_%H-%M-%S")
+
+
+logger.add(f"coordinator_{now_time()}.log")
+
+
+def delete_proxy():
+    if "http_proxy" in os.environ:
+        del os.environ["http_proxy"]
+    if "https_proxy" in os.environ:
+        del os.environ["https_proxy"]
+    if "HTTP_PROXY" in os.environ:
+        del os.environ["HTTP_PROXY"]
+    if "HTTPS_PROXY" in os.environ:
+        del os.environ["HTTPS_PROXY"]
 
 
 @unique
@@ -82,9 +98,6 @@ class LockContext(object):
         self.lock.release()
 
 
-def now_time():
-    return datetime.now().strftime("%b%d_%H-%M-%S")
-
 class RestartInfo:
     """RestartInfo"""
 
@@ -117,8 +130,7 @@ class RankInfo:
         self.exception_list = []
 
     def __str__(self) -> str:
-        return f"rank:{self.rank}, host:{self.hostname}"
-
+        return f"rank:{self.rank}, host:{self.hostname}, last_report_time:{self.last_report_time}"
 
 
 class JobInfo:
@@ -143,6 +155,7 @@ class JobInfo:
         self.nodelist: Set[str] = set()
         self.is_hunman_scancel = False
         self.last_ckpt = None
+        self.last_jobid = None
         # self.wait_count = 0 # If an exception is found, we wait for _max_waiting_seconds seconds,
         # expecting to wait for the error message of all processes, and then decide whether to restart
 
@@ -165,47 +178,71 @@ class JobState(Enum):
     ABORT = 4
 
 
-def handle_scitofloat(config:str):
-    pattern = r'([+-]?\d+(\.\d+)?)([Ee])([+-]?\d+)'
+def handle_scitofloat(config: str):
+    pattern = r"([+-]?\d+(\.\d+)?)([Ee])([+-]?\d+)"
     sci_nums_list = re.findall(pattern, config)
     new_config = copy.deepcopy(config)
-    print(sci_nums_list)
     for itr in sci_nums_list:
         float_num = float(itr[0]) * (10 ** int(itr[3]))
-        float_num =  f'{float_num:.20f}'
+        float_num = f"{float_num:.20f}"
         orig_num = f"{itr[0]}{itr[2]}{itr[3]}"
         new_config = new_config.replace(orig_num, float_num)
-    
+
     return new_config
 
 
-def get_node_hostnames(nodelist:str):
+def get_node_hostnames(nodelist: str):
     hostnames = []
 
     tmp_nodelist = copy.deepcopy(nodelist)
     tmp_nodelist = tmp_nodelist.replace(" ", "")
-    tmp_nodelist = re.sub(r"[\[\]]", "", tmp_nodelist)
-    
+
+    tmp_res = re.search(r"\[[\d\-,]+\]", tmp_nodelist)
+    while tmp_res:
+        tmp_res2 = re.search(",", tmp_nodelist)
+        if tmp_res2 and tmp_res2.start() < tmp_res.start():
+            tmp_nodelist2 = tmp_nodelist.split(",")
+            count = 0
+            while count < len(tmp_nodelist2):
+                if re.search(r"\[", tmp_nodelist2[count]):
+                    break
+                hostnames.append(tmp_nodelist2[count])
+                count += 1
+            tmp_nodelist = ",".join(tmp_nodelist2[count:])
+            tmp_res = re.search(r"\[[\d\-,]+\]", tmp_nodelist)
+        node_range = tmp_nodelist[tmp_res.start() : tmp_res.end()]
+        prefix = tmp_nodelist[: tmp_res.start()].replace(",", "")
+
+        node_range = re.sub(r"[\[\]]", "", node_range)
+
+        tmplist = node_range.split(",")
+
+        pattern1 = r"^\d+$"
+        pattern2 = r"^\d+-\d+$"
+
+        for tmpiter in tmplist:
+            if re.match(pattern1, tmpiter):
+                hostnames.append(prefix + tmpiter)
+            elif re.match(pattern2, tmpiter):
+                begin, end = int(tmpiter.split("-")[0]), int(tmpiter.split("-")[1])
+                hostnames.extend([prefix + str(i) for i in range(begin, end + 1)])
+            else:
+                prefix = "-".join(tmpiter.split("-")[:-1]) + "-"
+                hostnames.append(tmpiter)
+
+        tmp_nodelist = tmp_nodelist[tmp_res.end() :]
+        tmp_res = re.search(r"\[[\d\-,]+\]", tmp_nodelist)
 
     tmplist = tmp_nodelist.split(",")
-    pattern1 = r"^\d+$"
-    pattern2 = r"^\d+-\d+$"
-    prefix = "-".join(tmplist[0].split("-")[:-1]) + "-"
-    
-    for tmpiter in tmplist:
-        if re.match(pattern1, tmpiter):
-            hostnames.append(prefix + tmpiter)
-        elif re.match(pattern2, tmpiter):
-            begin, end = int(tmpiter.split("-")[0]), int(tmpiter.split("-")[1])
-            hostnames.extend([prefix+str(i) for i in range(begin, end+1)])
-        else:
-            prefix = "-".join(tmpiter.split("-")[:-1]) + "-"
-            hostnames.append(tmpiter)
-            
+    hostnames.extend(tmplist)
+
+    while "" in hostnames:
+        hostnames.remove("")
+
     return hostnames
 
 
-def exec_cmd(cmd_with_args: list, shell = False, env=None) -> str:
+def exec_cmd(cmd_with_args: list, shell=False, env=None) -> str:
     results = ""
     with Popen(cmd_with_args, shell=shell, stdout=PIPE, stderr=STDOUT, env=env) as output:
         for line in iter(output.stdout.readline, b""):
@@ -213,44 +250,49 @@ def exec_cmd(cmd_with_args: list, shell = False, env=None) -> str:
 
     return results
 
-def do_find_slow_node(timeout: int, nodelist: str):
+
+def do_find_slow_node(timeout: int, ib_threshold: float, jobinfo: Dict):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     test_script = os.path.join(current_dir, "nccl_test.sh")
-    
+
     # handle nodelist
-    nodes=get_node_hostnames(nodelist)
-    
-    cmd = f"sh {test_script} {nodes}"
+    nodes = get_node_hostnames(jobinfo["nodelist"])
+    nodes_str = ",".join(nodes)
+    launcher = "slurm"
+    vp = jobinfo["virtual_partition"]
+
+    cmd = f"sh {test_script} --launcher {launcher}  --partition {vp}  --ib_threshold \
+{ib_threshold}  --nodelist  {nodes_str}"
+    logger.info(cmd)
     with Popen(cmd, shell=True, stdout=PIPE, stderr=STDOUT) as p:
         try:
             outs, errs = p.communicate(timeout=timeout)
             print(outs.decode())
             if errs:
                 print(errs.decode())
-        except subprocess.TimeoutExpired as e:
+        except subprocess.TimeoutExpired:
             p.kill()
-    
+            logger.warning(f"nccl test exceeded the maximum time limit of {timeout} seconds")
+
     exclude_nodestr = ""
     if os.path.exists("exclude_nodes.log"):
         with open("exclude_nodes.log", "r", encoding="utf-8") as f:
             exclude_nodestr = f.read().strip()
             exclude_nodestr = exclude_nodestr.replace("\n", "")
-    
-    return exclude_nodestr
 
+    return exclude_nodestr
 
 
 def get_slurm_jobinfo(jobid):
     sacct_cmd = (
-                f'sacct -j {jobid} --format="JobID%100, JobName%100, UID%20,'
-                " User%30, State%20, QuotaType%20, ExitCode%10, Cluster%20,"
-                " VirtualPartition%30, Partition%30, AllocCPUS%10, AllocGPUS%10,"
-                ' AllocNodes%10, NodeList%255, NTasks%30"'
-            )
+        f'sacct -j {jobid} --format="JobID%100, JobName%100, UID%20,'
+        " User%30, State%20, QuotaType%20, ExitCode%10, Cluster%20,"
+        " VirtualPartition%30, Partition%30, AllocCPUS%10, AllocGPUS%10,"
+        ' AllocNodes%10, NodeList%255, NTasks%30"'
+    )
 
-    res= exec_cmd(sacct_cmd, shell=True)
+    res = exec_cmd(sacct_cmd, shell=True)
     tmp = res.splitlines()
-
 
     job_info = {}
     job_info["jobid"] = tmp[2][:100]
@@ -279,6 +321,7 @@ def get_slurm_jobinfo(jobid):
 
     return job_info
 
+
 def scancel_slurm_job(job_id: str, env=None):
     """
     scancel current slurm job.
@@ -286,7 +329,6 @@ def scancel_slurm_job(job_id: str, env=None):
 
     # scancel jobid
     scancel_cmd = ["scancel", f"{job_id}"]
-    logger.info(scancel_cmd)
     exec_cmd(scancel_cmd, env)
 
 
@@ -296,21 +338,21 @@ def sbatch_slurm_job(job_info: dict, script_cfg: str, exclude_nodes: str, env=No
     return True if submit the job successfully, False if failed.
     """
 
-    config=str(script_cfg)
-    
+    config = str(script_cfg)
+
     logger.info("sbatch job")
     logger.info(config)
-    
+
     run_cmd = f'srun python train.py --config "{config}" --auto_restart --launcher "slurm" '
-    
-    jobname=job_info['jobname']
-    
-    ntasks=job_info["ntasks"]
-    nodes=job_info["alloc_nodes"]
-    cpus_per_task=int(int(job_info["alloc_cpus"]) / int(ntasks))
-    gpus_per_task=int(int(job_info["alloc_gpus"]) / int(ntasks))
-    partition=job_info["virtual_partition"]
-    
+
+    jobname = job_info["jobname"]
+
+    ntasks = job_info["ntasks"]
+    nodes = job_info["alloc_nodes"]
+    cpus_per_task = int(int(job_info["alloc_cpus"]) / int(ntasks))
+    gpus_per_task = int(int(job_info["alloc_gpus"]) / int(ntasks))
+    partition = job_info["virtual_partition"]
+
     sbatch_filepath = f"sbatch_{jobname}.slurm"
     with open(sbatch_filepath, "w") as f:
         lines = [
@@ -322,28 +364,23 @@ def sbatch_slurm_job(job_info: dict, script_cfg: str, exclude_nodes: str, env=No
             f"#SBATCH --cpus-per-task={cpus_per_task}\n",
             f"#SBATCH --gpus-per-task={gpus_per_task}\n",
             f"#SBATCH --output={jobname}_{now_time()}.log\n",
-            ]
+        ]
         if exclude_nodes != "":
             lines.append(f"#SBATCH  --exclude={exclude_nodes}")
-        lines.extend([ "\n",
-            run_cmd,
-            "\n"])
-        
+        lines.extend(["\n", run_cmd, "\n"])
+
         f.writelines(lines)
-    
-    
-    sbatch_cmd=f"sbatch {sbatch_filepath}"
-    
+
+    sbatch_cmd = f"sbatch {sbatch_filepath}"
+
     if env is not None:
         sbatch_env = copy.deepcopy(env)
     else:
         sbatch_env = copy.deepcopy(os.environ)
-    
+
     for key in sbatch_env:
         if "slurm" in key.lower():
             sbatch_env.pop(key)
-
-    logger.info(sbatch_cmd)
 
     results = exec_cmd(sbatch_cmd, sbatch_env)
     logger.info(results)
@@ -351,26 +388,29 @@ def sbatch_slurm_job(job_info: dict, script_cfg: str, exclude_nodes: str, env=No
     if "Submitted batch job" not in results:
         return False, f'submit sbatch job "{sbatch_cmd}" failed, please check it.'
 
-    new_jobid = re.search(r'\b(\d+)\b', results).group(1)  # get new jobid
+    new_jobid = re.search(r"\b(\d+)\b", results).group(1)  # get new jobid
     return True, new_jobid
-
 
 
 def determine_job_is_alive(slurm_job_id: str):
     jobinfo = get_slurm_jobinfo(slurm_job_id)
     curjob_state = jobinfo["state"]
-    
-    if curjob_state not in ["RUNNING", "PENDING"] :
+
+    if curjob_state not in ["RUNNING", "PENDING"]:
         return False
     return True
+
 
 def now_time():
     return datetime.now().strftime("%b%d_%H-%M-%S")
 
+
 class Coordinator(object):
     """Coordinator"""
 
-    def __init__(self, ipaddr: str, port: str, nccl_test: bool, nccl_timeout: int = None) -> None:
+    def __init__(
+        self, ipaddr: str, port: str, nccl_test: bool, nccl_timeout: int = None, ib_threshold: float = None
+    ) -> None:
         """init
 
         Args:
@@ -381,9 +421,9 @@ class Coordinator(object):
         self._port = port
         self.is_nccl_test = nccl_test
         self.nccl_timeout = nccl_timeout
+        self.ib_threshold = ib_threshold
         self._lock = LockContext(type_=LockContextType.THREAD_LOCK)
         self._timeout = 1200
-        self.jobname_map: Dict[str, JobInfo] = dict()  # job_name -> JobInfo
         self._job_map: Dict[str, JobInfo] = dict()  # slurm_jobID -> JobInfo
         self._polling_thread = Thread(target=self.main_thread)
         self.stopped = False
@@ -399,13 +439,15 @@ class Coordinator(object):
         logger.info(f"pwd: {os.getcwd()}", flush=True)
         # self._rank_map : dict[str, dict[str, RankInfo]] = dict()    # slurm_jobID -> [rank -> RankInfo]
 
-    def reset_job_state(self, job_id: str):
+    def reset_job_state(self, origin_jobid: str, new_jobid: str):
         # Reset information about slurm id and rank in job_info.
-        job_info = self.jobname_map[self._job_map[job_id].slurm_jobname]
+        job_info = self._job_map[origin_jobid]
         job_info.rank_map = dict()
-        job_info.slurm_jobid = 0
+        job_info.last_jobid = job_info.slurm_jobid
+        job_info.slurm_jobid = new_jobid
+        job_info.nodelist = set()
+        logger.info(job_info)
         # Delete the mapping of job_id --> job_info in job_map
-        del self._job_map[job_id]
 
     def init_from_json(self):
         try:
@@ -421,8 +463,7 @@ class Coordinator(object):
                     with open(pf, "rb") as f:
                         data = pickle.load(f)
                     with self._lock:
-                        self.jobname_map.update({job_name: data[0]})
-                        self._job_map.update({job_id: data[1]})
+                        self._job_map.update({job_id: data[0]})
                         job = self._job_map[job_id]
                         for _, rank_info in job.rank_map.items():
                             rank_info.last_report_time = time.time()  # prevent timeout
@@ -442,7 +483,7 @@ class Coordinator(object):
 
     def dump_json(self, job_id, job_name):
         json_name = self.make_json_name(job_id, job_name)
-        data = [self.jobname_map[job_name], self._job_map[job_id]]
+        data = [self._job_map[job_id]]
         with open(f"{json_name}", "wb+") as file:
             pickle.dump(data, file, protocol=pickle.HIGHEST_PROTOCOL)
 
@@ -473,6 +514,12 @@ class Coordinator(object):
         except FileNotFoundError:
             pass
 
+    def get_jobinfo_key(self, jobid: str):
+        for jobid_itr in self._job_map:
+            if self._job_map[jobid_itr].slurm_jobid == jobid:
+                return jobid_itr
+        return None
+
     def deal_with_register(self, request_info: Dict):
         # We don't want any deal_XX function to throw an exception,
         # so we use a big try except to wrap the business logic code
@@ -487,53 +534,58 @@ class Coordinator(object):
                 request_info["slurm_jobname"],
             )
             rankinfo = RankInfo(rank=rank, hostname=request_info["hostname"], device_id=request_info["device_id"])
-            logger.info(request_info["script_cfg"])
+            if rank == 0:
+                logger.info(request_info["script_cfg"])
             with self._lock:
                 # If you haven't seen this slurm_id, initialize a series of status information
-                if slurm_jobname not in self.jobname_map:
+                jobid = self.get_jobinfo_key(slurm_id)
+                if not jobid:
                     jobinfo = JobInfo(
                         world_size=request_info["world_size"],
                         slurm_jobname=slurm_jobname,
                         slurm_jobid=slurm_id,
-                        script_config=request_info["script_cfg"]
+                        script_config=request_info["script_cfg"],
                     )
+                    jobid = slurm_id
                     logger.info(f"Register new Jobname: {jobinfo}")
-                    self.jobname_map.update({slurm_jobname: jobinfo})  # update jobname_map
+                    self._job_map.update({jobid: jobinfo})  # update _job_map
 
-                job = self.jobname_map[slurm_jobname]
+                job = self._job_map[jobid]
                 job.rank_map.update({rank: rankinfo})
                 job.nodelist.add(rankinfo.hostname)
-                if slurm_id != job.slurm_jobid:
-                    logger.info(f"Restart {job.slurm_jobname} the {job.restart_count}-th time")
-                    job.restart_count += 1
-                job.slurm_jobid = slurm_id  # The slurm job id received at the time of register must be the latest
-                self._job_map.update({slurm_id: job})  # update _job_map
+                self._job_map.update({jobid: job})  # update _job_map
 
                 # All ranks in a job are ready
                 if len(job.rank_map) == job.world_size:
                     # Get the list of hostname, followed by screening points
                     # job.nodelist = get_job_hostname(slurm_id)
                     job.job_state = JobState.RUN
-                    self.dump_json(slurm_id, slurm_jobname)
+                    self.dump_json(jobid, slurm_jobname)
                     msg = f"Job {job.slurm_jobname} all processes are ready and start polling thread status, \
 has nodelist: {job.nodelist}"
                     logger.info(msg)
 
-            logger.info(f"register: jobname: {slurm_id}, jobid: {slurm_jobname}, rank:{rank}")
+            logger.info(f"register: jobid: {slurm_id}, jobname: {slurm_jobname}, rank:{rank}")
             return True
         except Exception as e:
-            logger.error(f"deal_with_register() meet feat error{e}, {request_info}")
+            logger.error("deal_with_register() meet feat error")
+            logger.exception(e)
             return False
 
     def deal_keep_alive(self, request_info: Dict):
         try:
-            jobid, rank, step, ckpt_every = request_info["jobid"], request_info["rank"],  request_info["step"], request_info["ckpt_every"]
-            
-            job_info = self._job_map[jobid]
-            
+            jobid, rank, step, ckpt_every = (
+                request_info["jobid"],
+                request_info["rank"],
+                request_info["step"],
+                request_info["ckpt_every"],
+            )
+
+            job_info = self._job_map[self.get_jobinfo_key(jobid)]
+
             if step % ckpt_every == 0:
                 job_info.last_ckpt = step
-            
+
             job_info.rank_map[rank].last_report_time = time.time()
             return True
         except KeyError:
@@ -545,7 +597,7 @@ has nodelist: {job.nodelist}"
         try:
             jobid, rank = request_info["jobid"], request_info["rank"]
             with self._lock:
-                job_info = self._job_map[jobid]
+                job_info = self._job_map[self.get_jobinfo_key(jobid)]
                 job_info.rank_map[rank].exception_list.append(request_info["exception_msg"])
             return True
         except KeyError:
@@ -572,9 +624,11 @@ has nodelist: {job.nodelist}"
             time.sleep(5)  # Prevent errors caused by other apis writing to job_map
             restart_job_ids = self.polling_check()
             # If polling_check returns, there is a task that needs to be restarted
-            for jobid in restart_job_ids:
+            for origin_jobid in restart_job_ids:
+                job = self._job_map[origin_jobid]
+                jobid = job.slurm_jobid
                 logger.info(f"restart from job {jobid}")
-                job = self._job_map[jobid]
+
                 name = job.slurm_jobname
                 env = os.environ
                 env.update({"COORDIATOR_IP": self._ip, "COORDIATOR_PORT": self._port})
@@ -592,22 +646,22 @@ has nodelist: {job.nodelist}"
                 # 3. Wait for the failure node to restart later.
                 time.sleep(60)
 
-                if name not in self.restart_job_info:
-                    self.restart_job_info.update({name: RestartInfo()})
+                if origin_jobid not in self.restart_job_info:
+                    self.restart_job_info.update({origin_jobid: RestartInfo()})
 
-                reinfo = self.restart_job_info[name]
+                reinfo = self.restart_job_info[origin_jobid]
                 reinfo.job_infos.append(copy.deepcopy(job))
+                logger.info(f"{origin_jobid} restart_count: {reinfo.restart_count}")
                 if time.time() - reinfo.latest_restart_time < 1200:
                     reinfo.restart_count += 1
                 else:
-                    logger.info(f"Reset job: {name} restart-count")
+                    logger.info(f"Reset job: {jobid} restart-count")
                     # Reboots from a long time ago, we don't count restart attempts
-                    reinfo.restart_count = 0
+                    reinfo.restart_count = 1
 
-                if reinfo.restart_count >= 3:
-                    msg = f'Job "{job.slurm_jobname}" restarts three times and still fails, abort restart.'
-                    logger.info(msg)
-                    self.delete_job(job.slurm_jobid)
+                if reinfo.restart_count > 3:
+                    logger.info(f'Job "{job.slurm_jobname}" restarts three times and still fails, abort restart.')
+                    self.delete_job(origin_jobid)
                 else:
                     # do the actual restart
                     try:
@@ -619,30 +673,36 @@ has nodelist: {job.nodelist}"
                             load_ckpt = os.path.basename(script_config["LOAD_CKPT_FOLDER"])
                         elif job.last_ckpt:
                             load_ckpt = str(job.last_ckpt)
-                        
+
                         if load_ckpt:
-                            script_config["LOAD_CKPT_FOLDER"] = os.path.join(script_config["SAVE_CKPT_FOLDER"], load_ckpt)
+                            script_config["LOAD_CKPT_FOLDER"] = os.path.join(
+                                script_config["SAVE_CKPT_FOLDER"], load_ckpt
+                            )
                             script_config["ckpt"]["load_ckpt_folder"] = script_config["LOAD_CKPT_FOLDER"]
                         job.script_config = str(script_config)
-                        
+
                         # get jobinfo
                         jobinfo = get_slurm_jobinfo(jobid)
-                        
+                        # logger.info(jobinfo)
                         exclude_nodes = ""
                         if self.is_nccl_test:
-                            exclude_nodes = do_find_slow_node(self.nccl_timeout, jobinfo["nodelist"])
-                        
-                        re, msg = sbatch_slurm_job(jobinfo,job.script_config, exclude_nodes,env=env)
+                            exclude_nodes = do_find_slow_node(self.nccl_timeout, self.ib_threshold, jobinfo)
+
+                        re, msg = sbatch_slurm_job(jobinfo, job.script_config, exclude_nodes, env=env)
                         if re is False:
                             logger.info(msg)
+                        else:
+                            new_jobid = msg
+                            logger.info(f"origin_jobid: {origin_jobid}, new_jobid: {new_jobid}")
+                            self.reset_job_state(origin_jobid, new_jobid)
+                            logger.info(
+                                f"Restart job:{job.slurm_jobname} jobid: {jobid} for the {reinfo.restart_count}-th time"
+                            )
+
                     except Exception as e:
-                        logger.error(e)
+                        logger.exception(e)
                     else:
                         logger.info(f"launch {job.slurm_jobname}")
-
-                    msg = f"Restart job:{job.slurm_jobname} for the {reinfo.restart_count}-th time"
-                    logger.info(msg)
-                    self.reset_job_state(jobid)
 
             # restart all, allow registion.
             self.restarting = False
@@ -666,19 +726,6 @@ has nodelist: {job.nodelist}"
         if "CUDA".lower() in format_trace or "NCCL".lower() in format_trace:
             return MessageLevel.ERROR
 
-        if "Device".lower() in format_trace:
-            hostname = re.findall(r"`(.*?)`", format_trace)[1]
-            prefix = os.environ["JOB_NAME"]
-            if os.path.exists(os.path.join(prefix, "exclude_nodes.log")):
-                with open(os.path.join(prefix, "exclude_nodes.log"), "r+") as f:
-                    exclude_nodes = f.read().splitlines()
-                    if hostname.upper() not in exclude_nodes:
-                        f.write(hostname.upper() + "\n")
-            else:
-                with open(os.path.join(prefix, "exclude_nodes.log"), "a+") as f:
-                    f.write(hostname.upper() + "\n")
-            return MessageLevel.ERROR
-
         if "completed".lower() in format_trace:
             return MessageLevel.COMPLETE
 
@@ -686,12 +733,12 @@ has nodelist: {job.nodelist}"
 
     def delete_job(self, jid: int):
         job = self._job_map[jid]
-        logger.info(f"Del job: {job.slurm_jobname}")
-        self.reset_job_state(jid)
+        logger.info(f"Del job: {jid}")
         if job.job_state == JobState.COMPLETE:
             self.move_json(jid, job.slurm_jobname)
         else:
             self.del_json(jid, job.slurm_jobname)
+        del self._job_map[jid]
 
     def cut_error_lens(self, error: str):
         if len(error) <= 20:
@@ -722,7 +769,7 @@ has nodelist: {job.nodelist}"
             job_map = copy.deepcopy(self._job_map)
             for jobid, job_info in job_map.items():
                 if job_info.is_hunman_scancel:  # Check if we killed it
-                    logger.info(f'Human scncael job: "{jobid}" name:"{job_info.slurm_jobname}"')
+                    logger.info(f'Human scncael job: "{job_info.slurm_jobid}" name:"{job_info.slurm_jobname}"')
                     delete_job_ids.add(jobid)
                     continue
 
@@ -736,9 +783,8 @@ has nodelist: {job.nodelist}"
                         # Heartbeat timeout detection
                         if time.time() - rankinfo.last_report_time > self._timeout:
                             catch_expection = True
-                            msg = f"{rankinfo} keep alive TIMEOUT for {self._timeout} s"
-                            logger.info(msg)
-                            
+                            logger.info(f"{rankinfo} keep alive TIMEOUT for {self._timeout} s")
+
                             if not determine_job_is_alive(jobid):
                                 delete_job_ids.add(jobid)
                             else:
@@ -748,19 +794,19 @@ has nodelist: {job.nodelist}"
                         if len(rankinfo.exception_list) > 0:
                             catch_expection = True
                             for e in rankinfo.exception_list:
-                                slurm_jobname = job_info.slurm_jobname  # pylint: disable=W0640
+                                slurm_jobid = job_info.slurm_jobid  # pylint: disable=W0640
                                 err: str = e["error"]
                                 level = self.decide_whether_restart(err)
                                 msg = None
                                 if level == MessageLevel.FATAL:
-                                    msg = f"Job:{slurm_jobname} Caught a fatal \
+                                    msg = f"Job:{slurm_jobid} Caught a fatal \
 error that cannot restart, please restart manually. Error : {e}"
                                     delete_job_ids.add(jobid)  # pylint: disable=W0640
                                     job_info.job_state = JobState.ABORT  # pylint: disable=W0640
                                 elif level == MessageLevel.IGNORE:
-                                    msg = f"Job:{slurm_jobname} Caught a ignore error, continue. Error: {e}"
+                                    msg = f"Job:{slurm_jobid} Caught a ignore error, continue. Error: {e}"
                                 elif level == MessageLevel.ERROR:
-                                    msg = f"Job:{slurm_jobname} Caught a restartable error. Error : {e}"
+                                    msg = f"Job:{slurm_jobid} Caught a restartable error. Error : {e}"
                                     # ERROR status task we try to restart.
                                     restart_job_ids.add(jobid)  # pylint: disable=W0640
                                     job_info.job_state = JobState.ERROR  # pylint: disable=W0640
@@ -784,7 +830,7 @@ error that cannot restart, please restart manually. Error : {e}"
                                     # In fact, we can do news deduplication here.
                                     rtable.add_row(
                                         [
-                                            slurm_jobname,  # pylint: disable=W0640
+                                            slurm_jobid,  # pylint: disable=W0640
                                             rank,
                                             rankinfo.hostname,
                                             rankinfo.device_id,
@@ -883,40 +929,43 @@ def create_coordinator_app(coordinator: Coordinator):
     return app
 
 
-
-
 parser = argparse.ArgumentParser()
 
 if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=portpicker.pick_unused_port(), help="coordinator port")
     parser.add_argument("--nccl_test", action="store_true", help="nccl test to find slow nodes")
-    parser.add_argument("--nccl_timeout", type=int, default=None, help="timeout for nccl test")
+    parser.add_argument("--nccl_timeout", type=int, default=None, help="timeout for nccl test (seconds)")
+    parser.add_argument("--ib_threshold", type=float, default=None, help="ib rate threshold (GB/s)")
     args = parser.parse_args()
-    
-    if args.nccl_test and args.nccl_timeout is None:
-        raise RuntimeError("nccl_timeout should be set if `nccl_test` is true.")
-    
+
+    if args.nccl_test:
+        if args.nccl_timeout is None:
+            raise RuntimeError("nccl_timeout should be set if `nccl_test` is true.")
+        if args.ib_threshold is None:
+            raise RuntimeError("ib_threshold should be set if `nccl_test` is true.")
+
+    if os.path.exists("coordinator_env"):
+        with open("coordinator_env", "r", encoding="utf-8") as f:
+            lines = f.read().splitlines()
+            for line in lines:
+                key, value = line.split("=")[0], line.split("=")[1]
+                if key == "COORDIATOR_PORT":
+                    args.port = value
+
     debug = False
     coordinator_timeout = 240
 
-    if "http_proxy" in os.environ:
-        del os.environ["http_proxy"]
-    if "https_proxy" in os.environ:
-        del os.environ["https_proxy"]
-    if "HTTP_PROXY" in os.environ:
-        del os.environ["HTTP_PROXY"]
-    if "HTTPS_PROXY" in os.environ:
-        del os.environ["HTTPS_PROXY"]
+    delete_proxy()
 
     hostname = socket.gethostname()
     ipaddr = socket.gethostbyname(hostname)
-    
+
     with open("coordinator_env", "w", encoding="utf-8") as f:
         f.write(f"COORDIATOR_IP={ipaddr}\n")
         f.write(f"COORDIATOR_PORT={args.port}\n")
 
     def coordinator_run():
-        coordinator = Coordinator(ipaddr, str(args.port), args.nccl_test, args.nccl_timeout)
+        coordinator = Coordinator(ipaddr, str(args.port), args.nccl_test, args.nccl_timeout, args.ib_threshold)
         coordinator_app = create_coordinator_app(coordinator)
         socketio = SocketIO(coordinator_app)
 

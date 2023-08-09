@@ -1,16 +1,18 @@
+import os
+import socket
+import time
 from collections import defaultdict
 from typing import Dict
-import socket
-import requests
-import time
-import os
 
+import requests
+import torch
 
 from internlm.utils.logger import get_logger
 
 logger = get_logger(__file__)
 
 local_adapter = None
+
 
 def get_world_size():
     # We do not use torch's interface get_world_size to obtain the worldsize to prevent
@@ -49,19 +51,18 @@ class Adapter(object):
             coordinator_ip (str): the ip of the coordinator
             coordinator_port (int): the port of the coordinator
         """
-        
+
         self._worker_addr = defaultdict(list)
         self._coordinator_ip = coordinator_ip if coordinator_ip else os.environ["COORDIATOR_IP"]
         self._coordinator_port = coordinator_port if coordinator_port else os.environ["COORDIATOR_PORT"]
         self._coordinator_url_prefix = "http://" + self._coordinator_ip + ":" + str(self._coordinator_port) + "/"
 
-        
         self._rank = rank
         self._local_rank = local_rank
         self._ip = socket.gethostbyname(socket.gethostname())
         self._last_update_request_addr_time = time.time()
         self._cfg = str(cfg)
-        
+
         self._register()
         # After more than fifteen minutes, try to reconnect to the Coordinator
         # self.last_active_time = time.time()
@@ -86,9 +87,7 @@ class Adapter(object):
                 ).json()
                 if response["code"] == 0:
                     if show_log:
-                        logger.info(
-                            f"{msg_type} adapter successfully, rank: {self._rank}, ip: {self._ip}"
-                        )
+                        logger.info(f"{msg_type} adapter successfully, rank: {self._rank}, ip: {self._ip}")
                     result = response["info"]
                     # self.last_active_time = time.time()
                     break
@@ -113,27 +112,48 @@ class Adapter(object):
             "slurm_jobid": get_job_id(),
             "slurm_jobname": os.getenv("SLURM_JOB_NAME"),
             "script_cfg": self._cfg,
-            "world_size": get_world_size()
+            "world_size": get_world_size(),
         }
         self._send_requests(meta_data, msg_type="register", timeout=10)
 
     def send_keep_alive(self, step, loss, tks, flops, ckpt_every):
-        meta_data = {"jobid": os.getenv("SLURM_JOB_ID"), "rank": self._rank, "step": step, "loss": loss, "tks": tks,"flops": flops, "ckpt_every": ckpt_every}
+        meta_data = {
+            "jobid": os.getenv("SLURM_JOB_ID"),
+            "rank": self._rank,
+            "step": step,
+            "loss": loss,
+            "tks": tks,
+            "flops": flops,
+            "ckpt_every": ckpt_every,
+        }
         self._send_requests(meta_data, msg_type="keep_alive")
 
     def send_exception(self, exception_msg: str):
-        meta_data = {"jobid": os.getenv("SLURM_JOB_ID"), "rank": self._rank, "exception_msg": {"error": str(exception_msg)}}
+        meta_data = {
+            "jobid": os.getenv("SLURM_JOB_ID"),
+            "rank": self._rank,
+            "exception_msg": {"error": str(exception_msg)},
+        }
         self._send_requests(meta_data, msg_type="catch_exception")
 
 
-def init_local_adapter(global_rank, local_rank, cfg, coordinator_ip = None, coordinator_port = None):
+def init_local_adapter(global_rank, local_rank, cfg, coordinator_ip=None, coordinator_port=None):
     global local_adapter
-    local_adapter = Adapter(rank=global_rank, local_rank=local_rank, cfg=cfg, coordinator_ip=coordinator_ip, coordinator_port=coordinator_port)
+    local_adapter = Adapter(
+        rank=global_rank,
+        local_rank=local_rank,
+        cfg=cfg,
+        coordinator_ip=coordinator_ip,
+        coordinator_port=coordinator_port,
+    )
 
 
 def send_keep_alive(step, loss, tks, tflops, ckpt_every):
+    cur_loss = loss
+    if isinstance(cur_loss, torch.Tensor):
+        cur_loss = cur_loss.tolist()[0]
     if local_adapter:
-        local_adapter.send_keep_alive(step, loss, tks, tflops, ckpt_every)
+        local_adapter.send_keep_alive(step, cur_loss, tks, tflops, ckpt_every)
 
 
 def send_exception(except_msg: str):
