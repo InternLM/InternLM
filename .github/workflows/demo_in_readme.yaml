@@ -46,7 +46,7 @@ jobs:
     - name: raw-chinese-data
       run: |
         source activate internlm-env-test
-        sh ./ci_scripts/data/tokenizer_chinese.sh
+        sh ./ci_scripts/data/tokenizer_chinese.sh ${GITHUB_RUN_ID}-${GITHUB_JOB}
 
     - name: alpaca-data
       run: |
@@ -67,13 +67,13 @@ jobs:
     - name: slurm-train
       run: |
         source activate internlm-env-test
-        sh ./ci_scripts/train/slurm_train.sh
+        sh ./ci_scripts/train/slurm_train.sh ${GITHUB_RUN_ID}-${GITHUB_JOB}
         rm -rf $GITHUB_WORKSPACE/llm_ckpts
 
     - name: torchrun-train
       run: |
         source activate internlm-env-test
-        sh ./ci_scripts/train/torchrun.sh
+        sh ./ci_scripts/train/torchrun.sh ${GITHUB_RUN_ID}-${GITHUB_JOB}
         rm -rf $GITHUB_WORKSPACE/llm_ckpts
 
   convert-model-then-load:
@@ -92,7 +92,7 @@ jobs:
         export PYTHONPATH=$PWD:$PYTHONPATH
         sh ./ci_scripts/model/convert_to_hf.sh 
         cd ./hf_ckpt
-        nohup srun -p llm python ../ci_scripts/model/loaded_as_transformer.py 2>&1 | tee -a ../${GITHUB_JOB}.log
+        srun -p llm --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} python ../ci_scripts/model/loaded_as_transformer.py
         cd ..
         rm -rf $GITHUB_WORKSPACE/hf_ckpt
   
@@ -109,4 +109,4 @@ jobs:
     - name: chat-model-in-hf
       run: |
         source activate internlm-env-test
-        nohup srun -p llm python ./ci_scripts/model/demo_load_7B_chat_model.py 2>&1 | tee -a ${GITHUB_JOB}.log
+        srun -p llm --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} python ./ci_scripts/model/demo_load_7B_chat_model.py

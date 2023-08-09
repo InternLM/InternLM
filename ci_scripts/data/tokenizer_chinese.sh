@@ -22,7 +22,7 @@ if [[ ${num} -gt 0 ]]; then
     fi
 fi
 
-nohup srun -p llm python tools/tokenizer.py --text_input_path ${DATA} --bin_output_path ${RESULT} 2>&1 | tee -a ${GITHUB_JOB}.log
+srun -p llm --job-name=$1 python tools/tokenizer.py --text_input_path ${DATA} --bin_output_path ${RESULT}
 [[ $? -ne 0 ]] && { echo "test tokenizer.py failed.";  exit_code=$(($exit_code + 1)); }
 
 file_list=($RESULT $RESULT_META)

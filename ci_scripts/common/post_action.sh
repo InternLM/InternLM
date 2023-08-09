@@ -1,18 +1,18 @@
 #!/bin/bash
 set -x
 
-readonly JOB_LOG=$GITHUB_WORKSPACE/${GITHUB_JOB}.log
-
-if [[ ! -f ${JOB_LOG} ]]; then
-   echo "There is no ${JOB_LOG}. Maybe there is no job needed canceled"
-   exit 0
+cancel_slurm_job() {
+jobid=$(squeue -o "%A %j" -p llm2 -u $USER | grep $GITHUB_RUN_ID-$GITHUB_JOB | awk '{print $1}')
+if [ -n "$jobid" ];then
+   echo "The job $jobid will be canceled"
+   scancel $jobid
+   sleep 0.1
+   cancel_slurm_job   
+else
+   echo "There has been no job needed canceled"
 fi
+}
 
-jobid=$(grep "queued and waiting" ${JOB_LOG} | grep -oP "\d+" || echo "6666")
-datetime=$(date '+%Y-%m-%d %H:%M:%S')
-echo "$datetime,The slurm job $jobid will be canceled" | tr "\n" " "
-scancel $jobid
-# double cancel
-scancel $jobid
-rm -rf ${JOB_LOG}
+cancel_slurm_job
+
 exit 0
