@@ -15,14 +15,19 @@ from asyncio.tasks import ALL_COMPLETED
 from datetime import datetime
 from typing import Any, Awaitable, Callable, Dict, List, Union
 
-import boto3
-import botocore
 import torch
 import torch.distributed as dist
 
 from internlm.core.context import global_context as gpc
 from internlm.utils.common import SingletonMeta
 from internlm.utils.logger import get_logger
+
+try:
+    import boto3
+    import botocore
+except ImportError:
+    pass
+
 
 logger = get_logger(__file__)
 
@@ -234,13 +239,13 @@ class Boto3Client(StorageClient):
         """
         paginator = handler.client.get_paginator("list_objects_v2")
         pages = paginator.paginate(Bucket=bucket_name, Prefix=fp)
-
         folder_name_list = []
         for page in pages:
-            for obj in page["Contents"]:
-                fp: str = obj["Key"]
-                folder_name_list.append(fp.rsplit("/", maxsplit=1)[1])
-        return folder_name_list
+            if "Contents" in page:
+                for obj in page["Contents"]:
+                    pth: str = obj["Key"]
+                    folder_name_list.append(pth.split(fp, maxsplit=1)[1].strip("/").split("/", maxsplit=1)[0])
+        return list(set(folder_name_list))
 
     @staticmethod
     def async_upload_fileobj(handler, bucket_name: str, fp: str, local_nvme_path: str):
@@ -391,6 +396,11 @@ class StorageManager(metaclass=SingletonMeta):
         self.tmp_local_folder = tmp_local_folde
         self.async_mode = async_mode
         self.has_warning = False
+        self._async_loop = None
+        self._thread_pool = None
+        self.latest_save_folder = None
+        self.latest_save_step = 0
+        self.async_task_peeding = False
 
         if enable_save and self.async_mode:
             self._async_loop = asyncio.new_event_loop()
@@ -485,6 +495,7 @@ class StorageManager(metaclass=SingletonMeta):
                 torch.save(saved_obj, f, pickle_protocol=pickle.HIGHEST_PROTOCOL)
             self.async_executor(meta.async_upload_fn, *unpack_meta(meta))
             os.chmod(tmp_step_file, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+            self.async_task_peeding = True
         else:
             meta.client.sync_upload_fileobj(*unpack_meta(meta), *args, saved_obj=saved_obj, **kwargs)
             self.upload_count += 1
@@ -523,24 +534,22 @@ class StorageManager(metaclass=SingletonMeta):
                     pass
 
     async def _sync_tasks(self) -> Awaitable[None]:
-
-        if not self._async_stack:
-            return
-
-        await asyncio.wait(self._async_stack, return_when=ALL_COMPLETED)
-
-        for task in self._async_stack:
-            try:
-                task.exception()
-            except InvalidStateError:
-                continue
-            except Exception as e:
-                file_id = len(self._exception_list)
-                self._exception_list.append((e, file_id))
-
-                logger.error(f"File: {self._to_be_del_files[file_id]}, " f"upload failed with {e}")
-
-        self._async_stack.clear()
+        if self._async_stack:
+            await asyncio.wait(self._async_stack, return_when=ALL_COMPLETED)
+            count = 0
+            while self._async_stack:
+                t = self._async_stack[0]
+                try:
+                    e = t.exception()
+                    if e:
+                        self._exception_list.append((e, count))
+                        logger.error(f"File:{self._to_be_del_files[count]}, upload failed for {e}")
+                        # raise e
+                    count += 1
+                    self._async_stack.pop(0)
+                except InvalidStateError:
+                    # Not finished. https://docs.python.org/3/library/asyncio-task.html#asyncio.Task.exception
+                    pass
 
     def async_executor(self, fn: Callable, *args, **kwargs) -> None:
         """
@@ -560,11 +569,14 @@ class StorageManager(metaclass=SingletonMeta):
         if not self.async_mode:
             return
 
+        if not self.async_task_peeding:
+            return
+
         if self._async_loop:
             self._async_loop.run_until_complete(self._sync_tasks())
 
         if self._exception_list:
-            for file_id, error_msg in self._exception_list:
+            for error_msg, file_id in self._exception_list:
                 logger.error(
                     f"Node:{socket.gethostname()}, Error: Checkpoint {self._to_be_del_files[file_id]} "
                     f"failed on step {self.upload_count}: {error_msg}"
@@ -578,10 +590,16 @@ class StorageManager(metaclass=SingletonMeta):
         self._del_tmp_folder()
         self._exception_list.clear()
         self._to_be_del_files.clear()
+        self.async_task_peeding = False
 
         if gpc.is_rank_for_log():
-            logger.info("all async uploads succeeded!")
             self.upload_count += 1
+            if self.async_mode:
+                self.save(
+                    os.path.join(self.latest_save_folder, f"{self.latest_save_step}.step"),
+                    saved_obj=dict({"step": self.latest_save_step}),
+                    async_upload=False,
+                )
 
 
 storage_manager: StorageManager = None
