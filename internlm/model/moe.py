@@ -50,9 +50,13 @@ class MoE(torch.nn.Module):
         min_capacity (int, optional): default=4, the minimum capacity per expert regardless of the capacity_factor.
         noisy_gate_policy (str, optional): default=None, noisy gate policy, valid options are 'Jitter', 'RSample'
         or 'None'.
+        using_default_moe (bool, optional): default=True, whether to use the default MoE layer.
         drop_tokens (bool, optional): default=True, whether to drop tokens - (setting to False is equivalent to
         infinite capacity).
         use_rts (bool, optional): default=True, whether to use Random Token Selection.
+        moe_use_residual (bool, optional): default=False, make this MoE layer a Residual MoE
+                                          (https://arxiv.org/abs/2201.05596) layer.
+        residual_mlp (torch.nn.Module, optional): default=None, the torch module that defines the residual MLP.
     """
 
     def __init__(
@@ -70,7 +74,7 @@ class MoE(torch.nn.Module):
         use_rts: bool = True,
         using_default_moe: bool = True,
         use_residual=True,
-        residual_mlp=None
+        residual_mlp=None,
     ):
 
         super().__init__()
@@ -82,7 +86,7 @@ class MoE(torch.nn.Module):
         self.num_experts = num_experts
         self.num_local_experts = num_experts // self.ep_size
 
-        logger.info(
+        logger.info(  # pylint: disable=W1203
             f"Creating MoE layer with num_experts: {num_experts} | num_local_experts:"
             f"{self.num_local_experts} | expert_parallel_size: {self.ep_size}"
         )
@@ -136,11 +140,11 @@ class MoE(torch.nn.Module):
         """
         output = self.moe_layer(hidden_states, used_token)
         if self.use_residual:
-                # Residual MoE
-                output_mlp = self.residual_mlp(hidden_states)
-                if type(output_mlp) is tuple:
-                    output_mlp = output_mlp[0]  # Ignore the bias term for now
-                coef = self.coefficient(hidden_states)
-                coef = torch.nn.functional.softmax(coef, dim=-1)
-                output = output * coef[..., 0:1] + output_mlp * coef[..., 1:]
+            # Residual MoE
+            output_mlp = self.residual_mlp(hidden_states)
+            if isinstance(output_mlp, tuple):
+                output_mlp = output_mlp[0]  # Ignore the bias term for now
+            coef = self.coefficient(hidden_states)
+            coef = torch.nn.functional.softmax(coef, dim=-1)
+            output = output * coef[..., 0:1] + output_mlp * coef[..., 1:]
         return output, self.moe_layer.l_aux, self.moe_layer.exp_counts
