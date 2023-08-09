@@ -2,7 +2,7 @@ assign:
   strategy:
     # random
     daily-shift-based
-  scedule:
+  schedule:
     '*/1 * * * *'
   assignees:
     - yhcc
