@@ -58,7 +58,7 @@ class MoE(torch.nn.Module):
     def __init__(
         self,
         hidden_size,
-        expert,
+        experts,
         num_experts=1,
         ep_size=1,
         k=1,
@@ -69,6 +69,8 @@ class MoE(torch.nn.Module):
         drop_tokens: bool = True,
         use_rts: bool = True,
         using_default_moe: bool = True,
+        use_residual=True,
+        residual_mlp=None
     ):
 
         super().__init__()
@@ -89,7 +91,7 @@ class MoE(torch.nn.Module):
             "Unsupported noisy_gate_policy: " + noisy_gate_policy
         )
 
-        experts = Experts(expert, self.num_local_experts)
+        experts = Experts(experts, self.num_local_experts)
 
         if using_default_moe:
             self.moe_layer = MOELayer(
@@ -110,6 +112,12 @@ class MoE(torch.nn.Module):
                 self.num_local_experts,
             )
 
+        self.use_residual = use_residual
+        if use_residual:
+            self.residual_mlp = residual_mlp
+            # coefficient is used for weighted sum of the output of expert and mlp
+            self.coefficient = torch.nn.Linear(hidden_size, 2)
+
     def forward(self, hidden_states, used_token=None):
         """MoE forward
 
@@ -127,5 +135,12 @@ class MoE(torch.nn.Module):
             * exp_counts (int): expert count
         """
         output = self.moe_layer(hidden_states, used_token)
-
+        if self.use_residual:
+                # Residual MoE
+                output_mlp = self.residual_mlp(hidden_states)
+                if type(output_mlp) is tuple:
+                    output_mlp = output_mlp[0]  # Ignore the bias term for now
+                coef = self.coefficient(hidden_states)
+                coef = torch.nn.functional.softmax(coef, dim=-1)
+                output = output * coef[..., 0:1] + output_mlp * coef[..., 1:]
         return output, self.moe_layer.l_aux, self.moe_layer.exp_counts
