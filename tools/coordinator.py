@@ -231,7 +231,7 @@ class JobState(Enum):
 
 
 def handle_scitofloat(config: str):
-    pattern = r"([+-]?\d+(\.\d+)?)([Ee])([+-]?\d+)"
+    pattern = r" ([+-]?\d+(\.\d+)?)([Ee])([+-]?\d+)"
     sci_nums_list = re.findall(pattern, config)
     new_config = copy.deepcopy(config)
     for itr in sci_nums_list:
@@ -320,14 +320,14 @@ def do_find_slow_node(timeout: int, ib_threshold: float, jobinfo: Dict):
         vp = jobinfo["virtual_partition"]
 
         cmd = f"sh {test_script} --launcher {launcher}  --partition {vp}  --ib_threshold \
-    {ib_threshold}  --nodelist  {nodes_str}"
+{ib_threshold}  --nodelist  {nodes_str}"
         logger.info(cmd)
         with Popen(cmd, shell=True, stdout=PIPE, stderr=STDOUT) as p:
             try:
                 outs, errs = p.communicate(timeout=timeout)
-                print(outs.decode())
+                print(outs.decode(), flush=True)
                 if errs:
-                    print(errs.decode())
+                    print(errs.decode(), flush=True)
             except subprocess.TimeoutExpired:
                 p.kill()
                 logger.warning(f"nccl test exceeded the maximum time limit of {timeout} seconds")
@@ -765,7 +765,7 @@ has nodelist: {job.nodelist}"
                             send_feishu_msg_with_webhook(
                                 self.alert_address,
                                 "Coordinator",
-                                f"{now_time()} {origin_jobid} restart_count: \
+                                f"{now_time()} jobid {origin_jobid} restart_count: \
 {reinfo.restart_count}, new_jobid: {new_jobid}",
                             )
 
@@ -931,10 +931,10 @@ error that cannot restart, please restart manually. Error : {e}"
                 )
                 self.dump_json(jobid, job_info.slurm_jobname)  # save the state of the current task
 
-            print(f"+++++++++++++++++++++++++{now_time()}++++++++++++++++++++")
-            print(jtable)
-            print(rtable)
-            print("")
+            print(f"+++++++++++++++++++++++++{now_time()}++++++++++++++++++++", flush=True)
+            print(jtable, flush=True)
+            print(rtable, flush=True)
+            print("", flush=True)
 
             intersection_job = restart_job_ids & delete_job_ids  # find the intersection
             restart_job_ids -= intersection_job  # If a task is del, it cannot be restarted
@@ -1029,7 +1029,7 @@ if __name__ == "__main__":
                     args.port = value
 
     debug = False
-    coordinator_timeout = 240
+    coordinator_timeout = 1200
 
     delete_proxy()
 

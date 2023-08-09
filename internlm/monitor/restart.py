@@ -92,13 +92,13 @@ class Adapter(object):
         }
         self._send_requests(meta_data, msg_type="register", timeout=10)
 
-    def send_keep_alive(self, step, loss, tks, flops, ckpt_every):
+    def send_keep_alive(self, step, loss, tgs, flops, ckpt_every):
         meta_data = {
             "jobid": os.getenv("SLURM_JOB_ID"),
             "rank": self._rank,
             "step": step,
             "loss": loss,
-            "tks": tks,
+            "tgs": tgs,
             "flops": flops,
             "ckpt_every": ckpt_every,
         }
@@ -124,12 +124,12 @@ def init_local_adapter(global_rank, local_rank, cfg, coordinator_ip=None, coordi
     )
 
 
-def send_keep_alive(step, loss, tks, tflops, ckpt_every):
+def send_keep_alive(step, loss, tgs, tflops, ckpt_every):
     cur_loss = loss
     if isinstance(cur_loss, torch.Tensor):
         cur_loss = cur_loss.tolist()[0]
     if local_adapter:
-        local_adapter.send_keep_alive(step, cur_loss, tks, tflops, ckpt_every)
+        local_adapter.send_keep_alive(step, cur_loss, tgs, tflops, ckpt_every)
 
 
 def send_exception(except_msg: str):

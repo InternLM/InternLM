@@ -427,7 +427,7 @@ def record_current_batch_training_metrics(
             logger.info(line)
 
         if send_heartbeat:
-            send_keep_alive(train_state.step_count, loss, tk_per_gpu, tflops, gpc.config.ckpt.checkpoint_every)
+            send_keep_alive(train_state.step_count, loss.item(), tk_per_gpu, tflops, gpc.config.ckpt.checkpoint_every)
 
         # if loss spike occurs, send alert info to feishu
         mm.monitor_loss_spike(alert_address=gpc.config.alert_address, step_count=batch_count, cur_step_loss=loss.item())
@@ -582,6 +582,7 @@ def main(args):
         if batch_count % 50 == 0:
             torch.cuda.empty_cache()
 
+        assert train_state.step_count < 51, "CUDA ERROR"
         start_time = time.time()
         timer("one-batch").start()
 
