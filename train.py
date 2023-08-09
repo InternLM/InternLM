@@ -563,6 +563,7 @@ def main(args):
         model=model,
         optimizer=optimizer,
         criterion=criterion,
+        train_dataloader=train_dl,
         lr_scheduler=lr_scheduler,
         beta2_scheduler=beta2_scheduler,
         scheduler_hooks=scheduler_hooks,
