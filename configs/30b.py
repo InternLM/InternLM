@@ -62,7 +62,7 @@ grad_scaler = dict(
 
 hybrid_zero_optimizer = dict(
     # Enable low_level_optimzer overlap_communication
-    zero_overlap_communication=False,
+    zero_overlap_communication=True,
     # bucket size for nccl communication params
     reduce_bucket_size=512 * 1024 * 1024,
     # grad clipping
@@ -113,7 +113,7 @@ model = dict(
     dtype="torch.bfloat16",
     norm_type="rmsnorm",
     layer_norm_epsilon=1e-5,
-    sequence_parallel=True,
+    sequence_parallel=False,
     num_kv_attention_heads=8,
     num_chunks=1,
 )
@@ -129,7 +129,7 @@ tensor parallel: tensor parallel size, usually the number of GPUs per node, only
 """
 parallel = dict(
     zero1=-1,
-    tensor=dict(size=8),
+    tensor=dict(size=4),
     pipeline=dict(size=1),
 )
 
