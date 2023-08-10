@@ -492,7 +492,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         if not self._overlap_communication:
             for group_id in range(len(self._fp16_param_groups)):
                 for param in self._fp16_param_groups[group_id]:
-                    if param.grad is not None:
+                    if param.grad is not None and not is_moe_param(param):
                         self._store_and_try_reduce_grads_by_bucket(param)
 
         # we need to reduce the gradients left in the communication bucket
