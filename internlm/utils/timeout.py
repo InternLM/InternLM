@@ -22,5 +22,5 @@ class Timeout:
         signal.signal(signal.SIGALRM, self.timeout_handler)
         signal.alarm(self.seconds)
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, error_type, value, traceback):
         signal.alarm(0)
