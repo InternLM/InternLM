@@ -218,9 +218,7 @@ class SimpleMemoryProfiler:
         # Calculate static optimizer state cuda memory
         self._os_params_mem_state = SimpleMemState("os_params_mem")
         self._os_state_mem_state = SimpleMemState("os_state_mem")
-        self._calc_tensor_group_memory(
-            self._os_params_mem_state, [(k, v) for k, v in enumerate(self._optimizer.param_groups)]
-        )
+        self._calc_tensor_group_memory(self._os_params_mem_state, list(enumerate(self._optimizer.param_groups)))
 
         # Generate the first memory record
         self.point(create=True)
@@ -302,9 +300,7 @@ class SimpleMemoryProfiler:
 
         # Update os state memory usage
         self._os_state_mem_state = SimpleMemState("os_state_mem")
-        self._calc_tensor_group_memory(
-            self._os_state_mem_state, [(k, v) for k, v in self._optimizer.state_dict()["state"].items()]
-        )
+        self._calc_tensor_group_memory(self._os_state_mem_state, list(self._optimizer.state_dict()["state"].items()))
 
         if not self._stoped:
             # Do we need to print os_state_layout every time? Is it always constant?
