@@ -45,7 +45,14 @@ from internlm.utils.common import (
 from internlm.utils.evaluation import evaluate_on_val_dls, switch_sequence_parallel_mode
 from internlm.utils.logger import get_logger, initialize_uniscale_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
-from internlm.utils.model_checkpoint import CheckpointManager
+from internlm.utils.model_checkpoint import (
+    CheckpointSaveManager,
+    load_context,
+    load_model_checkpoint,
+    load_optimizer_checkpoint,
+    load_sampler,
+    load_scheduler,
+)
 from internlm.utils.parallel import (
     get_parallel_log_file_name,
     is_no_pp_or_last_stage,
@@ -421,8 +428,12 @@ def main(args):
     skip_batches = gpc.config.data.skip_batches
     total_steps = gpc.config.data.total_steps
     valid_every = gpc.config.data.valid_every
+    load_optimizer = gpc.config.ckpt.load_optimizer
     label_smoothing = gpc.config.loss.label_smoothing
     lr = gpc.config.adam.lr
+
+    load_model_only_folder = gpc.config.ckpt.get("load_model_only_folder", None)
+    load_resume_ckpt_folder = gpc.config.ckpt.get("load_ckpt_folder", None)
 
     get_tflops_func = partial(
         get_megatron_flops,
@@ -459,18 +470,31 @@ def main(args):
         enable_tb=gpc.config.enable_tb,
     )
 
+    model_load_path = None
+    if load_resume_ckpt_folder is not None:
+        logger.info(
+            f"===========Resume training from `{load_resume_ckpt_folder}` {current_time} on host:"
+            f"{socket.gethostname()}==========="
+        )
+        model_load_path = load_resume_ckpt_folder
+    elif load_model_only_folder is not None:
+        logger.info(
+            f"===========SFT training from `{load_model_only_folder}` {current_time} on host:"
+            f"{socket.gethostname()}==========="
+        )
+        model_load_path = load_model_only_folder
+    else:
+        logger.info(
+            f"===========New Run {current_time} on host:{socket.gethostname()},rank={gpc.get_global_rank()},"
+            f"tp={gpc.get_local_rank(ParallelMode.TENSOR)},pp={gpc.get_local_rank(ParallelMode.PIPELINE)},"
+            f"dp={gpc.get_local_rank(ParallelMode.DATA)}==========="
+        )
+
     # initialize and resume train state
     train_state = TrainState(gpc.config)
 
     # initialize model
     model = initialize_model()
-
-    ckpt_manager = CheckpointManager(
-        ckpt_config=gpc.config.ckpt,
-        model=model,
-        model_config=gpc.config.model,
-        feishu_address=gpc.config.alert_address,
-    )
 
     # initialize loss function
     criterion = FlashGPTLMLoss(parallel_output=True, label_smoothing=label_smoothing)
@@ -481,12 +505,30 @@ def main(args):
     train_state.init_batch_sampler(train_dl)
 
     # Loading model weights must be done before zero is initialized.
-    ckpt_manager.try_load_model(current_time)
+    if model_load_path is not None:
+        load_model_checkpoint(folder=model_load_path, model=model)
 
     optimizer, beta2_scheduler, lr_scheduler = initialize_optimizer(model=model)
 
     # Loading other persistent training states.
-    ckpt_manager.try_resume_traing(lr_scheduler, optimizer, lr, train_state, train_dl)
+    if load_resume_ckpt_folder is not None:
+        # load lr scheduler states.
+        load_scheduler(load_resume_ckpt_folder, lr_scheduler, optimizer, lr, train_state)
+        # load training states.
+        load_context(load_resume_ckpt_folder, train_dl, train_state)
+        # load dataloader sampler states.
+        load_sampler(load_resume_ckpt_folder, train_dl.batch_sampler)
+        # load optimzier states.
+        if load_optimizer:
+            load_optimizer_checkpoint(load_resume_ckpt_folder, optimizer)
+
+    ckpt_save_manager = CheckpointSaveManager(
+        ckpt_config=gpc.config.ckpt,
+        model=model,
+        optimizer=optimizer,
+        lr_scheduler=lr_scheduler,
+        model_config=gpc.config.model,
+    )
 
     # initialize metric for calculating accuracy and perplexity
     metric = AccPerplex(
@@ -607,11 +649,9 @@ def main(args):
 
         # checkpoint the training states in specific steps, which is determined by the args "checkpoint_every"
         # # save batch sampler that tracks the true consumed samples
-        now_break = ckpt_manager.try_save_checkpoint(train_state)
-        if now_break:
-            break
+        ckpt_save_manager.try_save_checkpoint(train_state)
 
-    ckpt_manager.wait_async_upload_finish()
+    ckpt_save_manager.wait_async_upload_finish()
 
 
 if __name__ == "__main__":
@@ -627,10 +667,8 @@ if __name__ == "__main__":
         try:
             main(args)
         except Exception:
-            format_trace = ""
-            for line in traceback.format_exc().split("\n")[-10:]:
-                format_trace += "\n" + line
             logger.error(
-                f"Raise exception from {hostname} with rank id: {gpc.get_global_rank()}, trace:{format_trace}",
+                f"Raise exception from {hostname} with rank id: {gpc.get_global_rank()}",
+                exc_info=traceback.format_exc(),
             )
             mm.monitor_exception(alert_address=gpc.config.alert_address, excp_info=traceback.format_exc())
