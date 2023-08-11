@@ -138,12 +138,6 @@ def args_sanity_check():
                 if "async_upload_tmp_folder" not in gpc.config.ckpt:
                     gpc.config.ckpt._add_item("async_upload_tmp_folder", "/dev/shm/internlm_tmp_ckpt/")
 
-    if "stop_file_path" not in gpc.config.ckpt:
-        gpc.config._add_item("stop_file_path", None)
-    
-    if "load_given_ckpt" not in gpc.config.ckpt:
-        gpc.config._add_item("load_given_ckpt", False)
-
     if "snapshot_ckpt_folder" not in gpc.config.ckpt:
         gpc.config.ckpt._add_item("snapshot_ckpt_folder", os.path.join(gpc.config.ckpt.save_ckpt_folder), "snapshot")
 
