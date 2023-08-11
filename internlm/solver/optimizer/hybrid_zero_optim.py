@@ -576,14 +576,16 @@ class HybridZeroOptimizer(BaseOptimizer):
             # The following operations are performed only on the rank to which parameters are assigned.
             if not self.param_group_has_params[group_id]:
                 continue
-            gradients = self._grad_store.get_averaged_gradients_by_group(group_id)
 
             # create flat gradient for the flat fp32 params
-            fp16_avg_grads = gradients
-            flat_fp16_avg_grads = flatten(fp16_avg_grads)
+            gradients = self._grad_store.get_averaged_gradients_by_group(group_id)
+            flat_fp16_avg_grads = flatten(gradients)
+            self._grad_store.reset_average_gradients_by_group(group_id)
+            del gradients  # release cuda memory
 
             dtype = self._fp32_flat_param_groups_of_current_rank[group_id].dtype
             flat_fp32_avg_grads = flat_fp16_avg_grads.to(dtype)
+            del flat_fp16_avg_grads  # release cuda memory
 
             param_shape = self._fp32_flat_param_groups_of_current_rank[group_id].shape
             assert (
@@ -593,8 +595,6 @@ class HybridZeroOptimizer(BaseOptimizer):
             single_grad_partition_groups.append(flat_fp32_avg_grads)
             device = self._fp32_flat_param_groups_of_current_rank[group_id].device
             self._fp32_flat_param_groups_of_current_rank[group_id].grad = flat_fp32_avg_grads.to(device)
-            self._grad_store._averaged_gradients[group_id] = []
-            self._grad_store._averaged_gradients[group_id] = []
 
         # unscale and clip grads
         # get the global norm
