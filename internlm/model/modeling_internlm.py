@@ -123,7 +123,6 @@ class PackedFlashBaseLayer1D(nn.Module):
             self.norm1 = nn.LayerNorm(hidden_size, eps=layer_norm_epsilon)
             self.norm2 = nn.LayerNorm(hidden_size, eps=layer_norm_epsilon)
 
-        # TODO: replace num_experts and epsize with function parameter
         self.num_experts = num_experts
         self.moe_gate_k = moe_gate_k
         self.moe_capacity_factor = moe_capacity_factor
@@ -582,7 +581,7 @@ def build_model_with_cfg(
     moe_noisy_gate_policy: str = None,
     moe_drop_tokens: bool = True,
     moe_use_rts: bool = True,
-    moe_use_residual: bool = True,
+    moe_use_residual: bool = False,
 ):
     """
     Builde model with config
@@ -646,7 +645,6 @@ def build_model_with_cfg(
         use_scaled_init=use_scaled_init,
         use_swiglu=use_swiglu,
         use_flash_attn=use_flash_attn,
-        sequence_parallel=sequence_parallel,
         num_experts=num_experts,
         moe_gate_k=moe_gate_k,
         moe_capacity_factor=moe_capacity_factor,
