@@ -39,7 +39,7 @@ def get_default_parser():
     parser.add_argument("--local_rank", type=int, help="local rank on the node")
     parser.add_argument("--backend", type=str, default="nccl", help="backend for distributed communication")
     parser.add_argument("--seed", type=int, default=1024)
-    parser.add_argument("--profiling", default=True, action="store_true", help="enable/diable profiling.")
+    parser.add_argument("--profiling", default=False, action="store_true", help="enable/disable profiling.")
     return parser
 
 
