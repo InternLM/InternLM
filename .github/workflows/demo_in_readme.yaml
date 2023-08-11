@@ -3,14 +3,21 @@ on:
   pull_request:
     branches:
       - "main"
+      - "develop"
     paths-ignore:
       - "docs/**"
       - "**.md"
+env:
+  WORKSPACE_PREFIX: $(echo $GITHUB_WORKSPACE |cut -d '/' -f 1-4)
+  SLURM_PARTITION: llm
 
 jobs:
   check-requirements:
     runs-on: [lmtest]
     steps:
+    - name: mask env
+      run: |
+        echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
     - uses: actions/checkout@v3
       with:
          fetch-depth: 2
@@ -32,12 +39,15 @@ jobs:
     needs: check-requirements
     runs-on: [lmtest]
     steps:
+    - name: mask env 
+      run: |
+        echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
     - uses: actions/checkout@v3
 
     - name: raw-chinese-data
       run: |
         source activate internlm-env-test
-        sh ./ci_scripts/data/tokenizer_chinese.sh
+        sh ./ci_scripts/data/tokenizer_chinese.sh ${GITHUB_RUN_ID}-${GITHUB_JOB}
 
     - name: alpaca-data
       run: |
@@ -48,19 +58,23 @@ jobs:
     if: ${{ always() }}
     needs: check-requirements
     runs-on: [lmtest]
+    timeout-minutes: 30
     steps:
+    - name: mask env 
+      run: |
+        echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
     - uses: actions/checkout@v3
 
     - name: slurm-train
       run: |
         source activate internlm-env-test
-        sh ./ci_scripts/train/slurm_train.sh
+        sh ./ci_scripts/train/slurm_train.sh ${GITHUB_RUN_ID}-${GITHUB_JOB}
         rm -rf $GITHUB_WORKSPACE/llm_ckpts
 
     - name: torchrun-train
       run: |
         source activate internlm-env-test
-        sh ./ci_scripts/train/torchrun.sh
+        sh ./ci_scripts/train/torchrun.sh ${GITHUB_RUN_ID}-${GITHUB_JOB}
         rm -rf $GITHUB_WORKSPACE/llm_ckpts
 
   convert-model-then-load:
@@ -68,6 +82,9 @@ jobs:
     needs: check-requirements
     runs-on: [lmtest]
     steps:
+    - name: mask env
+      run: |
+        echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
     - uses: actions/checkout@v3
 
     - name: convert-model-then-load
@@ -76,7 +93,7 @@ jobs:
         export PYTHONPATH=$PWD:$PYTHONPATH
         sh ./ci_scripts/model/convert_to_hf.sh 
         cd ./hf_ckpt
-        srun -p llm python ../ci_scripts/model/loaded_as_transformer.py
+        srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --gpus-per-task=2 python ../ci_scripts/model/loaded_as_transformer.py
         cd ..
         rm -rf $GITHUB_WORKSPACE/hf_ckpt
   
@@ -85,9 +102,12 @@ jobs:
     needs: check-requirements
     runs-on: [lmtest]
     steps:
+    - name: mask env 
+      run: |
+        echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
     - uses: actions/checkout@v3
 
     - name: chat-model-in-hf
       run: |
         source activate internlm-env-test
-        srun -p llm python ./ci_scripts/model/demo_load_7B_chat_model.py
+        srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --gpus-per-task=2 python ./ci_scripts/model/demo_load_7B_chat_model.py
