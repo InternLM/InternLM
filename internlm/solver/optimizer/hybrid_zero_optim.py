@@ -367,6 +367,8 @@ class HybridZeroOptimizer(BaseOptimizer):
 
                 # update the flag
                 self._param_store.set_param_reduction_state(param, True)
+                if not self._param_store.belongs_to_current_rank(param):
+                    self._param_store.add_previous_reduced_param(param)
 
         self._bucket_store.reset_by_rank(reduce_rank)
 
@@ -385,9 +387,9 @@ class HybridZeroOptimizer(BaseOptimizer):
 
     def _reduce_and_copy(self, bucket: TensorBucket, reduce_rank):
         if self._overlap_communication:
-            torch.cuda.synchronize()
-            self._param_store.clear_grads_of_previous_reduced_params()
             stream = self._comm_stream
+            torch.cuda.synchronize(stream)
+            self._param_store.clear_grads_of_previous_reduced_params()
         else:
             stream = torch.cuda.current_stream()
 
@@ -494,7 +496,7 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         # clear reduced grads
         if self._overlap_communication:
-            torch.cuda.synchronize()
+            torch.cuda.synchronize(self._comm_stream)
             self._param_store.clear_grads_of_previous_reduced_params()
 
         self._sync_grad()
@@ -506,7 +508,10 @@ class HybridZeroOptimizer(BaseOptimizer):
         assert closure is None, "closure is not supported by step()"
 
         # check for overflow
-        found_inf = self._check_overflow()
+        found_inf = False
+        # if there is INF values in grades, compute_norm func would also returns -1
+        # thus, we try to avoid call _check_overflow here
+        # found_inf = self._check_overflow()
         # Because you may encounter inf when computing norm
         timer("cal_norm").start()
         norm_groups = []
@@ -559,13 +564,14 @@ class HybridZeroOptimizer(BaseOptimizer):
 
             # create flat gradient for the flat fp32 params
             gradients = self._grad_store.get_averaged_gradients_by_group(group_id)
-            flat_fp16_avg_grads = flatten(gradients)
+            with torch.no_grad():
+                flat_fp16_avg_grads = flatten(gradients)
             self._grad_store.reset_average_gradients_by_group(group_id)
-            del gradients  # release cuda memory
+            gradients = None # release cuda memory
 
             dtype = self._fp32_flat_param_groups_of_current_rank[group_id].dtype
             flat_fp32_avg_grads = flat_fp16_avg_grads.to(dtype)
-            del flat_fp16_avg_grads  # release cuda memory
+            flat_fp16_avg_grads  = None # release cuda memory
 
             param_shape = self._fp32_flat_param_groups_of_current_rank[group_id].shape
             assert (
