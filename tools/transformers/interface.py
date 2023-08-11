@@ -21,10 +21,10 @@ class GenerationConfig:
 
 
 @torch.inference_mode()
-def generation_iterator(
-    model: AutoModel,
-    tokenizer: AutoTokenizer,
-    prompt: str,
+def generate_interactive(
+    model, 
+    tokenizer,
+    prompt,
     generation_config: Optional[GenerationConfig] = None,
     logits_processor: Optional[LogitsProcessorList] = None,
     stopping_criteria: Optional[StoppingCriteriaList] = None,
@@ -37,12 +37,12 @@ def generation_iterator(
     for k, v in inputs.items():
         inputs[k] = v.cuda()
     input_ids = inputs["input_ids"]
-    input_ids_seq_length = input_ids.shape[-1]
+    batch_size, input_ids_seq_length = input_ids.shape[0], input_ids.shape[-1]
     if generation_config is None:
         generation_config = model.generation_config
     generation_config = copy.deepcopy(generation_config)
     model_kwargs = generation_config.update(**kwargs)
-    eos_token_id = generation_config.eos_token_id
+    bos_token_id, eos_token_id = generation_config.bos_token_id, generation_config.eos_token_id
     if isinstance(eos_token_id, int):
         eos_token_id = [eos_token_id]
     if additional_eos_token_id is not None:
@@ -58,24 +58,20 @@ def generation_iterator(
     elif generation_config.max_new_tokens is not None:
         generation_config.max_length = generation_config.max_new_tokens + input_ids_seq_length
         if not has_default_max_length:
-            logger.warning(
-                "Both `max_new_tokens` (={%s}) and `max_length`(="
-                "{%s}) seem to have been set. `max_new_tokens` will take precedence. "
+            logger.warn(
+                f"Both `max_new_tokens` (={generation_config.max_new_tokens}) and `max_length`(="
+                f"{generation_config.max_length}) seem to have been set. `max_new_tokens` will take precedence. "
                 "Please refer to the documentation for more information. "
                 "(https://huggingface.co/docs/transformers/main/en/main_classes/text_generation)",
-                generation_config.max_new_tokens,
-                generation_config.max_length,
+                UserWarning,
             )
 
     if input_ids_seq_length >= generation_config.max_length:
         input_ids_string = "input_ids"
         logger.warning(
-            "Input length of {%s} is {%s}, but `max_length` is set to"
-            " {%s}. This can lead to unexpected behavior. You should consider"
-            " increasing `max_new_tokens`.",
-            input_ids_string,
-            input_ids_seq_length,
-            generation_config.max_length,
+            f"Input length of {input_ids_string} is {input_ids_seq_length}, but `max_length` is set to"
+            f" {generation_config.max_length}. This can lead to unexpected behavior. You should consider"
+            " increasing `max_new_tokens`."
         )
 
     # 2. Set generation parameters if not already defined
@@ -114,7 +110,7 @@ def generation_iterator(
         next_token_scores = logits_warper(input_ids, next_token_scores)
 
         # sample
-        probs = next_token_scores.softmax(dim=-1)
+        probs = nn.functional.softmax(next_token_scores, dim=-1)
         if generation_config.do_sample:
             next_tokens = torch.multinomial(probs, num_samples=1).squeeze(1)
         else:
@@ -122,9 +118,11 @@ def generation_iterator(
 
         # update generated ids, model inputs, and length for next step
         input_ids = torch.cat([input_ids, next_tokens[:, None]], dim=-1)
-        model_kwargs = model._update_model_kwargs_for_generation(outputs, model_kwargs, is_encoder_decoder=False)
+        model_kwargs = model._update_model_kwargs_for_generation(
+            outputs, model_kwargs, is_encoder_decoder=False
+        )
         unfinished_sequences = unfinished_sequences.mul((min(next_tokens != i for i in eos_token_id)).long())
-
+        
         output_token_ids = input_ids[0].cpu().tolist()
         output_token_ids = output_token_ids[input_length:]
         for each_eos_token_id in eos_token_id:
