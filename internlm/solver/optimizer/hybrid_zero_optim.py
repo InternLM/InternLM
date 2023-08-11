@@ -388,7 +388,7 @@ class HybridZeroOptimizer(BaseOptimizer):
     def _reduce_and_copy(self, bucket: TensorBucket, reduce_rank):
         if self._overlap_communication:
             stream = self._comm_stream
-            torch.cuda.synchronize(stream)
+            stream.synchronize()
             self._param_store.clear_grads_of_previous_reduced_params()
         else:
             stream = torch.cuda.current_stream()
@@ -496,7 +496,7 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         # clear reduced grads
         if self._overlap_communication:
-            torch.cuda.synchronize(self._comm_stream)
+            self._comm_stream.synchronize()
             self._param_store.clear_grads_of_previous_reduced_params()
 
         self._sync_grad()
