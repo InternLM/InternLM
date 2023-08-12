@@ -317,7 +317,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         # if full, will reduce the grads already in the bucket
         # after reduction, the bucket will be empty
         if self._bucket_store.num_elements_in_bucket(reduce_rank) + param_size > self._reduce_bucket_size:
-            self._reduce_grads_stored_in_bucket(reduce_rank)
+            self._reduce_grads_stored_in_bucket(reduce_rank, last_bucket=False)
 
         # the param must not be reduced to ensure correctness
         is_param_reduced = self._param_store.is_param_reduced(param)
@@ -335,7 +335,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         self._bucket_store.add_grad(param.grad, reduce_rank)
         self._bucket_store.add_param(param, reduce_rank)
 
-    def _reduce_grads_stored_in_bucket(self, reduce_rank=None):
+    def _reduce_grads_stored_in_bucket(self, reduce_rank=None, last_bucket=False):
         # reduce grads
         self._reduce_grads_by_rank(
             reduce_rank=reduce_rank,
@@ -343,32 +343,27 @@ class HybridZeroOptimizer(BaseOptimizer):
             bucket_size=self._bucket_store.num_elements_in_bucket(reduce_rank),
         )
 
-        # use communication stream if overlapping
-        # communication with computation
-        if self._overlap_communication:
-            stream = self._comm_stream
-        else:
-            stream = torch.cuda.current_stream()
+        params_in_bucket = self._bucket_store.get_param(reduce_rank=reduce_rank)
 
-        with torch.cuda.stream(stream):
-            params_in_bucket = self._bucket_store.get_param(reduce_rank=reduce_rank)
+        for param in params_in_bucket:
+            # the is_param_reduced flag should be False showing that
+            # this param is not reduced before calling self._reduce_grads_by_rank
+            is_param_reduced = self._param_store.is_param_reduced(param)
 
-            for param in params_in_bucket:
-                # the is_param_reduced flag should be False showing that
-                # this param is not reduced before calling self._reduce_grads_by_rank
-                is_param_reduced = self._param_store.is_param_reduced(param)
+            if is_param_reduced:
+                msg = (
+                    f"Parameter of size ({param.size()}) has been reduced, "
+                    + "duplicate reduction will lead to arithmetic incorrectness"
+                )
+                raise RuntimeError(msg)
 
-                if is_param_reduced:
-                    msg = (
-                        f"Parameter of size ({param.size()}) has been reduced, "
-                        + "duplicate reduction will lead to arithmetic incorrectness"
-                    )
-                    raise RuntimeError(msg)
-
-                # update the flag
-                self._param_store.set_param_reduction_state(param, True)
-                if not self._param_store.belongs_to_current_rank(param):
-                    self._param_store.add_previous_reduced_param(param)
+            # update the flag
+            self._param_store.set_param_reduction_state(param, True)
+            
+            if self._param_store.belongs_to_current_rank(param):
+                self._param_store.add_reduced_data_for_compute_norm(param, last_bucket)
+            else:
+                self._param_store.add_previous_reduced_param(param)                
 
         self._bucket_store.reset_by_rank(reduce_rank)
 
@@ -423,6 +418,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         reduction_states = self._param_store.get_param_reduction_states()
         for tensor, _ in reduction_states.items():
             reduction_states[tensor] = False
+        self._param_store.reset_reduced_data_for_compute_norm()
 
         # accumulate gradient
         avg_gradients = self._grad_store._averaged_gradients
@@ -492,54 +488,64 @@ class HybridZeroOptimizer(BaseOptimizer):
                         self._store_and_try_reduce_grads_by_bucket(param)
 
         # we need to reduce the gradients left in the communication bucket
-        self._reduce_grads_stored_in_bucket()
+        self._reduce_grads_stored_in_bucket(reduce_rank=None, last_bucket=True)
+        
+        norms = []
+        timer("cal_norm").start()
+        # compute norm for gradients that have been reduced
+        params_1,grads_1 = self._param_store.get_reduced_data_for_compute_norm(last_bucket=False)
+        if len(params_1) == 0:
+            params_1 = [self.padding_grad]
+            grads_1 = [self.padding_tensor]
 
+        if self._clip_grad_norm > 0:
+            # this norm is before scaling, it will be very large
+            norms.append(compute_norm(
+                gradients=grads_1,
+                parameters=params_1,
+            ))
+        timer("cal_norm").stop()
+        
         # clear reduced grads
         if self._overlap_communication:
+            #grads in the last bucket is reduced
             self._comm_stream.synchronize()
             self._param_store.clear_grads_of_previous_reduced_params()
+        
+        # compute norm for gradients in the last bucket
+        timer("cal_norm").start()
+        # compute norm for gradients that have been reduced
+        params_2,grads_2 = self._param_store.get_reduced_data_for_compute_norm(last_bucket=True)
+        
+        if len(params_2) == 0:
+            params_2 = [self.padding_grad]
+            grads_2 = [self.padding_tensor]
+
+        if self._clip_grad_norm > 0:
+            # this norm is before scaling, it will be very large
+            norms.append(compute_norm(
+                gradients=grads_2,
+                parameters=params_2,
+            ))
+        timer("cal_norm").stop()
 
         self._sync_grad()
         timer("sync_grad").stop()
 
-        return self._step(closure=closure)
+        return self._step(closure=closure, norms=norms)
 
-    def _step(self, closure=None):
+    def _step(self, closure=None, norms=[]):
         assert closure is None, "closure is not supported by step()"
-
+                
         # check for overflow
         found_inf = False
         # if there is INF values in grades, compute_norm func would also returns -1
         # thus, we try to avoid call _check_overflow here
         # found_inf = self._check_overflow()
         # Because you may encounter inf when computing norm
-        timer("cal_norm").start()
-        norm_groups = []
-        for group_id in range(self.num_param_groups):
-            # compute norm
-            if self._zero_local_rank not in self.param_group_no_params_ranks[group_id]:
-                gradients = self._grad_store.get_averaged_gradients_by_group(group_id)
-                parameters = self._param_store.get_fp16_params_by_rank_group(
-                    group_id=group_id, rank=self._zero_local_rank
-                )
-            else:
-                # in order to prevent collection communication from hanging,
-                # we need to involve rank that are not assigned parameters in compute_norm(),
-                # so we give them a fp16 vector of 0 values.
-                gradients = [self.padding_grad]
-                parameters = [self.padding_tensor]
-
-            if self._clip_grad_norm > 0:
-                # this norm is before scaling, it will be very large
-                norm_group = compute_norm(
-                    gradients=gradients,
-                    parameters=parameters,
-                )
-                if norm_group == -1:
-                    timer("cal_norm").stop()
-                    found_inf = True
-                    break
-                norm_groups.append(norm_group)
+        
+        if -1 in norms:
+            found_inf = True
 
         loss_scale = float(self.loss_scale.item())  # backup
         if not gpc.config.model.dtype is torch.float32:
@@ -553,6 +559,7 @@ class HybridZeroOptimizer(BaseOptimizer):
             self.zero_grad()
             return False, None
 
+        timer("cal_norm").start()
         # copy the grad of fp16 param to fp32 param
         single_grad_partition_groups = []
         global_norm = 0
@@ -585,7 +592,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         # unscale and clip grads
         # get the global norm
         if self._clip_grad_norm > 0:
-            global_norm = sum(norm_groups) ** 0.5
+            global_norm = sum(norms) ** 0.5
 
         # the following operations are performed only on the rank to which parameters are assigned.
         if not gpc.config.model.dtype is torch.float32:
