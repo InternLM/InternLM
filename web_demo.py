@@ -8,7 +8,6 @@ Please refer to these links below for more information:
 
 import streamlit as st
 import torch
-import torch.nn as nn
 from dataclasses import dataclass, asdict
 from typing import List, Optional, Callable, Optional
 import copy
@@ -18,7 +17,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from transformers.utils import logging
 from transformers.generation.utils import LogitsProcessorList, StoppingCriteriaList
 
-from tools.transformers.interactive import generate_interactive, GenerationConfig
+from tools.transformers.interface import generate_interactive, GenerationConfig
 
 logger = logging.get_logger(__name__)
 

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Callable, List, Optional
 
 import torch
+from torch import nn
 from transformers import AutoModel, AutoTokenizer
 from transformers.generation.utils import LogitsProcessorList, StoppingCriteriaList
 from transformers.utils import logging
