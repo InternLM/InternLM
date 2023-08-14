@@ -21,6 +21,7 @@ logger = get_logger(__file__)
 try:
     import amp_C
     from apex.multi_tensor_apply import multi_tensor_applier
+
     APEX_AVAILABLE = True
 except (ModuleNotFoundError, ImportError):
     logger.warn("The torch implementation for cal_l2norm is slower than apex. Please note this!")
@@ -162,6 +163,7 @@ def sync_param(flat_tensor, tensor_list):
     for p, q in zip(tensor_list, updated_params):
         p.data = q.data
 
+
 def multi_tensor_l2norm_torch(tensor_list, per_tensor):
     # Convert tensor_list elements to torch.float32
     tensor_list = [tensor.float() for tensor in tensor_list]
@@ -175,6 +177,7 @@ def multi_tensor_l2norm_torch(tensor_list, per_tensor):
 
     return l2_norm, per_tensor_norm
 
+
 def calc_l2_norm(grads):
     norm = 0.0
     if len(grads) > 0:
@@ -187,6 +190,7 @@ def calc_l2_norm(grads):
             norm, _ = multi_tensor_l2norm_torch(grads, False)
     return norm
 
+
 def calc_lp(grads, norm_type):
     norm = 0.0
     for grad in grads:
@@ -195,7 +199,7 @@ def calc_lp(grads, norm_type):
     return norm
 
 
-def compute_norm(gradients, parameters, norm_type=2):
+def compute_norm(gradients=None, parameters=None, norms=None, norm_type=2, stage_id=0):
     """Get the norm
     Arguments:
         gradients (Iterable[Tensor]): The gradient value.
@@ -207,7 +211,6 @@ def compute_norm(gradients, parameters, norm_type=2):
         Total norm of the parameters, need total_norm**(1/norm) before using.
     """
 
-    enable_cuda_kernels = gradients[0].device.type == "cuda"
     # Norm parameters.
     norm_type = float(norm_type)
 
@@ -220,41 +223,48 @@ def compute_norm(gradients, parameters, norm_type=2):
             dist.all_reduce(total_norm_cuda, op=dist.ReduceOp.MAX, group=gpc.get_group(ParallelMode.MODEL))
         total_norm = total_norm_cuda[0].item()
     else:
-        tensor_parallel_grads = []
-        for g, p in zip(gradients, parameters):
-            # TODO: consider the pipeline shared parameter
-            if (
-                gpc.is_initialized(ParallelMode.PIPELINE)
-                and hasattr(p, "pipeline_shared_module_pg")
-                and dist.get_rank(p.pipeline_shared_module_pg) == 0
-            ):  # if shared between different pipe, only count o
-                tensor_parallel_grads.append(g.data.float())
-            elif (
-                gpc.is_initialized(ParallelMode.PIPELINE)
-                and hasattr(p, "pipeline_shared_module_pg")
-                and dist.get_rank(p.pipeline_shared_module_pg) != 0
-            ):
-                continue
-            elif (
-                gpc.is_initialized(ParallelMode.TENSOR)
-                and not is_model_parallel_parameter(p)
-                and gpc.get_local_rank(ParallelMode.TENSOR) == 0
-            ):  # if not used in each chunk, such as layernorm
-                tensor_parallel_grads.append(g.data.float())
-            elif is_model_parallel_parameter(p):
-                tensor_parallel_grads.append(g.data.float())
-            elif gpc.get_local_rank(ParallelMode.TENSOR) != 0:
-                continue
+        if stage_id == 0:
+            assert gradients and parameters is not None
+            enable_cuda_kernels = gradients[0].device.type == "cuda"
+            tensor_parallel_grads = []
+            for g, p in zip(gradients, parameters):
+                # TODO: consider the pipeline shared parameter
+                if (
+                    gpc.is_initialized(ParallelMode.PIPELINE)
+                    and hasattr(p, "pipeline_shared_module_pg")
+                    and dist.get_rank(p.pipeline_shared_module_pg) == 0
+                ):  # if shared between different pipe, only count o
+                    tensor_parallel_grads.append(g.data.float())
+                elif (
+                    gpc.is_initialized(ParallelMode.PIPELINE)
+                    and hasattr(p, "pipeline_shared_module_pg")
+                    and dist.get_rank(p.pipeline_shared_module_pg) != 0
+                ):
+                    continue
+                elif (
+                    gpc.is_initialized(ParallelMode.TENSOR)
+                    and not is_model_parallel_parameter(p)
+                    and gpc.get_local_rank(ParallelMode.TENSOR) == 0
+                ):  # if not used in each chunk, such as layernorm
+                    tensor_parallel_grads.append(g.data.float())
+                elif is_model_parallel_parameter(p):
+                    tensor_parallel_grads.append(g.data.float())
+                elif gpc.get_local_rank(ParallelMode.TENSOR) != 0:
+                    continue
+                else:
+                    raise RuntimeError("Should not arrive here")
+
+            if norm_type == 2.0 and enable_cuda_kernels:
+                tensor_parallel_norm = calc_l2_norm(tensor_parallel_grads) ** norm_type
             else:
-                raise RuntimeError("Should not arrive here")
+                tensor_parallel_norm = calc_lp(tensor_parallel_grads, norm_type)
+            return tensor_parallel_norm
 
-        if norm_type == 2.0 and enable_cuda_kernels:
-            tensor_parallel_norm = calc_l2_norm(tensor_parallel_grads) ** norm_type
-        else:
-            tensor_parallel_norm = calc_lp(tensor_parallel_grads, norm_type)
-
+        # stage id == 1
+        assert norms is not None
+        enable_cuda_kernels = norms.device.type == "cuda"
         # If norm is type of float, then we convert them into torch.Tensor.
-        tensor_parallel_norm = get_tensor_norm(tensor_parallel_norm, enable_cuda_kernels)
+        tensor_parallel_norm = get_tensor_norm(norms, enable_cuda_kernels)
         # If grads are on CPU, the norms is also on CPU. Cast them to CUDA tensors
         if not enable_cuda_kernels:
             tensor_parallel_norm = move_norm_to_cuda(tensor_parallel_norm)

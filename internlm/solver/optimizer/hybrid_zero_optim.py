@@ -178,6 +178,7 @@ class HybridZeroOptimizer(BaseOptimizer):
                 if len(params) != 0:
                     self._param_store.add_fp16_param_list_by_rank_group(rank, group_id, params)
                     for param in params:
+                        setattr(param, "group_id", group_id)
                         self._param_store.set_param_to_rank(param, rank)
 
             # move to cpu to make room to create the flat tensor
@@ -359,11 +360,11 @@ class HybridZeroOptimizer(BaseOptimizer):
 
             # update the flag
             self._param_store.set_param_reduction_state(param, True)
-            
+
             if self._param_store.belongs_to_current_rank(param):
                 self._param_store.add_reduced_param_for_compute_norm(param, last_bucket)
             else:
-                self._param_store.add_previous_reduced_param(param)                
+                self._param_store.add_previous_reduced_param(param)
 
         self._bucket_store.reset_by_rank(reduce_rank)
 
@@ -467,6 +468,28 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         # Gradients may not be fully synchronized here.
 
+    def _compute_norm_stage_0(self, group_id: int = 0, last_bucket: bool = False):
+        timer("cal_norm").start()
+        # compute norm for gradients that have been reduced
+        params, _ = self._param_store.get_reduced_param_for_compute_norm(last_bucket=last_bucket)
+        params_list = []
+        grads_list = []
+        for param in params:
+            if getattr(param, "group_id") == group_id:
+                params_list.append(param)
+                grads_list.append(param.grad)
+
+        if len(params_list) == 0:
+            params_list = [self.padding_grad]
+            grads_list = [self.padding_tensor]
+
+        if self._clip_grad_norm > 0:
+            # this norm is before scaling, it will be very large
+            norm = compute_norm(gradients=params_list, parameters=grads_list, stage_id=0)
+
+        timer("cal_norm").stop()
+        return norm
+
     def step(self, closure=None):
         """Performs a single optimization step.
 
@@ -489,66 +512,45 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         # we need to reduce the gradients left in the communication bucket
         self._reduce_grads_stored_in_bucket(reduce_rank=None, last_bucket=True)
-        
-        norms = []
-        timer("cal_norm").start()
-        # compute norm for gradients that have been reduced
-        params_1,grads_1 = self._param_store.get_reduced_param_for_compute_norm(last_bucket=False)
-        if len(params_1) == 0:
-            params_1 = [self.padding_grad]
-            grads_1 = [self.padding_tensor]
 
-        if self._clip_grad_norm > 0:
-            # this norm is before scaling, it will be very large
-            norms.append(compute_norm(
-                gradients=grads_1,
-                parameters=params_1,
-            ))
-        timer("cal_norm").stop()
-        
+        # compute norm for gradients in the before bucket
+        norms_with_group_id = {}
+        for group_id in range(self.num_param_groups):
+            norms_with_group_id[group_id] = []
+            norms_with_group_id[group_id].append(self._compute_norm_stage_0(group_id=group_id, last_bucket=False))
+
         # clear reduced grads
         if self._overlap_communication:
-            #grads in the last bucket is reduced
+            # grads in the last bucket is reduced
             self._comm_stream.synchronize()
             self._param_store.clear_grads_of_previous_reduced_params()
-        
-        # compute norm for gradients in the last bucket
-        timer("cal_norm").start()
-        # compute norm for gradients that have been reduced
-        params_2,grads_2 = self._param_store.get_reduced_param_for_compute_norm(last_bucket=True)
-        
-        if len(params_2) == 0:
-            params_2 = [self.padding_grad]
-            grads_2 = [self.padding_tensor]
 
-        if self._clip_grad_norm > 0:
-            # this norm is before scaling, it will be very large
-            norms.append(compute_norm(
-                gradients=grads_2,
-                parameters=params_2,
-            ))
-        timer("cal_norm").stop()
+        # compute norm for gradients in the last bucket
+        total_norms = []
+        for group_id in range(self.num_param_groups):
+            norms_with_group_id[group_id].append(self._compute_norm_stage_0(group_id=group_id, last_bucket=True))
+            total_norms.append(compute_norm(norms=sum(norms_with_group_id[group_id]), stage_id=1))
 
         self._sync_grad()
         timer("sync_grad").stop()
 
-        return self._step(closure=closure, norms=norms)
+        return self._step(closure=closure, norms=total_norms)
 
-    def _step(self, closure=None, norms=[]):
+    def _step(self, closure=None, norms=None):
         assert closure is None, "closure is not supported by step()"
-                
+
         # check for overflow
         found_inf = False
         # if there is INF values in grades, compute_norm func would also returns -1
         # thus, we try to avoid call _check_overflow here
         # found_inf = self._check_overflow()
         # Because you may encounter inf when computing norm
-        
+
         if -1 in norms:
             found_inf = True
 
         loss_scale = float(self.loss_scale.item())  # backup
-        if not gpc.config.model.dtype is torch.float32:
+        if gpc.config.model.dtype is not torch.float32:
             self.grad_scaler.update(found_inf)
         # update loss scale if overflow occurs
         if found_inf:
@@ -574,11 +576,11 @@ class HybridZeroOptimizer(BaseOptimizer):
             with torch.no_grad():
                 flat_fp16_avg_grads = flatten(gradients)
             self._grad_store.reset_average_gradients_by_group(group_id)
-            gradients = None # release cuda memory
+            gradients = None  # release cuda memory
 
             dtype = self._fp32_flat_param_groups_of_current_rank[group_id].dtype
             flat_fp32_avg_grads = flat_fp16_avg_grads.to(dtype)
-            flat_fp16_avg_grads  = None # release cuda memory
+            flat_fp16_avg_grads = None  # release cuda memory
 
             param_shape = self._fp32_flat_param_groups_of_current_rank[group_id].shape
             assert (
@@ -595,7 +597,7 @@ class HybridZeroOptimizer(BaseOptimizer):
             global_norm = sum(norms) ** 0.5
 
         # the following operations are performed only on the rank to which parameters are assigned.
-        if not gpc.config.model.dtype is torch.float32:
+        if gpc.config.model.dtype is not torch.float32:
             if len(single_grad_partition_groups) != 0:
                 self._unscale_and_clip_grads(single_grad_partition_groups, global_norm, loss_scale)
 

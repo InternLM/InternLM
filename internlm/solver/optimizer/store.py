@@ -151,7 +151,7 @@ class ParameterStore(BaseStore):
         # param reduction data structures
         self._is_param_reduced = dict()
         self._reduced_param = []
-        
+
         self._former_bucket_reduced_param = []
         self._last_bucket_reduced_param = []
         self._former_bucket_reduced_grad = []
@@ -227,27 +227,27 @@ class ParameterStore(BaseStore):
 
     def add_previous_reduced_param(self, tensor):
         self._reduced_param.append(tensor)
-    
+
     def add_reduced_param_for_compute_norm(self, param, last_bucket=False):
         if last_bucket:
             self._last_bucket_reduced_param.append(param)
             self._last_bucket_reduced_grad.append(param.grad)
-        else: 
+        else:
             self._former_bucket_reduced_param.append(param)
-            self._former_bucket_reduced_grad.append(param.grad) 
-        
+            self._former_bucket_reduced_grad.append(param.grad)
+
     def get_reduced_param_for_compute_norm(self, last_bucket=False):
         if not last_bucket:
             return self._former_bucket_reduced_param, self._former_bucket_reduced_grad
         else:
             return self._last_bucket_reduced_param, self._last_bucket_reduced_grad
-    
+
     def reset_reduced_data_for_compute_norm(self):
         self._former_bucket_reduced_param = []
         self._last_bucket_reduced_param = []
         self._former_bucket_reduced_grad = []
         self._last_bucket_reduced_grad = []
-        
+
     def clear_grads_of_previous_reduced_params(self):
         if len(self._reduced_param) > 0:
             for param in self._reduced_param:
