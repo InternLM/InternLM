@@ -480,12 +480,12 @@ class HybridZeroOptimizer(BaseOptimizer):
                 grads_list.append(param.grad)
 
         if len(params_list) == 0:
-            params_list = [self.padding_grad]
-            grads_list = [self.padding_tensor]
+            grads_list = [self.padding_grad]
+            params_list = [self.padding_tensor]
 
         if self._clip_grad_norm > 0:
             # this norm is before scaling, it will be very large
-            norm = compute_norm(gradients=params_list, parameters=grads_list, stage_id=0)
+            norm = compute_norm(gradients=grads_list, parameters=params_list, stage_id=0)
 
         timer("cal_norm").stop()
         return norm
