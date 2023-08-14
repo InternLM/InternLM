@@ -58,7 +58,11 @@ class ScaleColumnParallelLinear(nn.Linear):
         else:
             weight = self.weight
         return fused_dense_func_torch(
-            input, weight, self.bias, process_group=self.process_group, sequence_parallel=gpc.config.model.sequence_parallel
+            input,
+            weight,
+            self.bias,
+            process_group=self.process_group,
+            sequence_parallel=gpc.config.model.sequence_parallel,
         )
 
 
@@ -103,7 +107,11 @@ class RewardModelLinear(ScaleColumnParallelLinear):
         else:
             weight = self.weight
         return fused_dense_func_torch(
-            input, weight, self.bias, process_group=self.process_group, sequence_parallel=gpc.config.model.sequence_parallel
+            input,
+            weight,
+            self.bias,
+            process_group=self.process_group,
+            sequence_parallel=gpc.config.model.sequence_parallel,
         )
 
 
@@ -170,7 +178,13 @@ class FeedForward(nn.Module):
             dtype=dtype,
         )
         self.w2 = ColumnParallelLinearTorch(
-            in_features, hidden_features, process_group, bias, sequence_parallel=gpc.config.model.sequence_parallel, device=device, dtype=dtype
+            in_features,
+            hidden_features,
+            process_group,
+            bias,
+            sequence_parallel=gpc.config.model.sequence_parallel,
+            device=device,
+            dtype=dtype,
         )
         self.w3 = RowParallelLinearTorch(
             hidden_features,

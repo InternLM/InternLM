@@ -30,6 +30,8 @@ from internlm.data.packed_dataset import (
 from internlm.data.utils import DATASET_TYPE_IDS_MAP, unpack_data
 from internlm.model.loss import FlashGPTLMLoss
 from internlm.model.metrics import AccPerplex
+from internlm.monitor import initialize_monitor_manager, send_alert_message, set_env_var
+from internlm.monitor.monitor import monitor_manager as mm
 from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
 from internlm.solver.optimizer import HybridZeroOptimizer
@@ -37,7 +39,6 @@ from internlm.utils.common import (
     BatchSkipper,
     get_master_node,
     get_megatron_flops,
-    get_process_rank,
     launch_time,
     parse_args,
 )
@@ -45,12 +46,12 @@ from internlm.utils.evaluation import evaluate_on_val_dls, switch_sequence_paral
 from internlm.utils.logger import get_logger, initialize_uniscale_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
 from internlm.utils.model_checkpoint import (
+    CheckpointSaveManager,
     load_context,
     load_model_checkpoint,
     load_optimizer_checkpoint,
     load_sampler,
     load_scheduler,
-    save_checkpoint,
 )
 from internlm.utils.parallel import (
     get_parallel_log_file_name,
@@ -97,6 +98,15 @@ def initialize_distributed_env(config: str, launcher: str = "slurm", master_port
 
 
 def initialize_llm_logger(start_time: str):
+    """
+    Initialize customed uniscale logger.
+
+    Args:
+        start_time (str): The launch time of current training job.
+
+    Returns: The instance of uniscale logger.
+    """
+
     uniscale_logger = initialize_uniscale_logger(
         job_name=gpc.config.JOB_NAME, launch_time=start_time, file_name=get_parallel_log_file_name()
     )
@@ -218,6 +228,8 @@ def get_train_data_loader(num_worker: int = 0):
 
 
 def get_validation_data_loader(num_worker: int = 0):
+    """Generate and return the validation data loader."""
+
     data_cfg = gpc.config.data
 
     if not data_cfg.valid_folder:
@@ -354,6 +366,8 @@ def record_current_batch_training_metrics(
     Print some training metrics of current batch.
     """
 
+    set_env_var(key="LAST_ACTIVE_TIMESTAMP", value=int(time.time()))
+
     if success_update in (0, True):
         train_state.num_consumed_tokens += batch[1].nelement() * gpc.get_world_size(ParallelMode.DATA)
     if is_no_pp_or_last_stage():
@@ -432,12 +446,11 @@ def record_current_batch_training_metrics(
         else:
             logger.info(line)
 
+        # if loss spike occurs, send alert info to feishu
+        mm.monitor_loss_spike(alert_address=gpc.config.alert_address, step_count=batch_count, cur_step_loss=loss.item())
+
 
 def main(args):
-    # initialize distributed environment
-    initialize_distributed_env(config=args.config, launcher=args.launcher, master_port=args.port, seed=args.seed)
-    assert hasattr(gpc, "config") and gpc.config is not None
-
     # init setting
     skip_batches = gpc.config.data.skip_batches
     total_steps = gpc.config.data.total_steps
@@ -445,11 +458,6 @@ def main(args):
     load_optimizer = gpc.config.ckpt.load_optimizer
     label_smoothing = gpc.config.loss.label_smoothing
     lr = gpc.config.adam.lr
-
-    # ckpt setting
-    save_ckpt_folder = gpc.config.ckpt.save_ckpt_folder
-    enable_save_ckpt = gpc.config.ckpt.enable_ckpt
-    checkpoint_every = gpc.config.ckpt.checkpoint_every
 
     load_model_only_folder = gpc.config.ckpt.get("load_model_only_folder", None)
     load_resume_ckpt_folder = gpc.config.ckpt.get("load_ckpt_folder", None)
@@ -504,8 +512,8 @@ def main(args):
         model_load_path = load_model_only_folder
     else:
         logger.info(
-            f"===========New Run {current_time} on host:{socket.gethostname()},"
-            f"tp:{gpc.get_local_rank(ParallelMode.TENSOR)},pp={gpc.get_local_rank(ParallelMode.PIPELINE)},"
+            f"===========New Run {current_time} on host:{socket.gethostname()},rank={gpc.get_global_rank()},"
+            f"tp={gpc.get_local_rank(ParallelMode.TENSOR)},pp={gpc.get_local_rank(ParallelMode.PIPELINE)},"
             f"dp={gpc.get_local_rank(ParallelMode.DATA)}==========="
         )
 
@@ -540,6 +548,14 @@ def main(args):
         # load optimzier states.
         if load_optimizer:
             load_optimizer_checkpoint(load_resume_ckpt_folder, optimizer)
+
+    ckpt_save_manager = CheckpointSaveManager(
+        ckpt_config=gpc.config.ckpt,
+        model=model,
+        optimizer=optimizer,
+        lr_scheduler=lr_scheduler,
+        model_config=gpc.config.model,
+    )
 
     # initialize metric for calculating accuracy and perplexity
     metric = AccPerplex(
@@ -660,44 +676,95 @@ def main(args):
             )
 
             timer("one-batch").stop()
-
-            # evaluate on validation data loaders
-            if valid_every > 0 and train_state.step_count % valid_every == 0:
-                with switch_sequence_parallel_mode():
-                    evaluate_on_val_dls(
-                        trainer=trainer,
-                        val_dls=val_dls,
-                        writer=writer,
-                        logger=logger,
-                        step_count=train_state.step_count,
-                        update_panel=uniscale_logger is not None,
-                    )
-
-            # checkpoint the training states in specific steps, which is determined by the args "checkpoint_every"
-            # save batch sampler that tracks the true consumed samples
-            if enable_save_ckpt and train_state.step_count % checkpoint_every == 0:
-                save_checkpoint(
-                    folder=save_ckpt_folder,
-                    model=model,
-                    optimizer=optimizer,
-                    scheduler=lr_scheduler,
-                    train_state=train_state,
-                    model_config=gpc.config.model,
-                )
-
             if memory_profiler is not None:
                 memory_profiler.step()
             prof.step()
 
-    # wait for all checkpoint uploads to be completed
-    dist.barrier()
+        # zero the grads of parameters
+        trainer.zero_grad()
+        type_ids = batch[0].pop("type_ids", None)
+        # process data
+        # if use_flash_attn is False, we need to unpack type_ids
+        if not gpc.config.model.use_flash_attn:
+            type_ids = unpack_data(type_ids, batch[0]["cu_seqlens"])
+        if type_ids is not None:
+            metric.set_current_type_ids(type_ids=type_ids)
+
+        # do forward and backward
+        timer("fwd-bwd").start()
+        _, _, loss = trainer.execute_schedule(batch, forward_only=False, return_loss=True, return_output_label=False)
+        timer("fwd-bwd").stop()
+
+        # update parameters, and returns (success_update, grad_norm)
+        trainer_result = trainer.step()
+        assert trainer_result is not None
+
+        success_update, grad_norm = trainer_result
+        if success_update:  # update parameters successfully
+            train_state.step_count += 1
+        else:
+            train_state.inf_nan_skip_batches += 1  # record the amount of updating parameters unsuccessfully.
+            if grad_norm == -99.0 and gpc.is_rank_for_log():  # -99.0 encodes a specific failure case
+                logger.warning(f"Warning: skip parameter update at step {batch_count}.")
+                send_alert_message(
+                    address=gpc.config.alert_address, message=f"Warning: skip parameter update at step {batch_count}."
+                )
+
+        # calculate and record the training metrics, eg. loss, accuracy and so on.
+        record_current_batch_training_metrics(
+            get_tflops_func=get_tflops_func,
+            logger=logger,
+            writer=writer,
+            success_update=success_update,
+            batch_count=batch_count,
+            batch=batch,
+            train_state=train_state,
+            optimizer=optimizer,
+            beta2_scheduler=beta2_scheduler,
+            trainer=trainer,
+            start_time=start_time,
+            loss=loss,
+            grad_norm=grad_norm,
+            metric=metric,
+            update_panel=uniscale_logger is not None,
+        )
+
+        timer("one-batch").stop()
+
+        # evaluate on validation data loaders
+        if valid_every > 0 and train_state.step_count % valid_every == 0:
+            with switch_sequence_parallel_mode():
+                evaluate_on_val_dls(
+                    trainer=trainer,
+                    val_dls=val_dls,
+                    writer=writer,
+                    logger=logger,
+                    step_count=train_state.step_count,
+                    update_panel=uniscale_logger is not None,
+                )
+
+        # checkpoint the training states in specific steps, which is determined by the args "checkpoint_every"
+        # # save batch sampler that tracks the true consumed samples
+        ckpt_save_manager.try_save_checkpoint(train_state)
+
+    ckpt_save_manager.wait_async_upload_finish()
 
 
 if __name__ == "__main__":
     args = parse_args()
+    hostname = socket.gethostname()
 
-    try:
-        main(args)
-    except Exception:
-        print(f"Raise exception from {socket.gethostname()} with proc id: {get_process_rank()}")
-        traceback.print_exc()
+    # initialize distributed environment
+    initialize_distributed_env(config=args.config, launcher=args.launcher, master_port=args.port, seed=args.seed)
+    assert hasattr(gpc, "config") and gpc.config is not None
+
+    # initialize monitor manager context
+    with initialize_monitor_manager(job_name=gpc.config.JOB_NAME, alert_address=gpc.config.alert_address):
+        try:
+            main(args)
+        except Exception:
+            logger.error(
+                f"Raise exception from {hostname} with rank id: {gpc.get_global_rank()}",
+                exc_info=traceback.format_exc(),
+            )
+            mm.monitor_exception(alert_address=gpc.config.alert_address, excp_info=traceback.format_exc())

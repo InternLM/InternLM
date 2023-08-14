@@ -11,6 +11,7 @@ import torch
 from internlm.core.context import Config
 from internlm.core.context import global_context as gpc
 from internlm.utils.logger import get_logger
+from internlm.utils.storage_manager import init_storage_manager
 
 logger = get_logger(__file__)
 
@@ -122,19 +123,43 @@ def args_sanity_check():
     if "load_model_only_folder" not in gpc.config.ckpt:
         gpc.config.ckpt._add_item("load_model_only_folder", None)
 
+    if "async_upload" not in gpc.config.ckpt:
+        gpc.config.ckpt._add_item("async_upload", False)
+    else:
+        if gpc.config.ckpt.async_upload:
+            assert "save_ckpt_folder" in gpc.config.ckpt
+            if "boto3:" not in gpc.config.ckpt.save_ckpt_folder:
+                if gpc.is_rank_for_log():
+                    logger.warning(
+                        "Storing ckpt on file system does not support asynchronous storage, will use sync save!"
+                    )
+                gpc.config.ckpt.async_upload = False
+            else:
+                if "async_upload_tmp_folder" not in gpc.config.ckpt:
+                    gpc.config.ckpt._add_item("async_upload_tmp_folder", "/dev/shm/internlm_tmp_ckpt/")
+
+    if "snapshot_ckpt_folder" not in gpc.config.ckpt:
+        gpc.config.ckpt._add_item("snapshot_ckpt_folder", os.path.join(gpc.config.ckpt.save_ckpt_folder), "snapshot")
+
+    if "oss_snapshot_freq" not in gpc.config.ckpt and gpc.config.ckpt.checkpoint_every != float("inf"):
+        gpc.config.ckpt._add_item("oss_snapshot_freq", gpc.config.ckpt.checkpoint_every / 2)
+        assert gpc.config.ckpt.oss_snapshot_freq > 0
+
     assert not (
         gpc.config.ckpt.load_ckpt_folder is not None and gpc.config.ckpt.load_model_only_folder is not None
     ), "'load_ckpt_folder' and 'load_model_only_folder' cannot be set at the same time."
 
-    gpc.config.ckpt._add_item(
-        "enable_ckpt", gpc.config.ckpt.save_ckpt_folder is not None and gpc.config.ckpt.checkpoint_every > 0
-    )
+    if "enable_save_ckpt" not in gpc.config.ckpt:
+        gpc.config.ckpt._add_item("enable_save_ckpt", False)
 
     if gpc.is_rank_for_log():
         logger.info("+" * 15 + " Ckpt Info " + "+" * 15)  # pylint: disable=W1201
-        logger.info(f"is enable save ckpt: {gpc.config.ckpt.enable_ckpt}")
+        logger.info(f"is enable save ckpt: {gpc.config.ckpt.enable_save_ckpt}")
         logger.info(f"save_ckpt_folder: {gpc.config.ckpt.save_ckpt_folder}")
         logger.info(f"checkpoint_every: {gpc.config.ckpt.checkpoint_every}")
+
+    # initialization storage manager
+    init_storage_manager(gpc.config.ckpt)
 
     # tensorboard writer config
     if "enable_tb" not in gpc.config:
@@ -206,6 +231,9 @@ def args_sanity_check():
             gpc.config.model.sequence_parallel is True and gpc.config.model.use_flash_attn is False
         ), "sequence parallel does not support use_flash_attn=False"
 
+    # feishu webhook address for alerting
+    if "alert_address" not in gpc.config:
+        gpc.config._add_item("alert_address", None)
 
 def launch(
     config: Union[str, Path, Config, Dict],

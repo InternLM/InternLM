@@ -9,6 +9,7 @@ from torch.optim import Optimizer
 
 from internlm.core.context import Config, ParallelMode
 from internlm.core.context import global_context as gpc
+from internlm.monitor import send_alert_message
 from internlm.solver.optimizer.store import (
     BucketStore,
     GradientStore,
@@ -548,6 +549,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         if found_inf:
             if gpc.is_rank_for_log():
                 logger.warning("Overflow occurs, please check it.")
+                send_alert_message(address=gpc.config.alert_address, message="Overflow occurs, please check it.")
             self._grad_store._averaged_gradients = dict()
             self.zero_grad()
             return False, None
@@ -581,8 +583,6 @@ class HybridZeroOptimizer(BaseOptimizer):
             single_grad_partition_groups.append(flat_fp32_avg_grads)
             device = self._fp32_flat_param_groups_of_current_rank[group_id].device
             self._fp32_flat_param_groups_of_current_rank[group_id].grad = flat_fp32_avg_grads.to(device)
-
-        # print_current_memory_status("after xxx_4", [0])
 
         # unscale and clip grads
         # get the global norm
