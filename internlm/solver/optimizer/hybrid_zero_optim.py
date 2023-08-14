@@ -361,7 +361,7 @@ class HybridZeroOptimizer(BaseOptimizer):
             self._param_store.set_param_reduction_state(param, True)
             
             if self._param_store.belongs_to_current_rank(param):
-                self._param_store.add_reduced_data_for_compute_norm(param, last_bucket)
+                self._param_store.add_reduced_param_for_compute_norm(param, last_bucket)
             else:
                 self._param_store.add_previous_reduced_param(param)                
 
@@ -493,7 +493,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         norms = []
         timer("cal_norm").start()
         # compute norm for gradients that have been reduced
-        params_1,grads_1 = self._param_store.get_reduced_data_for_compute_norm(last_bucket=False)
+        params_1,grads_1 = self._param_store.get_reduced_param_for_compute_norm(last_bucket=False)
         if len(params_1) == 0:
             params_1 = [self.padding_grad]
             grads_1 = [self.padding_tensor]
@@ -515,7 +515,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         # compute norm for gradients in the last bucket
         timer("cal_norm").start()
         # compute norm for gradients that have been reduced
-        params_2,grads_2 = self._param_store.get_reduced_data_for_compute_norm(last_bucket=True)
+        params_2,grads_2 = self._param_store.get_reduced_param_for_compute_norm(last_bucket=True)
         
         if len(params_2) == 0:
             params_2 = [self.padding_grad]
