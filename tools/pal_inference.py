@@ -27,7 +27,7 @@ import tqdm
 from datasets import load_dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from internlm.utils.interface import GenerationConfig, generation_iterator
+from tools.transformers.interface import GenerationConfig, generate_interactive
 from internlm.utils.timeout import Timeout
 
 
@@ -115,7 +115,7 @@ class GenericRuntime:
 
 
 class PALInterface:
-    """PAL interface wrap fun:`generation_iterator` to extract and execute
+    """PAL interface wrap fun:`generate_interactive` to extract and execute
     generated code.
 
     Adapted from https://github.com/reasoning-machines/pal
@@ -150,7 +150,7 @@ class PALInterface:
     def generate(self, prompt):
         # The api will generate response word by word
         # we only need the last generation as the final results
-        for cur_gen in generation_iterator(
+        for cur_gen in generate_interactive(
             model=self.model,
             tokenizer=self.tokenizer,
             prompt=prompt,
