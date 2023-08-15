@@ -574,7 +574,6 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         # copy the grad of fp16 param to fp32 param
         single_grad_partition_groups = []
-        global_norm = 0
         for group_id in range(self.num_param_groups):
             # compute norm
             # The following operations are performed only on the rank to which parameters are assigned.
@@ -603,13 +602,15 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         # unscale and clip grads
         # get the global norm
+        global_norm_groups = []
         if self._clip_grad_norm > 0:
-            global_norm = sum(norms) ** 0.5
+            for norm in norms:
+                global_norm_groups.append(norm**0.5)
 
         # the following operations are performed only on the rank to which parameters are assigned.
         if gpc.config.model.dtype is not torch.float32:
             if len(single_grad_partition_groups) != 0:
-                self._unscale_and_clip_grads(single_grad_partition_groups, global_norm, loss_scale)
+                self._unscale_and_clip_grads(single_grad_partition_groups, global_norm_groups, loss_scale)
 
         # update the parameters
         timer("step").start()
@@ -635,7 +636,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         timer("step").stop()
         # update gradients may not be needed here, because the sync_params function is used in initialization,
         # so synchronization is maintained
-        return True, global_norm / loss_scale
+        return True, [global_norm / loss_scale for global_norm in global_norm_groups]
 
     def broadcast_params(self, overlap=False):
         handles = []
@@ -679,18 +680,20 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         return self._found_overflow.item() > 0
 
-    def _unscale_and_clip_grads(self, grad_groups_flat, total_norm, loss_scale):
+    def _unscale_and_clip_grads(self, grad_groups_flat, total_norm_groups, loss_scale):
         # compute combined scale factor for this group
-        combined_scale = loss_scale
+        combined_scale_groups = []
 
         if self._clip_grad_norm > 0.0:
             # norm is in fact norm*scale
-            clip = ((total_norm / loss_scale) + 1e-6) / self._clip_grad_norm
-            if clip > 1.0:
-                combined_scale = clip * loss_scale
+            for group_id, total_norm in enumerate(total_norm_groups):
+                combined_scale_groups.append(loss_scale)
+                clip = ((total_norm / loss_scale) + 1e-6) / self._clip_grad_norm
+                if clip > 1.0:
+                    combined_scale_groups[group_id] = clip * loss_scale
 
-        for grad in grad_groups_flat:
-            grad.data.mul_(1.0 / combined_scale)
+        for group_id, grad in enumerate(grad_groups_flat):
+            grad.data.mul_(1.0 / combined_scale_groups[group_id])
 
     def clip_grad_norm(self, model, max_norm):
         # will conduct in the step()

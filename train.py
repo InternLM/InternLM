@@ -7,6 +7,7 @@ import traceback
 from functools import partial
 from typing import Iterable
 
+import numpy as np
 import torch
 import torch.distributed as dist
 from torch import nn
@@ -603,12 +604,12 @@ def main(args):
         trainer_result = trainer.step()
         assert trainer_result is not None
 
-        success_update, grad_norm = trainer_result
+        success_update, grad_norm_groups = trainer_result
         if success_update:  # update parameters successfully
             train_state.step_count += 1
         else:
             train_state.inf_nan_skip_batches += 1  # record the amount of updating parameters unsuccessfully.
-            if grad_norm == -99.0 and gpc.is_rank_for_log():  # -99.0 encodes a specific failure case
+            if -99.0 in grad_norm_groups and gpc.is_rank_for_log():  # -99.0 encodes a specific failure case
                 logger.warning(f"Warning: skip parameter update at step {batch_count}.")
                 send_alert_message(
                     address=gpc.config.alert_address, message=f"Warning: skip parameter update at step {batch_count}."
@@ -628,7 +629,7 @@ def main(args):
             trainer=trainer,
             start_time=start_time,
             loss=loss,
-            grad_norm=grad_norm,
+            grad_norm=np.array(grad_norm_groups),
             metric=metric,
             update_panel=uniscale_logger is not None,
         )
@@ -668,6 +669,6 @@ if __name__ == "__main__":
             main(args)
         except Exception:
             logger.error(
-                f"Raise exception from {hostname} with rank id: {gpc.get_global_rank()}, {traceback.format_exc()}",
+                f"Raise exception from {hostname} with rank id: {gpc.get_global_rank()}\n{traceback.format_exc()}",
             )
             mm.monitor_exception(alert_address=gpc.config.alert_address, excp_info=traceback.format_exc())
