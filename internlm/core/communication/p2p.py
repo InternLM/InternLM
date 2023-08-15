@@ -547,6 +547,8 @@ def send_backward_and_recv_next_backward_async(
 
 
 class AsynCommunicator:
+    """AsynCommunicator for managing async communication."""
+
     def __init__(
         self,
         tensor_to_send: Union[torch.Tensor, List[torch.Tensor]],

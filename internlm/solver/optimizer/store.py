@@ -247,8 +247,12 @@ class ParameterStore(BaseStore):
 
     def get_reduced_param_for_compute_norm(self, group_id=0, last_bucket=False):
         if not last_bucket:
+            if group_id not in self._former_bucket_reduced_param:
+                return [], []
             return self._former_bucket_reduced_param[group_id], self._former_bucket_reduced_grad[group_id]
         else:
+            if group_id not in self._last_bucket_reduced_param:
+                return [], []
             return self._last_bucket_reduced_param[group_id], self._last_bucket_reduced_grad[group_id]
 
     def reset_reduced_data_for_compute_norm(self):
