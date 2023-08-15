@@ -195,7 +195,7 @@ def calc_lp(grads, norm_type):
     return norm
 
 
-def compute_norm(gradients, parameters, norm_type=2):
+def compute_norm(gradients, parameters, last_stage=False, previous_norm=None, norm_type=2):
     """Get the norm
     Arguments:
         gradients (Iterable[Tensor]): The gradient value.
@@ -212,9 +212,16 @@ def compute_norm(gradients, parameters, norm_type=2):
     norm_type = float(norm_type)
 
     # Calculate norm.
-    if norm_type == inf:
+    if norm_type == inf:            
         total_norm = max(g.data.abs().max() for g in gradients)
         total_norm_cuda = torch.FloatTensor([float(total_norm)], device=gradients[0].device)
+        
+        if last_stage is False:
+            return total_norm_cuda
+        
+        if previous_norm is not None:
+            total_norm_cuda = max(total_norm_cuda, previous_norm)
+            
         # Take max across all model-parallel GPUs.
         if gpc.get_world_size(ParallelMode.MODEL) > 1:
             dist.all_reduce(total_norm_cuda, op=dist.ReduceOp.MAX, group=gpc.get_group(ParallelMode.MODEL))
@@ -260,7 +267,13 @@ def compute_norm(gradients, parameters, norm_type=2):
             tensor_parallel_norm = move_norm_to_cuda(tensor_parallel_norm)
 
         total_norm = tensor_parallel_norm
+        
+        if last_stage is False:
+            return total_norm
 
+        if previous_norm is not None:
+            total_norm = total_norm + previous_norm
+            
         # Sum across all model-parallel GPUs.
         if gpc.is_initialized(ParallelMode.MODEL):
             dist.all_reduce(total_norm, op=dist.ReduceOp.SUM, group=gpc.get_group(ParallelMode.MODEL))
