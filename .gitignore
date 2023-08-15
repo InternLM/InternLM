@@ -115,6 +115,7 @@ venv.bak/
 *.pkl
 *.pkl.json
 *.log.json
+*.trace.json
 docs/modelzoo_statistics.md
 mmdet/.mim
 work_dirs/

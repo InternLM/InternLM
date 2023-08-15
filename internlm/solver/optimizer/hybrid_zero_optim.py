@@ -469,7 +469,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         # Gradients may not be fully synchronized here.
 
     def _compute_norm_stage_0(self, group_id: int = 0, last_bucket: bool = False):
-        timer("cal_norm").start()
+        # timer("cal_norm").start()
         # compute norm for gradients that have been reduced
         params, _ = self._param_store.get_reduced_param_for_compute_norm(last_bucket=last_bucket)
         params_list = []
@@ -487,7 +487,7 @@ class HybridZeroOptimizer(BaseOptimizer):
             # this norm is before scaling, it will be very large
             norm = compute_norm(gradients=grads_list, parameters=params_list, stage_id=0)
 
-        timer("cal_norm").stop()
+        # timer("cal_norm").stop()
         return norm
 
     def step(self, closure=None):
@@ -561,7 +561,6 @@ class HybridZeroOptimizer(BaseOptimizer):
             self.zero_grad()
             return False, None
 
-        timer("cal_norm").start()
         # copy the grad of fp16 param to fp32 param
         single_grad_partition_groups = []
         global_norm = 0
@@ -601,7 +600,6 @@ class HybridZeroOptimizer(BaseOptimizer):
             if len(single_grad_partition_groups) != 0:
                 self._unscale_and_clip_grads(single_grad_partition_groups, global_norm, loss_scale)
 
-        timer("cal_norm").stop()
         # update the parameters
         timer("step").start()
 
