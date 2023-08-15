@@ -478,7 +478,6 @@ class HybridZeroOptimizer(BaseOptimizer):
         """
         assert closure is None, "closure is not supported by step()"
 
-        timer("sync_grad").start()
         # if not overlapping communication (no reduction hook is attached)
         # we need to manually reduce these gradients
         if not self._overlap_communication:
@@ -491,7 +490,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         self._reduce_grads_stored_in_bucket(reduce_rank=None, last_bucket=True)
         
         norms = []
-        timer("cal_norm").start()
+
         # compute norm for gradients that have been reduced
         params_1,grads_1 = self._param_store.get_reduced_param_for_compute_norm(last_bucket=False)
         if len(params_1) == 0:
@@ -500,11 +499,7 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         if self._clip_grad_norm > 0:
             # this norm is before scaling, it will be very large
-            norms.append(compute_norm(
-                gradients=grads_1,
-                parameters=params_1,
-            ))
-        timer("cal_norm").stop()
+            norms_1 = compute_norm(gradients=grads_1, parameters=params_1, last_stage=False)
         
         # clear reduced grads
         if self._overlap_communication:
@@ -523,12 +518,10 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         if self._clip_grad_norm > 0:
             # this norm is before scaling, it will be very large
-            norms.append(compute_norm(
-                gradients=grads_2,
-                parameters=params_2,
-            ))
+            norms = compute_norm(gradients=grads_2, parameters=params_2, last_stage=True, previous_norm=norms_1)
         timer("cal_norm").stop()
 
+        timer("sync_grad").start()
         self._sync_grad()
         timer("sync_grad").stop()
 
@@ -544,7 +537,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         # found_inf = self._check_overflow()
         # Because you may encounter inf when computing norm
         
-        if -1 in norms:
+        if norms == -1:
             found_inf = True
 
         loss_scale = float(self.loss_scale.item())  # backup
@@ -592,7 +585,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         # unscale and clip grads
         # get the global norm
         if self._clip_grad_norm > 0:
-            global_norm = sum(norms) ** 0.5
+            global_norm = norms ** 0.5
 
         # the following operations are performed only on the rank to which parameters are assigned.
         if not gpc.config.model.dtype is torch.float32:
