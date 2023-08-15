@@ -166,6 +166,10 @@ class HybridZeroOptimizer(BaseOptimizer):
         # partition these param groups for data parallel training
         # and add buffers to parameter store for future access
         for group_id, param_group in enumerate(self.optim.param_groups):
+            if "moe" in param_group.keys() and param_group["moe"]:
+                print("true", flush=True)
+                continue
+
             group_params = param_group["params"]
 
             # add the fp16 params to fp16_param_groups for bookkeeping
@@ -512,7 +516,6 @@ class HybridZeroOptimizer(BaseOptimizer):
         # all_groups_norm_old = all_groups_norm
         # Need to allreduce(avg) the norms across different ranks because moe params will not be synced during allreduce
         pg = gpc.get_group(ParallelMode.DATA)
-        print(type(norm_groups))
         scaled_norm = norm_groups * 1.0 / float(gpc.get_world_size(ParallelMode.DATA))
         scaled_norm_tensor = torch.tensor(
             scaled_norm, device=self._fp32_flat_param_groups_of_current_rank[0].device, dtype=torch.float

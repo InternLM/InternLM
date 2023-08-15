@@ -21,7 +21,7 @@ class Experts(torch.nn.Module):
     Local Experts.
     """
 
-    def __init__(self, experts: Union[Module, ModuleList], num_local_experts=1):
+    def __init__(self, experts: Union[Module, ModuleList], num_local_experts=1, expert_group_name=None):
         super().__init__()
 
         # TODO: We can not deepcopy FeedForward since it contains a process_group in submodules
@@ -38,6 +38,7 @@ class Experts(torch.nn.Module):
             # TODO: Create param groups to handle expert + data case (e.g. param.group = moe_group)
             for _, param in expert.named_parameters():
                 param.all_reduce = False
+                param.group_name = expert_group_name
 
     def forward(self, inputs):
         chunks = inputs.chunk(self.num_local_experts, dim=1)

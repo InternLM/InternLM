@@ -1,4 +1,5 @@
 import typing
+from typing import Dict, Tuple
 
 import torch
 
@@ -31,7 +32,7 @@ def has_moe_layers(m):
 
 
 def is_moe_param(param: torch.Tensor) -> bool:
-    if hasattr(param, "allreduce") and not param.allreduce:
+    if hasattr(param, "all_reduce") and not param.all_reduce:
         return True
     return False
 
@@ -95,7 +96,8 @@ class MoE(torch.nn.Module):
             "Unsupported noisy_gate_policy: " + noisy_gate_policy
         )
 
-        experts = Experts(experts, self.num_local_experts)
+        expert_group_name = f"ep_size_{self.ep_size}"
+        experts = Experts(experts, self.num_local_experts, expert_group_name)
 
         if using_default_moe:
             self.moe_layer = MOELayer(
@@ -148,3 +150,94 @@ class MoE(torch.nn.Module):
             coef = torch.nn.functional.softmax(coef, dim=-1)
             output = output * coef[..., 0:1] + output_mlp * coef[..., 1:]
         return output, self.moe_layer.l_aux, self.moe_layer.exp_counts
+
+
+def split_params_into_different_moe_groups_for_optimizer(
+    param_groups: Tuple[Dict], max_group_size=178956971
+) -> Tuple[Dict]:
+    """Split parameters into different MoE groups for optimizer
+    Compatiable with muiltiple param groups, each should have a name
+
+    Args:
+        param_groups (Tuple[Dict]):
+            The list of parameter groups to split
+
+    Returns:
+        Tuple[Dict]:
+        list of MoE/non-MoE groups for optimizer
+    """
+    if isinstance(param_groups, tuple):
+        param_groups = list(param_groups)  # Tuple cannot be modified
+    elif isinstance(param_groups, dict):
+        param_groups = [param_groups]
+    elif not isinstance(param_groups, list):
+        raise ValueError(f"Unknown param group type of {type(param_groups)}")
+
+    # gather all data parallel group names
+    data_parallel_group_names = set()
+    for param_group in param_groups:
+        for param in param_group["params"]:
+            if is_moe_param(param):
+                data_parallel_group_names.add(param.group_name)
+    data_parallel_group_names = list(data_parallel_group_names)
+    group_moe = {}
+    # Create the param MoE groups, leave param assign to next step
+    for param_group in param_groups:
+        group_moe[param_group["name"]] = {}
+        for key in data_parallel_group_names:
+            group_moe[param_group["name"]][key] = {}
+            group_moe[param_group["name"]][key]["name"] = key
+            group_moe[param_group["name"]][key]["moe"] = True
+            for ori_key in param_group.keys():
+                if ori_key != "name":
+                    if ori_key == "params":
+                        group_moe[param_group["name"]][key][ori_key] = []
+                    else:
+                        group_moe[param_group["name"]][key][ori_key] = param_group[ori_key]
+    # Assign param
+    for param_group in param_groups:
+        new_params = []
+        for param in param_group["params"]:
+            if is_moe_param(param):
+                group_moe[param_group["name"]][param.group_name]["params"].append(param)
+                # param_group['params'].remove(param)
+            else:
+                new_params.append(param)
+        param_group["params"] = new_params
+
+    # Flatten the moe groups
+    if max_group_size is not None:
+        for _, v in group_moe.items():
+            for _, v1 in v.items():
+                cur_group = []
+                all_groups = []
+                size_of_cur_group = 0
+                for param in v1["params"]:
+                    if size_of_cur_group + param.numel() <= max_group_size:
+                        cur_group.append(param)
+                        size_of_cur_group += param.numel()
+                    else:
+                        all_groups.append(cur_group)
+                        cur_group = [param]
+                        size_of_cur_group = param.numel()
+                if cur_group:
+                    all_groups.append(cur_group)
+                for group in all_groups:
+                    new_dict = {}
+                    for key, val in v1.items():
+                        if key != "params":
+                            new_dict[key] = val
+                    new_dict["params"] = group
+                    param_groups.append(new_dict)
+    else:
+        for _, v in group_moe.items():
+            for _, v1 in v.items():
+                param_groups.append(v1)
+
+    return tuple(param_groups)
+
+
+def create_moe_param_groups(model, weight_decay):
+    parameters = {"params": list(model.parameters()), "name": "default", "weight_decay": weight_decay}
+
+    return split_params_into_different_moe_groups_for_optimizer(parameters)

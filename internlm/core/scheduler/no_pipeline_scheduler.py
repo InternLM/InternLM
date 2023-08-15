@@ -88,7 +88,7 @@ class NonPipelineScheduler(BaseScheduler):
         forward_only: bool = False,
         return_loss: bool = True,
         scale_loss: int = 1,
-        moe_loss_coeff: float = 1.0,
+        moe_loss_coeff: float = 0.01,
     ):
         """Trains one batch of data.
 
@@ -136,7 +136,7 @@ class NonPipelineScheduler(BaseScheduler):
         forward_only: bool = False,
         return_loss: bool = True,
         return_output_label: bool = True,
-        moe_loss_coeff: float = 1.0,
+        moe_loss_coeff: float = 0.01,
     ):
         """The process function that loads a batch of dataset and feeds it to the model.
         The returned labels and loss will None if :attr:`return_loss` is False.
