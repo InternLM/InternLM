@@ -15,7 +15,7 @@ y = np.random.randint(2, size=100)
 # X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
 # 将数据转换为PyTorch张量
-X_train_tensor = torch.tensor(X, dtype=torch.float32).to('cuda')
+X_train_tensor = torch.tensor(X, dtype=torch.float16).to('cuda')
 y_train_tensor = torch.tensor(y, dtype=torch.long).to('cuda')
 # X_test_tensor = torch.tensor(X_test, dtype=torch.float32)
 
@@ -54,15 +54,18 @@ class CustomModel(nn.Module):
         super(CustomModel, self).__init__()
         # self.fc1 = CustomLinear(input_size, hidden_size)
         self.fc1 = nn.Linear(input_size, hidden_size)
+        self.fc2 = nn.Linear(hidden_size, hidden_size)
         self.relu = nn.ReLU()
-        self.fc2 = CustomLinear(hidden_size, num_classes)
-        # self.fc2 = nn.Linear(hidden_size, num_classes)
+        # self.fc2 = CustomLinear(hidden_size, num_classes)
+        self.fc3 = nn.Linear(hidden_size, num_classes)
         
     def forward(self, x):
-        # import pdb; pdb.set_trace()
+        import pdb; pdb.set_trace()
         out = self.fc1(x)
         out = self.relu(out)
+        # with torch.cuda.amp.autocast(dtype=torch.float32):
         out = self.fc2(out)
+        out = self.fc3(out)
         out = F.softmax(out, dim=1)  # 添加 softmax 操作
         return out
 
@@ -76,19 +79,20 @@ model = CustomModel(input_size, hidden_size, num_classes).to('cuda')
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-# model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
+model, optimizer = amp.initialize(model, optimizer, opt_level="O2")
 
 # 训练模型
 num_epochs = 1
 for epoch in range(num_epochs):
     optimizer.zero_grad()
     # import pdb; pdb.set_trace()
-    with torch.autocast("cuda", dtype=torch.float16):
+    with torch.cuda.amp.autocast(dtype=torch.float16):
+    # with torch.autocast('cuda', dtype=torch.float16):
         outputs = model(X_train_tensor)
         loss = criterion(outputs, y_train_tensor)
     loss.backward()
-    # with amp.scale_loss(loss, optimizer) as scaled_loss:
-    #     scaled_loss.backward()
+    with amp.scale_loss(loss, optimizer) as scaled_loss:
+        scaled_loss.backward()
     optimizer.step()
     
     print(outputs.dtype)
