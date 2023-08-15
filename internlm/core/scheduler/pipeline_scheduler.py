@@ -532,6 +532,7 @@ class PipelineScheduler(BaseScheduler):
                 return_tensors,
                 return_output_label=return_output_label,
                 accum_loss=accum_loss,
+                moe_loss_coeff=moe_loss_coeff,
             )
 
             if gpc.is_last_rank(ParallelMode.PIPELINE):
