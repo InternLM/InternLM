@@ -468,8 +468,13 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         # Gradients may not be fully synchronized here.
 
-    def _compute_norm_stage_0(self, group_id: int = 0, last_bucket: bool = False):
-        # timer("cal_norm").start()
+    def _compute_norm_with_stage(
+        self,
+        group_id: int = 0,
+        last_bucket: bool = False,
+        last_stage: bool = False,
+        previous_norm=None,
+    ):
         # compute norm for gradients that have been reduced
         params, _ = self._param_store.get_reduced_param_for_compute_norm(last_bucket=last_bucket)
         params_list = []
@@ -485,9 +490,13 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         if self._clip_grad_norm > 0:
             # this norm is before scaling, it will be very large
-            norm = compute_norm(gradients=grads_list, parameters=params_list, stage_id=0)
+            norm = compute_norm(
+                gradients=grads_list,
+                parameters=params_list,
+                last_stage=last_stage,
+                previous_norm=previous_norm,
+            )
 
-        # timer("cal_norm").stop()
         return norm
 
     def step(self, closure=None):
@@ -501,7 +510,6 @@ class HybridZeroOptimizer(BaseOptimizer):
         """
         assert closure is None, "closure is not supported by step()"
 
-        timer("sync_grad").start()
         # if not overlapping communication (no reduction hook is attached)
         # we need to manually reduce these gradients
         if not self._overlap_communication:
@@ -514,10 +522,9 @@ class HybridZeroOptimizer(BaseOptimizer):
         self._reduce_grads_stored_in_bucket(reduce_rank=None, last_bucket=True)
 
         # compute norm for gradients in the before bucket
-        norms_with_group_id = {}
+        groups_norms = []
         for group_id in range(self.num_param_groups):
-            norms_with_group_id[group_id] = []
-            norms_with_group_id[group_id].append(self._compute_norm_stage_0(group_id=group_id, last_bucket=False))
+            groups_norms.append(self._compute_norm_with_stage(group_id=group_id))
 
         # clear reduced grads
         if self._overlap_communication:
@@ -528,9 +535,13 @@ class HybridZeroOptimizer(BaseOptimizer):
         # compute norm for gradients in the last bucket
         total_norms = []
         for group_id in range(self.num_param_groups):
-            norms_with_group_id[group_id].append(self._compute_norm_stage_0(group_id=group_id, last_bucket=True))
-            total_norms.append(compute_norm(norms=sum(norms_with_group_id[group_id]), stage_id=1))
+            total_norms.append(
+                self._compute_norm_with_stage(
+                    group_id=group_id, last_bucket=True, last_stage=True, previous_norm=groups_norms[group_id]
+                )
+            )
 
+        timer("sync_grad").start()
         self._sync_grad()
         timer("sync_grad").stop()
 
