@@ -139,7 +139,7 @@ class PipelineScheduler(BaseScheduler):
             and gpc.is_initialized(ParallelMode.TENSOR)
             and gpc.get_world_size(ParallelMode.TENSOR) > 1
         )
-        
+
         if gpc.config.model.sequence_parallel:
             self.scatter_gather_tensors = False
 
