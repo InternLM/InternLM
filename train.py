@@ -30,7 +30,7 @@ from internlm.data.packed_dataset import (
 from internlm.data.utils import DATASET_TYPE_IDS_MAP, unpack_data
 from internlm.model.loss import FlashGPTLMLoss
 from internlm.model.metrics import AccPerplex
-from internlm.model.moe import has_moe_layers
+from internlm.model.moe import create_moe_param_groups, has_moe_layers
 from internlm.monitor import initialize_monitor_manager, send_alert_message, set_env_var
 from internlm.monitor.monitor import monitor_manager as mm
 from internlm.solver.beta2_scheduler import Beta2Scheduler
@@ -300,9 +300,14 @@ def initialize_optimizer(model: nn.Module):
 
     Returns: A tuple of (optimizer, beta2_scheduler, lr_scheduler).
     """
+
     adam_cfg = gpc.config.adam
+    if gpc.config.model.num_experts > 1:
+        params = create_moe_param_groups(model, adam_cfg.weight_decay)
+    else:
+        params = [{"params": model.parameters(), "weight_decay": adam_cfg.weight_decay}]
     naive_optimizer = torch.optim.AdamW(
-        params=[{"params": model.parameters(), "weight_decay": adam_cfg.weight_decay}],
+        params=params,
         lr=adam_cfg.lr,
         betas=(adam_cfg.adam_beta1, adam_cfg.adam_beta2),
         eps=adam_cfg.adam_eps,
