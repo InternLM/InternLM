@@ -178,6 +178,7 @@ class HybridZeroOptimizer(BaseOptimizer):
                 if len(params) != 0:
                     self._param_store.add_fp16_param_list_by_rank_group(rank, group_id, params)
                     for param in params:
+                        setattr(param, "group_id", group_id)
                         self._param_store.set_param_to_rank(param, rank)
 
             # move to cpu to make room to create the flat tensor
@@ -359,11 +360,11 @@ class HybridZeroOptimizer(BaseOptimizer):
 
             # update the flag
             self._param_store.set_param_reduction_state(param, True)
-            
+
             if self._param_store.belongs_to_current_rank(param):
                 self._param_store.add_reduced_param_for_compute_norm(param, last_bucket)
             else:
-                self._param_store.add_previous_reduced_param(param)                
+                self._param_store.add_previous_reduced_param(param)
 
         self._bucket_store.reset_by_rank(reduce_rank)
 
@@ -467,6 +468,30 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         # Gradients may not be fully synchronized here.
 
+    def _compute_norm_with_stage(
+        self,
+        group_id: int = 0,
+        last_bucket: bool = False,
+        last_stage: bool = False,
+        previous_norm=None,
+    ):
+        # compute norm for gradients that have been reduced
+        params, grads = self._param_store.get_reduced_param_for_compute_norm(group_id=group_id, last_bucket=last_bucket)
+        if len(params) == 0:
+            grads = [self.padding_grad]
+            params = [self.padding_tensor]
+
+        if self._clip_grad_norm > 0:
+            # this norm is before scaling, it will be very large
+            norm = compute_norm(
+                gradients=grads,
+                parameters=params,
+                last_stage=last_stage,
+                previous_norm=previous_norm,
+            )
+
+        return norm
+
     def step(self, closure=None):
         """Performs a single optimization step.
 
@@ -488,60 +513,48 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         # we need to reduce the gradients left in the communication bucket
         self._reduce_grads_stored_in_bucket(reduce_rank=None, last_bucket=True)
-        
-        norms = []
 
-        # compute norm for gradients that have been reduced
-        params_1,grads_1 = self._param_store.get_reduced_param_for_compute_norm(last_bucket=False)
-        if len(params_1) == 0:
-            params_1 = [self.padding_grad]
-            grads_1 = [self.padding_tensor]
+        # compute norm for gradients in the before bucket
+        groups_norms = []
+        for group_id in range(self.num_param_groups):
+            groups_norms.append(self._compute_norm_with_stage(group_id=group_id))
 
-        if self._clip_grad_norm > 0:
-            # this norm is before scaling, it will be very large
-            norms_1 = compute_norm(gradients=grads_1, parameters=params_1, last_stage=False)
-        
         # clear reduced grads
         if self._overlap_communication:
-            #grads in the last bucket is reduced
+            # grads in the last bucket is reduced
             self._comm_stream.synchronize()
             self._param_store.clear_grads_of_previous_reduced_params()
-        
-        # compute norm for gradients in the last bucket
-        timer("cal_norm").start()
-        # compute norm for gradients that have been reduced
-        params_2,grads_2 = self._param_store.get_reduced_param_for_compute_norm(last_bucket=True)
-        
-        if len(params_2) == 0:
-            params_2 = [self.padding_grad]
-            grads_2 = [self.padding_tensor]
 
-        if self._clip_grad_norm > 0:
-            # this norm is before scaling, it will be very large
-            norms = compute_norm(gradients=grads_2, parameters=params_2, last_stage=True, previous_norm=norms_1)
-        timer("cal_norm").stop()
+        # compute norm for gradients in the last bucket
+        total_norms = []
+        for group_id in range(self.num_param_groups):
+            total_norms.append(
+                self._compute_norm_with_stage(
+                    group_id=group_id, last_bucket=True, last_stage=True, previous_norm=groups_norms[group_id]
+                )
+            )
 
         timer("sync_grad").start()
         self._sync_grad()
         timer("sync_grad").stop()
 
-        return self._step(closure=closure, norms=norms)
+        return self._step(closure=closure, norms=total_norms)
 
-    def _step(self, closure=None, norms=[]):
+    def _step(self, closure=None, norms=None):
         assert closure is None, "closure is not supported by step()"
-                
+
         # check for overflow
         found_inf = False
         # if there is INF values in grades, compute_norm func would also returns -1
         # thus, we try to avoid call _check_overflow here
         # found_inf = self._check_overflow()
         # Because you may encounter inf when computing norm
-        
-        if norms == -1:
+
+        if -1 in norms:
             found_inf = True
 
         loss_scale = float(self.loss_scale.item())  # backup
-        if not gpc.config.model.dtype is torch.float32:
+        if gpc.config.model.dtype is not torch.float32:
             self.grad_scaler.update(found_inf)
         # update loss scale if overflow occurs
         if found_inf:
@@ -552,10 +565,8 @@ class HybridZeroOptimizer(BaseOptimizer):
             self.zero_grad()
             return False, None
 
-        timer("cal_norm").start()
         # copy the grad of fp16 param to fp32 param
         single_grad_partition_groups = []
-        global_norm = 0
         for group_id in range(self.num_param_groups):
             # compute norm
             # The following operations are performed only on the rank to which parameters are assigned.
@@ -567,11 +578,11 @@ class HybridZeroOptimizer(BaseOptimizer):
             with torch.no_grad():
                 flat_fp16_avg_grads = flatten(gradients)
             self._grad_store.reset_average_gradients_by_group(group_id)
-            gradients = None # release cuda memory
+            gradients = None  # release cuda memory
 
             dtype = self._fp32_flat_param_groups_of_current_rank[group_id].dtype
             flat_fp32_avg_grads = flat_fp16_avg_grads.to(dtype)
-            flat_fp16_avg_grads  = None # release cuda memory
+            flat_fp16_avg_grads = None  # release cuda memory
 
             param_shape = self._fp32_flat_param_groups_of_current_rank[group_id].shape
             assert (
@@ -584,15 +595,16 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         # unscale and clip grads
         # get the global norm
+        global_norm_groups = []
         if self._clip_grad_norm > 0:
-            global_norm = norms ** 0.5
+            for norm in norms:
+                global_norm_groups.append(norm**0.5)
 
         # the following operations are performed only on the rank to which parameters are assigned.
-        if not gpc.config.model.dtype is torch.float32:
+        if gpc.config.model.dtype is not torch.float32:
             if len(single_grad_partition_groups) != 0:
-                self._unscale_and_clip_grads(single_grad_partition_groups, global_norm, loss_scale)
+                self._unscale_and_clip_grads(single_grad_partition_groups, global_norm_groups, loss_scale)
 
-        timer("cal_norm").stop()
         # update the parameters
         timer("step").start()
 
@@ -617,7 +629,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         timer("step").stop()
         # update gradients may not be needed here, because the sync_params function is used in initialization,
         # so synchronization is maintained
-        return True, global_norm / loss_scale
+        return True, [global_norm / loss_scale for global_norm in global_norm_groups]
 
     def broadcast_params(self, overlap=False):
         handles = []
@@ -661,18 +673,20 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         return self._found_overflow.item() > 0
 
-    def _unscale_and_clip_grads(self, grad_groups_flat, total_norm, loss_scale):
+    def _unscale_and_clip_grads(self, grad_groups_flat, total_norm_groups, loss_scale):
         # compute combined scale factor for this group
-        combined_scale = loss_scale
+        combined_scale_groups = []
 
         if self._clip_grad_norm > 0.0:
             # norm is in fact norm*scale
-            clip = ((total_norm / loss_scale) + 1e-6) / self._clip_grad_norm
-            if clip > 1.0:
-                combined_scale = clip * loss_scale
+            for group_id, total_norm in enumerate(total_norm_groups):
+                combined_scale_groups.append(loss_scale)
+                clip = ((total_norm / loss_scale) + 1e-6) / self._clip_grad_norm
+                if clip > 1.0:
+                    combined_scale_groups[group_id] = clip * loss_scale
 
-        for grad in grad_groups_flat:
-            grad.data.mul_(1.0 / combined_scale)
+        for group_id, grad in enumerate(grad_groups_flat):
+            grad.data.mul_(1.0 / combined_scale_groups[group_id])
 
     def clip_grad_norm(self, model, max_norm):
         # will conduct in the step()

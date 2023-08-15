@@ -21,6 +21,7 @@ logger = get_logger(__file__)
 try:
     import amp_C
     from apex.multi_tensor_apply import multi_tensor_applier
+
     APEX_AVAILABLE = True
 except (ModuleNotFoundError, ImportError):
     logger.warn("The torch implementation for cal_l2norm is slower than apex. Please note this!")
@@ -162,6 +163,7 @@ def sync_param(flat_tensor, tensor_list):
     for p, q in zip(tensor_list, updated_params):
         p.data = q.data
 
+
 def multi_tensor_l2norm_torch(tensor_list, per_tensor):
     # Convert tensor_list elements to torch.float32
     tensor_list = [tensor.float() for tensor in tensor_list]
@@ -175,6 +177,7 @@ def multi_tensor_l2norm_torch(tensor_list, per_tensor):
 
     return l2_norm, per_tensor_norm
 
+
 def calc_l2_norm(grads):
     norm = 0.0
     if len(grads) > 0:
@@ -186,6 +189,7 @@ def calc_l2_norm(grads):
         else:
             norm, _ = multi_tensor_l2norm_torch(grads, False)
     return norm
+
 
 def calc_lp(grads, norm_type):
     norm = 0.0
@@ -212,16 +216,16 @@ def compute_norm(gradients, parameters, last_stage=False, previous_norm=None, no
     norm_type = float(norm_type)
 
     # Calculate norm.
-    if norm_type == inf:            
+    if norm_type == inf:
         total_norm = max(g.data.abs().max() for g in gradients)
         total_norm_cuda = torch.FloatTensor([float(total_norm)], device=gradients[0].device)
-        
+
         if last_stage is False:
             return total_norm_cuda
-        
+
         if previous_norm is not None:
             total_norm_cuda = max(total_norm_cuda, previous_norm)
-            
+
         # Take max across all model-parallel GPUs.
         if gpc.get_world_size(ParallelMode.MODEL) > 1:
             dist.all_reduce(total_norm_cuda, op=dist.ReduceOp.MAX, group=gpc.get_group(ParallelMode.MODEL))
@@ -267,13 +271,13 @@ def compute_norm(gradients, parameters, last_stage=False, previous_norm=None, no
             tensor_parallel_norm = move_norm_to_cuda(tensor_parallel_norm)
 
         total_norm = tensor_parallel_norm
-        
+
         if last_stage is False:
             return total_norm
 
         if previous_norm is not None:
             total_norm = total_norm + previous_norm
-            
+
         # Sum across all model-parallel GPUs.
         if gpc.is_initialized(ParallelMode.MODEL):
             dist.all_reduce(total_norm, op=dist.ReduceOp.SUM, group=gpc.get_group(ParallelMode.MODEL))
