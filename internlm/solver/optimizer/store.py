@@ -152,10 +152,10 @@ class ParameterStore(BaseStore):
         self._is_param_reduced = dict()
         self._reduced_param = []
 
-        self._former_bucket_reduced_param = []
-        self._last_bucket_reduced_param = []
-        self._former_bucket_reduced_grad = []
-        self._last_bucket_reduced_grad = []
+        self._former_bucket_reduced_param = {}
+        self._last_bucket_reduced_param = {}
+        self._former_bucket_reduced_grad = {}
+        self._last_bucket_reduced_grad = {}
 
     def set_param_to_rank(self, tensor: Tensor, rank: int) -> None:
         """
@@ -229,24 +229,33 @@ class ParameterStore(BaseStore):
         self._reduced_param.append(tensor)
 
     def add_reduced_param_for_compute_norm(self, param, last_bucket=False):
+        group_id = getattr(param, "group_id")
         if last_bucket:
-            self._last_bucket_reduced_param.append(param)
-            self._last_bucket_reduced_grad.append(param.grad)
-        else:
-            self._former_bucket_reduced_param.append(param)
-            self._former_bucket_reduced_grad.append(param.grad)
+            if group_id not in self._last_bucket_reduced_param:
+                self._last_bucket_reduced_param[group_id] = []
+                self._last_bucket_reduced_grad[group_id] = []
 
-    def get_reduced_param_for_compute_norm(self, last_bucket=False):
-        if not last_bucket:
-            return self._former_bucket_reduced_param, self._former_bucket_reduced_grad
+            self._last_bucket_reduced_param[group_id].append(param)
+            self._last_bucket_reduced_grad[group_id].append(param.grad)
         else:
-            return self._last_bucket_reduced_param, self._last_bucket_reduced_grad
+            if group_id not in self._former_bucket_reduced_param:
+                self._former_bucket_reduced_param[group_id] = []
+                self._former_bucket_reduced_grad[group_id] = []
+
+            self._former_bucket_reduced_param[group_id].append(param)
+            self._former_bucket_reduced_grad[group_id].append(param.grad)
+
+    def get_reduced_param_for_compute_norm(self, group_id=0, last_bucket=False):
+        if not last_bucket:
+            return self._former_bucket_reduced_param[group_id], self._former_bucket_reduced_grad[group_id]
+        else:
+            return self._last_bucket_reduced_param[group_id], self._last_bucket_reduced_grad[group_id]
 
     def reset_reduced_data_for_compute_norm(self):
-        self._former_bucket_reduced_param = []
-        self._last_bucket_reduced_param = []
-        self._former_bucket_reduced_grad = []
-        self._last_bucket_reduced_grad = []
+        self._former_bucket_reduced_param = {}
+        self._last_bucket_reduced_param = {}
+        self._former_bucket_reduced_grad = {}
+        self._last_bucket_reduced_grad = {}
 
     def clear_grads_of_previous_reduced_params(self):
         if len(self._reduced_param) > 0:

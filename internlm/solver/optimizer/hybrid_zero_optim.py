@@ -476,23 +476,16 @@ class HybridZeroOptimizer(BaseOptimizer):
         previous_norm=None,
     ):
         # compute norm for gradients that have been reduced
-        params, _ = self._param_store.get_reduced_param_for_compute_norm(last_bucket=last_bucket)
-        params_list = []
-        grads_list = []
-        for param in params:
-            if getattr(param, "group_id") == group_id:
-                params_list.append(param)
-                grads_list.append(param.grad)
-
-        if len(params_list) == 0:
-            grads_list = [self.padding_grad]
-            params_list = [self.padding_tensor]
+        params, grads = self._param_store.get_reduced_param_for_compute_norm(group_id=group_id, last_bucket=last_bucket)
+        if len(params) == 0:
+            grads = [self.padding_grad]
+            params = [self.padding_tensor]
 
         if self._clip_grad_norm > 0:
             # this norm is before scaling, it will be very large
             norm = compute_norm(
-                gradients=grads_list,
-                parameters=params_list,
+                gradients=grads,
+                parameters=params,
                 last_stage=last_stage,
                 previous_norm=previous_norm,
             )
