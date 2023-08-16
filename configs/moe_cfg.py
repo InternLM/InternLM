@@ -125,7 +125,7 @@ model = dict(
     norm_type="rmsnorm",
     layer_norm_epsilon=1e-5,
     use_flash_attn=True,
-    num_chunks=1,  # if num_chunks > 1, interleaved pipeline scheduler is used.
+    num_chunks=2,  # if num_chunks > 1, interleaved pipeline scheduler is used.
     sequence_parallel=False,
     num_experts=4,
     moe_use_residual=True,
@@ -144,7 +144,7 @@ tensor parallel: tensor parallel size, usually the number of GPUs per node.
 """
 parallel = dict(
     # zero1=8,
-    pipeline=dict(size=4, interleaved_overlap=False),
+    pipeline=dict(size=4, interleaved_overlap=True),
     tensor=dict(size=2),
 )
 
