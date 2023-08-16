@@ -61,11 +61,11 @@ from internlm.utils.parallel import (
     sync_model_param_within_tp,
 )
 from internlm.utils.registry import MODEL_INITIALIZER
-from internlm.utils.writer import Writer
 from internlm.utils.simple_memory_profiler import (
     SimpleMemoryProfiler,
     build_activation_config,
 )
+from internlm.utils.writer import Writer
 
 # global llm logger
 logger = get_logger(__file__)
@@ -664,7 +664,7 @@ def main(args):
                     step_count=train_state.step_count,
                     update_panel=uniscale_logger is not None,
                 )
-                
+
         if memory_profiler is not None:
             memory_profiler.step()
 
