@@ -108,6 +108,9 @@ def args_sanity_check():
         logger.info(f"valid_every: {data.valid_every}")
 
     # processing the checkpoint config
+    if "enable_save_ckpt" not in gpc.config.ckpt:
+        gpc.config.ckpt._add_item("enable_save_ckpt", False)
+
     if "checkpoint_every" not in gpc.config.ckpt or gpc.config.ckpt.checkpoint_every <= 0:
         gpc.config.ckpt._add_item("checkpoint_every", float("inf"))
 
@@ -125,18 +128,16 @@ def args_sanity_check():
 
     if "async_upload" not in gpc.config.ckpt:
         gpc.config.ckpt._add_item("async_upload", False)
-    else:
-        if gpc.config.ckpt.async_upload:
-            assert "save_ckpt_folder" in gpc.config.ckpt
-            if "boto3:" not in gpc.config.ckpt.save_ckpt_folder:
-                if gpc.is_rank_for_log():
-                    logger.warning(
-                        "Storing ckpt on file system does not support asynchronous storage, will use sync save!"
-                    )
-                gpc.config.ckpt.async_upload = False
-            else:
-                if "async_upload_tmp_folder" not in gpc.config.ckpt:
-                    gpc.config.ckpt._add_item("async_upload_tmp_folder", "/dev/shm/internlm_tmp_ckpt/")
+
+    if "async_upload_tmp_folder" not in gpc.config.ckpt:
+        gpc.config.ckpt._add_item("async_upload_tmp_folder", "/dev/shm/internlm_tmp_ckpt/")
+
+    if gpc.config.ckpt.async_upload:
+        assert "save_ckpt_folder" in gpc.config.ckpt
+        if "boto3:" not in gpc.config.ckpt.save_ckpt_folder:
+            if gpc.is_rank_for_log():
+                logger.warning("Storing ckpt on file system does not support asynchronous storage, will use sync save!")
+            gpc.config.ckpt.async_upload = False
 
     if "snapshot_ckpt_folder" not in gpc.config.ckpt:
         gpc.config.ckpt._add_item("snapshot_ckpt_folder", os.path.join(gpc.config.ckpt.save_ckpt_folder, "snapshot"))
@@ -149,14 +150,14 @@ def args_sanity_check():
         gpc.config.ckpt.load_ckpt_folder is not None and gpc.config.ckpt.load_model_only_folder is not None
     ), "'load_ckpt_folder' and 'load_model_only_folder' cannot be set at the same time."
 
-    if "enable_save_ckpt" not in gpc.config.ckpt:
-        gpc.config.ckpt._add_item("enable_save_ckpt", False)
-
     if gpc.is_rank_for_log():
         logger.info("+" * 15 + " Ckpt Info " + "+" * 15)  # pylint: disable=W1201
         logger.info(f"is enable save ckpt: {gpc.config.ckpt.enable_save_ckpt}")
         logger.info(f"save_ckpt_folder: {gpc.config.ckpt.save_ckpt_folder}")
         logger.info(f"checkpoint_every: {gpc.config.ckpt.checkpoint_every}")
+        logger.info(f"async_upload: {gpc.config.ckpt.async_upload}")
+        if gpc.config.ckpt.async_upload:
+            logger.info(f"async_upload_tmp_folder: {gpc.config.ckpt.async_upload_tmp_folder}")
 
     # initialization storage manager
     init_storage_manager(gpc.config.ckpt)

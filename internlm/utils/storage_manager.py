@@ -383,12 +383,12 @@ class StorageManager(metaclass=SingletonMeta):
     }
     CLI_DICT = {}
 
-    def __init__(self, enable_save, tmp_local_folde="/dev/shm/test/", async_mode=True, n_async_workers=8) -> None:
+    def __init__(self, enable_save, tmp_local_folder="/dev/shm/test/", async_mode=True, n_async_workers=8) -> None:
         self._exception_list = []
         self._to_be_del_files = []
         self._async_stack = []
         self.upload_count = 0
-        self.tmp_local_folder = tmp_local_folde
+        self.tmp_local_folder = tmp_local_folder
         self.async_mode = async_mode
         self.has_warning = False
 
@@ -523,7 +523,6 @@ class StorageManager(metaclass=SingletonMeta):
                     pass
 
     async def _sync_tasks(self) -> Awaitable[None]:
-
         if not self._async_stack:
             return
 
@@ -591,7 +590,7 @@ def init_storage_manager(ckpt_config):
     global storage_manager
     storage_manager = StorageManager(
         ckpt_config.enable_save_ckpt,
-        tmp_local_folde=ckpt_config.async_upload_tmp_folder,
+        tmp_local_folder=ckpt_config.async_upload_tmp_folder,
         async_mode=ckpt_config.async_upload,
     )
 
