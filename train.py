@@ -327,7 +327,7 @@ def initialize_optimizer(model: nn.Module):
 def initialize_llm_profile(profiling: bool = False, start_time: str = None):
     """Initialize and return the profiler context manager instance."""
 
-    if profiling and gpc.get_local_rank(ParallelMode.PIPELINE) == 0:
+    if profiling and gpc.get_local_rank(ParallelMode.DATA) == 0 and gpc.get_local_rank(ParallelMode.TENSOR) == 0:
         llm_profile = torch.profiler.profile
         logger.info(f"Do profiling in rank {gpc.get_global_rank()}!")
     else:
