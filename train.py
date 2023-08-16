@@ -320,8 +320,8 @@ def initialize_optimizer(model: nn.Module):
     return optimizer, beta2_scheduler, lr_scheduler
 
 
-def initialize_llm_profile(profiling: bool = False):
-    """Get and return the profiler context manager."""
+def initialize_llm_profile(profiling: bool = False, start_time: str = None):
+    """Initialize and return the profiler context manager instance."""
 
     if profiling and gpc.get_local_rank(ParallelMode.PIPELINE) == 0:
         llm_profile = torch.profiler.profile
@@ -329,7 +329,18 @@ def initialize_llm_profile(profiling: bool = False):
     else:
         llm_profile = DummyProfile
 
-    return llm_profile
+    return llm_profile(
+        activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
+        schedule=torch.profiler.schedule(skip_first=5, wait=1, warmup=1, active=1, repeat=1),
+        on_trace_ready=torch.profiler.tensorboard_trace_handler(
+            f"{gpc.config.JOB_NAME}/{start_time}/traces/rank{gpc.get_global_rank()}_"
+            + f"dp{gpc.get_local_rank(ParallelMode.DATA)}_"
+            + f"tp{gpc.get_local_rank(ParallelMode.TENSOR)}_"
+            + f"pp{gpc.get_local_rank(ParallelMode.PIPELINE)}",
+        ),
+        with_stack=True,
+        with_modules=True,
+    )
 
 
 def record_current_batch_training_metrics(
@@ -573,26 +584,12 @@ def main(args):
     # initialize the batch skipper
     batch_skipper = BatchSkipper(skip_batches)
 
-    # initialize the profiler
-    llm_profile = initialize_llm_profile(profiling=args.profiling)
-
     trainer.train()
 
     # transfer the train data loader into train data iterator
     train_iter = iter(train_dl)
 
-    with llm_profile(
-        activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
-        schedule=torch.profiler.schedule(skip_first=5, wait=1, warmup=1, active=1, repeat=1),
-        on_trace_ready=torch.profiler.tensorboard_trace_handler(
-            f"{gpc.config.JOB_NAME}/{current_time}/traces/rank{gpc.get_global_rank()}_"
-            + f"dp{gpc.get_local_rank(ParallelMode.DATA)}_"
-            + f"tp{gpc.get_local_rank(ParallelMode.TENSOR)}_"
-            + f"pp{gpc.get_local_rank(ParallelMode.PIPELINE)}",
-        ),
-        with_stack=True,
-        with_modules=True,
-    ) as prof:
+    with initialize_llm_profile(profiling=args.profiling, start_time=current_time) as prof:
         # start iterating the train data and begin training
         for batch_count in range(train_state.batch_count, total_steps):
             if batch_count % 50 == 0:
