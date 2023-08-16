@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
+import math
 from functools import partial
 
 import torch
@@ -32,6 +33,7 @@ from internlm.utils.megatron_timers import megatron_timer as timer
 
 from .utils import compute_norm
 
+inf = math.inf
 logger = get_logger(__file__)
 
 

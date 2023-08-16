@@ -181,9 +181,10 @@ def args_sanity_check():
         logger.info(f"cudnn.deterministic: {torch.backends.cudnn.deterministic }")
         logger.info(f"clip_grad_norm: {clip_grad_norm}")
 
-    if "dtype" not in gpc.config.model:
+    model = gpc.config.model
+    if "dtype" not in model:
         logger.warning("dtype is not set, use torch.float16 by defalut!")
-        gpc.config.model._add_item("dtype", torch.float16)
+        model._add_item("dtype", torch.float16)
     else:
         if gpc.config.model.dtype == "torch.bfloat16":
             gpc.config.model.dtype = torch.bfloat16
@@ -205,6 +206,16 @@ def args_sanity_check():
                 "torch.float32",
                 "torch.tf32",
             ]
+
+    if "checkpoint" in model:
+        if model.checkpoint is True:
+            model.checkpoint = 1
+        elif model.checkpoint is False:
+            model.checkpoint = 0
+        else:
+            assert (
+                model.checkpoint >= 0 and model.checkpoint <= 1
+            ), f'model.checkpoint: "{model.checkpoint}" should >=0 and <=1'
 
     if gpc.is_rank_for_log():
         logger.info("+" * 15 + " Model Info " + "+" * 15)  # pylint: disable=W1201

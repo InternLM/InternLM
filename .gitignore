@@ -144,3 +144,4 @@ core.*
 # Run
 llm_ckpts
 events.*
+memory_trace
