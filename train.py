@@ -543,7 +543,12 @@ def main(args):
     scheduler_hooks = [
         SchedulerMetricHook(
             metric=metric,
-            skip=gpc.is_using_pp() and gpc.config.parallel["pipeline"].get("interleaved_overlap", False),
+            skip=(
+                gpc.is_using_pp()
+                and hasattr(gpc.config.model, "num_chunks")
+                and gpc.config.model.num_chunks > 1
+                and gpc.config.parallel["pipeline"].get("interleaved_overlap", False)
+            ),
         ),
     ]
 
