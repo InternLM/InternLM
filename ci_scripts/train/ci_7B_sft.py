@@ -15,6 +15,7 @@ MODEL_ONLY_FOLDER = "local:llm_ckpts/xxxx"
 SAVE_CKPT_FOLDER = "local:llm_ckpts"
 # LOAD_CKPT_FOLDER = "local:llm_ckpts/49"
 ckpt = dict(
+    enable_save_ckpt=True,
     # Path to save training ckpt.
     save_ckpt_folder=SAVE_CKPT_FOLDER,
     # Path to continue training ckpt (load model weights and scheduler/context states).
