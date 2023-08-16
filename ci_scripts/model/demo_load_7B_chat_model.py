@@ -1,4 +1,5 @@
-
+#!/usr/bin/env python
+# -*- encoding: utf-8 -*-
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 tokenizer = AutoTokenizer.from_pretrained("internlm/internlm-chat-7b", trust_remote_code=True)

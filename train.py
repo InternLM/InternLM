@@ -62,6 +62,10 @@ from internlm.utils.parallel import (
 )
 from internlm.utils.registry import MODEL_INITIALIZER
 from internlm.utils.writer import Writer
+from internlm.utils.simple_memory_profiler import (
+    SimpleMemoryProfiler,
+    build_activation_config,
+)
 
 # global llm logger
 logger = get_logger(__file__)
@@ -557,6 +561,19 @@ def main(args):
         scheduler_hooks=scheduler_hooks,
     )
 
+    # initialize simple memory profiler
+    if args.profiling:
+        memory_profiler = SimpleMemoryProfiler(
+            model.model,
+            optimizer.optim,
+            log_folder=f"memory_trace/rank{gpc.get_global_rank()}_"
+            + f"dp{gpc.get_local_rank(ParallelMode.DATA)}_"
+            + f"tp{gpc.get_local_rank(ParallelMode.TENSOR)}",
+            activation_config=build_activation_config(gpc.config.model.num_layers),
+        )
+    else:
+        memory_profiler = None
+
     # initialize the batch skipper
     batch_skipper = BatchSkipper(skip_batches)
 
@@ -647,6 +664,9 @@ def main(args):
                     step_count=train_state.step_count,
                     update_panel=uniscale_logger is not None,
                 )
+                
+        if memory_profiler is not None:
+            memory_profiler.step()
 
         # checkpoint the training states in specific steps, which is determined by the args "checkpoint_every"
         # # save batch sampler that tracks the true consumed samples
