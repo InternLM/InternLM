@@ -158,13 +158,6 @@ class SchedulerMetricHook(SchedulerHook):
         self._post_func = metric
         self._skip = skip
 
-        if skip:
-            # init timer only.
-            timer("fwd")
-            timer("bwd")
-            timer("cal_loss")
-            timer("post_fn")
-
     def before_forward(self, scheduler, inputs) -> None:
         if not self._skip:
             timer("fwd").start()
@@ -190,8 +183,5 @@ class SchedulerMetricHook(SchedulerHook):
             timer("bwd").stop()
 
     def post_helper_func(self, scheduler, outputs, label) -> None:
-        if not self._skip:
-            timer("post_fn").start()
-            if self._post_func is not None:
-                self._post_func(outputs, label)
-            timer("post_fn").stop()
+        if self._post_func is not None:
+            self._post_func(outputs, label)

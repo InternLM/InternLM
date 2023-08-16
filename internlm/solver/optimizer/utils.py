@@ -24,7 +24,7 @@ try:
 
     APEX_AVAILABLE = True
 except (ModuleNotFoundError, ImportError):
-    logger.warn("The torch implementation for cal_l2norm is slower than apex. Please note this!")
+    logger.warning("The torch implementation for cal_l2norm is slower than apex. Please note this!")
     APEX_AVAILABLE = False
 
 inf = math.inf
