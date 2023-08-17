@@ -67,10 +67,24 @@ jobs:
     - uses: actions/checkout@v3
 
     - name: slurm-train
+      id: basic_train
       run: |
         source activate internlm-env-test
-        sh ./ci_scripts/train/slurm_train.sh ${GITHUB_RUN_ID}-${GITHUB_JOB}
+        #sh ./ci_scripts/train/slurm_train.sh ${GITHUB_RUN_ID}-${GITHUB_JOB}
         rm -rf $GITHUB_WORKSPACE/llm_ckpts
+        exit 1
+    
+    - name: load_preset_ckpt
+      if: ${{ failure() && steps.basic_train.conclusion == 'failure' }}
+      run: |
+      source activate internlm-env-test
+      sh ./ci_scripts/train/load_ckpt.sh 7B_load_preset_ckpt ${GITHUB_RUN_ID}-${GITHUB_JOB}
+
+    - name: load_new_ckpt
+      if: ${{ success() && steps.basic_train.conclusion == 'success' }}
+      run: |
+      source activate internlm-env-test
+      sh ./ci_scripts/train/load_ckpt.sh 7B_load_new_ckpt ${GITHUB_RUN_ID}-${GITHUB_JOB}
 
     - name: torchrun-train
       run: |

@@ -30,9 +30,9 @@
         "HIDDEN_SIZE": 2048,
         "NUM_ATTENTION_HEAD": 16,
         "NUM_LAYER": 16,
-        "LOAD_CKPT_FOLDER": "local:llm_ckpts/20",
+        "LOAD_CKPT_FOLDER": "local:${DATA_VOLUME}/lm_data/alpaca_data/llm_ckpts/20",
         "ckpt": {
-            "load_ckpt_folder": "local:llm_ckpts/20",
+            "load_ckpt_folder": "local:${DATA_VOLUME}/lm_data/alpaca_data/llm_ckpts/20",
             "checkpoint_every": 20
         },
         "data": {
