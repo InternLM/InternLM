@@ -341,6 +341,7 @@ def record_current_batch_training_metrics(
     trainer,
     start_time,
     loss,
+    moe_loss,
     grad_norm,
     metric,
     update_panel,
@@ -384,6 +385,7 @@ def record_current_batch_training_metrics(
             "tflops": tflops,
             "step": batch_count,
             "loss": loss.item(),
+            "moe_loss": moe_loss.item(),
             "tgs (tokens/gpu/second)": tk_per_gpu,
             "lr": lr,
             "loss_scale": scaler,
@@ -419,6 +421,7 @@ def record_current_batch_training_metrics(
                     "num_consumed_tokens": train_state.num_consumed_tokens,
                     "grad_norm": grad_norm,
                     "loss": loss.item(),
+                    "moe_loss": moe_loss.item(),
                     "flops": tflops,
                     "tgs": tk_per_gpu,
                     "acc": acc_perplex["acc"],
@@ -606,7 +609,7 @@ def main(args):
 
         # do forward and backward
         timer("fwd-bwd").start()
-        _, _, loss = trainer.execute_schedule(
+        _, _, loss, moe_loss = trainer.execute_schedule(
             batch,
             forward_only=False,
             return_loss=True,
@@ -644,6 +647,7 @@ def main(args):
             trainer=trainer,
             start_time=start_time,
             loss=loss,
+            moe_loss=moe_loss,
             grad_norm=grad_norm,
             metric=metric,
             update_panel=uniscale_logger is not None,
