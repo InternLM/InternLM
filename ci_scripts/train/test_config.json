@@ -1,0 +1,36 @@
+{
+    "7B_basic_train": {
+        "SEQ_LEN": 1024,
+        "HIDDEN_SIZE": 2048,
+        "NUM_ATTENTION_HEAD": 16,
+        "NUM_LAYER": 16,
+        "ckpt": {
+            "checkpoint_every": 20
+        },
+        "data": {
+            "total_steps": 20
+        },
+        "grad_scaler": {
+            "fp16": {
+                "min_scale": 1
+            }
+        }
+    },
+    "7B_train_load_ckpt": {
+        "SEQ_LEN": 1024,
+        "HIDDEN_SIZE": 2048,
+        "NUM_ATTENTION_HEAD": 16,
+        "NUM_LAYER": 16,
+        "ckpt": {
+            "checkpoint_every": 20
+        },
+        "data": {
+            "total_steps": 40
+        },
+        "grad_scaler": {
+            "fp16": {
+                "min_scale": 1
+            }
+        }
+    }
+}
