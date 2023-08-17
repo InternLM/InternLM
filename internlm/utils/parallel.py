@@ -43,7 +43,7 @@ def sync_tensor(tensor, parallel_mode):
 
 
 # TODO: will be used in expert data parallel, may can also used in sync_model_param_within_tp
-def sync_model_param_within_ep(model):
+def sync_model_param_with_ep(model):
     r"""Make sure data parameters are consistent during Data Parallel Mode.
 
     Args:
