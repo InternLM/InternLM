@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
+import math
 from functools import partial
 
 import torch
@@ -33,6 +34,7 @@ from internlm.utils.megatron_timers import megatron_timer as timer
 
 from .utils import compute_norm
 
+inf = math.inf
 logger = get_logger(__file__)
 
 
@@ -166,26 +168,26 @@ class HybridZeroOptimizer(BaseOptimizer):
         # partition these param groups for data parallel training
         # and add buffers to parameter store for future access
         for group_id, param_group in enumerate(self.optim.param_groups):
-            if "moe" in param_group.keys() and param_group["moe"]:
-                print("true", flush=True)
-                continue
-
             group_params = param_group["params"]
 
             # add the fp16 params to fp16_param_groups for bookkeeping
             self._fp16_param_groups[group_id] = group_params
 
             # assign parameters to ranks the params in the list are sorted
-            params_per_rank, no_params_ranks = self._partition_param_list(group_params)
+            params_per_rank, no_params_ranks = self._partition_param_list(param_group)
             self.param_group_no_params_ranks.append(no_params_ranks)
             self.param_group_has_params.append(self._zero_local_rank not in no_params_ranks)
 
-            # store the mapping between param to rank each param should belong to only one rank
+            # store the mapping between param to rank each param should belong to only one rank.
+            # we can skip the moe param and do not keep them in _param_store to save memory
+            # (means we need to deal with moe param in a different way), but it will increase
+            # complexity and reduce code readablity.
             for rank, params in enumerate(params_per_rank):
                 # check whether any rank is not assigned params.
                 if len(params) != 0:
                     self._param_store.add_fp16_param_list_by_rank_group(rank, group_id, params)
                     for param in params:
+                        setattr(param, "group_id", group_id)
                         self._param_store.set_param_to_rank(param, rank)
 
             # move to cpu to make room to create the flat tensor
@@ -261,32 +263,47 @@ class HybridZeroOptimizer(BaseOptimizer):
     def num_param_groups(self):
         return len(self._fp16_param_groups)
 
-    def _partition_param_list(self, param_list):
+    def _get_real_dp_process_group(self, param_groups):
+        if "moe" in param_groups.keys() and param_groups["moe"]:
+            return ParallelMode.EXPERT_DATA
+        else:
+            return ParallelMode.DATA
+
+    def _partition_param_list(self, param_group):
         no_params_ranks = []
         params_per_rank = [[] for _ in range(self._zero_world_size)]
         numel_per_rank = [0 for _ in range(self._zero_world_size)]
         self.params_per_rank_id_dict.append([[] for _ in range(self._zero_world_size)])
+        param_list = param_group["params"]
 
-        sorted_params = sorted(param_list, key=lambda x: x.numel(), reverse=True)
-        for i, param in enumerate(sorted_params):
-            global_id = str(i)
-            for j in range(len(param.size())):
-                global_id = "_".join([global_id, str(param.size()[j])])
+        if "moe" in param_group.keys() and param_group["moe"]:
+            # just add current params to params_per_rank[_zero_local_rank]
+            params_per_rank[self._zero_local_rank] = list(param_list)
+            self.params_per_rank_id_dict[-1][self._zero_local_rank].append(None)
+            no_params_ranks = list(range(self._zero_world_size))
+            no_params_ranks.pop(self._zero_world_size)
 
-            rank_to_go = numel_per_rank.index(min(numel_per_rank))
-            params_per_rank[rank_to_go].append(param)
-            self.params_per_rank_id_dict[-1][rank_to_go].append(global_id)
-            numel_per_rank[rank_to_go] += param.numel()
+        else:
+            sorted_params = sorted(param_list, key=lambda x: x.numel(), reverse=True)
+            for i, param in enumerate(sorted_params):
+                global_id = str(i)
+                for j in range(len(param.size())):
+                    global_id = "_".join([global_id, str(param.size()[j])])
 
-        # check whether any rank is not assigned to parameters.
-        for rank, params in enumerate(params_per_rank):
-            if len(params) == 0:
-                no_params_ranks.append(rank)
+                rank_to_go = numel_per_rank.index(min(numel_per_rank))
+                params_per_rank[rank_to_go].append(param)
+                self.params_per_rank_id_dict[-1][rank_to_go].append(global_id)
+                numel_per_rank[rank_to_go] += param.numel()
 
-        if gpc.is_rank_for_log():
-            logger.info(  # pylint: disable=W1203
-                f"Number of elements on ranks: {numel_per_rank}, rank:{gpc.get_global_rank()}"
-            )
+            # check whether any rank is not assigned to parameters.
+            for rank, params in enumerate(params_per_rank):
+                if len(params) == 0:
+                    no_params_ranks.append(rank)
+
+            if gpc.is_rank_for_log():
+                logger.info(  # pylint: disable=W1203
+                    f"Number of elements on ranks: {numel_per_rank}, rank:{gpc.get_global_rank()}"
+                )
 
         return params_per_rank, set(no_params_ranks)
 
@@ -296,6 +313,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         for group_id in range(self.num_param_groups):
             param_group = self._fp16_param_groups[group_id]
             for param in param_group:
+                # we should not reduce the param in moe
                 if param.requires_grad and not is_moe_param(param):
                     reduce_rank = None
 
@@ -327,7 +345,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         # if full, will reduce the grads already in the bucket
         # after reduction, the bucket will be empty
         if self._bucket_store.num_elements_in_bucket(reduce_rank) + param_size > self._reduce_bucket_size:
-            self._reduce_grads_stored_in_bucket(reduce_rank)
+            self._reduce_grads_stored_in_bucket(reduce_rank, last_bucket=False)
 
         # the param must not be reduced to ensure correctness
         is_param_reduced = self._param_store.is_param_reduced(param)
@@ -345,7 +363,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         self._bucket_store.add_grad(param.grad, reduce_rank)
         self._bucket_store.add_param(param, reduce_rank)
 
-    def _reduce_grads_stored_in_bucket(self, reduce_rank=None):
+    def _reduce_grads_stored_in_bucket(self, reduce_rank=None, last_bucket=False):
         # reduce grads
         self._reduce_grads_by_rank(
             reduce_rank=reduce_rank,
@@ -353,30 +371,27 @@ class HybridZeroOptimizer(BaseOptimizer):
             bucket_size=self._bucket_store.num_elements_in_bucket(reduce_rank),
         )
 
-        # use communication stream if overlapping
-        # communication with computation
-        if self._overlap_communication:
-            stream = self._comm_stream
-        else:
-            stream = torch.cuda.current_stream()
+        params_in_bucket = self._bucket_store.get_param(reduce_rank=reduce_rank)
 
-        with torch.cuda.stream(stream):
-            params_in_bucket = self._bucket_store.get_param(reduce_rank=reduce_rank)
+        for param in params_in_bucket:
+            # the is_param_reduced flag should be False showing that
+            # this param is not reduced before calling self._reduce_grads_by_rank
+            is_param_reduced = self._param_store.is_param_reduced(param)
 
-            for param in params_in_bucket:
-                # the is_param_reduced flag should be False showing that
-                # this param is not reduced before calling self._reduce_grads_by_rank
-                is_param_reduced = self._param_store.is_param_reduced(param)
+            if is_param_reduced:
+                msg = (
+                    f"Parameter of size ({param.size()}) has been reduced, "
+                    + "duplicate reduction will lead to arithmetic incorrectness"
+                )
+                raise RuntimeError(msg)
 
-                if is_param_reduced:
-                    msg = (
-                        f"Parameter of size ({param.size()}) has been reduced, "
-                        + "duplicate reduction will lead to arithmetic incorrectness"
-                    )
-                    raise RuntimeError(msg)
+            # update the flag
+            self._param_store.set_param_reduction_state(param, True)
 
-                # update the flag
-                self._param_store.set_param_reduction_state(param, True)
+            if self._param_store.belongs_to_current_rank(param):
+                self._param_store.add_reduced_param_for_compute_norm(param, last_bucket)
+            else:
+                self._param_store.add_previous_reduced_param(param)
 
         self._bucket_store.reset_by_rank(reduce_rank)
 
@@ -395,9 +410,9 @@ class HybridZeroOptimizer(BaseOptimizer):
 
     def _reduce_and_copy(self, bucket: TensorBucket, reduce_rank):
         if self._overlap_communication:
-            torch.cuda.synchronize()
-            self._param_store.clear_grads_of_previous_reduced_params()
             stream = self._comm_stream
+            stream.synchronize()
+            self._param_store.clear_grads_of_previous_reduced_params()
         else:
             stream = torch.cuda.current_stream()
 
@@ -431,6 +446,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         reduction_states = self._param_store.get_param_reduction_states()
         for tensor, _ in reduction_states.items():
             reduction_states[tensor] = False
+        self._param_store.reset_reduced_data_for_compute_norm()
 
         # accumulate gradient
         avg_gradients = self._grad_store._averaged_gradients
@@ -479,6 +495,30 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         # Gradients may not be fully synchronized here.
 
+    def _compute_norm_with_stage(
+        self,
+        group_id: int = 0,
+        last_bucket: bool = False,
+        last_stage: bool = False,
+        previous_norm=None,
+    ):
+        # compute norm for gradients that have been reduced
+        params, grads = self._param_store.get_reduced_param_for_compute_norm(group_id=group_id, last_bucket=last_bucket)
+        if len(params) == 0:
+            grads = [self.padding_grad]
+            params = [self.padding_tensor]
+
+        if self._clip_grad_norm > 0:
+            # this norm is before scaling, it will be very large
+            norm = compute_norm(
+                gradients=grads,
+                parameters=params,
+                last_stage=last_stage,
+                previous_norm=previous_norm,
+            )
+
+        return norm
+
     def step(self, closure=None):
         """Performs a single optimization step.
 
@@ -490,27 +530,43 @@ class HybridZeroOptimizer(BaseOptimizer):
         """
         assert closure is None, "closure is not supported by step()"
 
-        timer("sync_grad").start()
         # if not overlapping communication (no reduction hook is attached)
         # we need to manually reduce these gradients
         if not self._overlap_communication:
             for group_id in range(len(self._fp16_param_groups)):
                 for param in self._fp16_param_groups[group_id]:
+                    # we should not reduce the param in moe
                     if param.grad is not None and not is_moe_param(param):
                         self._store_and_try_reduce_grads_by_bucket(param)
 
         # we need to reduce the gradients left in the communication bucket
-        self._reduce_grads_stored_in_bucket()
+        self._reduce_grads_stored_in_bucket(reduce_rank=None, last_bucket=True)
+
+        # compute norm for gradients in the before bucket
+        groups_norms = []
+        for group_id in range(self.num_param_groups):
+            groups_norms.append(self._compute_norm_with_stage(group_id=group_id))
 
         # clear reduced grads
         if self._overlap_communication:
-            torch.cuda.synchronize()
+            # grads in the last bucket is reduced
+            self._comm_stream.synchronize()
             self._param_store.clear_grads_of_previous_reduced_params()
 
+        # compute norm for gradients in the last bucket
+        total_norms = []
+        for group_id in range(self.num_param_groups):
+            total_norms.append(
+                self._compute_norm_with_stage(
+                    group_id=group_id, last_bucket=True, last_stage=True, previous_norm=groups_norms[group_id]
+                )
+            )
+
+        timer("sync_grad").start()
         self._sync_grad()
         timer("sync_grad").stop()
 
-        return self._step(closure=closure)
+        return self._step(closure=closure, norms=total_norms)
 
     def _get_norm_with_moe_layers(self, norm_groups):
         # all_groups_norm_old = all_groups_norm
@@ -525,39 +581,18 @@ class HybridZeroOptimizer(BaseOptimizer):
         # print(f"old = {all_groups_norm_old} and new = {all_groups_norm} at rank: {deepspeed.comm.get_rank()}")
         return all_groups_norm
 
-    def _step(self, closure=None):
+    def _step(self, closure=None, norms=None):
         assert closure is None, "closure is not supported by step()"
 
         # check for overflow
-        found_inf = self._check_overflow()
+        found_inf = False
+        # if there is INF values in grades, compute_norm func would also returns -1
+        # thus, we try to avoid call _check_overflow here
+        # found_inf = self._check_overflow()
         # Because you may encounter inf when computing norm
-        timer("cal_norm").start()
-        norm_groups = []
-        for group_id in range(self.num_param_groups):
-            # compute norm
-            if self._zero_local_rank not in self.param_group_no_params_ranks[group_id]:
-                gradients = self._grad_store.get_averaged_gradients_by_group(group_id)
-                parameters = self._param_store.get_fp16_params_by_rank_group(
-                    group_id=group_id, rank=self._zero_local_rank
-                )
-            else:
-                # in order to prevent collection communication from hanging,
-                # we need to involve rank that are not assigned parameters in compute_norm(),
-                # so we give them a fp16 vector of 0 values.
-                gradients = [self.padding_grad]
-                parameters = [self.padding_tensor]
 
-            if self._clip_grad_norm > 0:
-                # this norm is before scaling, it will be very large
-                norm_group = compute_norm(
-                    gradients=gradients,
-                    parameters=parameters,
-                )
-                if norm_group == -1:
-                    timer("cal_norm").stop()
-                    found_inf = True
-                    break
-                norm_groups.append(norm_group)
+        if -1 in norms:
+            found_inf = True
 
         loss_scale = float(self.loss_scale.item())  # backup
         if gpc.config.model.dtype is not torch.float32:
@@ -573,7 +608,6 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         # copy the grad of fp16 param to fp32 param
         single_grad_partition_groups = []
-        global_norm = 0
         for group_id in range(self.num_param_groups):
             # compute norm
             # The following operations are performed only on the rank to which parameters are assigned.
@@ -582,13 +616,14 @@ class HybridZeroOptimizer(BaseOptimizer):
 
             # create flat gradient for the flat fp32 params
             gradients = self._grad_store.get_averaged_gradients_by_group(group_id)
-            flat_fp16_avg_grads = flatten(gradients)
+            with torch.no_grad():
+                flat_fp16_avg_grads = flatten(gradients)
             self._grad_store.reset_average_gradients_by_group(group_id)
-            del gradients  # release cuda memory
+            gradients = None  # release cuda memory
 
             dtype = self._fp32_flat_param_groups_of_current_rank[group_id].dtype
             flat_fp32_avg_grads = flat_fp16_avg_grads.to(dtype)
-            del flat_fp16_avg_grads  # release cuda memory
+            flat_fp16_avg_grads = None  # release cuda memory
 
             param_shape = self._fp32_flat_param_groups_of_current_rank[group_id].shape
             assert (
@@ -601,8 +636,10 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         # unscale and clip grads
         # get the global norm
+        global_norm_groups = []
         if self._clip_grad_norm > 0:
-            global_norm = sum(norm_groups) ** 0.5
+            for norm in norms:
+                global_norm_groups.append(norm**0.5)
 
         if self.has_moe:
             global_norm = self._get_norm_with_moe_layers(global_norm)
@@ -610,9 +647,8 @@ class HybridZeroOptimizer(BaseOptimizer):
         # the following operations are performed only on the rank to which parameters are assigned.
         if gpc.config.model.dtype is not torch.float32:
             if len(single_grad_partition_groups) != 0:
-                self._unscale_and_clip_grads(single_grad_partition_groups, global_norm, loss_scale)
+                self._unscale_and_clip_grads(single_grad_partition_groups, global_norm_groups, loss_scale)
 
-        timer("cal_norm").stop()
         # update the parameters
         timer("step").start()
 
@@ -637,7 +673,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         timer("step").stop()
         # update gradients may not be needed here, because the sync_params function is used in initialization,
         # so synchronization is maintained
-        return True, global_norm / loss_scale
+        return True, [global_norm / loss_scale for global_norm in global_norm_groups]
 
     def broadcast_params(self, overlap=False):
         handles = []
@@ -681,18 +717,20 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         return self._found_overflow.item() > 0
 
-    def _unscale_and_clip_grads(self, grad_groups_flat, total_norm, loss_scale):
+    def _unscale_and_clip_grads(self, grad_groups_flat, total_norm_groups, loss_scale):
         # compute combined scale factor for this group
-        combined_scale = loss_scale
+        combined_scale_groups = []
 
         if self._clip_grad_norm > 0.0:
             # norm is in fact norm*scale
-            clip = ((total_norm / loss_scale) + 1e-6) / self._clip_grad_norm
-            if clip > 1.0:
-                combined_scale = clip * loss_scale
+            for group_id, total_norm in enumerate(total_norm_groups):
+                combined_scale_groups.append(loss_scale)
+                clip = ((total_norm / loss_scale) + 1e-6) / self._clip_grad_norm
+                if clip > 1.0:
+                    combined_scale_groups[group_id] = clip * loss_scale
 
-        for grad in grad_groups_flat:
-            grad.data.mul_(1.0 / combined_scale)
+        for group_id, grad in enumerate(grad_groups_flat):
+            grad.data.mul_(1.0 / combined_scale_groups[group_id])
 
     def clip_grad_norm(self, model, max_norm):
         # will conduct in the step()

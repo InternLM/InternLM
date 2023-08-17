@@ -7,6 +7,7 @@ import traceback
 from functools import partial
 from typing import Iterable
 
+import numpy as np
 import torch
 import torch.distributed as dist
 from torch import nn
@@ -61,6 +62,10 @@ from internlm.utils.parallel import (
     sync_model_param_within_tp,
 )
 from internlm.utils.registry import MODEL_INITIALIZER
+from internlm.utils.simple_memory_profiler import (
+    SimpleMemoryProfiler,
+    build_activation_config,
+)
 from internlm.utils.writer import Writer
 
 # global llm logger
@@ -555,7 +560,12 @@ def main(args):
     scheduler_hooks = [
         SchedulerMetricHook(
             metric=metric,
-            skip=gpc.is_using_pp() and gpc.config.parallel["pipeline"].get("interleaved_overlap", False),
+            skip=(
+                gpc.is_using_pp()
+                and hasattr(gpc.config.model, "num_chunks")
+                and gpc.config.model.num_chunks > 1
+                and gpc.config.parallel["pipeline"].get("interleaved_overlap", False)
+            ),
         ),
     ]
 
@@ -568,6 +578,19 @@ def main(args):
         beta2_scheduler=beta2_scheduler,
         scheduler_hooks=scheduler_hooks,
     )
+
+    # initialize simple memory profiler
+    if args.profiling:
+        memory_profiler = SimpleMemoryProfiler(
+            model.model,
+            optimizer.optim,
+            log_folder=f"memory_trace/rank{gpc.get_global_rank()}_"
+            + f"dp{gpc.get_local_rank(ParallelMode.DATA)}_"
+            + f"tp{gpc.get_local_rank(ParallelMode.TENSOR)}",
+            activation_config=build_activation_config(gpc.config.model.num_layers),
+        )
+    else:
+        memory_profiler = None
 
     # initialize the batch skipper
     batch_skipper = BatchSkipper(skip_batches)
@@ -622,13 +645,13 @@ def main(args):
         trainer_result = trainer.step()
         assert trainer_result is not None
 
-        success_update, grad_norm = trainer_result
+        success_update, grad_norm_groups = trainer_result
         if success_update:  # update parameters successfully
             train_state.step_count += 1
         else:
             train_state.inf_nan_skip_batches += 1  # record the amount of updating parameters unsuccessfully.
-            if grad_norm == -99.0 and gpc.is_rank_for_log():  # -99.0 encodes a specific failure case
-                logger.warning(f"Warning: skip parameter update at step {batch_count}.")  # pylint: disable=W1203
+            if -99.0 in grad_norm_groups and gpc.is_rank_for_log():  # -99.0 encodes a specific failure case
+                logger.warning(f"Warning: skip parameter update at step {batch_count}.")
                 send_alert_message(
                     address=gpc.config.alert_address, message=f"Warning: skip parameter update at step {batch_count}."
                 )
@@ -648,7 +671,7 @@ def main(args):
             start_time=start_time,
             loss=loss,
             moe_loss=moe_loss,
-            grad_norm=grad_norm,
+            grad_norm=np.array(grad_norm_groups),
             metric=metric,
             update_panel=uniscale_logger is not None,
         )
@@ -666,6 +689,9 @@ def main(args):
                     step_count=train_state.step_count,
                     update_panel=uniscale_logger is not None,
                 )
+
+        if memory_profiler is not None:
+            memory_profiler.step()
 
         # checkpoint the training states in specific steps, which is determined by the args "checkpoint_every"
         # # save batch sampler that tracks the true consumed samples
@@ -687,8 +713,7 @@ if __name__ == "__main__":
         try:
             main(args)
         except Exception:
-            logger.error(  # pylint: disable=W1203
-                f"Raise exception from {hostname} with rank id: {gpc.get_global_rank()}",
-                exc_info=traceback.format_exc(),
+            logger.error(
+                f"Raise exception from {hostname} with rank id: {gpc.get_global_rank()}\n{traceback.format_exc()}",
             )
             mm.monitor_exception(alert_address=gpc.config.alert_address, excp_info=traceback.format_exc())
