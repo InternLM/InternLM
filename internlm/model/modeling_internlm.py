@@ -19,7 +19,11 @@ from internlm.model.linear import (
     ScaleColumnParallelLinear,
 )
 from internlm.model.multi_head_attention import MHA
-from internlm.model.utils import gather_forward_split_backward, try_import_RMSNorm
+from internlm.model.utils import (
+    gather_forward_split_backward,
+    get_default_model_partitions,
+    try_import_RMSNorm,
+)
 from internlm.solver.pipeline_utils import partition_uniform
 from internlm.utils.checkpoint import activation_checkpoint
 from internlm.utils.common import filter_kwargs
@@ -345,6 +349,10 @@ class PackedFlashInternLm1D(nn.Module):
                 if gpc.get_world_size(ParallelMode.TENSOR) > 1:
                     setattr(param, IS_TENSOR_PARALLEL, True)
         self.parallel_output = parallel_output
+
+    def partition_parametors(self):
+        # Implement the model-specific partition_parameter function if necessary.
+        return get_default_model_partitions(self, num_group=1)
 
     def forward(self, hidden_states=None, cu_seqlens=None, input_ids=None, indexes=None, inference_params=None):
         # attention_mask: compute attention on the places where the value is 1

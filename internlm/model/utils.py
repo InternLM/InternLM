@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-from typing import Optional
+from collections import OrderedDict
+from typing import Any, Dict, List, Optional
 
 import torch
 import torch.nn.functional as F
@@ -11,7 +12,7 @@ from flash_attn.utils.distributed import (
     all_reduce_raw,
     reduce_scatter_raw,
 )
-from torch import Tensor
+from torch import Tensor, nn
 from torch.cuda.amp import custom_bwd
 from torch.distributed import ProcessGroup
 
@@ -207,3 +208,28 @@ def try_import_RMSNorm():
         from internlm.model.norm import RMSNormTorch as RMSNorm
 
         return RMSNorm
+
+
+def get_default_model_partitions(
+    model: nn.Module, num_group: int, group_config: Optional[Any] = None
+) -> List[Dict[str, List[Tensor]]]:
+    # Only for internlm-class model.
+    # TODO: how optimizer parameter groups defines?
+    assert num_group == 1, "Only one parameter group is supported."
+    del group_config
+
+    result = []
+
+    for _ in range(num_group):
+        group_result = OrderedDict()
+
+        for name, children in model.named_children():
+            if isinstance(children, nn.ModuleList):
+                for idx, layer in enumerate(children):
+                    group_result[f"{name}.{idx}"] = [x for x in layer.parameters()]
+            else:
+                group_result[name] = [x for x in children.parameters()]
+
+        result.append(group_result)
+
+    return result

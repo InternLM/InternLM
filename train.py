@@ -31,11 +31,16 @@ from internlm.data.packed_dataset import (
 from internlm.data.utils import DATASET_TYPE_IDS_MAP, unpack_data
 from internlm.model.loss import FlashGPTLMLoss
 from internlm.model.metrics import AccPerplex
+from internlm.model.utils import get_default_model_partitions
 from internlm.monitor import initialize_monitor_manager, send_alert_message, set_env_var
 from internlm.monitor.monitor import monitor_manager as mm
 from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
-from internlm.solver.optimizer import HybridZeroOptimizer
+from internlm.solver.optimizer import (
+    AsyncModelPartitionHandler,
+    AsyncMultiChunkParatitionHandler,
+    HybridZeroOptimizer,
+)
 from internlm.utils.common import (
     BatchSkipper,
     get_master_node,
@@ -312,8 +317,39 @@ def initialize_optimizer(model: nn.Module):
         eps=adam_cfg.adam_eps,
     )
 
+    if gpc.config.hybrid_zero_optimizer.zero_overlap_communication:
+
+        def get_partition_scheme_helper(_model):
+            if isinstance(_model, NaiveAMPModel):
+                _model = _model.model
+            if hasattr(_model, "partition_parametors"):
+                partition_scheme = _model.partition_parametors()
+            else:
+                partition_scheme = get_default_model_partitions(_model, num_group=1)
+
+            return partition_scheme
+
+        # init async partition handler
+        if isinstance(model, nn.ModuleList):
+            partition_schemes = []
+            for chunk in model:
+                partition_schemes.append(get_partition_scheme_helper(chunk))
+            async_partition_handler = AsyncMultiChunkParatitionHandler(
+                len(model), partition_schemes, ParallelMode.ZERO1
+            )
+        else:
+            partition_scheme = get_partition_scheme_helper(model)
+            async_partition_handler = AsyncModelPartitionHandler(partition_scheme, ParallelMode.ZERO1)
+        # register async partition hooks
+        async_partition_handler.register_sync_parameters_hook(model)
+    else:
+        async_partition_handler = None
+
     optimizer = HybridZeroOptimizer(
-        naive_optimizer, grad_scal_cfg=gpc.config.grad_scaler, zero_cfg=gpc.config.hybrid_zero_optimizer
+        naive_optimizer,
+        grad_scal_cfg=gpc.config.grad_scaler,
+        zero_cfg=gpc.config.hybrid_zero_optimizer,
+        async_partition_handler=async_partition_handler,
     )
 
     beta2_scheduler = Beta2Scheduler(optimizer=naive_optimizer, **gpc.config.beta2_scheduler)
@@ -567,7 +603,8 @@ def main(args):
     )
 
     # initialize simple memory profiler
-    if args.profiling:
+    # TODO: support memory profiler for interleaved pipeline scheduler
+    if args.profiling and gpc.config.model["num_chunks"] == 1:
         memory_profiler = SimpleMemoryProfiler(
             model.model,
             optimizer.optim,
@@ -623,7 +660,11 @@ def main(args):
         timer("fwd-bwd").stop()
 
         # update parameters, and returns (success_update, grad_norm)
-        trainer_result = trainer.step()
+        need_save_ckpt = (
+            ckpt_save_manager.enable_save_ckpt
+            and (train_state.step_count + 1) % ckpt_save_manager.checkpoint_every == 0
+        )
+        trainer_result = trainer.step(disable_async_broadcast=need_save_ckpt)
         assert trainer_result is not None
 
         success_update, grad_norm_groups = trainer_result

@@ -102,7 +102,7 @@ class Engine:
         """Sets the gradient of all parameters in the model to zero."""
         self.optimizer.zero_grad()
 
-    def step(self):
+    def step(self, *args, **kwargs):
         """
         Executes the parameter update step. This includes all-reduce operations of gradients, gradient clipping,
         and parameter update. If successful, it also steps the learning rate scheduler and beta2 scheduler
@@ -115,7 +115,7 @@ class Engine:
         self._all_reduce_gradients()
         self.optimizer.clip_grad_norm(self.model, self._clip_grad_norm)
 
-        success, grad_norm = self.optimizer.step()
+        success, grad_norm = self.optimizer.step(*args, **kwargs)
 
         if success and self._lr_scheduler is not None:
             self._lr_scheduler.step()

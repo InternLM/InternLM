@@ -3,6 +3,7 @@
 
 import math
 from functools import partial
+from typing import Optional
 
 import torch
 import torch.distributed as dist
@@ -31,7 +32,7 @@ from internlm.utils.common import get_current_device
 from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
 
-from .utils import compute_norm
+from .utils import ModelParatitionHandler, compute_norm
 
 inf = math.inf
 logger = get_logger(__file__)
@@ -90,6 +91,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         overlap_broadcast=False,
         grad_scal_cfg: Config = None,
         zero_cfg: Config = None,
+        async_partition_handler: Optional[ModelParatitionHandler] = None,
     ):
         # DynamicGradScaler related args
         if gpc.config.model.dtype is torch.float32:
@@ -129,6 +131,11 @@ class HybridZeroOptimizer(BaseOptimizer):
         # communication params
         self._overlap_communication = overlap_communication
         self._reduce_bucket_size = reduce_bucket_size
+
+        # async partition parameter handler
+        if self._overlap_communication:
+            assert async_partition_handler is not None, "async_partition_handler should not be None when overlap"
+            self._async_partition_handler = async_partition_handler
 
         # gradient scaler
         self.grad_scaler = DynamicGradScaler(
@@ -170,7 +177,14 @@ class HybridZeroOptimizer(BaseOptimizer):
             self._fp16_param_groups[group_id] = group_params
 
             # assign parameters to ranks the params in the list are sorted
-            params_per_rank, no_params_ranks = self._partition_param_list(group_params)
+            self.params_per_rank_id_dict.append([[] for _ in range(self._zero_world_size)])
+            if self._overlap_communication:
+                params_per_rank, no_params_ranks = self._async_partition_handler.partition(
+                    group_id, self._zero_world_size, self.params_per_rank_id_dict[group_id]
+                )
+            else:
+                params_per_rank, no_params_ranks = self._partition_param_list(group_params)
+
             self.param_group_no_params_ranks.append(no_params_ranks)
             self.param_group_has_params.append(self._zero_local_rank not in no_params_ranks)
 
@@ -196,7 +210,10 @@ class HybridZeroOptimizer(BaseOptimizer):
                         flat_tensor = flatten(tensor_list)
                     flat_tensor = flat_tensor.data.cuda()
                     self._param_store.add_flat_fp16_param_by_rank_group(rank, group_id, flat_tensor)
+
                     sync_param(flat_tensor=flat_tensor, tensor_list=tensor_list)
+                    if self._overlap_communication:
+                        self._async_partition_handler.resync_flat_parameters(group_id, rank, flat_tensor)
 
             # create a copy of fp32 weights of the parameters for which this rank is responsible
             # No flat fp32 buffer is allocated if the process has no parameters.
@@ -260,7 +277,6 @@ class HybridZeroOptimizer(BaseOptimizer):
         no_params_ranks = []
         params_per_rank = [[] for _ in range(self._zero_world_size)]
         numel_per_rank = [0 for _ in range(self._zero_world_size)]
-        self.params_per_rank_id_dict.append([[] for _ in range(self._zero_world_size)])
 
         sorted_params = sorted(param_list, key=lambda x: x.numel(), reverse=True)
         for i, param in enumerate(sorted_params):
@@ -494,7 +510,7 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         return norm
 
-    def step(self, closure=None):
+    def step(self, closure=None, disable_async_broadcast: bool = False):
         """Performs a single optimization step.
 
         Args:
@@ -540,9 +556,9 @@ class HybridZeroOptimizer(BaseOptimizer):
         self._sync_grad()
         timer("sync_grad").stop()
 
-        return self._step(closure=closure, norms=total_norms)
+        return self._step(closure=closure, norms=total_norms, disable_async_broadcast=disable_async_broadcast)
 
-    def _step(self, closure=None, norms=None):
+    def _step(self, closure=None, norms=None, disable_async_broadcast: bool = False):
         assert closure is None, "closure is not supported by step()"
 
         # check for overflow
@@ -625,17 +641,17 @@ class HybridZeroOptimizer(BaseOptimizer):
                     fp32_param = self._fp32_flat_param_groups_of_current_rank[group_id]
                     fp16_param.data.copy_(fp32_param)
 
-        # TODO: support broadcast overlap
-        self.broadcast_params(overlap=False)
+        if self._overlap_communication and not disable_async_broadcast:
+            self._async_partition_handler.params_synced = False
+        else:
+            self.broadcast_params()
 
         timer("step").stop()
         # update gradients may not be needed here, because the sync_params function is used in initialization,
         # so synchronization is maintained
         return True, [global_norm / loss_scale for global_norm in global_norm_groups]
 
-    def broadcast_params(self, overlap=False):
-        handles = []
-
+    def broadcast_params(self):
         for group_id in range(self.num_param_groups):
             for rank in range(self._zero_world_size):
                 # The following operations are performed only on the rank to which parameters are assigned.
@@ -644,16 +660,7 @@ class HybridZeroOptimizer(BaseOptimizer):
                     # grank = gpc.get_ranks_in_group(group_type)[rank]  # need to convert to the global rank
                     # assert grank == rank, f"{grank} == {rank}"
                     g_rank = gpc.get_ranks_in_group(self._broadcast_parallel_mode)[rank]
-                    handle = dist.broadcast(
-                        fp16_param, src=g_rank, group=gpc.get_group(ParallelMode.ZERO1), async_op=True
-                    )
-                    handles.append(handle)
-
-        if not overlap:
-            for handle in handles:
-                handle.wait()
-        else:
-            return handles
+                    dist.broadcast(fp16_param, src=g_rank, group=gpc.get_group(ParallelMode.ZERO1))
 
     ##################
     # FP16 Utilities #

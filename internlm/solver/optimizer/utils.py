@@ -3,15 +3,17 @@
 
 import math
 from abc import ABC, abstractmethod
-from typing import Dict, Optional
+from functools import partial
+from typing import Any, Dict, List, Optional, Set
 
 import torch
 import torch.distributed as dist
-from torch import Tensor
+from torch import Tensor, nn
 from torch._utils import _flatten_dense_tensors, _unflatten_dense_tensors
 
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
+from internlm.core.naive_amp import NaiveAMPModel
 from internlm.utils.common import get_tensor_norm, move_norm_to_cuda
 from internlm.utils.logger import get_logger
 from internlm.utils.parallel import is_model_parallel_parameter
@@ -459,3 +461,252 @@ class DynamicGradScaler(BaseGradScaler):
         self._scale = self._scale.fill_(state_dict["_scale"])
         self._growth_step = state_dict["_growth_step"]
         self._hysteresis_step = state_dict["_hysteresis_step"]
+
+
+GroupedPartitionParameters = List[Dict[str, List[Tensor]]]
+
+
+class ModelParatitionHandler(ABC):
+    @abstractmethod
+    def partition(
+        self, group_id: int, world_size: int, param_record_per_rank: List[List[str]]
+    ) -> (List[List[Tensor]], Set[int]):
+        """partition model parameters for each rank"""
+
+    @abstractmethod
+    def resync_flat_parameters(self, group_id: int, rank: int, flat_tensor: Tensor) -> None:
+        """resync flat parameter with model parameters"""
+
+    @abstractmethod
+    def register_sync_parameters_hook(self, model: nn.Module) -> None:
+        """register hooks to sync model parameters"""
+
+
+class AsyncModelPartitionHandler(ModelParatitionHandler):
+    """
+    AsyncModelPartitionHandler
+    """
+
+    def __init__(
+        self,
+        partition_scheme: GroupedPartitionParameters,
+        process_group_mode: ParallelMode,
+    ) -> None:
+        num_groups = len(partition_scheme)
+
+        assert num_groups == 1, "Only one parameter group is supported."
+
+        self._num_groups = num_groups
+        self._process_group_mode = process_group_mode
+        self._paration_rank_map = [{} for _ in range(num_groups)]
+        self._grouped_partition_params = partition_scheme
+        self._grouped_partition_flat_params = self._flatten_partition_parameters(
+            partition_scheme
+        )  # (group, part) -> flat_tensor
+        self._grouped_rank_flat_params = [None for _ in range(num_groups)]  # (group, rank) -> flat_tensors
+
+        # states
+        self.params_synced = True
+
+        self._current_layer_idx = 0
+        self._partitions_to_process = [part for part in partition_scheme[0]]
+        self._async_handle = None
+
+    def _sync_flat_parameters(self, flat_tensor: Tensor, origin_tensors: List[Tensor]) -> None:
+        updated_params = torch._utils._unflatten_dense_tensors(flat_tensor, origin_tensors)
+
+        for origin, updated in zip(origin_tensors, updated_params):
+            origin.data = updated.data
+
+    def resync_flat_parameters(self, group_id: int, rank: int, flat_tensor: Tensor) -> None:
+        rank_flat_params = self._grouped_rank_flat_params[group_id][rank]
+
+        self._sync_flat_parameters(flat_tensor, rank_flat_params)
+
+    def _flatten_partition_parameters(self, grouped_partition_parameters) -> List[Dict[str, Tensor]]:
+        result = []
+
+        def _flatten_and_sync_params(params: List[Tensor]) -> Tensor:
+            with torch.no_grad():
+                flat_tensor = torch._utils._flatten_dense_tensors(params)
+            flat_tensor = flat_tensor.data.cuda()
+
+            # sync with origin paramsters
+            self._sync_flat_parameters(flat_tensor, params)
+
+            return flat_tensor
+
+        for part_params in grouped_partition_parameters:
+            group_result = {}
+
+            for part_name, params in part_params.items():
+                if len(params) > 1:
+                    flat_params = _flatten_and_sync_params(params)
+                else:
+                    flat_params = params[0]
+                group_result[part_name] = flat_params
+
+            result.append(group_result)
+
+        return result
+
+    def _generate_param_record(self, part_name: str, param_id: int, part_param: Tensor) -> str:
+        param_size = part_param.size()
+        size_strings = [str(param_size[i]) for i in range(len(param_size))]
+        return "_".join([f"{part_name}.{param_id}", *size_strings])
+
+    def partition(self, group_id: int, world_size: int, param_record_per_rank: List[List[str]]):
+        params_per_rank = [[] for _ in range(world_size)]
+        numel_per_rank = [0 for _ in range(world_size)]
+
+        self._grouped_rank_flat_params[group_id] = [[] for _ in range(world_size)]
+
+        for part_name, part_params in self._grouped_partition_params[group_id].items():
+            part_flat_tensor = self._grouped_partition_flat_params[group_id][part_name]
+
+            rank_to_go = numel_per_rank.index(min(numel_per_rank))
+            params_per_rank[rank_to_go].extend(part_params)
+            numel_per_rank[rank_to_go] += part_flat_tensor.numel()
+
+            # for convert helper script
+            for idx, part_param in enumerate(part_params):
+                param_record_per_rank[rank_to_go].append(self._generate_param_record(part_name, idx, part_param))
+
+            self._paration_rank_map[group_id][part_name] = rank_to_go
+            self._grouped_rank_flat_params[group_id][rank_to_go].append(part_flat_tensor)
+
+        if gpc.is_rank_for_log():
+            logger.info("Rank%d: number of elements on ranks is %s", gpc.get_global_rank(), numel_per_rank)
+
+        return params_per_rank, set()
+
+    def register_sync_parameters_hook(self, model: nn.Module) -> None:
+        # sync parameters before forward.
+        def _pre_forward_hook(model: nn.Module, input: Any, is_first: bool = False):
+            if self.params_synced or self._current_layer_idx + 1 == len(self._partitions_to_process):
+                return
+
+            for group_id in range(self._num_groups):
+                if is_first:
+                    part_name = self._partitions_to_process[self._current_layer_idx]
+                    src_rank = gpc.get_ranks_in_group(self._process_group_mode)[
+                        self._paration_rank_map[group_id][part_name]
+                    ]
+                    dist.broadcast(
+                        self._grouped_partition_flat_params[0][part_name],
+                        src=src_rank,
+                        group=gpc.get_group(self._process_group_mode),
+                    )
+                else:
+                    part_name = self._partitions_to_process[self._current_layer_idx + 1]
+                    src_rank = gpc.get_ranks_in_group(self._process_group_mode)[
+                        self._paration_rank_map[group_id][part_name]
+                    ]
+                    self._async_handle = dist.broadcast(
+                        self._grouped_partition_flat_params[0][part_name],
+                        src=src_rank,
+                        group=gpc.get_group(self._process_group_mode),
+                        async_op=True,
+                    )
+
+        # wait for parameter synced after forward.
+        def _post_forward_hook(model: nn.Module, args: Any, output: Any):
+            if self.params_synced:
+                return
+
+            if self._async_handle is not None:
+                self._async_handle.wait()
+                self._async_handle = None
+
+            self._current_layer_idx += 1
+
+        # set parameter syncted flag.
+        def _post_all_forward_hook(model: nn.Module, args: Any, output: Any):
+            if self.params_synced:
+                return
+
+            self._current_layer_idx = 0
+            self.params_synced = True
+
+        if isinstance(model, NaiveAMPModel):
+            model = model.model
+
+        # sync parameter for the first layer
+        model.register_forward_pre_hook(partial(_pre_forward_hook, is_first=True))
+        # set parameter synced flag.
+        model.register_forward_hook(_post_all_forward_hook)
+
+        for part_name in self._partitions_to_process:
+            try:
+                sub_model = model.get_submodule(part_name)
+            except AttributeError:
+                logger.warning("skip register model parameter sync hook for missing layer %s", part_name)
+                continue
+
+            # sync parameter for the next layer async.
+            sub_model.register_forward_pre_hook(partial(_pre_forward_hook, is_first=False))
+            # check the async communication ready.
+            sub_model.register_forward_hook(_post_forward_hook)
+
+
+class AsyncMultiChunkParatitionHandler(ModelParatitionHandler):
+    """
+    AsyncMultiChunkParatitionHandler
+    """
+
+    def __init__(
+        self, num_chunk: int, partition_schemes: List[GroupedPartitionParameters], process_group_mode: ParallelMode
+    ) -> None:
+        self._num_chunk = num_chunk
+        self._handlers = [
+            AsyncModelPartitionHandler(partition_schemes[idx], process_group_mode) for idx in range(num_chunk)
+        ]
+
+    @property
+    def params_synced(self) -> bool:
+        _params_synced = True
+
+        for handler in self._handlers:
+            _params_synced = _params_synced and handler.params_synced
+
+        return _params_synced
+
+    @params_synced.setter
+    def params_synced(self, _synced) -> None:
+        for handler in self._handlers:
+            handler.params_synced = _synced
+
+    def _sync_flat_parameters(self, flat_tensor: Tensor, origin_tensors: List[Tensor]) -> None:
+        updated_params = torch._utils._unflatten_dense_tensors(flat_tensor, origin_tensors)
+
+        for origin, updated in zip(origin_tensors, updated_params):
+            origin.data = updated.data
+
+    def resync_flat_parameters(self, group_id: int, rank: int, flat_tensor: Tensor) -> None:
+        rank_flat_params = []
+
+        for handler in self._handlers:
+            rank_flat_params.extend(handler._grouped_rank_flat_params[group_id][rank])
+
+        self._sync_flat_parameters(flat_tensor, rank_flat_params)
+
+    def partition(self, group_id: int, world_size: int, param_record_per_rank: List[List[str]]):
+        params_per_rank = [[] for _ in range(world_size)]
+        no_param_ranks = set()
+
+        for handler in self._handlers:
+            _params_per_rank, _no_param_ranks = handler.partition(group_id, world_size, param_record_per_rank)
+            # merge params_per_rank
+            for idx, params in enumerate(params_per_rank):
+                params.extend(_params_per_rank[idx])
+            # merge no_param_ranks
+            no_param_ranks = no_param_ranks & _no_param_ranks
+
+        return params_per_rank, no_param_ranks
+
+    def register_sync_parameters_hook(self, model: nn.Module):
+        assert isinstance(model, nn.ModuleList), "model must be a MouduleList"
+        assert len(model) == self._num_chunk, f"length of model list({len(model)}) != self._num_chunk{self._num_chunk}"
+
+        for idx, handler in enumerate(self._handlers):
+            handler.register_sync_parameters_hook(model[idx])

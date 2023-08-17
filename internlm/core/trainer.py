@@ -141,8 +141,8 @@ class Trainer:
     def zero_grad(self):
         self._engine.zero_grad()
 
-    def step(self):
-        return self._engine.step()
+    def step(self, *args, **kwargs):
+        return self._engine.step(*args, **kwargs)
 
     def execute_schedule(self, data_iter: Iterable, **kwargs):
         """Runs the forward, loss computation, and backward for the model.
