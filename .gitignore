@@ -132,6 +132,7 @@ runs_bak/
 LLM_ALERT
 small_demo/
 7b_llama_nopp/
+test/
 
 # Pytorch
 *.pth
