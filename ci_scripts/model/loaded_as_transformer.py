@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+# -*- encoding: utf-8 -*-
 from transformers import AutoModel
 
 model = AutoModel.from_pretrained("../hf_ckpt/", trust_remote_code=True).cuda()

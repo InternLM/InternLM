@@ -32,12 +32,8 @@
 </div>
 
 <p align="center">
-    👋 join us on <a href="https://discord.gg/xa29JuW87d" target="_blank">Discord</a> and <a href="https://github.com/InternLM/InternLM/assets/25839884/a6aad896-7232-4220-ac84-9e070c2633ce" target="_blank">WeChat</a>
+    👋 join us on <a href="https://twitter.com/intern_lm" target="_blank">Twitter</a>, <a href="https://discord.gg/xa29JuW87d" target="_blank">Discord</a> and <a href="https://r.vansin.top/?r=internwx" target="_blank">WeChat</a>
 </p>
-
-
-
-
 
 ## Introduction
 
@@ -126,21 +122,22 @@ We use [LMDeploy](https://github.com/InternLM/LMDeploy) to complete the one-clic
 
 1. First, install LMDeploy:
 
-```
-  python3 -m pip install lmdeploy
-```
+    ```bash
+    python3 -m pip install lmdeploy
+    ```
 
 2. Use the following command for quick deployment:
 
-```
-  python3 -m lmdeploy.serve.turbomind.deploy InternLM-7B /path/to/internlm-7b/model hf
-```
+    ```bash
+    python3 -m lmdeploy.serve.turbomind.deploy internlm-chat-7b /path/to/internlm-chat-7b/model
+    ```
 
 3. After exporting the model, you can start a server and have a conversation with the deployed model using the following command:
-
-```
-  python3 -m lmdeploy.serve.client {server_ip_addresss}:33337
-```
+   
+    ```bash
+    bash workspace/service_docker_up.sh
+    python3 -m lmdeploy.serve.client {server_ip_addresss}:33337
+    ```
 
 [LMDeploy](https://github.com/InternLM/LMDeploy) provides a complete workflow for deploying InternLM. Please refer to the [deployment tutorial](https://github.com/InternLM/LMDeploy) for more details on deploying InternLM.
 

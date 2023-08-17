@@ -1,22 +1,50 @@
 #!/bin/bash
+set -x
 
-rm -rf /mnt/petrelfs/qa-caif-cicd/data/lm_data/alpaca_data/result/*
+source ./ci_scripts/common/variables.sh
+[[ -n ${DATA_VOLUME} ]] || { echo "should set DATA_VOLUME first before ci, exit."; exit 1; }
 
-python tools/alpaca_tokenizer.py /mnt/petrelfs/qa-caif-cicd/data/lm_data/alpaca_data/alpaca_data.json /mnt/petrelfs/qa-caif-cicd/data/lm_data/alpaca_data/result  tools/V7_sft.model --split_ratio 0.1
+readonly SRC_DATASET_META=${DATA_VOLUME}/lm_data/alpaca_data/alpaca_data.json
+readonly RESULTS=${DATA_VOLUME}/lm_data/alpaca_data/result
+readonly TRAIN_DATASET=${RESULTS}/train/en/dataset.bin
+readonly TRAIN_DATASET_META=${RESULTS}/train/en/dataset.bin.meta
+readonly VALID_DATASET=${RESULTS}/valid/en/dataset.bin
+readonly VALID_DATASET_META=${RESULTS}/valid/en/dataset.bin.meta
 
-file_one="/mnt/petrelfs/qa-caif-cicd/data/lm_data/alpaca_data/result/train/en/dataset.bin"
-file_two="/mnt/petrelfs/qa-caif-cicd/data/lm_data/alpaca_data/result/train/en/dataset.bin.meta"
-file_three="/mnt/petrelfs/qa-caif-cicd/data/lm_data/alpaca_data/result/valid/en/dataset.bin"
-file_four="/mnt/petrelfs/qa-caif-cicd/data/lm_data/alpaca_data/result/valid/en/dataset.bin.meta"
-file_list=($file_one $file_two $file_three $file_four)
+split_ratio=0.1
+exit_code=0
 
 source ./ci_scripts/common/basic_func.sh
-for file_path in ${file_list[@]};
-do
-if_exist $file_path
+
+echo "start to test alpaca_tokenizer.py." 
+
+if [[ -d ${RESULTS} ]]; then
+    if ! rm -rf ${RESULTS}/*; then
+       echo "cleaning test data in ${RESULTS} failed, exit."
+       exit 1
+    fi
+fi
+
+if [[ ! -f ${SRC_DATASET_META} ]]; then
+   echo "${SRC_DATASET_META} should be exist, exit."
+   exit 1
+fi
+
+python tools/alpaca_tokenizer.py ${SRC_DATASET_META} ${RESULTS} tools/V7_sft.model --split_ratio ${split_ratio}
+[[ $? -ne 0 ]] && { echo "test alpaca_tokenizer.py failed.";  exit_code=$(($exit_code + 1)); }
+
+file_list=(${TRAIN_DATASET} ${TRAIN_DATASET_META} ${VALID_DATASET} ${VALID_DATASET_META})
+for file in ${file_list[@]}; do
+    if [[ ! -f ${file} ]]; then
+        echo "expect: ${file} exists, actual: not exist."
+        exit_code=$(($exit_code + 1))
+    fi
 done
 
-if [ $exit_code -ne 0 ]
-then
-    exit 1
+# clean the test files.
+if ! rm -rf ${RESULTS}/*; then
+    echo "cleaning test data in ${RESULTS} failed."
+    exit_code=$(($exit_code + 1))
 fi
+
+exit $exit_code
