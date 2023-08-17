@@ -78,12 +78,14 @@ jobs:
       if: ${{ failure() && steps.basic_train.conclusion == 'failure' }}
       run: |
         source activate internlm-env-test
+        export PYTHONPATH=$PWD:$PYTHONPATH
         sh ./ci_scripts/train/load_ckpt.sh 7B_load_preset_ckpt ${GITHUB_RUN_ID}-${GITHUB_JOB}
 
     - name: load_new_ckpt
       if: ${{ success() && steps.basic_train.conclusion == 'success' }}
       run: |
         source activate internlm-env-test
+        export PYTHONPATH=$PWD:$PYTHONPATH
         sh ./ci_scripts/train/load_ckpt.sh 7B_load_new_ckpt ${GITHUB_RUN_ID}-${GITHUB_JOB}
 
     - name: torchrun-train
