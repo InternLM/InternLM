@@ -10,10 +10,10 @@ VOCAB_SIZE = 103168
 # Ckpt folder format:
 # fs: 'local:/mnt/nfs/XXX'
 # oss: 'boto3:s3://model_weights/XXX'
-MODEL_ONLY_FOLDER = "local:llm_ckpts/xxxx"
-#SAVE_CKPT_FOLDER = "local:llm_ckpts"
+# MODEL_ONLY_FOLDER = "local:llm_ckpts/xxxx"
+# SAVE_CKPT_FOLDER = "local:llm_ckpts"
 SAVE_CKPT_FOLDER = "local:llm_ckpts"
-#LOAD_CKPT_FOLDER = "local:llm_ckpts/49"
+# LOAD_CKPT_FOLDER = "local:llm_ckpts/49"
 ckpt = dict(
     # Path to save training ckpt.
     save_ckpt_folder=SAVE_CKPT_FOLDER,
