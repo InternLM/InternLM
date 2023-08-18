@@ -70,9 +70,7 @@ jobs:
       id: basic_train
       run: |
         source activate internlm-env-test
-        #sh ./ci_scripts/train/slurm_train.sh ${GITHUB_RUN_ID}-${GITHUB_JOB}
-        rm -rf $GITHUB_WORKSPACE/llm_ckpts
-        exit 1
+        sh ./ci_scripts/train/slurm_train.sh ${GITHUB_RUN_ID}-${GITHUB_JOB}
     
     - name: load_preset_ckpt
       if: ${{ failure() && steps.basic_train.conclusion == 'failure' }}
