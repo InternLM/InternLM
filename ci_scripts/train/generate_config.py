@@ -10,8 +10,8 @@ from internlm.core.context import Config
 
 def generate_new_config(config_py_file, test_config_json, case_name):
     # generate path of the new config py
-    config_path, config_name = os.path.split(config_py_file)
-    new_config_py_file = os.path.join(config_path, case_name + ".py")
+    config_path = os.path.split(config_py_file)
+    new_config_py_file = os.path.join(config_path[0], case_name + ".py")
 
     # merge dict
     origin_config = Config.from_file(config_py_file)

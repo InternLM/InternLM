@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
+
 def merge_dicts(dict_a: dict, dict_b: dict):
     for key in dict_b.keys():
         if isinstance(dict_b[key], dict):
