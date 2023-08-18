@@ -467,6 +467,10 @@ GroupedPartitionParameters = List[Dict[str, List[Tensor]]]
 
 
 class ModelParatitionHandler(ABC):
+    """
+    ModelParatitionHandler
+    """
+
     @abstractmethod
     def partition(
         self, group_id: int, world_size: int, param_record_per_rank: List[List[str]]
@@ -509,7 +513,7 @@ class AsyncModelPartitionHandler(ModelParatitionHandler):
         self.params_synced = True
 
         self._current_layer_idx = 0
-        self._partitions_to_process = [part for part in partition_scheme[0]]
+        self._partitions_to_process = list(partition_scheme[0])
         self._async_handle = None
 
     def _sync_flat_parameters(self, flat_tensor: Tensor, origin_tensors: List[Tensor]) -> None:
@@ -582,9 +586,11 @@ class AsyncModelPartitionHandler(ModelParatitionHandler):
 
     def register_sync_parameters_hook(self, model: nn.Module) -> None:
         # sync parameters before forward.
-        def _pre_forward_hook(model: nn.Module, input: Any, is_first: bool = False):
+        def _pre_forward_hook(model: nn.Module, inputs: Any, is_first: bool = False):
             if self.params_synced or self._current_layer_idx + 1 == len(self._partitions_to_process):
                 return
+
+            del model, inputs
 
             for group_id in range(self._num_groups):
                 if is_first:
@@ -614,6 +620,8 @@ class AsyncModelPartitionHandler(ModelParatitionHandler):
             if self.params_synced:
                 return
 
+            del model, args, output
+
             if self._async_handle is not None:
                 self._async_handle.wait()
                 self._async_handle = None
@@ -624,6 +632,8 @@ class AsyncModelPartitionHandler(ModelParatitionHandler):
         def _post_all_forward_hook(model: nn.Module, args: Any, output: Any):
             if self.params_synced:
                 return
+
+            del model, args, output
 
             self._current_layer_idx = 0
             self.params_synced = True

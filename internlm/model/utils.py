@@ -226,9 +226,9 @@ def get_default_model_partitions(
         for name, children in model.named_children():
             if isinstance(children, nn.ModuleList):
                 for idx, layer in enumerate(children):
-                    group_result[f"{name}.{idx}"] = [x for x in layer.parameters()]
+                    group_result[f"{name}.{idx}"] = list(layer.parameters())
             else:
-                group_result[name] = [x for x in children.parameters()]
+                group_result[name] = list(children.parameters())
 
         result.append(group_result)
 
