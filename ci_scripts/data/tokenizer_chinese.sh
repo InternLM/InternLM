@@ -12,7 +12,7 @@ exit_code=0
 
 source ./ci_scripts/common/basic_func.sh
 
-echo "start to test tokenizer.py." 
+echo "start to test tokenizer.py."
 
 num=$(num_files "${RESULTS}")
 if [[ ${num} -gt 0 ]]; then

@@ -25,7 +25,7 @@ srun -p ${SLURM_PARTITION} --exclusive --job-name=$1 -n 8 --ntasks-per-node=8 --
 num=$(num_files "${CKPTS20_OUTPUT}")
 if [[ ${num} -ne ${expected_num} ]]; then
     echo "expect: ${expected_num} files, actual: ${num} files."
-    exit_code=$(($exit_code + 1)) 
+    exit_code=$(($exit_code + 1))
 fi
 
 exit $exit_code

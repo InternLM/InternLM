@@ -4,8 +4,8 @@ import argparse
 import json
 import os
 
-from internlm.core.context import Config
 from ci_scripts.common import com_func
+from internlm.core.context import Config
 
 
 def generate_new_config(config_py_file, test_config_json, case_name):
@@ -19,9 +19,7 @@ def generate_new_config(config_py_file, test_config_json, case_name):
         test_config = json.load(f)
     if test_config:
         if case_name not in test_config.keys():
-            raise KeyError(
-                f"the {case_name} doesn't exist.Please check {test_config} again!"
-            )
+            raise KeyError(f"the {case_name} doesn't exist.Please check {test_config} again!")
     new_config = com_func.merge_dicts(origin_config, test_config[case_name])
     print(f"new config is:\n{new_config}")
 
@@ -46,8 +44,6 @@ if __name__ == "__main__":
         default="./ci_scripts/train/test_config.json",
         help="path to the test train config file",
     )
-    parser.add_argument(
-        "--case_name", type=str, help="name of the case which will be runned "
-    )
+    parser.add_argument("--case_name", type=str, help="name of the case which will be runned ")
     args = parser.parse_args()
     generate_new_config(args.origin_config, args.test_config, args.case_name)

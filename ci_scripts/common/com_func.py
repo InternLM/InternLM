@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
-from internlm.core.context import Config
 
-def merge_dicts(dict_a: dict,dict_b: dict):
+def merge_dicts(dict_a: dict, dict_b: dict):
     for key in dict_b.keys():
-        if isinstance(dict_b[key],dict):
-            dict_b[key]={**dict_a[key],**dict_b[key]}
-            merge_dicts(dict_a[key],dict_b[key])
-    dict_c={**dict_a,**dict_b}
+        if isinstance(dict_b[key], dict):
+            dict_b[key] = {**dict_a[key], **dict_b[key]}
+            merge_dicts(dict_a[key], dict_b[key])
+    dict_c = {**dict_a, **dict_b}
     return dict_c
 
 
@@ -23,10 +22,7 @@ def format_dict_to_py_string(data: dict, indent=0, is_nested=False):
         if is_nested:
             result += ","
         result += "\n"
-    result=f"""\
+    result = f"""\
 {result}
 """
     return result
-
-
-    
