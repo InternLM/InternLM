@@ -9,7 +9,6 @@ expected_num=21
 exit_code=0
 
 source ./ci_scripts/common/basic_func.sh
-source ./ci_scripts/common/variables.sh
 
 echo "start to test slurm training with loading checkpoint."
 
