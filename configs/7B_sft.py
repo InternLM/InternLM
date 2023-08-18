@@ -123,7 +123,7 @@ model = dict(
     dtype="torch.float32",
     norm_type="rmsnorm",
     layer_norm_epsilon=1e-5,
-    use_flash_attn=False,
+    use_flash_attn=True,
     num_chunks=1,  # if num_chunks > 1, interleaved pipeline scheduler is used.
     sequence_parallel=False,
 )
@@ -142,7 +142,7 @@ tensor parallel: tensor parallel size, usually the number of GPUs per node.
 parallel = dict(
     zero1=-1,
     tensor=2,
-    # pipeline=dict(size=2, interleaved_overlap=True),
+    pipeline=dict(size=2, interleaved_overlap=True),
 )
 
 cudnn_deterministic = False

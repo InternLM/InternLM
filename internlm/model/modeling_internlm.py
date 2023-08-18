@@ -187,7 +187,8 @@ class PackedFlashBaseLayer1D(nn.Module):
         def _dropout_and_norm_attn(_hidden_states):
             _dropped = self.dropout1(_hidden_states)
             _residual = _dropped
-            _hidden_states = self.norm1(_residual.float())
+            with torch.cuda.amp.autocast(enabled=False):
+                _hidden_states = self.norm1(_residual.float())
             return _residual, _hidden_states
 
         if self.dropout_selective_checkpoint:
@@ -203,7 +204,8 @@ class PackedFlashBaseLayer1D(nn.Module):
         def _dropout_and_norm_ffn(_residual, _hidden_states):
             _dropped = self.dropout2(_hidden_states)
             _residual = (_dropped + _residual) if _residual is not None else _dropped
-            _hidden_states = self.norm2(_residual.float())
+            with torch.cuda.amp.autocast(enabled=False):
+                _hidden_states = self.norm2(_residual.float())
             return _residual, _hidden_states
 
         if self.dropout_selective_checkpoint:
@@ -354,6 +356,7 @@ class PackedFlashInternLm1D(nn.Module):
 
     def forward(self, hidden_states=None, cu_seqlens=None, input_ids=None, indexes=None, inference_params=None):
         # attention_mask: compute attention on the places where the value is 1
+        import pdb; pdb.set_trace()
         if hasattr(self, "embedding"):
             hidden_states = self.embedding(input_ids)
             if self.embed_grad_scale != 1:
@@ -385,7 +388,8 @@ class PackedFlashInternLm1D(nn.Module):
             )
 
         if hasattr(self, "norm"):
-            hidden_states = self.norm(hidden_states.float())
+            with torch.cuda.amp.autocast(enabled=False):
+                hidden_states = self.norm(hidden_states.float())
         if hasattr(self, "head"):
             hidden_states = self.head(hidden_states)
 

@@ -89,7 +89,6 @@ class HybridZeroOptimizer(BaseOptimizer):
         grad_scal_cfg: Config = None,
         zero_cfg: Config = None,
     ):
-        import pdb; pdb.set_trace()
         # DynamicGradScaler related args
         if gpc.config.model.dtype is torch.float32:
             initial_scale = 1
