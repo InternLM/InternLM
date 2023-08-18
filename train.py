@@ -13,9 +13,10 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 import internlm
+from internlm.core.amp import convert_to_amp
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
-from internlm.core.naive_amp import NaiveAMPModel
+# from internlm.core.naive_amp import NaiveAMPModel
 from internlm.core.scheduler import SchedulerMetricHook
 from internlm.core.trainer import TrainState
 from internlm.data.batch_sampler import StaticBatchSampler, get_dpsampler_dataloader
@@ -112,7 +113,7 @@ def initialize_llm_logger(start_time: str):
     return uniscale_logger
 
 
-def initialize_model():
+def initialize_model(criterion):
     """
     Initialize model.
 
@@ -120,25 +121,28 @@ def initialize_model():
     """
 
     model = MODEL_INITIALIZER.get_module(module_name=gpc.config.model_type)(**(gpc.config.model))
-    if isinstance(model, nn.ModuleList):
-        model = nn.ModuleList(
-            [
-                NaiveAMPModel(
-                    model=_m,
-                    output_to_fp32=False,  # manually controlled by interleaved pipleline scheduler
-                    dtype=gpc.config.model.get("dtype", torch.half),
-                    sync_buffer=False,
-                )
-                for _m in model
-            ]
-        )
-    else:
-        model = NaiveAMPModel(
-            model=model,
-            output_to_fp32=is_no_pp_or_last_stage(),
-            dtype=gpc.config.model.get("dtype", torch.half),
-            sync_buffer=False,
-        )
+    
+    model, criterion = convert_to_amp(model, criterion, mode="torch")
+    
+    # if isinstance(model, nn.ModuleList):
+    #     model = nn.ModuleList(
+    #         [
+    #             NaiveAMPModel(
+    #                 model=_m,
+    #                 output_to_fp32=False,  # manually controlled by interleaved pipleline scheduler
+    #                 dtype=gpc.config.model.get("dtype", torch.half),
+    #                 sync_buffer=False,
+    #             )
+    #             for _m in model
+    #         ]
+    #     )
+    # else:
+    #     model = NaiveAMPModel(
+    #         model=model,
+    #         output_to_fp32=is_no_pp_or_last_stage(),
+    #         dtype=gpc.config.model.get("dtype", torch.half),
+    #         sync_buffer=False,
+    #     )
 
     # This sync is very important, cause the model weights kept in optimizer are copied
     # from the origin parameters in the memory, so we should make sure the dp sync
@@ -149,7 +153,7 @@ def initialize_model():
     # the same across tensor parallelism.
     sync_model_param_within_tp(model)
 
-    return model
+    return model, criterion
 
 
 def get_train_data_loader(num_worker: int = 0):
@@ -493,11 +497,11 @@ def main(args):
     # initialize and resume train state
     train_state = TrainState(gpc.config)
 
-    # initialize model
-    model = initialize_model()
-
     # initialize loss function
     criterion = FlashGPTLMLoss(parallel_output=True, label_smoothing=label_smoothing)
+    
+    # initialize model
+    model, criterion = initialize_model(criterion)
 
     # initialize the train and validation data loader
     train_dl, dataset_types = get_train_data_loader(num_worker=4)
@@ -666,9 +670,13 @@ if __name__ == "__main__":
     with initialize_monitor_manager(job_name=gpc.config.JOB_NAME, alert_address=gpc.config.alert_address):
         try:
             main(args)
-        except Exception:
+        except Exception as e:
+            # logger.error(
+            #     f"Raise exception from {hostname} with rank id: {gpc.get_global_rank()}",
+            #     exc_info=traceback.format_exc(),
+            # )
             logger.error(
                 f"Raise exception from {hostname} with rank id: {gpc.get_global_rank()}",
-                exc_info=traceback.format_exc(),
             )
+            logger.exception(e)
             mm.monitor_exception(alert_address=gpc.config.alert_address, excp_info=traceback.format_exc())

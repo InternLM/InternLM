@@ -89,6 +89,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         grad_scal_cfg: Config = None,
         zero_cfg: Config = None,
     ):
+        import pdb; pdb.set_trace()
         # DynamicGradScaler related args
         if gpc.config.model.dtype is torch.float32:
             initial_scale = 1
@@ -479,7 +480,6 @@ class HybridZeroOptimizer(BaseOptimizer):
             Union[bool, float]: Whether the gradient is success updated, and the gradient.
         """
         assert closure is None, "closure is not supported by step()"
-
         timer("sync_grad").start()
         # if not overlapping communication (no reduction hook is attached)
         # we need to manually reduce these gradients
