@@ -1,6 +1,5 @@
 name: demo-in-readme
 on: 
-  push:
   pull_request:
     branches:
       - "main"

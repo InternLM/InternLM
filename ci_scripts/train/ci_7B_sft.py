@@ -26,7 +26,7 @@ ckpt = dict(
     load_optimizer=True,
 )
 
-TRAIN_FOLDER = "/mnt/petrelfs/qa-caif-cicd/data/lm_data/alpaca_data/train/en"
+TRAIN_FOLDER = "local:../lm_data/alpaca_data/train/en"
 data = dict(
     seq_len=SEQ_LEN,
     # micro_num means the number of micro_batch contained in one gradient update
