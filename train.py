@@ -44,7 +44,7 @@ from internlm.utils.common import (
     launch_time,
     parse_args,
 )
-from internlm.utils.evaluation import evaluate_on_val_dls, switch_sequence_parallel_mode
+from internlm.utils.evaluation import evaluate_on_val_dls
 from internlm.utils.logger import get_logger, initialize_uniscale_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
 from internlm.utils.model_checkpoint import (
