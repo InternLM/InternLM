@@ -58,7 +58,7 @@ from internlm.utils.model_checkpoint import (
 from internlm.utils.parallel import (
     get_parallel_log_file_name,
     is_no_pp_or_last_stage,
-    sync_model_param,
+    sync_model_param_with_ep,
     sync_model_param_within_tp,
 )
 from internlm.utils.registry import MODEL_INITIALIZER
@@ -149,7 +149,7 @@ def initialize_model():
     # This sync is very important, cause the model weights kept in optimizer are copied
     # from the origin parameters in the memory, so we should make sure the dp sync
     # does not influence the model weights in optimizer be different with the origin parameters.
-    sync_model_param(model, parallel_mode=ParallelMode.DATA)
+    sync_model_param_with_ep(model)
 
     # This function is needed to make sure parameters that are not splitted by tensor parallelism are
     # the same across tensor parallelism.

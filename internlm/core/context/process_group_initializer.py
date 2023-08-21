@@ -422,8 +422,6 @@ class Initializer_Expert_Data(ProcessGroupInitializer):
         super().__init__(*args, **kwargs)
         self.num_expert_parallel_group = self.world_size // self.expert_parallel_size
 
-        assert self.world_size % self.rank_num_per_expert_group == 0
-
     def _get_expert_parallel_ranks(self):
         """
         Create expert and data parallel groups
@@ -434,17 +432,18 @@ class Initializer_Expert_Data(ProcessGroupInitializer):
         expert_data_parallel_group = [0,4], [2,6],      [1,5], [3,7]
         """
         data_parallel_groups = []
-        for i in range(self.model_parallel_size):
-            data_parallel_groups.append(list(range(i, self.world_size, self.model_parallel_size)))
+        model_parallel_size = self.pipeline_parallel_size * self.tensor_parallel_size
+        for i in range(model_parallel_size):
+            data_parallel_groups.append(list(range(i, self.world_size, model_parallel_size)))
 
         expert_parallel_groups = []
         expert_data_parallel_groups = []
-        for dp_ranks in range(self.num_expert_parallel_group):
+        for dp_ranks in data_parallel_groups:
             # partition of expert parallel group, e.g. [0,2], [4,6]
             part_ep_group = []
             for i in range(0, self.data_parallel_size, self.expert_parallel_size):
                 part_ep_group.append(dp_ranks[i : i + self.expert_parallel_size])
-            expert_data_parallel_groups.extend(part_ep_group)
+            expert_parallel_groups.extend(part_ep_group)
 
             for expert_dp_ranks in zip(*part_ep_group):
                 expert_data_parallel_groups.append(list(expert_dp_ranks))
@@ -458,6 +457,11 @@ class Initializer_Expert_Data(ProcessGroupInitializer):
             list: [(local_rank, group_world_size, process_group, ranks_in_group, mode), ...]:
                 A length 2 list consists of expert parallelism's and expert data parallelism's information tuple.
         """
+        local_rank = None
+        ranks_in_group = None
+        process_group = None
+        cpu_group = None
+        group_world_size = None
         expert_parallel_groups, expert_data_parallel_groups = self._get_expert_parallel_ranks()
 
         groups = []
@@ -473,7 +477,7 @@ class Initializer_Expert_Data(ProcessGroupInitializer):
                 process_group = group
                 cpu_group = group_cpu
                 ranks_in_group = ranks
-            groups.append((local_rank, group_world_size, process_group, cpu_group, ranks_in_group, ParallelMode.EXPERT))
+        groups.append((local_rank, group_world_size, process_group, cpu_group, ranks_in_group, ParallelMode.EXPERT))
 
         for ranks in expert_data_parallel_groups:
             group = dist.new_group(ranks)
@@ -487,8 +491,8 @@ class Initializer_Expert_Data(ProcessGroupInitializer):
                 process_group = group
                 cpu_group = group_cpu
                 ranks_in_group = ranks
-            groups.append(
-                (local_rank, group_world_size, process_group, cpu_group, ranks_in_group, ParallelMode.EXPERT_DATA)
-            )
+        groups.append(
+            (local_rank, group_world_size, process_group, cpu_group, ranks_in_group, ParallelMode.EXPERT_DATA)
+        )
 
         return groups

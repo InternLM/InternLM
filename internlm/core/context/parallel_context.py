@@ -36,7 +36,7 @@ class Config(dict):
         config (dict): The dict object to be wrapped.
     """
 
-    def __init__(self, config: dict = None):
+    def __init__(self, config: dict = None):  # pylint: disable=W0231
         if config is not None:
             for k, v in config.items():
                 self._add_item(k, v)
@@ -100,7 +100,7 @@ class Config(dict):
 
         module_name = filepath.stem
         source_file = SourceFileLoader(fullname=str(module_name), path=str(filepath))
-        module = source_file.load_module()  # pylint: disable=W4902,E1120
+        module = source_file.load_module()  # pylint: disable=W4902,E1120,W1505
 
         # load into config
         config = Config()
@@ -438,13 +438,11 @@ class ParallelContext(metaclass=SingletonMeta):
             self._set_parallel_size_from_config(parallel_config, "pipeline", "pipeline_parallel_size")
             self._set_parallel_size_from_config(parallel_config, "tensor", "tensor_parallel_size")
             self._set_parallel_size_from_config(parallel_config, "zero1", "zero1_parallel_size")
+            self._set_parallel_size_from_config(parallel_config, "expert", "expert_parallel_size")
 
         # the user should not set the data parallel size manually
         # instead, it should be calculated based on other parallel config
         self.data_parallel_size = self.world_size // (self.pipeline_parallel_size * self.tensor_parallel_size)
-
-        # TODO : data parallel size can be different with expert parallel size
-        self.expert_parallel_size = self.data_parallel_size
 
         if self.zero1_parallel_size <= 0:
             self.zero1_parallel_size = self.data_parallel_size
@@ -470,7 +468,7 @@ class ParallelContext(metaclass=SingletonMeta):
         if self.pipeline_parallel_size > 1:
             initializers.append(pgroup_initializer.Initializer_Pipeline(*initializer_args))
         if self.config.model.num_experts > 1:
-            initializers.append(pgroup_initializer.Initializer_Expert(*initializer_args))
+            initializers.append(pgroup_initializer.Initializer_Expert_Data(*initializer_args))
         for initializer in initializers:
             parallel_setting = initializer.init_dist_group()
             if isinstance(parallel_setting, list):
