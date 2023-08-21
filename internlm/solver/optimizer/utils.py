@@ -62,12 +62,19 @@ def get_grad_accumulate_object(tensor):
 
 
 def split_half_float_double(tensor_list):
-    dtypes = ["torch.cuda.HalfTensor", "torch.cuda.FloatTensor", "torch.cuda.DoubleTensor", "torch.cuda.BFloat16Tensor"]
-    buckets = []
-    for _, dtype in enumerate(dtypes):
-        bucket = [t for t in tensor_list if t.type() == dtype]
-        if bucket:
-            buckets.append(bucket)
+    dtype_buckets = {
+        "torch.cuda.HalfTensor": [],
+        "torch.cuda.FloatTensor": [],
+        "torch.cuda.DoubleTensor": [],
+        "torch.cuda.BFloat16Tensor": [],
+    }
+
+    for t in tensor_list:
+        dtype = t.type()
+        if dtype in dtype_buckets:
+            dtype_buckets[dtype].append(t)
+
+    buckets = [bucket for bucket in dtype_buckets.values() if bucket]
     return buckets
 
 
