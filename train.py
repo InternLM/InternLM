@@ -688,15 +688,14 @@ def main(args):
 
             # evaluate on validation data loaders
             if valid_every > 0 and train_state.step_count % valid_every == 0:
-                with switch_sequence_parallel_mode():
-                    evaluate_on_val_dls(
-                        trainer=trainer,
-                        val_dls=val_dls,
-                        writer=writer,
-                        logger=logger,
-                        step_count=train_state.step_count,
-                        update_panel=uniscale_logger is not None,
-                    )
+                evaluate_on_val_dls(
+                    trainer=trainer,
+                    val_dls=val_dls,
+                    writer=writer,
+                    logger=logger,
+                    step_count=train_state.step_count,
+                    update_panel=uniscale_logger is not None,
+                )
 
             # checkpoint the training states in specific steps, which is determined by the args "checkpoint_every"
             # # save batch sampler that tracks the true consumed samples
