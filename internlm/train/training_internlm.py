@@ -3,12 +3,12 @@
 
 import time
 from functools import partial
-from typing import Iterable
+from typing import Callable, Iterable
 
 import torch
 import torch.distributed as dist
 from torch import nn
-from torch.utils.data import DataLoader
+from torch.utils.data import ConcatDataset, DataLoader
 
 import internlm
 from internlm.core.context import ParallelMode
@@ -134,7 +134,9 @@ def initialize_optimizer(model: nn.Module):
     return optimizer, beta2_scheduler, lr_scheduler
 
 
-def get_train_data_loader(num_worker: int = 0):
+def get_train_data_loader(
+    num_worker: int = 0, dataset_generate_func: Callable = None, train_sampler=None, train_collate_fn=None
+):
     """
     Generate and return the training data loader.
 
@@ -160,36 +162,37 @@ def get_train_data_loader(num_worker: int = 0):
                 train_ds, max_length_per_sample=data_cfg.seq_len, packed_length=data_cfg.packed_length
             )
     else:
-        train_ds = get_packed_dataset_without_short_length(
-            folder=data_cfg.train_folder,
-            packed_length=data_cfg.packed_length,
-            max_length_per_sample=data_cfg.seq_len,
-            show_progress=dist.get_rank() == 0,
-            min_length=data_cfg.min_length,
-            min_length_dict=data_cfg.get("min_length_dict", {}),
-            pack_into_one_sample=data_cfg.pack_sample_into_one,
+        if dataset_generate_func is not None:
+            assert train_sampler and train_collate_fn is not None
+            train_ds = dataset_generate_func()
+        else:
+            train_ds = get_packed_dataset_without_short_length(
+                folder=data_cfg.train_folder,
+                packed_length=data_cfg.packed_length,
+                max_length_per_sample=data_cfg.seq_len,
+                show_progress=dist.get_rank() == 0,
+                min_length=data_cfg.min_length,
+                min_length_dict=data_cfg.get("min_length_dict", {}),
+                pack_into_one_sample=data_cfg.pack_sample_into_one,
+            )
+
+    if train_sampler is None:
+        # partition already completed
+        assert isinstance(train_ds, (PackedDataset, PackedDatasetWithoutCuSeqlen, ConcatDataset))
+        # Create the training dataset sampler
+        train_sampler = StaticBatchSampler(
+            train_ds.datasets if isinstance(train_ds, ConcatDataset) else [train_ds],
+            batch_size=data_cfg.micro_num,
+            rampup_batch_size=data_cfg.rampup_batch_size,
+            micro_bsz=data_cfg.micro_bsz,
+            seed=1024,
+            drop_last=True,
+            data_rank=gpc.get_local_rank(ParallelMode.DATA),
+            data_world_size=gpc.get_world_size(ParallelMode.DATA),
         )
 
-    # partition already completed
-    # assert isinstance(train_ds, (PackedDataset, PackedDatasetWithoutCuSeqlen))
-    if isinstance(train_ds, (PackedDataset, PackedDatasetWithoutCuSeqlen)):
-        datasets = [train_ds]
-    else:
-        datasets = train_ds.datasets
-
-    # Create the training dataset sampler
-    train_sampler = StaticBatchSampler(
-        datasets,
-        batch_size=data_cfg.micro_num,
-        rampup_batch_size=data_cfg.rampup_batch_size,
-        micro_bsz=data_cfg.micro_bsz,
-        seed=1024,
-        drop_last=True,
-        data_rank=gpc.get_local_rank(ParallelMode.DATA),
-        data_world_size=gpc.get_world_size(ParallelMode.DATA),
-    )
-
-    train_collate_fn = partial(packed_collate_fn, packed_length=data_cfg.packed_length)
+    if train_collate_fn is None:
+        train_collate_fn = partial(packed_collate_fn, packed_length=data_cfg.packed_length)
 
     # Create the training data loader
     train_dl = DataLoader(
@@ -204,7 +207,9 @@ def get_train_data_loader(num_worker: int = 0):
     return train_dl, dataset_types
 
 
-def get_validation_data_loader(num_worker: int = 0, logger=None):
+def get_validation_data_loader(
+    num_worker: int = 0, dataset_generate_func: Callable = None, val_collate_fn=None, dataloader_func=None, logger=None
+):
     """Generate and return the validation data loader."""
 
     data_cfg = gpc.config.data
@@ -212,35 +217,48 @@ def get_validation_data_loader(num_worker: int = 0, logger=None):
     if not data_cfg.valid_folder:
         val_ds = RandomDataset(num_samples=gpc.get_world_size(ParallelMode.DATA) * 500, max_len=data_cfg.seq_len)
     else:
-        val_ds = get_dataset_dict(folder=data_cfg.valid_folder, split="")
+        if dataset_generate_func is not None:
+            assert val_collate_fn and dataloader_func is not None
+            val_ds = dataset_generate_func()
+        else:
+            val_ds = get_dataset_dict(folder=data_cfg.valid_folder, split="")
 
     if not isinstance(val_ds, dict):
         val_ds = {"val": val_ds}
 
-    val_collate_fn = partial(jsonl_ds_collate_fn, max_length_per_sample=data_cfg.seq_len)
+    if val_collate_fn is None:
+        val_collate_fn = partial(jsonl_ds_collate_fn, max_length_per_sample=data_cfg.seq_len)
 
     val_dls = {}
     for val_name, ds in val_ds.items():
-        # making the batch_size of validate larger can speed up the evaluation, but it should not be too large,
-        # otherwise too much data may be dropped
-        batch_size = min(
-            data_cfg.valid_micro_num * data_cfg.micro_bsz, len(ds) // gpc.get_world_size(ParallelMode.DATA)
-        )
-        batch_size = batch_size // data_cfg.micro_bsz * data_cfg.micro_bsz
-
-        if batch_size == 0 and gpc.is_rank_for_log():
-            logger.info(f"skip validate {val_name}.")
-            continue
-
-        val_dls[val_name] = get_dpsampler_dataloader(
-            ds, shuffle=False, num_workers=num_worker, batch_size=batch_size, collate_fn=val_collate_fn, drop_last=True
-        )  # drop_last=True, otherwise it may cause problems in the last batch
-
-        if gpc.is_rank_for_log():
-            logger.info(
-                f"load validation dataset {val_name} with valid batch size {str(batch_size)} and "
-                f"samples {str(len(val_dls[val_name]))}."
+        if dataloader_func is not None:
+            val_dls[val_name] = dataloader_func(dataset=ds)
+        else:
+            # making the batch_size of validate larger can speed up the evaluation, but it should not be too large,
+            # otherwise too much data may be dropped
+            batch_size = min(
+                data_cfg.valid_micro_num * data_cfg.micro_bsz, len(ds) // gpc.get_world_size(ParallelMode.DATA)
             )
+            batch_size = batch_size // data_cfg.micro_bsz * data_cfg.micro_bsz
+
+            if batch_size == 0 and gpc.is_rank_for_log() and logger is not None:
+                logger.info(f"skip validate {val_name}.")
+                continue
+
+            val_dls[val_name] = get_dpsampler_dataloader(
+                ds,
+                shuffle=False,
+                num_workers=num_worker,
+                batch_size=batch_size,
+                collate_fn=val_collate_fn,
+                drop_last=True,
+            )  # drop_last=True, otherwise it may cause problems in the last batch
+
+            if gpc.is_rank_for_log() and logger is not None:
+                logger.info(
+                    f"load validation dataset {val_name} with valid batch size {str(batch_size)} and "
+                    f"samples {str(len(val_dls[val_name]))}."
+                )
 
     return val_dls
 
@@ -282,7 +300,8 @@ def initialize_llm_profile(profiling: bool = False, start_time: str = None, logg
 
     if profiling and gpc.get_local_rank(ParallelMode.DATA) == 0 and gpc.get_local_rank(ParallelMode.TENSOR) == 0:
         llm_profile = torch.profiler.profile
-        logger.info(f"Do profiling in rank {gpc.get_global_rank()}!")
+        if logger is not None:
+            logger.info(f"Do profiling in rank {gpc.get_global_rank()}!")
     else:
         llm_profile = DummyProfile
 
