@@ -292,7 +292,12 @@ def load_new_batch(train_dl: DataLoader, train_iter: Iterable, train_state: Trai
         next(train_state.batch_sampler_iter)
         train_state.num_consumed_samples_in_epoch = 0
     timer("batch-gen").stop()
-
+    
+    if batch[0].get('type_ids', None) is not None:
+        # if use_flash_attn is False, we need to unpack type_ids
+        if not gpc.config.model.use_flash_attn:
+            batch[0]['type_ids'] = unpack_data(batch[0]['type_ids'], batch[0]["cu_seqlens"])
+    
     return batch, train_iter
 
 
@@ -634,13 +639,9 @@ def main(args):
 
             # zero the grads of parameters
             trainer.zero_grad()
-            type_ids = batch[0].pop("type_ids", None)
             # process data
-            # if use_flash_attn is False, we need to unpack type_ids
-            if not gpc.config.model.use_flash_attn:
-                type_ids = unpack_data(type_ids, batch[0]["cu_seqlens"])
-            if type_ids is not None:
-                metric.set_current_type_ids(type_ids=type_ids)
+            if batch[0].get('type_ids', None) is not None:
+                metric.set_current_type_ids(type_ids=batch[0].pop("type_ids", None))
 
             # do forward and backward
             timer("fwd-bwd").start()
