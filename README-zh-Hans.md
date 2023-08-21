@@ -45,6 +45,10 @@ InternLM ，即书生·浦语大模型，包含面向实用场景的70亿参数�
 
 提供了支持模型预训练的轻量级训练框架，无需安装大量依赖包，一套代码支持千卡预训练和单卡人类偏好对齐训练，同时实现了极致的性能优化，实现千卡训练下近90%加速效率。
 
+## 新闻
+
+我们开源了 InternLM-Chat7B v1.1。该模型能够调用代码解释器和工具插件。你可以在 [Lagent](https://github.com/InternLM/lagent) 中体验这些新功能。
+
 ## InternLM-7B
 
 ### 性能评测
@@ -74,6 +78,7 @@ InternLM ，即书生·浦语大模型，包含面向实用场景的70亿参数�
 | 模型                 | InternLM 格式权重下载地址                                                                                                                      | Transformers 格式权重下载地址                    |
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
 | **InternLM 7B**      | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-7b) | [🤗internlm/intern-7b](https://huggingface.co/internlm/internlm-7b) |
+| **InternLM Chat 7B v1.1**    | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b-v1.1)    | [🤗internlm/intern-chat-7b-v1.1](https://huggingface.co/internlm/internlm-chat-7b-v1.1)       |
 | **InternLM Chat 7B** | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b) | [🤗internlm/intern-chat-7b](https://huggingface.co/internlm/internlm-chat-7b)
 | **InternLM Chat 7B 8k** | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b-8k) | [🤗internlm/intern-chat-7b-8k](https://huggingface.co/internlm/internlm-chat-7b-8k)
 

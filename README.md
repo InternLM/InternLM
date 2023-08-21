@@ -35,9 +35,6 @@
     👋 join us on <a href="https://twitter.com/intern_lm" target="_blank">Twitter</a>, <a href="https://discord.gg/xa29JuW87d" target="_blank">Discord</a> and <a href="https://r.vansin.top/?r=internwx" target="_blank">WeChat</a>
 </p>
 
-
-
-
 ## Introduction
 
 InternLM has open-sourced a 7 billion parameter base model and a chat model tailored for practical scenarios. The model has the following characteristics:
@@ -47,6 +44,11 @@ InternLM has open-sourced a 7 billion parameter base model and a chat model tail
 - It provides a versatile toolset for users to flexibly build their own workflows.
 
 Additionally, a lightweight training framework is offered to support model pre-training without the need for extensive dependencies. With a single codebase, it supports pre-training on large-scale clusters with thousands of GPUs, and fine-tuning on a single GPU while achieving remarkable performance optimizations. InternLM achieves nearly 90% acceleration efficiency during training on 1024 GPUs.
+
+## News
+
+InternLM-7B-Chat v1.1 is released with code interpreter and function calling capability. You can try it with [Lagent](https://github.com/InternLM/lagent)
+-
 
 ## InternLM-7B
 
@@ -77,6 +79,7 @@ InternLM 7B and InternLM 7B Chat, trained using InternLM, have been open-sourced
 | Model                         | InternLM Format Weight Download Link                                                                                                                 | Transformers Format Weight Download Link                                         |
 | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | **InternLM 7B**         | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-7b)         | [🤗internlm/intern-7b](https://huggingface.co/internlm/internlm-7b)                 |
+| **InternLM Chat 7B v1.1**    | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b-v1.1)    | [🤗internlm/intern-chat-7b-v1.1](https://huggingface.co/internlm/internlm-chat-7b-v1.1)       |
 | **InternLM Chat 7B**    | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b)    | [🤗internlm/intern-chat-7b](https://huggingface.co/internlm/internlm-chat-7b)       |
 | **InternLM Chat 7B 8k** | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b-8k) | [🤗internlm/intern-chat-7b-8k](https://huggingface.co/internlm/internlm-chat-7b-8k) |
 
@@ -136,7 +139,7 @@ We use [LMDeploy](https://github.com/InternLM/LMDeploy) to complete the one-clic
     ```
 
 3. After exporting the model, you can start a server and have a conversation with the deployed model using the following command:
-   
+
     ```bash
     bash workspace/service_docker_up.sh
     python3 -m lmdeploy.serve.client {server_ip_addresss}:33337
