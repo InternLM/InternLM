@@ -1,5 +1,5 @@
 name: demo-in-readme
-on: 
+on:
   pull_request:
     branches:
       - "main"
@@ -39,7 +39,7 @@ jobs:
     needs: check-requirements
     runs-on: [lmtest]
     steps:
-    - name: mask env 
+    - name: mask env
       run: |
         echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
     - uses: actions/checkout@v3
@@ -60,15 +60,29 @@ jobs:
     runs-on: [lmtest]
     timeout-minutes: 30
     steps:
-    - name: mask env 
+    - name: mask env
       run: |
         echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
     - uses: actions/checkout@v3
 
     - name: slurm-train
+      id: basic_train
       run: |
         source activate internlm-env-test
         sh ./ci_scripts/train/slurm_train.sh ${GITHUB_RUN_ID}-${GITHUB_JOB}
+
+    - name: load_preset_ckpt
+      if: ${{ failure() && steps.basic_train.conclusion == 'failure' }}
+      run: |
+        source activate internlm-env-test
+        export PYTHONPATH=$PWD:$PYTHONPATH
+        sh ./ci_scripts/train/load_ckpt.sh 7B_load_preset_ckpt ${GITHUB_RUN_ID}-${GITHUB_JOB}
+
+    - name: load_new_ckpt
+      run: |
+        source activate internlm-env-test
+        export PYTHONPATH=$PWD:$PYTHONPATH
+        sh ./ci_scripts/train/load_ckpt.sh 7B_load_new_ckpt ${GITHUB_RUN_ID}-${GITHUB_JOB}
         rm -rf $GITHUB_WORKSPACE/llm_ckpts
 
     - name: torchrun-train
@@ -91,18 +105,18 @@ jobs:
       run: |
         source activate internlm-env-test
         export PYTHONPATH=$PWD:$PYTHONPATH
-        sh ./ci_scripts/model/convert_to_hf.sh 
+        sh ./ci_scripts/model/convert_to_hf.sh
         cd ./hf_ckpt
         srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --gpus-per-task=2 python ../ci_scripts/model/loaded_as_transformer.py
         cd ..
         rm -rf $GITHUB_WORKSPACE/hf_ckpt
-  
+
   load-chat-model-in-hf:
     if: ${{ always() }}
     needs: check-requirements
     runs-on: [lmtest]
     steps:
-    - name: mask env 
+    - name: mask env
       run: |
         echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
     - uses: actions/checkout@v3
