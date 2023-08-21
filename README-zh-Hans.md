@@ -21,19 +21,25 @@
 [🛠️安装教程](./doc/install.md) |
 [📊训练性能](./doc/train_performance.md) |
 [👀模型库](#model-zoo) |
+[🤗HuggingFace](https://huggingface.co/spaces/internlm/InternLM-Chat-7B) |
 [🆕Update News](./CHANGE_LOG.md) |
 [🤔Reporting Issues](https://github.com/InternLM/InternLM/issues/new)
 
 [English](./README.md) |
-[简体中文](./README-zh-Hans.md)
+[简体中文](./README-zh-Hans.md) |
+[日本語](./README-ja-JP.md)
 
 </div>
+
+<p align="center">
+    👋 加入我们的<a href="https://twitter.com/intern_lm" target="_blank">推特</a>、<a href="https://discord.gg/xa29JuW87d" target="_blank">Discord</a> 和 <a href="https://r.vansin.top/?r=internwx" target="_blank">微信社区</a>
+</p>
 
 ## 简介
 
 InternLM ，即书生·浦语大模型，包含面向实用场景的70亿参数基础模型与对话模型 （InternLM-7B）。模型具有以下特点：
 
-- 使用上万亿高质量预料，建立模型超强知识体系；
+- 使用上万亿高质量语料，建立模型超强知识体系；
 - 支持8k语境窗口长度，实现更长输入与更强推理体验；
 - 通用工具调用能力，支持用户灵活自助搭建流程；
 
@@ -46,7 +52,7 @@ InternLM ，即书生·浦语大模型，包含面向实用场景的70亿参数�
 我们使用开源评测工具 [OpenCompass](https://github.com/internLM/OpenCompass/) 从学科综合能力、语言能力、知识能力、推理能力、理解能力五大能力维度对InternLM开展全面评测，部分评测结果如下表所示，欢迎访问[OpenCompass 榜单](https://opencompass.org.cn/rank)获取更多的评测结果。
 
 | 数据集\模型           |  **InternLM-Chat-7B** |  **InternLM-7B**  |  LLaMA-7B | Baichuan-7B | ChatGLM2-6B | Alpaca-7B | Vicuna-7B |
-| -------------------- | --------------------- | ---------------- | --------- |  --------- | ------------ | --------- | ---------- |  
+| -------------------- | --------------------- | ---------------- | --------- |  --------- | ------------ | --------- | ---------- |
 | C-Eval(Val)          |      53.2             |        53.4       | 24.2      | 42.7       |  50.9       |  28.9     | 31.2     |
 | MMLU                 |      50.8             |       51.0        | 35.2*     |  41.5      |  46.0       |  39.7     | 47.3     |
 | AGIEval              |      42.5             |       37.6        | 20.8      | 24.6       |  39.0       | 24.1      | 26.4     |
@@ -113,21 +119,22 @@ streamlit run web_demo.py
 
 1. 首先安装 LMDeploy:
 
-  ```
-  python3 -m pip install lmdeploy
-  ```
+   ```bash
+   python3 -m pip install lmdeploy
+   ```
 
 2. 快速的部署命令如下：
 
-  ```
-  python3 -m lmdeploy.serve.turbomind.deploy InternLM-7B /path/to/internlm-7b/model hf
-  ```
+   ```bash
+   python3 -m lmdeploy.serve.turbomind.deploy internlm-chat-7b /path/to/internlm-7b/model
+   ```
 
-3. 在导出模型后，你可以直接通过如下命令启动服务一个服务并和部署后的模型对话
+3. 在导出模型后，你可以直接通过如下命令启动服务，并在客户端与AI对话
 
-  ```
-  python3 -m lmdeploy.serve.client {server_ip_addresss}:33337
-  ```
+   ```bash
+   bash workspace/service_docker_up.sh
+   python3 -m lmdeploy.serve.client {server_ip_addresss}:33337
+   ```
 
 [LMDeploy](https://github.com/InternLM/LMDeploy) 支持了 InternLM 部署的完整流程，请参考 [部署教程](https://github.com/InternLM/LMDeploy) 了解 InternLM 的更多部署细节。
 
@@ -139,10 +146,10 @@ streamlit run web_demo.py
 
 ### 转换为 Transformers 格式使用
 
-通过 InternLM 进行训练的模型可以很轻松地转换为 HuggingFace Transformers 格式，方便与社区各种开源项目无缝对接。借助 `tools/convert2hf.py` 可以将训练保存的权重一键转换为 transformers 格式
+通过 InternLM 进行训练的模型可以很轻松地转换为 HuggingFace Transformers 格式，方便与社区各种开源项目无缝对接。借助 `tools/transformers/convert2hf.py` 可以将训练保存的权重一键转换为 transformers 格式
 
 ```bash
-python convert2hf.py --src_folder origin_ckpt/ --tgt_folder hf_ckpt/ --tokenizer tokenizes/tokenizer.model
+python tools/transformers/convert2hf.py --src_folder origin_ckpt/ --tgt_folder hf_ckpt/ --tokenizer ./tools/V7_sft.model
 ```
 
 转换之后可以通过以下的代码加载为 transformers

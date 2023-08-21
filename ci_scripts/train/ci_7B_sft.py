@@ -1,18 +1,19 @@
 JOB_NAME = "7b_train"
 
-SEQ_LEN = 2048
-HIDDEN_SIZE = 4096
-NUM_ATTENTION_HEAD = 32
+SEQ_LEN = 1024
+HIDDEN_SIZE = 2048
+NUM_ATTENTION_HEAD = 16
 MLP_RATIO = 8 / 3
-NUM_LAYER = 32
+NUM_LAYER = 16
 VOCAB_SIZE = 103168
 
 # Ckpt folder format:
 # fs: 'local:/mnt/nfs/XXX'
 # oss: 'boto3:s3://model_weights/XXX'
-MODEL_ONLY_FOLDER = "local:llm_ckpts/xxxx"
+# MODEL_ONLY_FOLDER = "local:llm_ckpts/xxxx"
+# SAVE_CKPT_FOLDER = "local:llm_ckpts"
 SAVE_CKPT_FOLDER = "local:llm_ckpts"
-LOAD_CKPT_FOLDER = "local:llm_ckpts/49"
+# LOAD_CKPT_FOLDER = "local:llm_ckpts/49"
 ckpt = dict(
     # Path to save training ckpt.
     save_ckpt_folder=SAVE_CKPT_FOLDER,
@@ -20,12 +21,12 @@ ckpt = dict(
     # load_ckpt_folder=LOAD_CKPT_FOLDER,
     # Path to initialize with given model weights.
     # load_model_only_folder=MODEL_ONLY_FOLDER,
-    checkpoint_every=50,
+    checkpoint_every=20,
     # Wheter to load optimizer states when continuing training.
     load_optimizer=True,
 )
 
-TRAIN_FOLDER = "/path/to/dataset"
+TRAIN_FOLDER = "local:../lm_data/alpaca_data/train/en"
 data = dict(
     seq_len=SEQ_LEN,
     # micro_num means the number of micro_batch contained in one gradient update
@@ -33,7 +34,7 @@ data = dict(
     # packed_length = micro_bsz * SEQ_LEN
     micro_bsz=2,
     pack_sample_into_one=False,
-    total_steps=50000,
+    total_steps=20,
     skip_batches="",
     rampup_batch_size="",
     # Datasets with less than 50 rows will be discarded
@@ -97,7 +98,7 @@ beta2_scheduler = dict(
 )
 
 model = dict(
-    checkpoint=False,  # The proportion of layers for activation aheckpointing, the optional value are True/False/[0-1]
+    checkpoint=False,
     num_attention_heads=NUM_ATTENTION_HEAD,
     embed_split_hidden=True,
     vocab_size=VOCAB_SIZE,

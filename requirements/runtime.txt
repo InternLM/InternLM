@@ -1,4 +1,4 @@
-transformers>=4.25.1
+transformers<4.30.0
 sentencepiece
 numpy
 tqdm
@@ -12,4 +12,5 @@ packaging
 boto3
 botocore
 torch-scatter
+pyecharts
 -f https://data.pyg.org/whl/torch-1.13.0+cu117.html
