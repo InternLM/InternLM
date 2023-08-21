@@ -47,7 +47,7 @@ InternLM ，即书生·浦语大模型，包含面向实用场景的70亿参数�
 
 ## 新闻
 
-我们开源了 InternLM-Chat7B v1.1。该模型能够调用代码解释器和工具插件。你可以在 [Lagent](https://github.com/InternLM/lagent) 中体验这些新功能。
+我们开源了 InternLM-Chat-7B v1.1。该模型能够调用代码解释器和工具插件。你可以在 [Lagent](https://github.com/InternLM/lagent) 中体验这些新功能。
 
 ## InternLM-7B
 
