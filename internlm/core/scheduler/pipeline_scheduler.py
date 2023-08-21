@@ -1326,9 +1326,11 @@ class InterleavedPipelineScheduler(PipelineScheduler):
             output, label = pack_return_tensors(self._return_tensors)
         else:
             output, label = (None, None)
-        accum_loss = self._accum_loss
 
-        logger.info(f"{gpc.get_local_rank(ParallelMode.PIPELINE)}, moe_loss: {accum_moe_loss.item()}")
+        accum_loss = self._accum_loss
+        accum_loss += self._accum_moe_loss
+
+        logger.info(f"{gpc.get_local_rank(ParallelMode.PIPELINE)}, moe_loss: {self._accum_moe_loss.item()}")
 
         dist.all_reduce(self._accum_moe_loss, group=gpc.get_group(ParallelMode.PIPELINE))
         accum_moe_loss = self._accum_moe_loss
