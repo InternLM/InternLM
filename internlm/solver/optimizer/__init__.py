@@ -4,13 +4,13 @@
 from .hybrid_zero_optim import HybridZeroOptimizer
 from .utils import (
     AsyncModelPartitionHandler,
-    AsyncMultiChunkParatitionHandler,
-    ModelParatitionHandler,
+    AsyncMultiChunkPartitionHandler,
+    ModelPartitionHandler,
 )
 
 __all__ = [
     "HybridZeroOptimizer",
-    "ModelParatitionHandler",
+    "ModelPartitionHandler",
     "AsyncModelPartitionHandler",
-    "AsyncMultiChunkParatitionHandler",
+    "AsyncMultiChunkPartitionHandler",
 ]

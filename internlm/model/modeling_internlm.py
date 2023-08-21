@@ -350,7 +350,7 @@ class PackedFlashInternLm1D(nn.Module):
                     setattr(param, IS_TENSOR_PARALLEL, True)
         self.parallel_output = parallel_output
 
-    def partition_parametors(self):
+    def partition_parameters(self):
         # Implement the model-specific partition_parameter function if necessary.
         return get_default_model_partitions(self, num_group=1)
 

@@ -32,7 +32,7 @@ from internlm.utils.common import get_current_device
 from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
 
-from .utils import ModelParatitionHandler, compute_norm
+from .utils import ModelPartitionHandler, compute_norm
 
 inf = math.inf
 logger = get_logger(__file__)
@@ -91,7 +91,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         overlap_broadcast=False,
         grad_scal_cfg: Config = None,
         zero_cfg: Config = None,
-        async_partition_handler: Optional[ModelParatitionHandler] = None,
+        async_partition_handler: Optional[ModelPartitionHandler] = None,
     ):
         # DynamicGradScaler related args
         if gpc.config.model.dtype is torch.float32:

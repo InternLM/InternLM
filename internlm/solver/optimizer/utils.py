@@ -463,32 +463,38 @@ class DynamicGradScaler(BaseGradScaler):
         self._hysteresis_step = state_dict["_hysteresis_step"]
 
 
+# GroupedPartitionParameters data structure is:
+# [
+#     {"layer1": list(parameters), "layer2": list(parameters)...}, # group 0
+#     {"layer1": list(parameters), "layer2": list(parameters)...}, # group 1
+#     ...
+# ]
 GroupedPartitionParameters = List[Dict[str, List[Tensor]]]
 
 
-class ModelParatitionHandler(ABC):
+class ModelPartitionHandler(ABC):
     """
-    ModelParatitionHandler
+    Model Partition Handler.
     """
 
     @abstractmethod
     def partition(
         self, group_id: int, world_size: int, param_record_per_rank: List[List[str]]
     ) -> (List[List[Tensor]], Set[int]):
-        """partition model parameters for each rank"""
+        """partition model parameters for each rank."""
 
     @abstractmethod
     def resync_flat_parameters(self, group_id: int, rank: int, flat_tensor: Tensor) -> None:
-        """resync flat parameter with model parameters"""
+        """resync flat parameter with model parameters."""
 
     @abstractmethod
     def register_sync_parameters_hook(self, model: nn.Module) -> None:
-        """register hooks to sync model parameters"""
+        """register hooks to sync model parameters."""
 
 
-class AsyncModelPartitionHandler(ModelParatitionHandler):
+class AsyncModelPartitionHandler(ModelPartitionHandler):
     """
-    AsyncModelPartitionHandler
+    Asynchronous Model Partition Handler.
     """
 
     def __init__(
@@ -502,7 +508,7 @@ class AsyncModelPartitionHandler(ModelParatitionHandler):
 
         self._num_groups = num_groups
         self._process_group_mode = process_group_mode
-        self._paration_rank_map = [{} for _ in range(num_groups)]
+        self._partition_rank_map = [{} for _ in range(num_groups)]
         self._grouped_partition_params = partition_scheme
         self._grouped_partition_flat_params = self._flatten_partition_parameters(
             partition_scheme
@@ -576,7 +582,7 @@ class AsyncModelPartitionHandler(ModelParatitionHandler):
             for idx, part_param in enumerate(part_params):
                 param_record_per_rank[rank_to_go].append(self._generate_param_record(part_name, idx, part_param))
 
-            self._paration_rank_map[group_id][part_name] = rank_to_go
+            self._partition_rank_map[group_id][part_name] = rank_to_go
             self._grouped_rank_flat_params[group_id][rank_to_go].append(part_flat_tensor)
 
         if gpc.is_rank_for_log():
@@ -596,20 +602,20 @@ class AsyncModelPartitionHandler(ModelParatitionHandler):
                 if is_first:
                     part_name = self._partitions_to_process[self._current_layer_idx]
                     src_rank = gpc.get_ranks_in_group(self._process_group_mode)[
-                        self._paration_rank_map[group_id][part_name]
+                        self._partition_rank_map[group_id][part_name]
                     ]
                     dist.broadcast(
-                        self._grouped_partition_flat_params[0][part_name],
+                        self._grouped_partition_flat_params[group_id][part_name],
                         src=src_rank,
                         group=gpc.get_group(self._process_group_mode),
                     )
                 else:
                     part_name = self._partitions_to_process[self._current_layer_idx + 1]
                     src_rank = gpc.get_ranks_in_group(self._process_group_mode)[
-                        self._paration_rank_map[group_id][part_name]
+                        self._partition_rank_map[group_id][part_name]
                     ]
                     self._async_handle = dist.broadcast(
-                        self._grouped_partition_flat_params[0][part_name],
+                        self._grouped_partition_flat_params[group_id][part_name],
                         src=src_rank,
                         group=gpc.get_group(self._process_group_mode),
                         async_op=True,
@@ -628,7 +634,7 @@ class AsyncModelPartitionHandler(ModelParatitionHandler):
 
             self._current_layer_idx += 1
 
-        # set parameter syncted flag.
+        # set parameter synced flag.
         def _post_all_forward_hook(model: nn.Module, args: Any, output: Any):
             if self.params_synced:
                 return
@@ -641,7 +647,7 @@ class AsyncModelPartitionHandler(ModelParatitionHandler):
         if isinstance(model, NaiveAMPModel):
             model = model.model
 
-        # sync parameter for the first layer
+        # sync parameter for the first layer.
         model.register_forward_pre_hook(partial(_pre_forward_hook, is_first=True))
         # set parameter synced flag.
         model.register_forward_hook(_post_all_forward_hook)
@@ -659,9 +665,9 @@ class AsyncModelPartitionHandler(ModelParatitionHandler):
             sub_model.register_forward_hook(_post_forward_hook)
 
 
-class AsyncMultiChunkParatitionHandler(ModelParatitionHandler):
+class AsyncMultiChunkPartitionHandler(ModelPartitionHandler):
     """
-    AsyncMultiChunkParatitionHandler
+    Asynchronous Model Partition Handler for Interleaved Pipeline scheduler with Multi Chunk.
     """
 
     def __init__(
@@ -715,7 +721,7 @@ class AsyncMultiChunkParatitionHandler(ModelParatitionHandler):
         return params_per_rank, no_param_ranks
 
     def register_sync_parameters_hook(self, model: nn.Module):
-        assert isinstance(model, nn.ModuleList), "model must be a MouduleList"
+        assert isinstance(model, nn.ModuleList), "model must be a ModuleList"
         assert len(model) == self._num_chunk, f"length of model list({len(model)}) != self._num_chunk{self._num_chunk}"
 
         for idx, handler in enumerate(self._handlers):

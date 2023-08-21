@@ -38,7 +38,7 @@ from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
 from internlm.solver.optimizer import (
     AsyncModelPartitionHandler,
-    AsyncMultiChunkParatitionHandler,
+    AsyncMultiChunkPartitionHandler,
     HybridZeroOptimizer,
 )
 from internlm.utils.common import (
@@ -322,8 +322,8 @@ def initialize_optimizer(model: nn.Module):
         def get_partition_scheme_helper(_model):
             if isinstance(_model, NaiveAMPModel):
                 _model = _model.model
-            if hasattr(_model, "partition_parametors"):
-                partition_scheme = _model.partition_parametors()
+            if hasattr(_model, "partition_parameters"):
+                partition_scheme = _model.partition_parameters()
             else:
                 partition_scheme = get_default_model_partitions(_model, num_group=1)
 
@@ -334,9 +334,7 @@ def initialize_optimizer(model: nn.Module):
             partition_schemes = []
             for chunk in model:
                 partition_schemes.append(get_partition_scheme_helper(chunk))
-            async_partition_handler = AsyncMultiChunkParatitionHandler(
-                len(model), partition_schemes, ParallelMode.ZERO1
-            )
+            async_partition_handler = AsyncMultiChunkPartitionHandler(len(model), partition_schemes, ParallelMode.ZERO1)
         else:
             partition_scheme = get_partition_scheme_helper(model)
             async_partition_handler = AsyncModelPartitionHandler(partition_scheme, ParallelMode.ZERO1)
