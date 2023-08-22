@@ -26,6 +26,7 @@ from internlm.solver.optimizer.utils import (
     release_param_grad,
     split_half_float_double,
     sync_param,
+    ParamBcastSyncHandler,
 )
 from internlm.utils.common import get_current_device
 from internlm.utils.logger import get_logger
@@ -87,9 +88,9 @@ class HybridZeroOptimizer(BaseOptimizer):
         self,
         optimizer: Optimizer,
         cpu_offload=False,
-        overlap_broadcast=False,
         grad_scal_cfg: Config = None,
         zero_cfg: Config = None,
+        param_bcast_sync_handler: ParamBcastSyncHandler = None,
     ):
         # DynamicGradScaler related args
         if gpc.config.model.dtype is torch.float32:
@@ -158,7 +159,9 @@ class HybridZeroOptimizer(BaseOptimizer):
             + f"zo-{self._zero_local_rank}.pt"
         )
         self.params_per_rank_id_dict = []
-        self.overlap_broadcast = overlap_broadcast
+        self._param_bcast_sync_handler = param_bcast_sync_handler
+        if self._overlap_communication:
+            assert self._param_bcast_sync_handler is not None
 
         # iterate over the param group in the optimizer
         # partition these param groups for data parallel training
@@ -230,6 +233,8 @@ class HybridZeroOptimizer(BaseOptimizer):
         # communication-computation overlapping
         if self._overlap_communication:
             self._comm_stream = torch.cuda.Stream()
+        else:
+            self._comm_stream = torch.cuda.current_stream()
 
         # reduction hook is only used if overlapping communication
         # if it is stage 1 without overlapping, no hook will be attached
@@ -267,8 +272,10 @@ class HybridZeroOptimizer(BaseOptimizer):
             global_id = str(i)
             for j in range(len(param.size())):
                 global_id = "_".join([global_id, str(param.size()[j])])
-
-            rank_to_go = numel_per_rank.index(min(numel_per_rank))
+            if self._overlap_communication:
+                rank_to_go = self._param_bcast_sync_handler.get_rank_by_param(param)
+            else:
+                rank_to_go = numel_per_rank.index(min(numel_per_rank))
             params_per_rank[rank_to_go].append(param)
             self.params_per_rank_id_dict[-1][rank_to_go].append(global_id)
             numel_per_rank[rank_to_go] += param.numel()
@@ -624,36 +631,39 @@ class HybridZeroOptimizer(BaseOptimizer):
                     )
                     fp32_param = self._fp32_flat_param_groups_of_current_rank[group_id]
                     fp16_param.data.copy_(fp32_param)
-
-        # TODO: support broadcast overlap
-        self.broadcast_params(overlap=False)
-
+                    
+        if not self._overlap_communication:
+            self.broadcast_params()
         timer("step").stop()
+            
         # update gradients may not be needed here, because the sync_params function is used in initialization,
         # so synchronization is maintained
         return True, [global_norm / loss_scale for global_norm in global_norm_groups]
 
-    def broadcast_params(self, overlap=False):
+    def broadcast_params(self):
         handles = []
 
-        for group_id in range(self.num_param_groups):
-            for rank in range(self._zero_world_size):
+        for rank in range(self._zero_world_size):
+            for group_id in range(self.num_param_groups):
                 # The following operations are performed only on the rank to which parameters are assigned.
                 if rank not in self.param_group_no_params_ranks[group_id]:
                     fp16_param = self._param_store.get_flat_fp16_param_by_rank_group(rank=rank, group_id=group_id)
                     # grank = gpc.get_ranks_in_group(group_type)[rank]  # need to convert to the global rank
                     # assert grank == rank, f"{grank} == {rank}"
                     g_rank = gpc.get_ranks_in_group(self._broadcast_parallel_mode)[rank]
-                    handle = dist.broadcast(
-                        fp16_param, src=g_rank, group=gpc.get_group(ParallelMode.ZERO1), async_op=True
+                    
+                    with torch.cuda.stream(self._comm_stream):
+                        handle = dist.broadcast(
+                            fp16_param, src=g_rank, group=gpc.get_group(ParallelMode.ZERO1), async_op=True
                     )
-                    handles.append(handle)
-
-        if not overlap:
+                    if self._overlap_communication:
+                        self._param_bcast_sync_handler.add_bcast_handle(rank, handle)
+                    else:
+                        handles.append(handle)
+                        
+        if not self._overlap_communication:
             for handle in handles:
                 handle.wait()
-        else:
-            return handles
 
     ##################
     # FP16 Utilities #
