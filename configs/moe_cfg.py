@@ -32,26 +32,26 @@ ckpt = dict(
     oss_snapshot_freq=int(CHECKPOINT_EVERY / 2),  # snapshot ckpt save frequency.
 )
 
-TRAIN_FOLDER = "/path/to/dataset"
-VALID_FOLDER = "/path/to/dataset"
+TRAIN_FOLDER = "/mnt/petrelfs/share_data/llm_data/0623_scratch_tokenized_filtered/train/en/enwiki"
+VALID_FOLDER = "/mnt/petrelfs/share_data/llm_data/0623_scratch_tokenized_filtered/train/en/enwiki"
 data = dict(
     seq_len=SEQ_LEN,
     # micro_num means the number of micro_batch contained in one gradient update
     micro_num=4,
-    # packed_length = micro_bsz * SEQ_LEN
+    packed_length = 2 * SEQ_LEN,
     micro_bsz=2,
     # defaults to the value of micro_num
     valid_micro_num=4,
     # defaults to 0, means disable evaluate
-    valid_every=50,
+    valid_every=50000,
     pack_sample_into_one=False,
     total_steps=50000,
     skip_batches="",
     rampup_batch_size="",
     # Datasets with less than 50 rows will be discarded
     min_length=50,
-    # train_folder=TRAIN_FOLDER,
-    # valid_folder=VALID_FOLDER,
+    train_folder=TRAIN_FOLDER,
+    valid_folder=VALID_FOLDER,
 )
 
 grad_scaler = dict(
@@ -84,7 +84,7 @@ hybrid_zero_optimizer = dict(
 
 loss = dict(
     label_smoothing=0,
-    moe_loss_coeff=0.01,
+    moe_loss_coeff=0.1,
 )
 
 adam = dict(
@@ -125,10 +125,10 @@ model = dict(
     norm_type="rmsnorm",
     layer_norm_epsilon=1e-5,
     use_flash_attn=True,
-    num_chunks=2,  # if num_chunks > 1, interleaved pipeline scheduler is used.
+    num_chunks=1,  # if num_chunks > 1, interleaved pipeline scheduler is used.
     sequence_parallel=False,
     num_experts=4,
-    moe_use_residual=True,
+    moe_use_residual=False,
 )
 """
 zero1 parallel:
@@ -143,9 +143,9 @@ pipeline parallel (dict):
 tensor parallel: tensor parallel size, usually the number of GPUs per node.
 """
 parallel = dict(
-    # zero1=8,
-    pipeline=dict(size=4, interleaved_overlap=True),
-    tensor=dict(size=2),
+    # zero1=4,
+    pipeline=dict(size=4, interleaved_overlap=False),
+    # tensor=dict(size=4),
 )
 
 cudnn_deterministic = False
