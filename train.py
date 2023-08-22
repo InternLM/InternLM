@@ -17,7 +17,6 @@ import internlm
 from internlm.core.amp import convert_to_amp
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
-# from internlm.core.naive_amp import NaiveAMPModel
 from internlm.core.scheduler import SchedulerMetricHook
 from internlm.core.trainer import TrainState
 from internlm.data.batch_sampler import StaticBatchSampler, get_dpsampler_dataloader
