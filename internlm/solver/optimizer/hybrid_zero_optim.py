@@ -90,7 +90,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         zero_cfg: Config = None,
     ):
         # DynamicGradScaler related args
-        if gpc.config.model.dtype is torch.float32:
+        if gpc.config.model.dtype is torch.float32 and gpc.config.model.use_amp is False:
             initial_scale = 1
         else:
             initial_scale = grad_scal_cfg.fp16.initial_scale
@@ -113,6 +113,8 @@ class HybridZeroOptimizer(BaseOptimizer):
         self._zero_local_rank = gpc.get_local_rank(ParallelMode.ZERO1)
         self._zero_world_size = gpc.get_world_size(ParallelMode.ZERO1)
         self._broadcast_parallel_mode = ParallelMode.ZERO1
+        # this flag means whether the model parameters are in float32
+        self.fp32 = (self._dtype == torch.float32 or gpc.config.model.use_amp)
 
         # ParameterStore will manage the tensor buffers used for zero
         # it will not manage the tensors used by mixed precision training
@@ -201,16 +203,19 @@ class HybridZeroOptimizer(BaseOptimizer):
                 fp16_flat_current_rank = self._param_store.get_flat_fp16_param_by_rank_group(
                     self._zero_local_rank, group_id
                 )
-                fp32_flat_current_rank = fp16_flat_current_rank.float()
-                device = "cpu" if self._cpu_offload else get_current_device()
-                fp32_flat_current_rank = fp32_flat_current_rank.to(device)
-                fp32_flat_current_rank.requires_grad = True
-                self._fp32_flat_param_groups_of_current_rank[group_id] = fp32_flat_current_rank
+                if not self.fp32:
+                    fp32_flat_current_rank = fp16_flat_current_rank.float()
+                    device = "cpu" if self._cpu_offload else get_current_device()
+                    fp32_flat_current_rank = fp32_flat_current_rank.to(device)
+                    fp32_flat_current_rank.requires_grad = True
+                    self._fp32_flat_param_groups_of_current_rank[group_id] = fp32_flat_current_rank
 
-                # need to replace the params in the `params` field in the optimizer
-                # so that when the optimizer calls step(), it only updates the tensors
-                # managed by this data parallel rank
-                param_group["params"] = [fp32_flat_current_rank]
+                    # need to replace the params in the `params` field in the optimizer
+                    # so that when the optimizer calls step(), it only updates the tensors
+                    # managed by this data parallel rank
+                    param_group["params"] = [fp32_flat_current_rank]
+                else:
+                    param_group["params"] = [fp16_flat_current_rank]
 
             # set reduction state
             for param in self._fp16_param_groups[group_id]:
@@ -536,7 +541,7 @@ class HybridZeroOptimizer(BaseOptimizer):
                 norm_groups.append(norm_group)
 
         loss_scale = float(self.loss_scale.item())  # backup
-        if not gpc.config.model.dtype is torch.float32:
+        if not (gpc.config.model.dtype is torch.float32 and gpc.config.model.use_amp is False):
             self.grad_scaler.update(found_inf)
         # update loss scale if overflow occurs
         if found_inf:
@@ -555,33 +560,38 @@ class HybridZeroOptimizer(BaseOptimizer):
             # The following operations are performed only on the rank to which parameters are assigned.
             if not self.param_group_has_params[group_id]:
                 continue
-
-            # create flat gradient for the flat fp32 params
+            
             gradients = self._grad_store.get_averaged_gradients_by_group(group_id)
             flat_fp16_avg_grads = flatten(gradients)
             self._grad_store.reset_average_gradients_by_group(group_id)
             del gradients  # release cuda memory
+            
+            if not self.fp32:
+                # create flat gradient for the flat fp32 params
+                dtype = self._fp32_flat_param_groups_of_current_rank[group_id].dtype
+                flat_fp32_avg_grads = flat_fp16_avg_grads.to(dtype)
+                del flat_fp16_avg_grads  # release cuda memory
 
-            dtype = self._fp32_flat_param_groups_of_current_rank[group_id].dtype
-            flat_fp32_avg_grads = flat_fp16_avg_grads.to(dtype)
-            del flat_fp16_avg_grads  # release cuda memory
+                param_shape = self._fp32_flat_param_groups_of_current_rank[group_id].shape
+                assert (
+                    param_shape == flat_fp32_avg_grads.shape
+                ), f"fp32 param and grad have different shape {param_shape} vs {flat_fp32_avg_grads.shape}"
 
-            param_shape = self._fp32_flat_param_groups_of_current_rank[group_id].shape
-            assert (
-                param_shape == flat_fp32_avg_grads.shape
-            ), f"fp32 param and grad have different shape {param_shape} vs {flat_fp32_avg_grads.shape}"
-
-            single_grad_partition_groups.append(flat_fp32_avg_grads)
-            device = self._fp32_flat_param_groups_of_current_rank[group_id].device
-            self._fp32_flat_param_groups_of_current_rank[group_id].grad = flat_fp32_avg_grads.to(device)
-
+                single_grad_partition_groups.append(flat_fp32_avg_grads)
+                device = self._fp32_flat_param_groups_of_current_rank[group_id].device
+                self._fp32_flat_param_groups_of_current_rank[group_id].grad = flat_fp32_avg_grads.to(device)
+            else:
+                single_grad_partition_groups.append(flat_fp16_avg_grads)
+                device = self._param_store.get_flat_fp16_param_by_rank_group(self._zero_local_rank, group_id)
+                self._param_store.get_flat_fp16_param_by_rank_group(self._zero_local_rank, group_id).grad = flat_fp16_avg_grads.to(device)
+        
         # unscale and clip grads
         # get the global norm
         if self._clip_grad_norm > 0:
             global_norm = sum(norm_groups) ** 0.5
 
         # the following operations are performed only on the rank to which parameters are assigned.
-        if not gpc.config.model.dtype is torch.float32:
+        if (not (gpc.config.model.dtype is torch.float32 and gpc.config.model.use_amp is False)) or gpc.config.model.use_amp:
             if len(single_grad_partition_groups) != 0:
                 self._unscale_and_clip_grads(single_grad_partition_groups, global_norm, loss_scale)
 
@@ -593,16 +603,17 @@ class HybridZeroOptimizer(BaseOptimizer):
         # to send them updated their own parameters.
         if self.has_params:
             self.optim.step()
-            # release the fp32 grad
-            release_param_grad(self._fp32_flat_param_groups_of_current_rank.values())
-            # update fp16 partition updated by the current rank
-            for group_id in range(len(self._fp16_param_groups)):
-                if self.param_group_has_params[group_id]:
-                    fp16_param = self._param_store.get_flat_fp16_param_by_rank_group(
-                        rank=self._zero_local_rank, group_id=group_id
-                    )
-                    fp32_param = self._fp32_flat_param_groups_of_current_rank[group_id]
-                    fp16_param.data.copy_(fp32_param)
+            if not self.fp32:
+                # release the fp32 grad
+                release_param_grad(self._fp32_flat_param_groups_of_current_rank.values())
+                # update fp16 partition updated by the current rank
+                for group_id in range(len(self._fp16_param_groups)):
+                    if self.param_group_has_params[group_id]:
+                        fp16_param = self._param_store.get_flat_fp16_param_by_rank_group(
+                            rank=self._zero_local_rank, group_id=group_id
+                        )
+                        fp32_param = self._fp32_flat_param_groups_of_current_rank[group_id]
+                        fp16_param.data.copy_(fp32_param)
 
         # TODO: support broadcast overlap
         self.broadcast_params(overlap=False)
