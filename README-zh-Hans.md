@@ -32,7 +32,7 @@
 </div>
 
 <p align="center">
-    👋 加入我们的 <a href="https://discord.gg/xa29JuW87d" target="_blank">Discord</a> 和 <a href="https://github.com/InternLM/InternLM/assets/25839884/a6aad896-7232-4220-ac84-9e070c2633ce" target="_blank">微信社区</a>
+    👋 加入我们的<a href="https://twitter.com/intern_lm" target="_blank">推特</a>、<a href="https://discord.gg/xa29JuW87d" target="_blank">Discord</a> 和 <a href="https://r.vansin.top/?r=internwx" target="_blank">微信社区</a>
 </p>
 
 ## 简介
@@ -119,21 +119,22 @@ streamlit run web_demo.py
 
 1. 首先安装 LMDeploy:
 
-  ```
-  python3 -m pip install lmdeploy
-  ```
+   ```bash
+   python3 -m pip install lmdeploy
+   ```
 
 2. 快速的部署命令如下：
 
-  ```
-  python3 -m lmdeploy.serve.turbomind.deploy InternLM-7B /path/to/internlm-7b/model hf
-  ```
+   ```bash
+   python3 -m lmdeploy.serve.turbomind.deploy internlm-chat-7b /path/to/internlm-7b/model
+   ```
 
-3. 在导出模型后，你可以直接通过如下命令启动服务一个服务并和部署后的模型对话
+3. 在导出模型后，你可以直接通过如下命令启动服务，并在客户端与AI对话
 
-  ```
-  python3 -m lmdeploy.serve.client {server_ip_addresss}:33337
-  ```
+   ```bash
+   bash workspace/service_docker_up.sh
+   python3 -m lmdeploy.serve.client {server_ip_addresss}:33337
+   ```
 
 [LMDeploy](https://github.com/InternLM/LMDeploy) 支持了 InternLM 部署的完整流程，请参考 [部署教程](https://github.com/InternLM/LMDeploy) 了解 InternLM 的更多部署细节。
 

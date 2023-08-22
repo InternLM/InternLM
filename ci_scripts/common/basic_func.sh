@@ -1,14 +1,18 @@
 #!/bin/bash
 
-export exit_code=0
-
-function if_exist() {
-ls -l $file_path
-exit_code_now=$?
-exit_code=$(($exit_code + $exit_code_now))
-}
-
-function num_files() {
-file_num=$(ls -l $file_dir |wc -l)
-echo "there are $file_num files in $file_dir"
+#######################################
+# Calculate the number of files in a directory.
+# Call this function like this: num_files "${file_path}".
+# Globals:
+#   None
+# Arguments:
+#   $1: the directory path
+# Returns:
+#   the number of files in the directory
+#######################################
+num_files() {
+    [[ $# -eq 1 ]] || return 1
+    local file_num
+    file_num=$(ls -l $1 | grep '^-' | wc -l)
+    echo $file_num
 }

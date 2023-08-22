@@ -39,7 +39,7 @@ def get_default_parser():
     parser.add_argument("--local_rank", type=int, help="local rank on the node")
     parser.add_argument("--backend", type=str, default="nccl", help="backend for distributed communication")
     parser.add_argument("--seed", type=int, default=1024)
-    parser.add_argument("--profiling", default=True, action="store_true", help="enable/diable profiling.")
+    parser.add_argument("--profiling", default=False, action="store_true", help="enable/disable profiling.")
     return parser
 
 
@@ -133,6 +133,9 @@ def args_sanity_check():
                     if "async_upload_tmp_folder" not in ckpt:
                         ckpt._add_item("async_upload_tmp_folder", "/dev/shm/internlm_tmp_ckpt/")
 
+        if not ckpt.async_upload:
+            ckpt._add_item("async_upload_tmp_folder", None)
+
         if "snapshot_ckpt_folder" not in ckpt:
             ckpt._add_item("snapshot_ckpt_folder", os.path.join(ckpt.save_ckpt_folder, "snapshot"))
 
@@ -207,9 +210,10 @@ and 'load_given_ckpt' is True, so internlm will load from 'load_ckpt_folder'"
         logger.info(f"cudnn.deterministic: {torch.backends.cudnn.deterministic }")
         logger.info(f"clip_grad_norm: {clip_grad_norm}")
 
-    if "dtype" not in gpc.config.model:
+    model = gpc.config.model
+    if "dtype" not in model:
         logger.warning("dtype is not set, use torch.float16 by defalut!")
-        gpc.config.model._add_item("dtype", torch.float16)
+        model._add_item("dtype", torch.float16)
     else:
         if gpc.config.model.dtype == "torch.bfloat16":
             gpc.config.model.dtype = torch.bfloat16
@@ -231,6 +235,16 @@ and 'load_given_ckpt' is True, so internlm will load from 'load_ckpt_folder'"
                 "torch.float32",
                 "torch.tf32",
             ]
+
+    if "checkpoint" in model:
+        if model.checkpoint is True:
+            model.checkpoint = 1
+        elif model.checkpoint is False:
+            model.checkpoint = 0
+        else:
+            assert (
+                model.checkpoint >= 0 and model.checkpoint <= 1
+            ), f'model.checkpoint: "{model.checkpoint}" should >=0 and <=1'
 
     if gpc.is_rank_for_log():
         logger.info("+" * 15 + " Model Info " + "+" * 15)  # pylint: disable=W1201

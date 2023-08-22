@@ -318,6 +318,8 @@ class CheckpointManager:
 
         if gpc.is_rank_for_log():
             logger.info(f"load_ckpt_folder will set to :'{self.load_ckpt_folder}'")
+            if self.stop_file_path is None:
+                logger.warning("no set stop_file_path, quit_signal_handler is disable")
 
     def quit_signal_handler(self, train_state) -> bool:
         """
@@ -334,7 +336,6 @@ class CheckpointManager:
         now_break, now_save_ckpt, save_type = False, False, CheckpointType.NORMAL_CHECKPOINT
 
         if self.stop_file_path is None:
-            logger.warning("no set stop_file_path")
             return now_break, now_save_ckpt, save_type
 
         with open(self.stop_file_path, "a+", encoding="utf-8") as f:
