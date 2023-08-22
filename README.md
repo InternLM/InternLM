@@ -123,28 +123,45 @@ The effect is as follows
 
 ### Deployment
 
-We use [LMDeploy](https://github.com/InternLM/LMDeploy) to complete the one-click deployment of InternLM.
+We use [LMDeploy](https://github.com/InternLM/LMDeploy) to complete the workflow of InternLM deployment.
 
-1. First, install LMDeploy:
+```bash
+python3 -m pip install lmdeploy
+```
 
-    ```bash
-    python3 -m pip install lmdeploy
-    ```
+You can utilize the following commands to conduct `internlm-chat-7b` FP16 inference, serve it and interact with AI assistant via WebUI:
 
-2. Use the following command for quick deployment:
+```bash
+# convert weight layout
+python3 -m lmdeploy.serve.turbomind.deploy internlm-chat-7b
 
-    ```bash
-    python3 -m lmdeploy.serve.turbomind.deploy internlm-chat-7b /path/to/internlm-chat-7b/model
-    ```
+# inference lmdeploy's turbomind engine
+python3 -m lmdeploy.turbomind.chat ./workspace
 
-3. After exporting the model, you can start a server and have a conversation with the deployed model using the following command:
+# serving with gradio
+python3 -m lmdeploy.serve.gradio.app ./workspace
+```
 
-    ```bash
-    bash workspace/service_docker_up.sh
-    python3 -m lmdeploy.serve.client {server_ip_addresss}:33337
-    ```
+You can also deploy 4-bit quantized `internlm-chat-7b` model via LMDeploy. It greatly trims down the model's memory overhead to 6G, just 40% of what FP16 inference would take. More importantly, with extreme optimized kernel, the inference performance achieves 2.4x faster than FP16 inference on A100-80G.
 
-[LMDeploy](https://github.com/InternLM/LMDeploy) provides a complete workflow for deploying InternLM. Please refer to the [deployment tutorial](https://github.com/InternLM/LMDeploy) for more details on deploying InternLM.
+Try the followings to enjoy 4-bit `internlm-chat-7b` on a Geforce RTX 30x GPU card. You can find the inference benchmark from [here](https://github.com/InternLM/lmdeploy/blob/main/docs/en/w4a16.md#inference-performance).
+
+```bash
+# download prequnantized internlm-chat-7b model from huggingface
+git-lfs install
+git clone https://huggingface.co/lmdeploy/llama2-chat-7b-w4
+
+# Convert the model's layout and store it in the default path, ./workspace.
+python3 -m lmdeploy.serve.turbomind.deploy internlm-chat-7b ./llama2-chat-7b-w4 awq --group-size 128
+
+# inference lmdeploy's turbomind engine
+python3 -m lmdeploy.turbomind.chat ./workspace
+
+# serving with gradio
+python3 -m lmdeploy.serve.gradio.app ./workspace
+```
+
+LMDeploy is an efficient toolkit for compressing, deploying, and serving LLM models. Please refer to the [deployment tutorial](https://github.com/InternLM/LMDeploy) for more details on deploying InternLM.
 
 ## Fine-tuning & Training
 
