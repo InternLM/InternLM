@@ -47,8 +47,7 @@ Additionally, a lightweight training framework is offered to support model pre-t
 
 ## News
 
-InternLM-7B-Chat v1.1 is released with code interpreter and function calling capability. You can try it with [Lagent](https://github.com/InternLM/lagent)
--
+InternLM-7B-Chat v1.1 is released with code interpreter and function calling capability. You can try it with [Lagent](https://github.com/InternLM/lagent).
 
 ## InternLM-7B
 
@@ -91,8 +90,8 @@ To load the InternLM 7B Chat model using Transformers, use the following code:
 
 ```python
 >>> from transformers import AutoTokenizer, AutoModelForCausalLM
->>> tokenizer = AutoTokenizer.from_pretrained("internlm/internlm-chat-7b", trust_remote_code=True)
->>> model = AutoModelForCausalLM.from_pretrained("internlm/internlm-chat-7b", trust_remote_code=True).cuda()
+>>> tokenizer = AutoTokenizer.from_pretrained("internlm/internlm-chat-7b-v1.1", trust_remote_code=True)
+>>> model = AutoModelForCausalLM.from_pretrained("internlm/internlm-chat-7b-v1.1", trust_remote_code=True).cuda()
 >>> model = model.eval()
 >>> response, history = model.chat(tokenizer, "hello", history=[])
 >>> print(response)

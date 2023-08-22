@@ -40,6 +40,10 @@ InternLM は、70 億のパラメータを持つベースモデルと、実用�
 
 さらに、大規模な依存関係を必要とせずにモデルの事前学習をサポートする軽量な学習フレームワークが提供されます。単一のコードベースで、数千の GPU を持つ大規模クラスタでの事前学習と、単一の GPU での微調整をサポートし、顕著な性能最適化を達成します。InternLM は、1024GPU でのトレーニングにおいて 90% 近いアクセラレーション効率を達成しています。
 
+## 新闻
+
+InternLM-7B-Chat v1.1 は、コード インタプリタと関数呼び出し機能を備えてリリースされました。 [Lagent](https://github.com/InternLM/lagent) で試すことができます。
+
 ## InternLM-7B
 
 ### パフォーマンス評価
@@ -80,8 +84,8 @@ Transformers を使用して InternLM 7B チャットモデルをロードする
 
 ```python
 >>> from transformers import AutoTokenizer, AutoModelForCausalLM
->>> tokenizer = AutoTokenizer.from_pretrained("internlm/internlm-chat-7b", trust_remote_code=True)
->>> model = AutoModelForCausalLM.from_pretrained("internlm/internlm-chat-7b", trust_remote_code=True).cuda()
+>>> tokenizer = AutoTokenizer.from_pretrained("internlm/internlm-chat-7b-v1.1", trust_remote_code=True)
+>>> model = AutoModelForCausalLM.from_pretrained("internlm/internlm-chat-7b-v1.1", trust_remote_code=True).cuda()
 >>> model = model.eval()
 >>> response, history = model.chat(tokenizer, "こんにちは", history=[])
 >>> print(response)
