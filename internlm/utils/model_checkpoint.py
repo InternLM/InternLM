@@ -340,18 +340,24 @@ class CheckpointSaveManager:
         self.lr_scheduler = lr_scheduler
         self.model_config = model_config
 
-    def try_save_checkpoint(self, train_state):
-        if not self.enable_save_ckpt:
-            return
-
+    def need_save_ckpts(self, train_state, step_count) -> (bool, CheckpointType):
         save_ckpts, save_type = False, CheckpointType.NORMAL_CHECKPOINT
-        if self.oss_snapshot_freq > 1 and train_state.step_count % self.oss_snapshot_freq == 0:
+
+        if self.oss_snapshot_freq > 1 and step_count % self.oss_snapshot_freq == 0:
             save_ckpts, save_type = True, CheckpointType.SNAPSHOT_CHECKPOINT
-        if train_state.step_count % self.checkpoint_every == 0:
+        if step_count % self.checkpoint_every == 0:
             save_ckpts, save_type = True, CheckpointType.NORMAL_CHECKPOINT
         if save_ckpts is False:
             if quit_signal_handler is not None:
                 save_ckpts, save_type = quit_signal_handler(train_state)
+
+        return save_ckpts, save_type
+
+    def try_save_checkpoint(self, train_state):
+        if not self.enable_save_ckpt:
+            return
+
+        save_ckpts, save_type = self.need_save_ckpts(train_state, train_state.step_count)
 
         if save_ckpts:
             # Wait for the previous round of asynchronous upload storage to complete.

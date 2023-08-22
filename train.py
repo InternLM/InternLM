@@ -658,11 +658,9 @@ def main(args):
         timer("fwd-bwd").stop()
 
         # update parameters, and returns (success_update, grad_norm)
-        need_save_ckpt = (
-            ckpt_save_manager.enable_save_ckpt
-            and (train_state.step_count + 1) % ckpt_save_manager.checkpoint_every == 0
+        trainer_result = trainer.step(
+            disable_async_broadcast=ckpt_save_manager.need_save_ckpts(train_state, train_state.step_count + 1)
         )
-        trainer_result = trainer.step(disable_async_broadcast=need_save_ckpt)
         assert trainer_result is not None
 
         success_update, grad_norm_groups = trainer_result
