@@ -122,27 +122,7 @@ def initialize_model(criterion):
 
     model = MODEL_INITIALIZER.get_module(module_name=gpc.config.model_type)(**(gpc.config.model))
     
-    model, criterion = convert_to_amp(model, criterion, mode="torch")
-    
-    # if isinstance(model, nn.ModuleList):
-    #     model = nn.ModuleList(
-    #         [
-    #             NaiveAMPModel(
-    #                 model=_m,
-    #                 output_to_fp32=False,  # manually controlled by interleaved pipleline scheduler
-    #                 dtype=gpc.config.model.get("dtype", torch.half),
-    #                 sync_buffer=False,
-    #             )
-    #             for _m in model
-    #         ]
-    #     )
-    # else:
-    #     model = NaiveAMPModel(
-    #         model=model,
-    #         output_to_fp32=is_no_pp_or_last_stage(),
-    #         dtype=gpc.config.model.get("dtype", torch.half),
-    #         sync_buffer=False,
-    #     )
+    model, criterion = convert_to_amp(model, criterion, gpc.config.model.use_amp)
 
     # This sync is very important, cause the model weights kept in optimizer are copied
     # from the origin parameters in the memory, so we should make sure the dp sync
@@ -152,6 +132,35 @@ def initialize_model(criterion):
     # This function is needed to make sure parameters that are not splitted by tensor parallelism are
     # the same across tensor parallelism.
     sync_model_param_within_tp(model)
+    
+    # def get_intermediate_output(module, input, output):
+    #     print(module, output.dtype)
+    
+    # def bwd_hook(module, grad_input, grad_output):
+    #     import pdb; pdb.set_trace()
+    #     print("bwd: ", end='')
+    #     r = []
+    #     if isinstance(grad_input, torch.Tensor) and isinstance(grad_output, torch.Tensor):
+    #         print(module, grad_input.dtype, grad_output.dtype)
+    #         return
+    #     for t in grad_input:
+    #         if t is None:
+    #             continue
+    #         r.append(t.dtype)
+    #     for t in grad_output:
+    #         if t is None:
+    #             continue
+    #         r.append(t.dtype)
+    #     print(module, r)
+    
+    # def add_hooks_recursively(module):
+    #     # module.register_forward_hook(get_intermediate_output)
+    #     module.register_full_backward_hook(bwd_hook)
+        
+    #     for child in module.children():
+    #         add_hooks_recursively(child)
+    
+    # add_hooks_recursively(model)
 
     return model, criterion
 

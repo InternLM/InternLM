@@ -7,19 +7,19 @@ from .naive_amp import convert_to_naive_amp
 from .torch_amp import convert_to_torch_amp
 
 
-def convert_to_amp(model: nn.Module, criterion, mode: str):
+def convert_to_amp(model: nn.Module, criterion, use_amp):
     """A helper function to wrap model with AMP modules.
 
     Args:
         model (nn.Module): model object.
-        mode (str): amp mode(torch or naive)
+        criterion: loss function
     Returns:
         model.
     """
     
-    if mode == "torch":
+    if use_amp:
         model, criterion = convert_to_torch_amp(model, criterion)
-    elif mode == "naive":
+    else:
         model, criterion = convert_to_naive_amp(model, criterion)
     
     return model, criterion

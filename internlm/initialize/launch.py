@@ -169,6 +169,18 @@ def args_sanity_check():
     if "resume_tb_folder" not in gpc.config:
         gpc.config._add_item("resume_tb_folder", None)
 
+    # process the model config
+    if "use_flash_attn" not in gpc.config.model:
+        gpc.config.model._add_item("use_flash_attn", True)
+    if "sequence_parallel" not in gpc.config.model:
+        gpc.config.model._add_item("sequence_parallel", False)
+    else:
+        assert not (
+            gpc.config.model.sequence_parallel is True and gpc.config.model.use_flash_attn is False
+        ), "sequence parallel does not support use_flash_attn=False"
+    if "use_amp" not in gpc.config.model:
+        gpc.config.model._add_item("use_amp", False)
+
     # cudnn
     torch.backends.cudnn.benchmark = gpc.config.get("cudnn_benchmark", False)
     torch.backends.cudnn.deterministic = gpc.config.get("cudnn_deterministic", False)
@@ -189,7 +201,8 @@ def args_sanity_check():
         elif gpc.config.model.dtype in ("torch.float16", "torch.half"):
             gpc.config.model.dtype = torch.float16
         elif gpc.config.model.dtype == "torch.float32":
-            # assert gpc.config.model.use_flash_attn is False, "when using float32, the use_flash_attn must be False"
+            if gpc.config.model.use_amp is False:
+                assert gpc.config.model.use_flash_attn is False, "when using float32, the use_flash_attn must be False"
             gpc.config.model.dtype = torch.float32
         elif gpc.config.model.dtype == "torch.tf32":
             assert gpc.config.model.use_flash_attn is False, "when using tf32, the use_flash_attn must be False"
@@ -220,16 +233,6 @@ def args_sanity_check():
 
         logger.info("+" * 15 + " beta2_scheduler Info " + "+" * 15)  # pylint: disable=W1201
         logger.info(f"beta2_scheduler: {gpc.config.beta2_scheduler}")
-
-    # process the model config
-    if "use_flash_attn" not in gpc.config.model:
-        gpc.config.model._add_item("use_flash_attn", True)
-    if "sequence_parallel" not in gpc.config.model:
-        gpc.config.model._add_item("sequence_parallel", False)
-    else:
-        assert not (
-            gpc.config.model.sequence_parallel is True and gpc.config.model.use_flash_attn is False
-        ), "sequence parallel does not support use_flash_attn=False"
 
     # feishu webhook address for alerting
     if "alert_address" not in gpc.config:
