@@ -7,6 +7,7 @@ import rotary_emb
 import torch
 import torch.nn.functional as F
 from einops import rearrange
+from flash_attn.layers.rotary import ApplyRotaryEmb as LegacyApplyRotaryEmb
 from flash_attn.layers.rotary import ApplyRotaryEmbQKV_ as LegacyApplyRotaryEmbQKV_
 from torch import Tensor, nn
 
@@ -111,6 +112,7 @@ class ApplyRotaryEmbQKV_(torch.autograd.Function):
 
 apply_rotary_emb_qkv_ = ApplyRotaryEmbQKV_.apply
 legacy_apply_rotary_embed_qkv = LegacyApplyRotaryEmbQKV_.apply
+legacy_apply_rotary_embed = LegacyApplyRotaryEmb.apply
 
 
 class RotaryEmbedding(torch.nn.Module):

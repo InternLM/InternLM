@@ -154,7 +154,7 @@ def main(args):
     criterion = FlashGPTLMLoss(parallel_output=True, label_smoothing=label_smoothing)
 
     # initialize the train and validation data loader
-    train_dl, dataset_types = get_train_data_loader(num_worker=4)
+    train_dl, dataset_types = get_train_data_loader()
     val_dls = get_validation_data_loader(logger=logger)
     train_state.init_batch_sampler(train_dl)
 

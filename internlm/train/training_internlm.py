@@ -134,9 +134,7 @@ def initialize_optimizer(model: nn.Module):
     return optimizer, beta2_scheduler, lr_scheduler
 
 
-def get_train_data_loader(
-    num_worker: int = 0, dataset_generate_func: Callable = None, train_sampler=None, train_collate_fn=None
-):
+def get_train_data_loader(dataset_generate_func: Callable = None, train_sampler=None, train_collate_fn=None):
     """
     Generate and return the training data loader.
 
@@ -163,7 +161,6 @@ def get_train_data_loader(
             )
     else:
         if dataset_generate_func is not None:
-            assert train_sampler and train_collate_fn is not None
             train_ds = dataset_generate_func()
         else:
             train_ds = get_packed_dataset_without_short_length(
@@ -176,7 +173,7 @@ def get_train_data_loader(
                 pack_into_one_sample=data_cfg.pack_sample_into_one,
             )
 
-    if train_sampler is None:
+    if dataset_generate_func is None:
         # partition already completed
         assert isinstance(train_ds, (PackedDataset, PackedDatasetWithoutCuSeqlen, ConcatDataset))
         # Create the training dataset sampler
@@ -191,24 +188,24 @@ def get_train_data_loader(
             data_world_size=gpc.get_world_size(ParallelMode.DATA),
         )
 
-    if train_collate_fn is None:
+    if dataset_generate_func is None:
         train_collate_fn = partial(packed_collate_fn, packed_length=data_cfg.packed_length)
 
     # Create the training data loader
     train_dl = DataLoader(
         dataset=train_ds,
         batch_sampler=train_sampler,
-        num_workers=num_worker,
+        num_workers=data_cfg.get("num_worker", 0),
         pin_memory=True,
         collate_fn=train_collate_fn,
-        persistent_workers=True,
+        persistent_workers=data_cfg.get("num_worker", 0) > 0,
     )
 
     return train_dl, dataset_types
 
 
 def get_validation_data_loader(
-    num_worker: int = 0, dataset_generate_func: Callable = None, val_collate_fn=None, dataloader_func=None, logger=None
+    dataset_generate_func: Callable = None, val_collate_fn=None, dataloader_func=None, logger=None
 ):
     """Generate and return the validation data loader."""
 
@@ -232,7 +229,12 @@ def get_validation_data_loader(
     val_dls = {}
     for val_name, ds in val_ds.items():
         if dataloader_func is not None:
-            val_dls[val_name] = dataloader_func(dataset=ds)
+            val_dls[val_name] = dataloader_func(dataset=ds, collate_fn=val_collate_fn)
+            if gpc.is_rank_for_log() and logger is not None:
+                logger.info(
+                    f"load validation dataset {val_name} with valid batch size {str(data_cfg.valid_micro_num)} and "
+                    f"{ds.size} Byte samples."
+                )
         else:
             # making the batch_size of validate larger can speed up the evaluation, but it should not be too large,
             # otherwise too much data may be dropped
@@ -248,7 +250,7 @@ def get_validation_data_loader(
             val_dls[val_name] = get_dpsampler_dataloader(
                 ds,
                 shuffle=False,
-                num_workers=num_worker,
+                num_workers=data_cfg.get("num_worker", 0),
                 batch_size=batch_size,
                 collate_fn=val_collate_fn,
                 drop_last=True,
@@ -278,13 +280,15 @@ def load_new_batch(train_dl: DataLoader, train_iter: Iterable, train_state: Trai
     timer("batch-gen").start()
     try:
         batch = next(train_iter)  # structure is ({'input_ids': Tensor, 'cu_seqlens': Tensor}, Tensor)
-        next(train_state.batch_sampler_iter)
+        if hasattr(train_state, "batch_sampler_iter"):
+            next(train_state.batch_sampler_iter)
     except StopIteration:
         train_iter = iter(train_dl)
         batch = next(train_iter)
-        train_state.batch_sampler_iter = iter(train_state.batch_sampler)
-        next(train_state.batch_sampler_iter)
         train_state.num_consumed_samples_in_epoch = 0
+        if hasattr(train_state, "batch_sampler"):
+            train_state.batch_sampler_iter = iter(train_state.batch_sampler)
+            next(train_state.batch_sampler_iter)
     timer("batch-gen").stop()
 
     if batch[0].get("type_ids", None) is not None:
