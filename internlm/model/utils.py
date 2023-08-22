@@ -88,15 +88,17 @@ def gather_forward_split_backward(input_, parallel_mode, dim):
     return _GatherForwardSplitBackward.apply(input_, parallel_mode, dim)
 
 
-def linear_bias_wgrad_torch(input, grad_output, has_d_bias):
-    assert input.dtype == grad_output.dtype
-    grad_weight = torch.matmul(grad_output.t(), input)
+def linear_bias_wgrad_torch(my_input, grad_output, has_d_bias):
+    assert my_input.dtype == grad_output.dtype
+    grad_weight = torch.matmul(grad_output.t(), my_input)
     grad_bias = grad_output.sum(dim=0) if has_d_bias else None
     return grad_weight, grad_bias
 
 
 # adpated from https://github.com/Dao-AILab/flash-attention/blob/main/flash_attn/ops/fused_dense.py
 class FusedDenseFuncTorch(FusedDenseFunc):
+    """A custom PyTorch module extending FusedDenseFunc."""
+
     @staticmethod
     @custom_bwd
     def backward(ctx, grad_output, *args):
@@ -173,8 +175,8 @@ class _SplitForwardGatherBackward(torch.autograd.Function):
     """
 
     @staticmethod
-    def symbolic(graph, input_):
-        return _split(input_)
+    def symbolic(input_):
+        return _split(input_, parallel_mode=None)
 
     @staticmethod
     def forward(ctx, input_, parallel_mode, dim):
@@ -201,7 +203,7 @@ def try_import_RMSNorm():
 
         return RMSNorm
     except ModuleNotFoundError:
-        logger.warn("The torch implementation for MixFusedRMSNorm is slower than apex. Please note this!")
+        logger.warning("The torch implementation for MixFusedRMSNorm is slower than apex. Please note this!")
         from internlm.model.norm import RMSNormTorch as RMSNorm
 
         return RMSNorm

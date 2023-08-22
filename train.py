@@ -7,6 +7,7 @@ import traceback
 from functools import partial
 from typing import Iterable
 
+import numpy as np
 import torch
 import torch.distributed as dist
 from torch import nn
@@ -38,12 +39,13 @@ from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
 from internlm.solver.optimizer import HybridZeroOptimizer
 from internlm.utils.common import (
     BatchSkipper,
+    DummyProfile,
     get_master_node,
     get_megatron_flops,
     launch_time,
     parse_args,
 )
-from internlm.utils.evaluation import evaluate_on_val_dls, switch_sequence_parallel_mode
+from internlm.utils.evaluation import evaluate_on_val_dls
 from internlm.utils.logger import get_logger, initialize_uniscale_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
 from internlm.utils.model_checkpoint import (
@@ -301,6 +303,11 @@ def load_new_batch(train_dl: DataLoader, train_iter: Iterable, train_state: Trai
         train_state.num_consumed_samples_in_epoch = 0
     timer("batch-gen").stop()
 
+    if batch[0].get("type_ids", None) is not None:
+        # if use_flash_attn is False, we need to unpack type_ids
+        if not gpc.config.model.use_flash_attn:
+            batch[0]["type_ids"] = unpack_data(batch[0]["type_ids"], batch[0]["cu_seqlens"])
+
     return batch, train_iter
 
 
@@ -330,6 +337,29 @@ def initialize_optimizer(model: nn.Module):
     lr_scheduler = FineTuneCosineAnnealingWarmupLR(optimizer, **gpc.config.lr_scheduler)
 
     return optimizer, beta2_scheduler, lr_scheduler
+
+
+def initialize_llm_profile(profiling: bool = False, start_time: str = None):
+    """Initialize and return the profiler context manager instance."""
+
+    if profiling and gpc.get_local_rank(ParallelMode.DATA) == 0 and gpc.get_local_rank(ParallelMode.TENSOR) == 0:
+        llm_profile = torch.profiler.profile
+        logger.info(f"Do profiling in rank {gpc.get_global_rank()}!")
+    else:
+        llm_profile = DummyProfile
+
+    return llm_profile(
+        activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
+        schedule=torch.profiler.schedule(skip_first=5, wait=1, warmup=1, active=1, repeat=1),
+        on_trace_ready=torch.profiler.tensorboard_trace_handler(
+            f"{gpc.config.JOB_NAME}/{start_time}/traces/rank{gpc.get_global_rank()}_"
+            + f"dp{gpc.get_local_rank(ParallelMode.DATA)}_"
+            + f"tp{gpc.get_local_rank(ParallelMode.TENSOR)}_"
+            + f"pp{gpc.get_local_rank(ParallelMode.PIPELINE)}",
+        ),
+        with_stack=True,
+        with_modules=True,
+    )
 
 
 def record_current_batch_training_metrics(
@@ -556,7 +586,12 @@ def main(args):
     scheduler_hooks = [
         SchedulerMetricHook(
             metric=metric,
-            skip=gpc.is_using_pp() and gpc.config.parallel["pipeline"].get("interleaved_overlap", False),
+            skip=(
+                gpc.is_using_pp()
+                and hasattr(gpc.config.model, "num_chunks")
+                and gpc.config.model.num_chunks > 1
+                and gpc.config.parallel["pipeline"].get("interleaved_overlap", False)
+            ),
         ),
     ]
 
@@ -582,6 +617,19 @@ def main(args):
     else:
         memory_profiler = None
 
+    # initialize simple memory profiler
+    if args.profiling:
+        memory_profiler = SimpleMemoryProfiler(
+            model.model,
+            optimizer.optim,
+            log_folder=f"memory_trace/rank{gpc.get_global_rank()}_"
+            + f"dp{gpc.get_local_rank(ParallelMode.DATA)}_"
+            + f"tp{gpc.get_local_rank(ParallelMode.TENSOR)}",
+            activation_config=build_activation_config(gpc.config.model.num_layers),
+        )
+    else:
+        memory_profiler = None
+
     # initialize the batch skipper
     batch_skipper = BatchSkipper(skip_batches)
 
@@ -590,83 +638,79 @@ def main(args):
     # transfer the train data loader into train data iterator
     train_iter = iter(train_dl)
 
-    # start iterating the train data and begin training
-    for batch_count in range(train_state.batch_count, total_steps):
-        if batch_count % 50 == 0:
-            torch.cuda.empty_cache()
+    with initialize_llm_profile(profiling=args.profiling, start_time=current_time) as prof:
+        # start iterating the train data and begin training
+        for batch_count in range(train_state.batch_count, total_steps):
+            if batch_count % 50 == 0:
+                torch.cuda.empty_cache()
 
-        start_time = time.time()
-        timer("one-batch").start()
+            start_time = time.time()
+            timer("one-batch").start()
 
-        # load batch data
-        batch, train_iter = load_new_batch(train_dl=train_dl, train_iter=train_iter, train_state=train_state)
+            # load batch data
+            batch, train_iter = load_new_batch(train_dl=train_dl, train_iter=train_iter, train_state=train_state)
 
-        # record the consumed samples in training
-        train_state.batch_count = batch_count
-        train_state.num_consumed_samples_in_epoch += len(batch[1])
-        if batch_skipper(batch_count):  # skip this batch
-            if gpc.is_rank_for_log():
-                logger.info(f"Skip batch count:`{batch_count}`...")
+            # record the consumed samples in training
+            train_state.batch_count = batch_count
+            train_state.num_consumed_samples_in_epoch += len(batch[1])
+            if batch_skipper(batch_count):  # skip this batch
+                if gpc.is_rank_for_log():
+                    logger.info(f"Skip batch count:`{batch_count}`...")
+                timer("one-batch").stop()
+                continue
+
+            # zero the grads of parameters
+            trainer.zero_grad()
+            # process data
+            if batch[0].get("type_ids", None) is not None:
+                metric.set_current_type_ids(type_ids=batch[0].pop("type_ids", None))
+
+            # do forward and backward
+            timer("fwd-bwd").start()
+            _, _, loss = trainer.execute_schedule(
+                batch, forward_only=False, return_loss=True, return_output_label=False
+            )
+            timer("fwd-bwd").stop()
+
+            # update parameters, and returns (success_update, grad_norm)
+            trainer_result = trainer.step()
+            assert trainer_result is not None
+
+            success_update, grad_norm_groups = trainer_result
+            if success_update:  # update parameters successfully
+                train_state.step_count += 1
+            else:
+                train_state.inf_nan_skip_batches += 1  # record the amount of updating parameters unsuccessfully.
+                if -99.0 in grad_norm_groups and gpc.is_rank_for_log():  # -99.0 encodes a specific failure case
+                    logger.warning(f"Warning: skip parameter update at step {batch_count}.")
+                    send_alert_message(
+                        address=gpc.config.alert_address,
+                        message=f"Warning: skip parameter update at step {batch_count}.",
+                    )
+
+            # calculate and record the training metrics, eg. loss, accuracy and so on.
+            record_current_batch_training_metrics(
+                get_tflops_func=get_tflops_func,
+                logger=logger,
+                writer=writer,
+                success_update=success_update,
+                batch_count=batch_count,
+                batch=batch,
+                train_state=train_state,
+                optimizer=optimizer,
+                beta2_scheduler=beta2_scheduler,
+                trainer=trainer,
+                start_time=start_time,
+                loss=loss,
+                grad_norm=np.array(grad_norm_groups),
+                metric=metric,
+                update_panel=uniscale_logger is not None,
+            )
+
             timer("one-batch").stop()
-            continue
 
-        # zero the grads of parameters
-        trainer.zero_grad()
-        type_ids = batch[0].pop("type_ids", None)
-        # process data
-        # if use_flash_attn is False, we need to unpack type_ids
-        if not gpc.config.model.use_flash_attn:
-            type_ids = unpack_data(type_ids, batch[0]["cu_seqlens"])
-        if type_ids is not None:
-            metric.set_current_type_ids(type_ids=type_ids)
-
-        # do forward and backward
-        timer("fwd-bwd").start()
-        _, _, loss = trainer.execute_schedule(batch, forward_only=False, return_loss=True, return_output_label=False)
-        timer("fwd-bwd").stop()
-
-        # update parameters, and returns (success_update, grad_norm)
-        trainer_result = trainer.step()
-        assert trainer_result is not None
-
-        success_update, grad_norm = trainer_result
-        if success_update:  # update parameters successfully
-            train_state.step_count += 1
-        else:
-            train_state.inf_nan_skip_batches += 1  # record the amount of updating parameters unsuccessfully.
-            if grad_norm == -99.0 and gpc.is_rank_for_log():  # -99.0 encodes a specific failure case
-                logger.warning(f"Warning: skip parameter update at step {batch_count}.")
-                send_alert_message(
-                    address=gpc.config.alert_address, message=f"Warning: skip parameter update at step {batch_count}."
-                )
-
-        # calculate and record the training metrics, eg. loss, accuracy and so on.
-        record_current_batch_training_metrics(
-            get_tflops_func=get_tflops_func,
-            logger=logger,
-            writer=writer,
-            success_update=success_update,
-            batch_count=batch_count,
-            batch=batch,
-            train_state=train_state,
-            optimizer=optimizer,
-            beta2_scheduler=beta2_scheduler,
-            trainer=trainer,
-            start_time=start_time,
-            loss=loss,
-            grad_norm=grad_norm,
-            metric=metric,
-            update_panel=uniscale_logger is not None,
-        )
-
-        timer("one-batch").stop()
-        
-        if memory_profiler is not None:
-            memory_profiler.step()
-
-        # evaluate on validation data loaders
-        if valid_every > 0 and train_state.step_count % valid_every == 0:
-            with switch_sequence_parallel_mode():
+            # evaluate on validation data loaders
+            if valid_every > 0 and train_state.step_count % valid_every == 0:
                 evaluate_on_val_dls(
                     trainer=trainer,
                     val_dls=val_dls,
@@ -676,9 +720,14 @@ def main(args):
                     update_panel=uniscale_logger is not None,
                 )
 
-        # checkpoint the training states in specific steps, which is determined by the args "checkpoint_every"
-        # # save batch sampler that tracks the true consumed samples
-        ckpt_save_manager.try_save_checkpoint(train_state)
+            # checkpoint the training states in specific steps, which is determined by the args "checkpoint_every"
+            # # save batch sampler that tracks the true consumed samples
+            ckpt_save_manager.try_save_checkpoint(train_state)
+
+            if memory_profiler is not None:
+                memory_profiler.step()
+
+            prof.step()
 
     ckpt_save_manager.wait_async_upload_finish()
 
@@ -701,7 +750,7 @@ if __name__ == "__main__":
             #     exc_info=traceback.format_exc(),
             # )
             logger.error(
-                f"Raise exception from {hostname} with rank id: {gpc.get_global_rank()}",
+                f"Raise exception from {hostname} with rank id: {gpc.get_global_rank()}\n{traceback.format_exc()}",
             )
             logger.exception(e)
             mm.monitor_exception(alert_address=gpc.config.alert_address, excp_info=traceback.format_exc())

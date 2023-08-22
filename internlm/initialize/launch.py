@@ -108,6 +108,9 @@ def args_sanity_check():
         logger.info(f"valid_every: {data.valid_every}")
 
     # processing the checkpoint config
+    if "enable_save_ckpt" not in gpc.config.ckpt:
+        gpc.config.ckpt._add_item("enable_save_ckpt", False)
+
     if "checkpoint_every" not in gpc.config.ckpt or gpc.config.ckpt.checkpoint_every <= 0:
         gpc.config.ckpt._add_item("checkpoint_every", float("inf"))
 
@@ -125,21 +128,19 @@ def args_sanity_check():
 
     if "async_upload" not in gpc.config.ckpt:
         gpc.config.ckpt._add_item("async_upload", False)
-    else:
-        if gpc.config.ckpt.async_upload:
-            assert "save_ckpt_folder" in gpc.config.ckpt
-            if "boto3:" not in gpc.config.ckpt.save_ckpt_folder:
-                if gpc.is_rank_for_log():
-                    logger.warning(
-                        "Storing ckpt on file system does not support asynchronous storage, will use sync save!"
-                    )
-                gpc.config.ckpt.async_upload = False
-            else:
-                if "async_upload_tmp_folder" not in gpc.config.ckpt:
-                    gpc.config.ckpt._add_item("async_upload_tmp_folder", "/dev/shm/internlm_tmp_ckpt/")
+
+    if "async_upload_tmp_folder" not in gpc.config.ckpt:
+        gpc.config.ckpt._add_item("async_upload_tmp_folder", "/dev/shm/internlm_tmp_ckpt/")
+
+    if gpc.config.ckpt.async_upload:
+        assert "save_ckpt_folder" in gpc.config.ckpt
+        if "boto3:" not in gpc.config.ckpt.save_ckpt_folder:
+            if gpc.is_rank_for_log():
+                logger.warning("Storing ckpt on file system does not support asynchronous storage, will use sync save!")
+            gpc.config.ckpt.async_upload = False
 
     if "snapshot_ckpt_folder" not in gpc.config.ckpt:
-        gpc.config.ckpt._add_item("snapshot_ckpt_folder", os.path.join(gpc.config.ckpt.save_ckpt_folder), "snapshot")
+        gpc.config.ckpt._add_item("snapshot_ckpt_folder", os.path.join(gpc.config.ckpt.save_ckpt_folder, "snapshot"))
 
     if "oss_snapshot_freq" not in gpc.config.ckpt and gpc.config.ckpt.checkpoint_every != float("inf"):
         gpc.config.ckpt._add_item("oss_snapshot_freq", gpc.config.ckpt.checkpoint_every / 2)
@@ -149,14 +150,14 @@ def args_sanity_check():
         gpc.config.ckpt.load_ckpt_folder is not None and gpc.config.ckpt.load_model_only_folder is not None
     ), "'load_ckpt_folder' and 'load_model_only_folder' cannot be set at the same time."
 
-    if "enable_save_ckpt" not in gpc.config.ckpt:
-        gpc.config.ckpt._add_item("enable_save_ckpt", False)
-
     if gpc.is_rank_for_log():
         logger.info("+" * 15 + " Ckpt Info " + "+" * 15)  # pylint: disable=W1201
         logger.info(f"is enable save ckpt: {gpc.config.ckpt.enable_save_ckpt}")
         logger.info(f"save_ckpt_folder: {gpc.config.ckpt.save_ckpt_folder}")
         logger.info(f"checkpoint_every: {gpc.config.ckpt.checkpoint_every}")
+        logger.info(f"async_upload: {gpc.config.ckpt.async_upload}")
+        if gpc.config.ckpt.async_upload:
+            logger.info(f"async_upload_tmp_folder: {gpc.config.ckpt.async_upload_tmp_folder}")
 
     # initialization storage manager
     init_storage_manager(gpc.config.ckpt)
@@ -192,9 +193,10 @@ def args_sanity_check():
         logger.info(f"cudnn.deterministic: {torch.backends.cudnn.deterministic }")
         logger.info(f"clip_grad_norm: {clip_grad_norm}")
 
-    if "dtype" not in gpc.config.model:
+    model = gpc.config.model
+    if "dtype" not in model:
         logger.warning("dtype is not set, use torch.float16 by defalut!")
-        gpc.config.model._add_item("dtype", torch.float16)
+        model._add_item("dtype", torch.float16)
     else:
         if gpc.config.model.dtype == "torch.bfloat16":
             gpc.config.model.dtype = torch.bfloat16
@@ -217,6 +219,16 @@ def args_sanity_check():
                 "torch.float32",
                 "torch.tf32",
             ]
+
+    if "checkpoint" in model:
+        if model.checkpoint is True:
+            model.checkpoint = 1
+        elif model.checkpoint is False:
+            model.checkpoint = 0
+        else:
+            assert (
+                model.checkpoint >= 0 and model.checkpoint <= 1
+            ), f'model.checkpoint: "{model.checkpoint}" should >=0 and <=1'
 
     if gpc.is_rank_for_log():
         logger.info("+" * 15 + " Model Info " + "+" * 15)  # pylint: disable=W1201

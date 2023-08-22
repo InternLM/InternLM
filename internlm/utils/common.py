@@ -218,3 +218,21 @@ def get_megatron_flops(
 
     tflops = flops_per_iteration / (elapsed_time_per_iter * global_world_size * (10**12))
     return tflops
+
+
+class DummyProfile:
+    """
+    Dummy Profile.
+    """
+
+    def __init__(self, *args, **kwargs) -> None:
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, a, b, c):
+        pass
+
+    def step(self):
+        pass

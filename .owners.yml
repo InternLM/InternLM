@@ -1,0 +1,14 @@
+assign:
+  strategy:
+    # random
+    daily-shift-based
+  schedule:
+    '*/1 * * * *'
+  assignees:
+    - yhcc
+    - yhcc
+    - sunpengsdu
+    - sunpengsdu
+    - ZwwWayne
+    - ZwwWayne
+    - yhcc
