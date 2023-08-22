@@ -164,7 +164,7 @@ def initialize_model(criterion):
     
     # add_hooks_recursively(model)
 
-    return model, criterion
+    # return model, criterion
 
 
 def get_train_data_loader(num_worker: int = 0):
@@ -624,7 +624,6 @@ def main(args):
             log_folder=f"memory_trace/rank{gpc.get_global_rank()}_"
             + f"dp{gpc.get_local_rank(ParallelMode.DATA)}_"
             + f"tp{gpc.get_local_rank(ParallelMode.TENSOR)}",
-            activation_config=build_activation_config(gpc.config.model.num_layers),
         )
     else:
         memory_profiler = None
