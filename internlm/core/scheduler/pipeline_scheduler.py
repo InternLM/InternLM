@@ -241,7 +241,7 @@ class PipelineScheduler(BaseScheduler):
         return step_id
 
     def _forward_step(self, engine, input_obj, return_tensors, return_output_label=True,
-                      accum_loss=None, accum_moe_loss=None, moe_loss_coeff:float=1.0):
+                      accum_loss=None, accum_moe_loss=None, moe_loss_coeff=1.0):
         """
         Forward step for passed-in model. If it is the first stage, the input tensor
         is obtained from data_iterator, otherwise the passed-in input_obj is used.
@@ -342,7 +342,7 @@ class PipelineScheduler(BaseScheduler):
 
         return input_obj_grad
 
-    def _forward_only_step(self, engine, return_loss=True, return_output_label=True, moe_loss_coeff:float=1.0):
+    def _forward_only_step(self, engine, return_loss=True, return_output_label=True, moe_loss_coeff=1.0):
         """
         This function performs forward only computation process. The scheduling of microbatches is similar to the
         warmup phase, where each microbatch first receives the forward input from the previous stage, then performs
@@ -415,7 +415,7 @@ class PipelineScheduler(BaseScheduler):
 
         return output, label, accum_loss, accum_moe_loss
 
-    def _forward_backward_step(self, engine, return_loss=True, return_output_label=True, moe_loss_coeff:float=1.0):
+    def _forward_backward_step(self, engine, return_loss=True, return_output_label=True, moe_loss_coeff=1.0):
         """
         This function schedules the forward and backward computation of microbatches in the pipeline in a 1F1B manner.
         It consists of three stages: warmup, 1F1B, and cooldown.
@@ -621,7 +621,7 @@ class PipelineScheduler(BaseScheduler):
         return output, label, accum_loss, accum_moe_loss
 
     def forward_backward_step(self, engine, data_iter, forward_only=False, return_loss=True,
-                              return_output_label=True, moe_loss_coeff:float=1.0):
+                              return_output_label=True, moe_loss_coeff=1.0):
         """Runs non-interleaved 1F1B schedule, with communication between pipeline stages.
         Returns a tuple with losses if the last stage, an empty tuple otherwise.
 
@@ -718,7 +718,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         self._input_objs = [[] for _ in range(num_chunks)]
         self._output_objs = [[] for _ in range(num_chunks)]
         self._output_obj_grads = [[] for _ in range(num_chunks)]
-        self._moe_losses =  [[] for _ in range(num_chunks)]
+        self._moe_losses = [[] for _ in range(num_chunks)]
 
         self._input_obj_shapes = [self.tensor_shape for _ in range(num_chunks)]
         self._output_obj_shapes = [None for _ in range(num_chunks)]
@@ -731,7 +731,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         self._input_objs = [[] for _ in range(self._num_chunks)]
         self._output_objs = [[] for _ in range(self._num_chunks)]
         self._output_obj_grads = [[] for _ in range(self._num_chunks)]
-        self._moe_losses =  [[] for _ in range(self._num_chunks)]
+        self._moe_losses = [[] for _ in range(self._num_chunks)]
 
         self._input_obj_shapes = [self.tensor_shape for _ in range(self._num_chunks)]
         self._output_obj_shapes = [None for _ in range(self._num_chunks)]
@@ -753,7 +753,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         self.microbatch_offset[model_chunk_id] += self.microbatch_size
         return move_to_device(micro_batch_data)
 
-    def _forward_step(self, engine, chunk_id, moe_loss_coeff:float=1.0):
+    def _forward_step(self, engine, chunk_id, moe_loss_coeff=1.0):
         """Forward step for passed-in model. If it is the first stage, the input tensor
         is obtained from data_iterator, otherwise the passed-in input_obj is used.
         Returns output tensor. This is a helper function and can be ignored by users.
@@ -1286,8 +1286,8 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         # 3. Cooldown
         self._run_cooldown_loop(engine, num_microsteps, num_1f1b_micropairs=num_1f1b_micropairs)
 
-    def forward_backward_step(self, engine, data_iter, forward_only=False, return_loss=True, 
-                              return_output_label=True, moe_loss_coeff:float=1.0):
+    def forward_backward_step(self, engine, data_iter, forward_only=False, return_loss=True,
+                              return_output_label=True, moe_loss_coeff=1.0):
         """Run interleaved 1F1B schedule (model split into model chunks), with
         communication between pipeline stages as needed.
 
@@ -1315,7 +1315,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
 
         if return_output_label:
             self._return_tensors = []
-        
+
         if forward_only:
             self._forward_only_step(engine, moe_loss_coeff)
         else:
