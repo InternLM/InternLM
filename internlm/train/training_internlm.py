@@ -208,7 +208,7 @@ def get_train_data_loader(
         num_workers=num_worker,
         pin_memory=True,
         collate_fn=train_collate_fn,
-        persistent_workers=True,
+        persistent_workers=num_worker > 0,
     )
 
     return train_dl, dataset_types
