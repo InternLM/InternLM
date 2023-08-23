@@ -335,6 +335,8 @@ class PipelineScheduler(BaseScheduler):
                 if output_obj_grad is None:
                     engine.backward(output_obj + moe_loss)
                 else:
+                    # scale the latent loss
+                    moe_loss = moe_loss * engine.optimizer.loss_scale
                     engine.backward_by_grad([output_obj, moe_loss], [output_obj_grad, None])
 
         # Collect the grad of the input_obj.

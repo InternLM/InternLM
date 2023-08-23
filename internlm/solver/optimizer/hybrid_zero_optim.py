@@ -498,25 +498,6 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         # Gradients may not be fully synchronized here.
 
-    def backward_by_grad(self, tensor, grad):
-        if isinstance(tensor, list) and isinstance(grad, list):
-            tensors = []
-            grads = []
-            for _t, _g in zip(tensor, grad):
-                # scale the latent loss for moe pipeline
-                if self._is_latent_loss(_t, _g):
-                    _t = self.loss_scale * _t
-                tensors.append(_t)
-                grads.append(_g)
-            torch.autograd.backward(tensors=tensors, grad_tensors=grads)
-        else:
-            torch.autograd.backward(tensors=tensor, grad_tensors=grad)
-
-    def _is_latent_loss(self, tensor, grad=None):
-        if tensor is not None and grad is None:
-            return tensor.numel() == 1
-        return False
-
     def _compute_norm_with_stage(
         self,
         group_id: int = 0,
