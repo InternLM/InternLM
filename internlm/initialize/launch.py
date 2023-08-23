@@ -10,6 +10,7 @@ import torch
 
 from internlm.core.context import Config
 from internlm.core.context import global_context as gpc
+from internlm.utils.common import get_master_node
 from internlm.utils.logger import get_logger
 from internlm.utils.storage_manager import init_storage_manager
 
@@ -322,8 +323,6 @@ def launch(
     # init process groups for different parallel modes from config
     gpc.init_parallel_groups()
 
-    args_sanity_check()
-
     # set cuda device
     if torch.cuda.is_available():
         # if local rank is not given, calculate automatically
@@ -376,7 +375,11 @@ def launch_from_slurm(
     )
 
 
-def launch_from_torch(config: Union[str, Path, Config, Dict], backend: str = "nccl", seed: int = 1024):
+def launch_from_torch(
+    config: Union[str, Path, Config, Dict],
+    backend: str = "nccl",
+    seed: int = 1024,
+):
     """A wrapper for internlm.launch for torchrun or torch.distributed.launch by reading rank and world size
     from the environment variables set by PyTorch
 
@@ -404,3 +407,38 @@ def launch_from_torch(config: Union[str, Path, Config, Dict], backend: str = "nc
         backend=backend,
         seed=seed,
     )
+
+
+def initialize_distributed_env(
+    config: str,
+    launcher: str = "slurm",
+    master_port: int = 8888,
+    seed: int = 1024,
+    args_check=True,
+):
+    """
+    Initialize distributed environment for distributed training.
+
+    Args:
+        config (str): Config file path.
+        launcher (str): Launcher for launching distributed environment, can be slurm or torch. "slurm" by default.
+        master_port (str): The master port for distributed training. 8888 by default.
+        seed (int, optional): Specified random seed for every process. 1024 by default.
+    """
+
+    torch.cuda.empty_cache()
+
+    if launcher == "torch":
+        launch_from_torch(config=config, seed=seed)
+    elif launcher == "slurm":
+        launch_from_slurm(
+            config=config,
+            host=get_master_node(),
+            port=master_port,
+            seed=seed,
+        )
+    else:
+        assert launcher in ["slurm", "torch"], "launcher only support slurm or torch"
+
+    if args_check:
+        args_sanity_check()

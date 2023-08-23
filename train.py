@@ -29,6 +29,7 @@ from internlm.data.packed_dataset import (
     get_packed_dataset_without_short_length,
 )
 from internlm.data.utils import DATASET_TYPE_IDS_MAP, unpack_data
+from internlm.initialize.launch import initialize_distributed_env
 from internlm.model.loss import FlashGPTLMLoss
 from internlm.model.metrics import AccPerplex
 from internlm.monitor import initialize_monitor_manager, send_alert_message, set_env_var
@@ -39,7 +40,6 @@ from internlm.solver.optimizer import HybridZeroOptimizer
 from internlm.utils.common import (
     BatchSkipper,
     DummyProfile,
-    get_master_node,
     get_megatron_flops,
     launch_time,
     parse_args,
@@ -60,32 +60,6 @@ from internlm.utils.writer import Writer
 
 # global llm logger
 logger = get_logger(__file__)
-
-
-def initialize_distributed_env(config: str, launcher: str = "slurm", master_port: int = 8888, seed: int = 1024):
-    """
-    Initialize distributed environment for distributed training.
-
-    Args:
-        config (str): Config file path.
-        launcher (str): Launcher for launching distributed environment, can be slurm or torch. "slurm" by default.
-        master_port (str): The master port for distributed training. 8888 by default.
-        seed (int, optional): Specified random seed for every process. 1024 by default.
-    """
-
-    torch.cuda.empty_cache()
-
-    if launcher == "torch":
-        internlm.launch_from_torch(config=config, seed=seed)
-    elif launcher == "slurm":
-        internlm.launch_from_slurm(
-            config=config,
-            host=get_master_node(),
-            port=master_port,
-            seed=seed,
-        )
-    else:
-        assert launcher in ["slurm", "torch"], "launcher only support slurm or torch"
 
 
 def initialize_llm_logger(start_time: str):
