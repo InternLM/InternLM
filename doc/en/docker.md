@@ -5,7 +5,7 @@ The configuration and build of the Dockerfile are implemented through the docker
 ``` 
 make -f docker.Makefile BASE_OS=centos7 DOCKERFILE_PATH=./dockerfile/Dockerfile-centos
 ``` 
-In docker.Makefile, you can customize the basic image, environment version, etc., and the corresponding parameters can be passed directly through the command line. For BASE_OS, ubuntu20.04, ubuntu22.04 and centos7 are respectively supported. The specific Dockerfile is specified through DOCKERFILE_PATH.
+In docker.Makefile, you can customize the basic image, environment version, etc., and the corresponding parameters can be passed directly through the command line. For BASE_OS, ubuntu20.04 and centos7 are respectively supported. The specific Dockerfile is specified through DOCKERFILE_PATH.
 
 ### Pull standard image
 The standard image based on ubuntu and centos has been built and can be directly pulled:
@@ -13,8 +13,6 @@ The standard image based on ubuntu and centos has been built and can be directly
 ```
 # ubuntu20.04
 docker pull li126com/internlm:torch1.13.1-cuda11.7.1-flashatten1.0.5-ubuntu20.04
-# ubuntu22.04
-docker pull li126com/internlm:torch1.13.1-cuda11.7.1-flashatten1.0.5-ubuntu22.04
 # centos7
 docker pull li126com/internlm:torch1.13.1-cuda11.7.1-flashatten1.0.5-centos7
 ```

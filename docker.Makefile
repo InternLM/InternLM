@@ -8,7 +8,7 @@ GCC_VERSION               = 10.2.0
 
 CUDNN_VERSION             = 8
 BASE_RUNTIME              =
-# ubuntu20.04  ubuntu22.04  centos7
+# ubuntu20.04  centos7
 BASE_OS                   = centos7
 BASE_DEVEL                = nvidia/cuda:$(CUDA_VERSION)-cudnn$(CUDNN_VERSION)-devel-${BASE_OS}
 # The conda channel to use to install cudatoolkit
