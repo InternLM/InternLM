@@ -12,23 +12,15 @@ from torch.optim import Optimizer
 from internlm.core.context import Config, ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.monitor import send_alert_message
-from internlm.solver.optimizer.store import (
-    BucketStore,
-    GradientStore,
-    ParameterStore,
-    TensorBucket,
-)
-from internlm.solver.optimizer.utils import (
-    DynamicGradScaler,
-    flatten,
-    get_grad_accumulate_object,
-    has_inf_or_nan,
-    reduce_tensor,
-    release_param_grad,
-    split_half_float_double,
-    sync_param,
-    ParamBcastSyncHandler,
-)
+from internlm.solver.optimizer.store import (BucketStore, GradientStore,
+                                             ParameterStore, TensorBucket)
+from internlm.solver.optimizer.utils import (DynamicGradScaler,
+                                             ParamBcastSyncHandler, flatten,
+                                             get_grad_accumulate_object,
+                                             has_inf_or_nan, reduce_tensor,
+                                             release_param_grad,
+                                             split_half_float_double,
+                                             sync_param)
 from internlm.utils.common import get_current_device
 from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
@@ -307,7 +299,9 @@ class HybridZeroOptimizer(BaseOptimizer):
                         self._grad_store.add_accumulate_grad_object(accum_grad_obj)
 
                         reduction_func = partial(
-                            self._store_and_try_reduce_grads_by_bucket, param=param, reduce_rank=reduce_rank
+                            self._store_and_try_reduce_grads_by_bucket,
+                            param=param,
+                            reduce_rank=reduce_rank,
                         )
 
                         # define hook
@@ -399,7 +393,10 @@ class HybridZeroOptimizer(BaseOptimizer):
         with torch.cuda.stream(self._comm_stream):
             flat = bucket.flatten()
             reduced_flat = reduce_tensor(
-                tensor=flat, dtype=self.dtype, dst_rank=reduce_rank, parallel_mode=ParallelMode.DATA
+                tensor=flat,
+                dtype=self.dtype,
+                dst_rank=reduce_rank,
+                parallel_mode=ParallelMode.DATA,
             )
 
             # update the reduced tensor
@@ -537,7 +534,10 @@ class HybridZeroOptimizer(BaseOptimizer):
         for group_id in range(self.num_param_groups):
             total_norms.append(
                 self._compute_norm_with_stage(
-                    group_id=group_id, last_bucket=True, last_stage=True, previous_norm=groups_norms[group_id]
+                    group_id=group_id,
+                    last_bucket=True,
+                    last_stage=True,
+                    previous_norm=groups_norms[group_id],
                 )
             )
 
@@ -567,7 +567,10 @@ class HybridZeroOptimizer(BaseOptimizer):
         if found_inf:
             if gpc.is_rank_for_log():
                 logger.warning("Overflow occurs, please check it.")
-                send_alert_message(address=gpc.config.alert_address, message="Overflow occurs, please check it.")
+                send_alert_message(
+                    address=gpc.config.alert_address,
+                    message="Overflow occurs, please check it.",
+                )
             self._grad_store._averaged_gradients = dict()
             self.zero_grad()
             return False, None
@@ -629,12 +632,12 @@ class HybridZeroOptimizer(BaseOptimizer):
                     )
                     fp32_param = self._fp32_flat_param_groups_of_current_rank[group_id]
                     fp16_param.data.copy_(fp32_param)
-                    
-        with torch.cuda.stream(self._comm_stream):        
+
+        with torch.cuda.stream(self._comm_stream):
             self.broadcast_params()
-    
+
         timer("step").stop()
-            
+
         # update gradients may not be needed here, because the sync_params function is used in initialization,
         # so synchronization is maintained
         return True, [global_norm / loss_scale for global_norm in global_norm_groups]
@@ -650,13 +653,18 @@ class HybridZeroOptimizer(BaseOptimizer):
             # grank = gpc.get_ranks_in_group(group_type)[rank]  # need to convert to the global rank
             # assert grank == rank, f"{grank} == {rank}"
             g_rank = gpc.get_ranks_in_group(self._broadcast_parallel_mode)[rank]
-            handle = dist.broadcast(fp16_param, src=g_rank, group=gpc.get_group(ParallelMode.ZERO1), async_op=True)
-            
+            handle = dist.broadcast(
+                fp16_param,
+                src=g_rank,
+                group=gpc.get_group(ParallelMode.ZERO1),
+                async_op=True,
+            )
+
             if self._overlap_communication:
                 self._param_bcast_sync_handler.add_bcast_handle(rank, handle)
             else:
-                handles.append(handle)       
-     
+                handles.append(handle)
+
         for handle in handles:
             handle.wait()
 
@@ -676,7 +684,11 @@ class HybridZeroOptimizer(BaseOptimizer):
                     if avg_grad is not None and has_inf_or_nan(avg_grad):
                         self._found_overflow.fill_(1.0)
                         break
-        dist.all_reduce(self._found_overflow, op=dist.ReduceOp.MAX, group=gpc.get_group(ParallelMode.GLOBAL))
+        dist.all_reduce(
+            self._found_overflow,
+            op=dist.ReduceOp.MAX,
+            group=gpc.get_group(ParallelMode.GLOBAL),
+        )
 
         return self._found_overflow.item() > 0
 
