@@ -197,8 +197,9 @@ class PackedFlashBaseLayer1D(nn.Module):
 
         if self.residual_in_fp32:
             residual = residual.to(torch.float32)
-
-        hidden_states = self.mixer(hidden_states, **mixer_kwargs)
+        
+        with torch.cuda.amp.autocast(dtype=torch.float16):
+            hidden_states = self.mixer(hidden_states, **mixer_kwargs)
 
         def _dropout_and_norm_ffn(_residual, _hidden_states):
             _dropped = self.dropout2(_hidden_states)
