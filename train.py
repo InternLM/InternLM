@@ -55,10 +55,7 @@ from internlm.utils.parallel import (
     sync_model_param_within_tp,
 )
 from internlm.utils.registry import MODEL_INITIALIZER
-from internlm.utils.simple_memory_profiler import (
-    SimpleMemoryProfiler,
-    build_activation_config,
-)
+from internlm.utils.simple_memory_profiler import SimpleMemoryProfiler
 from internlm.utils.writer import Writer
 
 # global llm logger
@@ -556,12 +553,11 @@ def main(args):
     # initialize simple memory profiler
     if args.profiling:
         memory_profiler = SimpleMemoryProfiler(
-            model.model,
+            model,
             optimizer.optim,
             log_folder=f"memory_trace/rank{gpc.get_global_rank()}_"
             + f"dp{gpc.get_local_rank(ParallelMode.DATA)}_"
             + f"tp{gpc.get_local_rank(ParallelMode.TENSOR)}",
-            activation_config=build_activation_config(gpc.config.model.num_layers),
         )
     else:
         memory_profiler = None
