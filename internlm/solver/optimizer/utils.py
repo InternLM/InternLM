@@ -481,8 +481,9 @@ class ParamBcastSyncHandler():
         self._block_to_rank = dict()
         self._bcast_handles = dict()
         
+        zero1_size = gpc.get_world_size(ParallelMode.ZERO1)
         total_param_num = sum(p.numel() for p in model.parameters())
-        avg_param_num = total_param_num * 1.0 // gpc.get_world_size(ParallelMode.ZERO1)
+        avg_param_num = total_param_num * 1.0 // zero1_size
         
         # just want to share same for loop for ModuleList and Module
         if not isinstance(model, nn.ModuleList):
@@ -518,12 +519,12 @@ class ParamBcastSyncHandler():
             self._block_to_rank[block] = [rank_to_go]
             for p in params:
                 alloc_num = alloc_num + p.numel()
-                # allocate a parameter to a local rank of ParallelMode.ZERO1 
-                self._param_to_rank[p] = rank_to_go
-                if alloc_num >= avg_param_num and rank_to_go <= gpc.get_world_size(ParallelMode.ZERO1) - 1:
+                if alloc_num > avg_param_num * 1.01 and rank_to_go < zero1_size - 1:
                     rank_to_go = rank_to_go + 1
                     alloc_num = 0
                     self._block_to_rank[block].append(rank_to_go)
+                # allocate a parameter to a local rank of ParallelMode.ZERO1 
+                self._param_to_rank[p] = rank_to_go 
 
         for rank in range(gpc.get_world_size(ParallelMode.ZERO1)):
             self._bcast_handles[rank] = list()
