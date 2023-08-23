@@ -265,7 +265,7 @@ and 'load_given_ckpt' is True, so internlm will load from 'load_ckpt_folder'"
     # process the model config
     if "use_flash_attn" not in gpc.config.model:
         gpc.config.model._add_item("use_flash_attn", True)
-    
+
     # process the parallel config
     if "sequence_parallel" not in gpc.config.parallel:
         gpc.config.parallel._add_item("sequence_parallel", False)
