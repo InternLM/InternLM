@@ -12,15 +12,23 @@ from torch.optim import Optimizer
 from internlm.core.context import Config, ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.monitor import send_alert_message
-from internlm.solver.optimizer.store import (BucketStore, GradientStore,
-                                             ParameterStore, TensorBucket)
-from internlm.solver.optimizer.utils import (DynamicGradScaler,
-                                             ParamBcastSyncHandler, flatten,
-                                             get_grad_accumulate_object,
-                                             has_inf_or_nan, reduce_tensor,
-                                             release_param_grad,
-                                             split_half_float_double,
-                                             sync_param)
+from internlm.solver.optimizer.store import (
+    BucketStore,
+    GradientStore,
+    ParameterStore,
+    TensorBucket,
+)
+from internlm.solver.optimizer.utils import (
+    DynamicGradScaler,
+    ParamBcastSyncHandler,
+    flatten,
+    get_grad_accumulate_object,
+    has_inf_or_nan,
+    reduce_tensor,
+    release_param_grad,
+    split_half_float_double,
+    sync_param,
+)
 from internlm.utils.common import get_current_device
 from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer

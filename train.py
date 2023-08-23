@@ -63,7 +63,10 @@ from internlm.utils.parallel import (
     sync_model_param_within_tp,
 )
 from internlm.utils.registry import MODEL_INITIALIZER
-from internlm.utils.simple_memory_profiler import SimpleMemoryProfiler, build_activation_config
+from internlm.utils.simple_memory_profiler import (
+    SimpleMemoryProfiler,
+    build_activation_config,
+)
 from internlm.utils.writer import Writer
 
 # global llm logger
