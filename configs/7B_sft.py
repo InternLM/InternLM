@@ -141,7 +141,7 @@ tensor parallel: tensor parallel size, usually the number of GPUs per node.
 parallel = dict(
     zero1=8,
     pipeline=dict(size=1, interleaved_overlap=True),
-    sequence_parallel=True,
+    sequence_parallel=False,
 )
 
 cudnn_deterministic = False
