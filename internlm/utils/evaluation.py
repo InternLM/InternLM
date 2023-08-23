@@ -100,7 +100,7 @@ def evaluate_on_val_dls(
                         tensor_shape=tensor_shape,
                         metric_hook_list=[val_sche_metric_hook],
                     ):
-                        _, _, loss = trainer.execute_schedule(
+                        _, _, loss, _ = trainer.execute_schedule(
                             batch, forward_only=True, return_loss=True, return_output_label=False
                         )
                 else:
@@ -114,7 +114,7 @@ def evaluate_on_val_dls(
                         grad_accum_batch_size=grad_accum_batch_size,
                         metric_hook_list=[val_sche_metric_hook],
                     ):
-                        _, _, loss = trainer.execute_schedule(
+                        _, _, loss, _ = trainer.execute_schedule(
                             batch, forward_only=True, return_loss=True, return_output_label=False
                         )
             if verbose:
