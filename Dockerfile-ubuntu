@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ubuntu:18.04
+ARG BASE_IMAGE
 ARG https_proxy
 ARG http_proxy
 
@@ -82,6 +82,19 @@ COPY . /InternLM
 WORKDIR /InternLM
 ARG https_proxy
 ARG http_proxy
+ARG TORCH_CUDA_ARCH_LIST="3.7;5.0;6.0;7.0;7.5;8.0;8.6+PTX"
 RUN git submodule update --init --recursive \
     && /opt/conda/bin/pip --no-cache-dir install -r requirements/torch.txt \
-    && /opt/conda/bin/pip --no-cache-dir install -r requirements/runtime.txt
+    && /opt/conda/bin/pip --no-cache-dir install -r requirements/runtime.txt \
+    && cd /InternLM/third_party/flash-attention \
+    && /opt/conda/bin/python setup.py install \
+    && cd ./csrc \
+    && cd fused_dense_lib && /opt/conda/bin/pip install -v . \
+    && cd ../xentropy && /opt/conda/bin/pip install -v . \
+    && cd ../rotary && /opt/conda/bin/pip install -v . \
+    && cd ../layer_norm && /opt/conda/bin/pip install -v . \
+    && cd ../../../../ \
+    && cd ./third_party/apex \
+    && /opt/conda/bin/pip --no-cache-dir install -v --disable-pip-version-check --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./ \
+    && /opt/conda/bin/pip cache purge \
+    && rm -rf ~/.cache/pip

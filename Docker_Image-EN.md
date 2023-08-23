@@ -5,20 +5,20 @@ make -f docker.Makefile
 ``` 
 In docker.Makefile, you can customize the base image, environment version, etc. For BASE_OS, ubuntu and centos are supported respectively, and the corresponding standard dockerfile needs to be specified by -f in the build command.
 
-## Supplementary environment installation
-The installation and compilation of flashattention and apex need to rely on the GPU which is not supported during the docker build phase, so they need to be installed through the container. The process is as follows: 
+## Pull standard image
+The standard image based on ubuntu and centos has been built and can be directly pulled:
 
-(1) Start the container with the following command, where {image_name} should be replaced by the real image:
+ubuntu:
 ```
-docker run --gpus all -it -m 200g  --cap-add=SYS_PTRACE  --cap-add=IPC_LOCK   --shm-size 4g  --network=host {image_name} bash
-``` 
-
-(2) Continue to install flashattention and apex in the container:
+docker pull li126com/internlm:torch1.13.1-cuda11.7.1-flashatten1.0.5-ubuntu18.04
 ```
-cd /InternLM/third_party/flash-attention && /opt/conda/bin/python setup.py install && cd ./csrc && cd fused_dense_lib && /opt/conda/bin/pip install -v . && cd ../xentropy && /opt/conda/bin/pip install -v . && cd ../rotary && /opt/conda/bin/pip install -v . && cd ../layer_norm && /opt/conda/bin/pip install -v . && cd ../../../../ && cd ./third_party/apex && /opt/conda/bin/pip --no-cache-dir install -v --disable-pip-version-check --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./ && /opt/conda/bin/pip cache purge && rm -rf ~/.cache/pip
+centos:
 ```
-
-(3) Save the container as a new image:
+docker pull li126com/internlm:torch1.13.1-cuda11.7.1-flashatten1.0.5-centos7
 ```
-docker commit {contrainer_id} {image_name}
+## Run container
+For the local standard image built with dockerfile or pulled, use the following command to run and enter the container:
 ```
+docker run --gpus all -it -m 500g --cap-add=SYS_PTRACE --cap-add=IPC_LOCK --shm-size 10g --network=host --name myinternlm li126com/internlm:torch1.13.1-cuda11.7.1-flashatten1.0.5-ubuntu18.04 bash
+```
+The default directory in the container is `/InternLM`, please start training according to the README.

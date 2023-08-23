@@ -1,5 +1,5 @@
 DOCKER_REGISTRY          ?= docker.io
-DOCKER_ORG               ?= 
+DOCKER_ORG               ?= my
 DOCKER_IMAGE             ?= internlm
 DOCKER_FULL_NAME          = $(DOCKER_REGISTRY)/$(DOCKER_ORG)/$(DOCKER_IMAGE)
 
@@ -8,7 +8,7 @@ GCC_VERSION               = 10.2.0
 
 CUDNN_VERSION             = 8
 BASE_RUNTIME              =
-#ubuntu18.04  centos7
+# ubuntu18.04  centos7
 BASE_OS                   = ubuntu18.04
 BASE_DEVEL                = nvidia/cuda:$(CUDA_VERSION)-cudnn$(CUDNN_VERSION)-devel-${BASE_OS}
 # The conda channel to use to install cudatoolkit
@@ -72,16 +72,18 @@ DOCKER_BUILD              = DOCKER_BUILDKIT=1 \
                                                                 $(EXTRA_DOCKER_BUILD_FLAGS) \
                                                                 $(PLATFORMS_FLAG) \
                                                                 $(PUSH_FLAG) \
-                                                                --target $(BUILD_TYPE) \
                                                                 -t $(DOCKER_FULL_NAME):$(DOCKER_TAG) \
                                                                 $(BUILD_ARGS) .
+
+                                                                # --target $(BUILD_TYPE)
+                                                                # -f ./Dockerfile-ubuntu
 
 .PHONY: all
 all: devel-image
 
 .PHONY: devel-image
 devel-image: BASE_IMAGE := $(BASE_DEVEL)
-devel-image: DOCKER_TAG := torch${PYTORCH_VERSION}-cuda${CUDA_VERSION}-flashatten1.0.5-${BASE_OS}-part1
+devel-image: DOCKER_TAG := torch${PYTORCH_VERSION}-cuda${CUDA_VERSION}-flashatten1.0.5-${BASE_OS}
 devel-image:
 	$(DOCKER_BUILD)
 
