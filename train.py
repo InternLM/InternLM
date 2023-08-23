@@ -5,7 +5,7 @@ import socket
 import time
 import traceback
 from functools import partial
-from typing import Iterable
+from typing import Iterable, Union
 
 import numpy as np
 import torch
@@ -36,6 +36,7 @@ from internlm.monitor.monitor import monitor_manager as mm
 from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
 from internlm.solver.optimizer import HybridZeroOptimizer
+from internlm.solver.optimizer.utils import ParamBcastSyncHandler
 from internlm.utils.common import (
     BatchSkipper,
     DummyProfile,
@@ -291,7 +292,7 @@ def load_new_batch(train_dl: DataLoader, train_iter: Iterable, train_state: Trai
     return batch, train_iter
 
 
-def initialize_optimizer(model: nn.Module):
+def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
     """
     Initialize optimizer.
 
@@ -300,6 +301,7 @@ def initialize_optimizer(model: nn.Module):
 
     Returns: A tuple of (optimizer, beta2_scheduler, lr_scheduler).
     """
+    param_bcast_sync_handler = ParamBcastSyncHandler(model)
     adam_cfg = gpc.config.adam
     naive_optimizer = torch.optim.AdamW(
         params=[{"params": model.parameters(), "weight_decay": adam_cfg.weight_decay}],
@@ -309,7 +311,10 @@ def initialize_optimizer(model: nn.Module):
     )
 
     optimizer = HybridZeroOptimizer(
-        naive_optimizer, grad_scal_cfg=gpc.config.grad_scaler, zero_cfg=gpc.config.hybrid_zero_optimizer
+        naive_optimizer,
+        grad_scal_cfg=gpc.config.grad_scaler,
+        zero_cfg=gpc.config.hybrid_zero_optimizer,
+        param_bcast_sync_handler=param_bcast_sync_handler,
     )
 
     beta2_scheduler = Beta2Scheduler(optimizer=naive_optimizer, **gpc.config.beta2_scheduler)
@@ -599,6 +604,7 @@ def main(args):
 
             # do forward and backward
             timer("fwd-bwd").start()
+
             _, _, loss = trainer.execute_schedule(
                 batch, forward_only=False, return_loss=True, return_output_label=False
             )
@@ -661,7 +667,8 @@ def main(args):
             if memory_profiler is not None:
                 memory_profiler.step()
 
-            prof.step()
+            if batch_count % 2 == 0:
+                prof.step()
 
     ckpt_manager.wait_async_upload_finish()
 
