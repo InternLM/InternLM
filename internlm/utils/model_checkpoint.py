@@ -173,6 +173,7 @@ def save_checkpoint(folder, model, optimizer, scheduler, train_state: TrainState
     """
 
     start = time.time()
+    torch.cuda.synchronize()
     torch.distributed.barrier()
     folder = os.path.join(folder, str(train_state.step_count))
     logger.info(
