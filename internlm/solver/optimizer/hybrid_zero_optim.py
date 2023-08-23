@@ -36,6 +36,14 @@ from .utils import compute_norm
 inf = math.inf
 logger = get_logger(__file__)
 
+def print_memory(index):
+    if gpc.get_global_rank() == 0:
+        peak_memory_bytes = torch.cuda.max_memory_allocated('cuda')
+        allocate_memory = torch.cuda.memory_allocated('cuda')
+        print(f'----------{index}--------', flush=True)
+        print(f"Peak CUDA memory usage: {peak_memory_bytes / (1024 ** 2):.2f} MB", flush=True)
+        print(f"Allocated memory usage: {allocate_memory / (1024 ** 2):.2f} MB", flush=True)
+        print(f'----------{index} end --------', flush=True)
 
 class BaseOptimizer(Optimizer):
     """
@@ -548,7 +556,6 @@ class HybridZeroOptimizer(BaseOptimizer):
 
     def _step(self, closure=None, norms=None):
         assert closure is None, "closure is not supported by step()"
-
         # check for overflow
         found_inf = False
         # if there is INF values in grades, compute_norm func would also returns -1
@@ -623,6 +630,10 @@ class HybridZeroOptimizer(BaseOptimizer):
         # to send them updated their own parameters.
         if self.has_params:
             self.optim.step()
+            
+            # print("************************************8")
+            # print_memory()
+            
             if not self.fp32:
                 # release the fp32 grad
                 release_param_grad(self._fp32_flat_param_groups_of_current_rank.values())
