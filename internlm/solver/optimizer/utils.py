@@ -541,19 +541,19 @@ class ParamBcastSyncHandler:
 
         # initialize an empty list for _bcast_handles of each rank
         for rank in range(gpc.get_world_size(ParallelMode.ZERO1)):
-            self._bcast_handles[rank] = list()
+            self._bcast_handles[rank] = []
 
         # register_forward_pre_hook for transformer/embeding/norm/xxx block
         self._register_sync_parameters_hook()
 
     def _register_sync_parameters_hook(self) -> None:
-        def _pre_forward_hook(model: nn.Module, inputs: Any):
-            bcast_handles = list()
+        def _pre_forward_hook(model: nn.Module, inputs: Any):  # pylint: disable=W0613
+            bcast_handles = []
             # gather all required broadcast hanles into a list
             for rank in self._block_to_rank[model]:
                 bcast_handles.extend(self._bcast_handles[rank])
                 # need to clear _bcast_handles since they would be processed later
-                self._bcast_handles[rank] = list()
+                self._bcast_handles[rank] = []
             # wait all required broadcast handles to be completed
             for handle in bcast_handles:
                 handle.wait()
