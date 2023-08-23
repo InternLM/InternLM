@@ -128,9 +128,6 @@ class MHA(nn.Module):
             qkv = self.rotary_emb(qkv, **kwargs)
 
         if inference_params is None:
-            # print("eval", flush=True)
-            # print("dtype = ", gpc.config.model.dtype is torch.float32, flush=True)
-            # print("flash = ", gpc.config.model.use_flash_attn is True, flush=True)
             if gpc.config.model.dtype is torch.float32 and gpc.config.model.use_flash_attn:
                 with torch.cuda.amp.autocast(dtype=torch.float16):
                     if qkv not in [torch.float16, torch.bfloat16]:
@@ -169,9 +166,6 @@ class MHA(nn.Module):
         kwargs.pop("indexes")
 
         if inference_params is None:
-            # print("train", flush=True)
-            # print("dtype = ", gpc.config.model.dtype is torch.float32, flush=True)
-            # print("flash = ", gpc.config.model.use_flash_attn is True, flush=True)
             if gpc.config.model.dtype is torch.float32 and gpc.config.model.use_flash_attn:
                 with torch.cuda.amp.autocast(dtype=torch.float16):
                     if qkv.dtype not in [torch.float16, torch.bfloat16]:
