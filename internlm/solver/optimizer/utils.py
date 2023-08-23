@@ -475,11 +475,10 @@ class ParamBcastSyncHandler():
     """
     
     def __init__(self, model: Union[nn.Module, nn.ModuleList]) -> None:
-        
-        self._block_to_param = OrderedDict()
-        self._param_to_rank = dict()
-        self._block_to_rank = dict()
-        self._bcast_handles = dict()
+        self._block_to_param = OrderedDict() # <key: nn.Module> <value: list(param)>
+        self._param_to_rank = dict() # <key: param> <value: rank)>
+        self._block_to_rank = dict() # <key: nn.Module> <value: rank)>
+        self._bcast_handles = dict() # <key: rank> <value: list(bcast handles))>
         
         zero1_size = gpc.get_world_size(ParallelMode.ZERO1)
         total_param_num = sum(p.numel() for p in model.parameters())
@@ -511,7 +510,7 @@ class ParamBcastSyncHandler():
         
         # process the parameters in block_to_param sequencially,
         # allocate each parameter to a local rank of ParallelMode.ZERO1,
-        # noted that we do not consider following scenarios:
+        # NOTE that we do NOT consider following scenarios:
         # 1) whether a parameter is trainable;
         # 2) paramters maybe in different optimizer group
         for block, params in self._block_to_param.items():
@@ -519,6 +518,7 @@ class ParamBcastSyncHandler():
             self._block_to_rank[block] = [rank_to_go]
             for p in params:
                 alloc_num = alloc_num + p.numel()
+                # in this case, allocate the param to next rank if possible
                 if alloc_num > avg_param_num * 1.01 and rank_to_go < zero1_size - 1:
                     rank_to_go = rank_to_go + 1
                     alloc_num = 0
@@ -526,20 +526,25 @@ class ParamBcastSyncHandler():
                 # allocate a parameter to a local rank of ParallelMode.ZERO1 
                 self._param_to_rank[p] = rank_to_go 
 
+        # initialize an empty list for _bcast_handles of each rank
         for rank in range(gpc.get_world_size(ParallelMode.ZERO1)):
             self._bcast_handles[rank] = list()
-        
+
+        # register_forward_pre_hook for transformer/embeding/norm/xxx block
         self._register_sync_parameters_hook()
     
     def _register_sync_parameters_hook(self) -> None:
         def _pre_forward_hook(model: nn.Module, inputs: Any):
             bcast_handles = list()
+            # gather all required broadcast hanles into a list
             for rank in self._block_to_rank[model]:
                 bcast_handles.extend(self._bcast_handles[rank])
+                # need to clear _bcast_handles since they would be processed later
                 self._bcast_handles[rank] = list()
+            # wait all required broadcast handles to be completed
             for handle in bcast_handles:
                 handle.wait()
-        
+        # register_forward_pre_hook for transformer/embeding/norm/xxx block
         for block, _ in self._block_to_rank.items():
             block.register_forward_pre_hook(partial(_pre_forward_hook))
     
