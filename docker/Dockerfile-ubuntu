@@ -2,6 +2,9 @@ ARG BASE_IMAGE
 ARG https_proxy
 ARG http_proxy
 
+##############################################################################
+# Install the basic environment on ubuntu
+##############################################################################
 FROM ${BASE_IMAGE} as base
 ARG https_proxy
 ARG http_proxy
@@ -17,6 +20,9 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-ins
         ninja-build
 
 
+##############################################################################
+# Install the conda environment
+##############################################################################
 FROM base as conda
 ARG PYTHON_VERSION=3.10
 ARG TARGETPLATFORM
@@ -35,6 +41,9 @@ RUN chmod +x ~/miniconda.sh && \
     /opt/conda/bin/conda clean -ya
 
 
+##############################################################################
+# Install environment dependencies
+##############################################################################
 FROM conda as dep
 WORKDIR /dep
 ARG https_proxy
@@ -77,6 +86,9 @@ ENV CC=${GCC_HOME}/bin/gcc
 ENV CXX=${GCC_HOME}/bin/c++
 
 
+##############################################################################
+# Install InternLM development environment, including flash-attention and apex
+##############################################################################
 FROM dep as intrenlm-dev
 COPY . /InternLM
 WORKDIR /InternLM

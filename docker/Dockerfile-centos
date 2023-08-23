@@ -2,6 +2,9 @@ ARG BASE_IMAGE
 ARG https_proxy
 ARG http_proxy
 
+##############################################################################
+# Install the basic environment on ubuntu
+##############################################################################
 FROM ${BASE_IMAGE} as base
 ARG https_proxy
 ARG http_proxy
@@ -21,6 +24,10 @@ RUN yum install deltarpm -y && yum update -y \
         texinfo \
         which
 
+
+##############################################################################
+# Install the conda environment
+##############################################################################
 FROM base as conda
 ARG PYTHON_VERSION=3.10
 ARG TARGETPLATFORM
@@ -39,15 +46,16 @@ RUN chmod +x ~/miniconda.sh && \
     /opt/conda/bin/conda clean -ya
 
 
+##############################################################################
+# Install environment dependencies
+##############################################################################
 FROM conda as dep
 WORKDIR /dep
-
 ARG https_proxy
 ARG http_proxy
 ARG GMP_VERSION
 ARG MPFR_VERSION
 ARG MPC_VERSION
-
 RUN wget https://ftp.gnu.org/gnu/gmp/gmp-${GMP_VERSION}.tar.bz2 \
     && tar -vxf gmp-${GMP_VERSION}.tar.bz2 \
     && cd gmp-${GMP_VERSION}/ \
@@ -97,6 +105,9 @@ ENV CC=${GCC_HOME}/bin/gcc
 ENV CXX=${GCC_HOME}/bin/c++
 
 
+##############################################################################
+# Install InternLM development environment, including flash-attention and apex
+##############################################################################
 FROM dep as intrenlm-dev
 COPY . /InternLM
 WORKDIR /InternLM
