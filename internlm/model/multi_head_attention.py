@@ -82,7 +82,7 @@ class MHA(nn.Module):
             3 * embed_dim,
             process_group,
             bias=True,
-            sequence_parallel=gpc.config.model.sequence_parallel,
+            sequence_parallel=gpc.config.parallel.sequence_parallel,
             **factory_kwargs,
         )  # according to https://spaces.ac.cn/archives/9577
 
@@ -95,7 +95,7 @@ class MHA(nn.Module):
 
         # output projection always have the bias (for now)
         self.out_proj = RowParallelLinearTorch(
-            embed_dim, embed_dim, process_group, sequence_parallel=gpc.config.model.sequence_parallel, **factory_kwargs
+            embed_dim, embed_dim, process_group, sequence_parallel=gpc.config.parallel.sequence_parallel, **factory_kwargs
         )
         # need to assign tp attribute so that internlm know it is tensor parallel module
         if gpc.get_world_size(ParallelMode.TENSOR) > 1:

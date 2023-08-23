@@ -56,7 +56,7 @@ class Embedding1D(nn.Module):
 
         output = gather_forward_split_backward(output_parallel, ParallelMode.TENSOR, dim=-1)
 
-        if gpc.config.model.sequence_parallel:
+        if gpc.config.parallel.sequence_parallel:
             output = split_forward_gather_backward(output, ParallelMode.TENSOR, dim=1)
 
         return output

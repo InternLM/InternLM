@@ -265,11 +265,13 @@ and 'load_given_ckpt' is True, so internlm will load from 'load_ckpt_folder'"
     # process the model config
     if "use_flash_attn" not in gpc.config.model:
         gpc.config.model._add_item("use_flash_attn", True)
-    if "sequence_parallel" not in gpc.config.model:
-        gpc.config.model._add_item("sequence_parallel", False)
+    
+    # process the parallel config
+    if "sequence_parallel" not in gpc.config.parallel:
+        gpc.config.parallel._add_item("sequence_parallel", False)
     else:
         assert not (
-            gpc.config.model.sequence_parallel is True and gpc.config.model.use_flash_attn is False
+            gpc.config.parallel.sequence_parallel is True and gpc.config.model.use_flash_attn is False
         ), "sequence parallel does not support use_flash_attn=False"
 
     # feishu webhook address for alerting

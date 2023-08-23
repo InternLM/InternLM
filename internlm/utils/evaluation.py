@@ -52,12 +52,12 @@ def switch_evaluation_pipeline_scheduler(trainer, num_microbatches, tensor_shape
 
 @contextmanager
 def switch_sequence_parallel_mode():
-    prev_mode = gpc.config.model.sequence_parallel
+    prev_mode = gpc.config.parallel.sequence_parallel
     try:
-        gpc.config.model.sequence_parallel = False
+        gpc.config.parallel.sequence_parallel = False
         yield
     finally:
-        gpc.config.model.sequence_parallel = prev_mode
+        gpc.config.parallel.sequence_parallel = prev_mode
 
 
 def evaluate_on_val_dls(
