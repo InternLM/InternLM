@@ -68,3 +68,6 @@ docker pull sunpengsdu/internlm:torch1.13-cuda11.7-flashatten1.0.5-centos
 docker run --gpus all -d -it --shm-size=2gb --name myinternlm sunpengsdu/internlm:torch1.13-cuda11.7-flashatten1.0.5-centos
 docker exec -it myinternlm bash
 ```
+
+### Standard Images
+Refer to: [Docker images](./docker.md)

@@ -82,7 +82,7 @@ COPY . /InternLM
 WORKDIR /InternLM
 ARG https_proxy
 ARG http_proxy
-ARG TORCH_CUDA_ARCH_LIST="3.7;5.0;6.0;7.0;7.5;8.0;8.6+PTX"
+ARG TORCH_CUDA_ARCH_LIST="8.0;8.6+PTX"
 RUN git submodule update --init --recursive \
     && /opt/conda/bin/pip --no-cache-dir install -r requirements/torch.txt \
     && /opt/conda/bin/pip --no-cache-dir install -r requirements/runtime.txt \

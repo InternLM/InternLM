@@ -8,8 +8,8 @@ GCC_VERSION               = 10.2.0
 
 CUDNN_VERSION             = 8
 BASE_RUNTIME              =
-# ubuntu18.04  centos7
-BASE_OS                   = ubuntu18.04
+# ubuntu20.04  ubuntu22.04  centos7
+BASE_OS                   = centos7
 BASE_DEVEL                = nvidia/cuda:$(CUDA_VERSION)-cudnn$(CUDNN_VERSION)-devel-${BASE_OS}
 # The conda channel to use to install cudatoolkit
 CUDA_CHANNEL              = nvidia
@@ -65,6 +65,7 @@ endif
 # endif
 # endif
 
+DOCKERFILE_PATH          ?=  ./dockerfile/Dockerfile-centos
 #use -f to specify dockerfile
 DOCKER_BUILD              = DOCKER_BUILDKIT=1 \
                                                         docker $(BUILD) \
@@ -72,11 +73,11 @@ DOCKER_BUILD              = DOCKER_BUILDKIT=1 \
                                                                 $(EXTRA_DOCKER_BUILD_FLAGS) \
                                                                 $(PLATFORMS_FLAG) \
                                                                 $(PUSH_FLAG) \
+                                                                -f $(DOCKERFILE_PATH) \
                                                                 -t $(DOCKER_FULL_NAME):$(DOCKER_TAG) \
                                                                 $(BUILD_ARGS) .
 
                                                                 # --target $(BUILD_TYPE)
-                                                                # -f ./Dockerfile-ubuntu
 
 .PHONY: all
 all: devel-image
