@@ -7,7 +7,6 @@ import traceback
 from functools import partial
 from typing import Iterable, Union
 
-
 import numpy as np
 import torch
 import torch.distributed as dist
@@ -64,10 +63,7 @@ from internlm.utils.parallel import (
     sync_model_param_within_tp,
 )
 from internlm.utils.registry import MODEL_INITIALIZER
-from internlm.utils.simple_memory_profiler import (
-    SimpleMemoryProfiler,
-    build_activation_config,
-)
+from internlm.utils.simple_memory_profiler import SimpleMemoryProfiler, build_activation_config
 from internlm.utils.writer import Writer
 
 # global llm logger
@@ -301,7 +297,8 @@ def load_new_batch(train_dl: DataLoader, train_iter: Iterable, train_state: Trai
             batch[0]["type_ids"] = unpack_data(batch[0]["type_ids"], batch[0]["cu_seqlens"])
 
     return batch, train_iter
-    
+
+
 def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
     """
     Initialize optimizer.
@@ -311,7 +308,7 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
 
     Returns: A tuple of (optimizer, beta2_scheduler, lr_scheduler).
     """
-    param_bcast_sync_handler = ParamBcastSyncHandler(model)    
+    param_bcast_sync_handler = ParamBcastSyncHandler(model)
     adam_cfg = gpc.config.adam
     naive_optimizer = torch.optim.AdamW(
         params=[{"params": model.parameters(), "weight_decay": adam_cfg.weight_decay}],
@@ -321,8 +318,8 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
     )
 
     optimizer = HybridZeroOptimizer(
-        naive_optimizer, 
-        grad_scal_cfg=gpc.config.grad_scaler, 
+        naive_optimizer,
+        grad_scal_cfg=gpc.config.grad_scaler,
         zero_cfg=gpc.config.hybrid_zero_optimizer,
         param_bcast_sync_handler=param_bcast_sync_handler,
     )
