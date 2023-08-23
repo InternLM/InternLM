@@ -3,7 +3,7 @@
 
 import time
 from functools import partial
-from typing import Callable, Iterable
+from typing import Callable, Iterable, Union
 
 import torch
 import torch.distributed as dist
@@ -30,6 +30,7 @@ from internlm.monitor.monitor import monitor_manager as mm
 from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
 from internlm.solver.optimizer import HybridZeroOptimizer
+from internlm.solver.optimizer.utils import ParamBcastSyncHandler
 from internlm.utils.common import DummyProfile, get_master_node
 from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
@@ -109,7 +110,7 @@ def initialize_model():
     return model
 
 
-def initialize_optimizer(model: nn.Module):
+def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
     """
     Initialize optimizer.
 
@@ -118,6 +119,7 @@ def initialize_optimizer(model: nn.Module):
 
     Returns: A tuple of (optimizer, beta2_scheduler, lr_scheduler).
     """
+    param_bcast_sync_handler = ParamBcastSyncHandler(model)
     adam_cfg = gpc.config.adam
     naive_optimizer = torch.optim.AdamW(
         params=[{"params": model.parameters(), "weight_decay": adam_cfg.weight_decay}],
@@ -127,7 +129,10 @@ def initialize_optimizer(model: nn.Module):
     )
 
     optimizer = HybridZeroOptimizer(
-        naive_optimizer, grad_scal_cfg=gpc.config.grad_scaler, zero_cfg=gpc.config.hybrid_zero_optimizer
+        naive_optimizer,
+        grad_scal_cfg=gpc.config.grad_scaler,
+        zero_cfg=gpc.config.hybrid_zero_optimizer,
+        param_bcast_sync_handler=param_bcast_sync_handler,
     )
 
     beta2_scheduler = Beta2Scheduler(optimizer=naive_optimizer, **gpc.config.beta2_scheduler)
