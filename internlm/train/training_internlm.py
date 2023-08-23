@@ -31,6 +31,7 @@ from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
 from internlm.solver.optimizer import HybridZeroOptimizer
 from internlm.utils.common import DummyProfile, get_master_node
+from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
 from internlm.utils.parallel import (
     is_no_pp_or_last_stage,
@@ -38,6 +39,8 @@ from internlm.utils.parallel import (
     sync_model_param_within_tp,
 )
 from internlm.utils.registry import MODEL_INITIALIZER
+
+logger = get_logger(__file__)
 
 
 def initialize_distributed_env(config: str, launcher: str = "slurm", master_port: int = 8888, seed: int = 1024):
@@ -134,7 +137,9 @@ def initialize_optimizer(model: nn.Module):
     return optimizer, beta2_scheduler, lr_scheduler
 
 
-def get_train_data_loader(dataset_generate_func: Callable = None, train_sampler=None, train_collate_fn=None):
+def get_train_data_loader(
+    num_worker: int = 0, dataset_generate_func: Callable = None, train_sampler=None, train_collate_fn=None
+):
     """
     Generate and return the training data loader.
 
@@ -173,7 +178,7 @@ def get_train_data_loader(dataset_generate_func: Callable = None, train_sampler=
                 pack_into_one_sample=data_cfg.pack_sample_into_one,
             )
 
-    if dataset_generate_func is None:
+    if dataset_generate_func is None or not train_folder:
         # partition already completed
         assert isinstance(train_ds, (PackedDataset, PackedDatasetWithoutCuSeqlen, ConcatDataset))
         # Create the training dataset sampler
@@ -188,24 +193,24 @@ def get_train_data_loader(dataset_generate_func: Callable = None, train_sampler=
             data_world_size=gpc.get_world_size(ParallelMode.DATA),
         )
 
-    if dataset_generate_func is None:
+    if dataset_generate_func is None or not train_folder:
         train_collate_fn = partial(packed_collate_fn, packed_length=data_cfg.packed_length)
 
     # Create the training data loader
     train_dl = DataLoader(
         dataset=train_ds,
         batch_sampler=train_sampler,
-        num_workers=data_cfg.get("num_worker", 0),
+        num_workers=num_worker,
         pin_memory=True,
         collate_fn=train_collate_fn,
-        persistent_workers=data_cfg.get("num_worker", 0) > 0,
+        persistent_workers=True,
     )
 
     return train_dl, dataset_types
 
 
 def get_validation_data_loader(
-    dataset_generate_func: Callable = None, val_collate_fn=None, dataloader_func=None, logger=None
+    num_worker: int = 0, dataset_generate_func: Callable = None, val_collate_fn=None, dataloader_func=None
 ):
     """Generate and return the validation data loader."""
 
@@ -228,9 +233,9 @@ def get_validation_data_loader(
 
     val_dls = {}
     for val_name, ds in val_ds.items():
-        if dataloader_func is not None:
+        if dataloader_func and data_cfg.valid_folder is not None:
             val_dls[val_name] = dataloader_func(dataset=ds, collate_fn=val_collate_fn)
-            if gpc.is_rank_for_log() and logger is not None:
+            if gpc.is_rank_for_log():
                 logger.info(
                     f"load validation dataset {val_name} with valid batch size {str(data_cfg.valid_micro_num)} and "
                     f"{ds.size} Byte samples."
@@ -243,20 +248,20 @@ def get_validation_data_loader(
             )
             batch_size = batch_size // data_cfg.micro_bsz * data_cfg.micro_bsz
 
-            if batch_size == 0 and gpc.is_rank_for_log() and logger is not None:
+            if batch_size == 0 and gpc.is_rank_for_log():
                 logger.info(f"skip validate {val_name}.")
                 continue
 
             val_dls[val_name] = get_dpsampler_dataloader(
                 ds,
                 shuffle=False,
-                num_workers=data_cfg.get("num_worker", 0),
+                num_workers=num_worker,
                 batch_size=batch_size,
                 collate_fn=val_collate_fn,
                 drop_last=True,
             )  # drop_last=True, otherwise it may cause problems in the last batch
 
-            if gpc.is_rank_for_log() and logger is not None:
+            if gpc.is_rank_for_log():
                 logger.info(
                     f"load validation dataset {val_name} with valid batch size {str(batch_size)} and "
                     f"samples {str(len(val_dls[val_name]))}."
@@ -299,13 +304,12 @@ def load_new_batch(train_dl: DataLoader, train_iter: Iterable, train_state: Trai
     return batch, train_iter
 
 
-def initialize_llm_profile(profiling: bool = False, start_time: str = None, logger=None):
+def initialize_llm_profile(profiling: bool = False, start_time: str = None):
     """Initialize and return the profiler context manager instance."""
 
     if profiling and gpc.get_local_rank(ParallelMode.DATA) == 0 and gpc.get_local_rank(ParallelMode.TENSOR) == 0:
         llm_profile = torch.profiler.profile
-        if logger is not None:
-            logger.info(f"Do profiling in rank {gpc.get_global_rank()}!")
+        logger.info(f"Do profiling in rank {gpc.get_global_rank()}!")
     else:
         llm_profile = DummyProfile
 

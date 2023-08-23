@@ -127,8 +127,8 @@ def main(args):
     criterion = FlashGPTLMLoss(parallel_output=True, label_smoothing=label_smoothing)
 
     # initialize the train and validation data loader
-    train_dl, dataset_types = get_train_data_loader()
-    val_dls = get_validation_data_loader(logger=logger)
+    train_dl, dataset_types = get_train_data_loader(num_worker=4)
+    val_dls = get_validation_data_loader()
     train_state.init_batch_sampler(train_dl)
 
     # Loading model weights must be done before zero is initialized.
@@ -190,7 +190,7 @@ def main(args):
     # transfer the train data loader into train data iterator
     train_iter = iter(train_dl)
 
-    with initialize_llm_profile(profiling=args.profiling, start_time=current_time, logger=logger) as prof:
+    with initialize_llm_profile(profiling=args.profiling, start_time=current_time) as prof:
         # start iterating the train data and begin training
         for batch_count in range(train_state.batch_count, total_steps):
             if batch_count % 50 == 0:
