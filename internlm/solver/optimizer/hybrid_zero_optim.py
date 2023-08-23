@@ -3,6 +3,7 @@
 
 import math
 from functools import partial
+from itertools import product
 
 import torch
 import torch.distributed as dist
@@ -392,13 +393,10 @@ class HybridZeroOptimizer(BaseOptimizer):
 
     def _reduce_and_copy(self, bucket: TensorBucket, reduce_rank):
         if self._overlap_communication:
-            stream = self._comm_stream
-            stream.synchronize()
+            self._comm_stream.synchronize()
             self._param_store.clear_grads_of_previous_reduced_params()
-        else:
-            stream = torch.cuda.current_stream()
 
-        with torch.cuda.stream(stream):
+        with torch.cuda.stream(self._comm_stream):
             flat = bucket.flatten()
             reduced_flat = reduce_tensor(
                 tensor=flat, dtype=self.dtype, dst_rank=reduce_rank, parallel_mode=ParallelMode.DATA
@@ -632,8 +630,9 @@ class HybridZeroOptimizer(BaseOptimizer):
                     fp32_param = self._fp32_flat_param_groups_of_current_rank[group_id]
                     fp16_param.data.copy_(fp32_param)
                     
-        if not self._overlap_communication:
+        with torch.cuda.stream(self._comm_stream):        
             self.broadcast_params()
+    
         timer("step").stop()
             
         # update gradients may not be needed here, because the sync_params function is used in initialization,
@@ -643,27 +642,23 @@ class HybridZeroOptimizer(BaseOptimizer):
     def broadcast_params(self):
         handles = []
 
-        for rank in range(self._zero_world_size):
-            for group_id in range(self.num_param_groups):
-                # The following operations are performed only on the rank to which parameters are assigned.
-                if rank not in self.param_group_no_params_ranks[group_id]:
-                    fp16_param = self._param_store.get_flat_fp16_param_by_rank_group(rank=rank, group_id=group_id)
-                    # grank = gpc.get_ranks_in_group(group_type)[rank]  # need to convert to the global rank
-                    # assert grank == rank, f"{grank} == {rank}"
-                    g_rank = gpc.get_ranks_in_group(self._broadcast_parallel_mode)[rank]
-                    
-                    with torch.cuda.stream(self._comm_stream):
-                        handle = dist.broadcast(
-                            fp16_param, src=g_rank, group=gpc.get_group(ParallelMode.ZERO1), async_op=True
-                    )
-                    if self._overlap_communication:
-                        self._param_bcast_sync_handler.add_bcast_handle(rank, handle)
-                    else:
-                        handles.append(handle)
-                        
-        if not self._overlap_communication:
-            for handle in handles:
-                handle.wait()
+        for rank, group_id in product(range(self._zero_world_size), range(self.num_param_groups)):
+            # The following operations are performed only on the rank to which parameters are assigned.
+            if rank in self.param_group_no_params_ranks[group_id]:
+                continue
+            fp16_param = self._param_store.get_flat_fp16_param_by_rank_group(rank=rank, group_id=group_id)
+            # grank = gpc.get_ranks_in_group(group_type)[rank]  # need to convert to the global rank
+            # assert grank == rank, f"{grank} == {rank}"
+            g_rank = gpc.get_ranks_in_group(self._broadcast_parallel_mode)[rank]
+            handle = dist.broadcast(fp16_param, src=g_rank, group=gpc.get_group(ParallelMode.ZERO1), async_op=True)
+            
+            if self._overlap_communication:
+                self._param_bcast_sync_handler.add_bcast_handle(rank, handle)
+            else:
+                handles.append(handle)       
+     
+        for handle in handles:
+            handle.wait()
 
     ##################
     # FP16 Utilities #

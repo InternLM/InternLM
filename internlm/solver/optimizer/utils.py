@@ -520,7 +520,7 @@ class ParamBcastSyncHandler():
                 alloc_num = alloc_num + p.numel()
                 # allocate a parameter to a local rank of ParallelMode.ZERO1 
                 self._param_to_rank[p] = rank_to_go
-                if alloc_num >= avg_param_num and rank_to_go < gpc.get_world_size(ParallelMode.ZERO1) - 1:
+                if alloc_num >= avg_param_num and rank_to_go <= gpc.get_world_size(ParallelMode.ZERO1) - 1:
                     rank_to_go = rank_to_go + 1
                     alloc_num = 0
                     self._block_to_rank[block].append(rank_to_go)

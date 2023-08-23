@@ -650,9 +650,6 @@ def main(args):
 
             # do forward and backward
             timer("fwd-bwd").start()
-            
-            if gpc.config.hybrid_zero_optimizer.zero_overlap_communication:
-                optimizer.broadcast_params()
 
             _, _, loss = trainer.execute_schedule(
                 batch, forward_only=False, return_loss=True, return_output_label=False
@@ -714,7 +711,8 @@ def main(args):
             if memory_profiler is not None:
                 memory_profiler.step()
 
-            prof.step()
+            if batch_count % 2 == 0:
+                prof.step()
 
     ckpt_save_manager.wait_async_upload_finish()
 
