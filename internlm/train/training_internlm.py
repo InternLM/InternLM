@@ -233,7 +233,7 @@ def get_validation_data_loader(
     if not isinstance(val_ds, dict):
         val_ds = {"val": val_ds}
 
-    if val_collate_fn is None:
+    if val_collate_fn is None or not data_cfg.valid_folder:
         val_collate_fn = partial(jsonl_ds_collate_fn, max_length_per_sample=data_cfg.seq_len)
 
     val_dls = {}
