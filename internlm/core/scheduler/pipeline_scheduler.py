@@ -1342,7 +1342,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         accum_moe_loss = self._accum_moe_loss
 
         accum_loss = self._accum_loss
-        if return_loss:
+        if accum_loss is not None:
             accum_loss += self._accum_moe_loss
 
         self._clear_state()
