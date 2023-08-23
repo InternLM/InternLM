@@ -95,7 +95,7 @@ class MHA(nn.Module):
 
         # output projection always have the bias (for now)
         self.out_proj = RowParallelLinearTorch(
-            embed_dim, embed_dim, process_group, 
+            embed_dim, embed_dim, process_group,
             sequence_parallel=gpc.config.parallel.sequence_parallel, **factory_kwargs
         )
         # need to assign tp attribute so that internlm know it is tensor parallel module
