@@ -65,7 +65,6 @@ from internlm.utils.registry import MODEL_INITIALIZER
 from internlm.utils.simple_memory_profiler import SimpleMemoryProfiler
 from internlm.utils.writer import Writer
 
-from internlm.solver.optimizer.hybrid_zero_optim import print_memory
 
 # global llm logger
 logger = get_logger(__file__)
@@ -665,8 +664,6 @@ def main(args):
             if batch[0].get("type_ids", None) is not None:
                 metric.set_current_type_ids(type_ids=batch[0].pop("type_ids", None))
             
-            print_memory(1)
-            
             # do forward and backward
             timer("fwd-bwd").start()
             _, _, loss = trainer.execute_schedule(
@@ -674,13 +671,9 @@ def main(args):
             )
             timer("fwd-bwd").stop()
             
-            print_memory(2)
-            
             # update parameters, and returns (success_update, grad_norm)
             trainer_result = trainer.step()
             assert trainer_result is not None
-            
-            print_memory(3)
 
             success_update, grad_norm_groups = trainer_result
             if success_update:  # update parameters successfully
@@ -734,7 +727,6 @@ def main(args):
                 memory_profiler.step()
 
             prof.step()
-            print_memory(4)
             
             torch.cuda.reset_max_memory_allocated()
 
