@@ -122,12 +122,11 @@ model = dict(
     apply_post_layer_norm=False,
     norm_type="rmsnorm",
     layer_norm_epsilon=1e-5,
-    dtype="torch.bfloat16", # data and model dtype
-    use_flash_attn=True, # whether to use flash_attn
-    use_amp=False, # whether to use mixed precision training
+    dtype="torch.bfloat16",  # data and model dtype
+    use_flash_attn=True,  # whether to use flash_attn
+    use_amp=False,  # whether to use mixed precision training
     num_chunks=1,  # if num_chunks > 1, interleaved pipeline scheduler is used.
 )
-
 """
 zero1 parallel:
     1. if zero1 <= 0, The size of the zero process group is equal to the size of the dp process group,

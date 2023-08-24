@@ -8,8 +8,8 @@ from typing import Callable, List, Optional, Tuple, Union
 
 import torch.cuda
 
-from internlm.core.amp.naive_amp import NaiveAMPModel
 import internlm.core.communication as comm
+from internlm.core.amp.naive_amp import NaiveAMPModel
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.core.engine import Engine
