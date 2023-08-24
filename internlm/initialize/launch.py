@@ -200,6 +200,10 @@ and 'load_given_ckpt' is True, so internlm will load from 'load_ckpt_folder'"
             "resume_tb_folder", os.environ["resume_tb_folder"] if "resume_tb_folder" in os.environ else None
         )
 
+    if gpc.is_rank_for_log():
+        logger.info(f"tensorboard_folder: {gpc.config.tensorboard_folder}")
+        logger.info(f"resume_tb_folder: {gpc.config.resume_tb_folder}")
+
     # cudnn
     torch.backends.cudnn.benchmark = gpc.config.get("cudnn_benchmark", False)
     torch.backends.cudnn.deterministic = gpc.config.get("cudnn_deterministic", False)
