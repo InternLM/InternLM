@@ -14,18 +14,19 @@ class _Timer:
         self.elapsed_ = 0.0
         self.started_ = False
         self.start_time = time.time()
+        self.stream = torch.cuda.current_stream()
 
     def start(self):
         """Start the timer."""
         assert not self.started_, "timer has already been started"
-        torch.cuda.synchronize()
+        self.stream.synchronize()
         self.start_time = time.time()
         self.started_ = True
 
     def stop(self):
         """Stop the timer."""
         assert self.started_, "timer is not started"
-        torch.cuda.synchronize()
+        self.stream.synchronize()
         self.elapsed_ += time.time() - self.start_time
         self.started_ = False
 

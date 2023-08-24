@@ -115,8 +115,9 @@ class NonPipelineScheduler(BaseScheduler):
                 loss = self._call_engine_criterion(engine, output, label)
                 self._call_hooks("after_criterion", loss)
                 moe_loss = sum(moe_losses) * moe_loss_coeff
-                loss += moe_loss
+                moe_loss /= scale_loss
                 loss /= scale_loss
+                loss += moe_loss
 
         # backward
         if not forward_only:
@@ -127,7 +128,7 @@ class NonPipelineScheduler(BaseScheduler):
         if not return_loss:
             loss = None
 
-        return output, loss
+        return output, loss, moe_loss
 
     def forward_backward_step(
         self,
@@ -166,6 +167,7 @@ class NonPipelineScheduler(BaseScheduler):
         data, label = batch_data
 
         loss = 0 if return_loss else None
+        moe_loss = 0 if return_loss else None
         outputs = []
         labels = []
 
@@ -180,12 +182,14 @@ class NonPipelineScheduler(BaseScheduler):
 
             _data, _label = self._load_accum_batch(data, label)
 
-            _output, _loss = self._train_one_batch(
+            _output, _loss, _moe_loss = self._train_one_batch(
                 _data, _label, engine, forward_only, return_loss, self._grad_accum_size, moe_loss_coeff
             )
 
             if return_loss:
                 loss += _loss
+                moe_loss += _moe_loss
+
             if return_output_label:
                 outputs.append(_output)
                 labels.append(_label)
@@ -193,4 +197,4 @@ class NonPipelineScheduler(BaseScheduler):
         if not return_output_label:
             outputs, labels = None, None
 
-        return outputs, labels, loss
+        return outputs, labels, loss, moe_loss

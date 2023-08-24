@@ -393,7 +393,7 @@ class PackedFlashInternLm1D(nn.Module):
                     max_position_embeddings=-1,
                     process_group=gpc.get_group(ParallelMode.TENSOR),
                     padding_idx=None,
-                    sequence_parallel=gpc.config.model.sequence_parallel,
+                    sequence_parallel=gpc.config.parallel.sequence_parallel,
                     device=device,
                     dtype=dtype,
                 )

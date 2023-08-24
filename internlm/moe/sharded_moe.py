@@ -356,6 +356,8 @@ class TopKGate(Module):
         # Only top-1 and top-2 are supported at the moment.
         if k not in (1, 2):
             raise ValueError("Only top-1 and top-2 gatings are supported.")
+        # TODO: can we use tensor parallel here?
+        # Deepspeed's mechisms, alway use fp32
         self.wg = torch.nn.Linear(model_dim, num_experts, bias=False).float()
         self.k = k
         self.capacity_factor = capacity_factor
