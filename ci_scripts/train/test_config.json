@@ -1,0 +1,45 @@
+{
+    "7B_basic_train": {
+        "SEQ_LEN": 1024,
+        "HIDDEN_SIZE": 2048,
+        "NUM_ATTENTION_HEAD": 16,
+        "NUM_LAYER": 16,
+        "TRAIN_FOLDER":"local:../lm_data/alpaca_data/train/en",
+        "ckpt": {
+            "checkpoint_every": 20
+        },
+        "data": {
+            "total_steps": 20
+        }
+    },
+    "7B_load_new_ckpt": {
+        "SEQ_LEN": 1024,
+        "HIDDEN_SIZE": 2048,
+        "NUM_ATTENTION_HEAD": 16,
+        "NUM_LAYER": 16,
+        "TRAIN_FOLDER":"local:../lm_data/alpaca_data/train/en",
+        "LOAD_CKPT_FOLDER": "local:llm_ckpts/20",
+        "ckpt": {
+            "load_ckpt_folder": "local:llm_ckpts/20",
+            "checkpoint_every": 20
+        },
+        "data": {
+            "total_steps": 40
+        }
+    },
+    "7B_load_preset_ckpt": {
+        "SEQ_LEN": 1024,
+        "HIDDEN_SIZE": 2048,
+        "NUM_ATTENTION_HEAD": 16,
+        "NUM_LAYER": 16,
+        "TRAIN_FOLDER":"local:../lm_data/alpaca_data/train/en",
+        "LOAD_CKPT_FOLDER": "local:../lm_data/alpaca_data/llm_ckpts/20",
+        "ckpt": {
+            "load_ckpt_folder": "local:../lm_data/alpaca_data/llm_ckpts/20",
+            "checkpoint_every": 20
+        },
+        "data": {
+            "total_steps": 40
+        }
+    }
+}

@@ -16,7 +16,7 @@ exit_code=0
 
 source ./ci_scripts/common/basic_func.sh
 
-echo "start to test alpaca_tokenizer.py." 
+echo "start to test alpaca_tokenizer.py."
 
 if [[ -d ${RESULTS} ]]; then
     if ! rm -rf ${RESULTS}/*; then

@@ -45,6 +45,10 @@ InternLM ，即书生·浦语大模型，包含面向实用场景的70亿参数�
 
 提供了支持模型预训练的轻量级训练框架，无需安装大量依赖包，一套代码支持千卡预训练和单卡人类偏好对齐训练，同时实现了极致的性能优化，实现千卡训练下近90%加速效率。
 
+## 新闻
+
+我们开源了 InternLM-Chat-7B v1.1。该模型能够调用代码解释器和工具插件。你可以在 [Lagent](https://github.com/InternLM/lagent) 中体验这些新功能。
+
 ## InternLM-7B
 
 ### 性能评测
@@ -74,6 +78,7 @@ InternLM ，即书生·浦语大模型，包含面向实用场景的70亿参数�
 | 模型                 | InternLM 格式权重下载地址                                                                                                                      | Transformers 格式权重下载地址                    |
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
 | **InternLM 7B**      | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-7b) | [🤗internlm/intern-7b](https://huggingface.co/internlm/internlm-7b) |
+| **InternLM Chat 7B v1.1**    | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b-v1.1)    | [🤗internlm/intern-chat-7b-v1.1](https://huggingface.co/internlm/internlm-chat-7b-v1.1)       |
 | **InternLM Chat 7B** | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b) | [🤗internlm/intern-chat-7b](https://huggingface.co/internlm/internlm-chat-7b)
 | **InternLM Chat 7B 8k** | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b-8k) | [🤗internlm/intern-chat-7b-8k](https://huggingface.co/internlm/internlm-chat-7b-8k)
 
@@ -85,8 +90,8 @@ InternLM ，即书生·浦语大模型，包含面向实用场景的70亿参数�
 
 ```python
 >>> from transformers import AutoTokenizer, AutoModelForCausalLM
->>> tokenizer = AutoTokenizer.from_pretrained("internlm/internlm-chat-7b", trust_remote_code=True)
->>> model = AutoModelForCausalLM.from_pretrained("internlm/internlm-chat-7b", trust_remote_code=True).cuda()
+>>> tokenizer = AutoTokenizer.from_pretrained("internlm/internlm-chat-7b-v1_1", trust_remote_code=True)
+>>> model = AutoModelForCausalLM.from_pretrained("internlm/internlm-chat-7b-v1_1", trust_remote_code=True).cuda()
 >>> model = model.eval()
 >>> response, history = model.chat(tokenizer, "你好", history=[])
 >>> print(response)
@@ -117,26 +122,44 @@ streamlit run web_demo.py
 
 我们使用 [LMDeploy](https://github.com/InternLM/LMDeploy) 完成 InternLM 的一键部署。
 
-1. 首先安装 LMDeploy:
+```bash
+python3 -m pip install lmdeploy
+```
 
-   ```bash
-   python3 -m pip install lmdeploy
-   ```
+执行以下命令，可以在终端与 `internlm-chat-7b` 模型进行交互式对话，或者通过 WebUI 与它聊天。
 
-2. 快速的部署命令如下：
+```bash
+# 转换权重格式
+python3 -m lmdeploy.serve.turbomind.deploy internlm-chat-7b
 
-   ```bash
-   python3 -m lmdeploy.serve.turbomind.deploy internlm-chat-7b /path/to/internlm-7b/model
-   ```
+# 在终端进行交互式对话
+python3 -m lmdeploy.turbomind.chat ./workspace
 
-3. 在导出模型后，你可以直接通过如下命令启动服务，并在客户端与AI对话
+# 启动 gradio 服务
+python3 -m lmdeploy.serve.gradio.app ./workspace
+```
+以上过程中，LMDeploy 使用的是 FP16 的计算精度。
 
-   ```bash
-   bash workspace/service_docker_up.sh
-   python3 -m lmdeploy.serve.client {server_ip_addresss}:33337
-   ```
+除了 FP16 精度，LMDeploy 还支持 `internlm-chat-7b` 4bit 权重模型推理。它不仅把模型的显存减少到 6G，大约只有 FP16 的 40%，更重要的是，经过 kernel 层面的极致优化，其推理性能在 A100-80G 上可达到 FP16 的 2.4 倍以上。
 
-[LMDeploy](https://github.com/InternLM/LMDeploy) 支持了 InternLM 部署的完整流程，请参考 [部署教程](https://github.com/InternLM/LMDeploy) 了解 InternLM 的更多部署细节。
+以下是`internlm-chat-7b` 4bit 权重模型的部署方法。推理速度的 bechmark 请参考[这里](https://github.com/InternLM/lmdeploy/blob/main/docs/zh_cn/w4a16.md#%E6%8E%A8%E7%90%86%E9%80%9F%E5%BA%A6)
+
+```bash
+# download prequnantized internlm-chat-7b model from huggingface
+git-lfs install
+git clone https://huggingface.co/lmdeploy/llama2-chat-7b-w4
+
+# Convert the model's layout and store it in the default path, ./workspace.
+python3 -m lmdeploy.serve.turbomind.deploy internlm-chat-7b ./llama2-chat-7b-w4 awq --group-size 128
+
+# inference lmdeploy's turbomind engine
+python3 -m lmdeploy.turbomind.chat ./workspace
+
+# serving with gradio
+python3 -m lmdeploy.serve.gradio.app ./workspace
+```
+LMDeploy 是涵盖了 LLM 任务的全套轻量化、部署和服务的工具箱。请参考 [部署教程](https://github.com/InternLM/LMDeploy) 了解 InternLM 的更多部署细节。
+
 
 ## 微调&训练
 
