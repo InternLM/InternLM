@@ -132,7 +132,13 @@ class MHA(nn.Module):
             qkv = self.rotary_emb(qkv, **kwargs)
 
         if inference_params is None:
-            context = self.inner_attn(qkv)
+            if gpc.config.model.dtype is torch.float32 and gpc.config.model.use_flash_attn:
+                with torch.cuda.amp.autocast(dtype=torch.float16):
+                    if qkv.dtype not in [torch.float16, torch.bfloat16]:
+                        qkv = qkv.to(torch.bfloat16)
+                    context = self.inner_attn(qkv).to(x.dtype)
+            else:
+                context = self.inner_attn(qkv)
         else:
             q = qkv[:, :, 0]
             assert self.layer_idx is not None, "Generation requires layer_idx in the constructor"
@@ -164,7 +170,14 @@ class MHA(nn.Module):
         kwargs.pop("indexes")
 
         if inference_params is None:
-            context = self.inner_attn(qkv, **kwargs)
+            if gpc.config.model.dtype is torch.float32 and gpc.config.model.use_flash_attn:
+                with torch.cuda.amp.autocast(dtype=torch.float16):
+                    if qkv.dtype not in [torch.float16, torch.bfloat16]:
+                        qkv = qkv.to(torch.bfloat16)
+                    context = self.inner_attn(qkv, **kwargs).to(x.dtype)
+            else:
+                context = self.inner_attn(qkv, **kwargs)
+
         else:
             raise RuntimeError("Not support this right now")
 
