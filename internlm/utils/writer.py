@@ -11,10 +11,6 @@ from torch.utils.tensorboard import SummaryWriter
 from internlm.core.context import global_context as gpc
 
 
-def copy_ignore_folder(source_path, target_path):
-    os.system(f"cp -r {source_path}/* {target_path}/")
-
-
 def tb_save_run_info(writer, config_lines, global_step=0):
     writer.add_text(tag="cmd", text_string=" ".join(sys.argv[:]), global_step=global_step)
     lines = []
@@ -44,7 +40,8 @@ def init_tb_writer(
     if gpc.get_global_rank() == 0:
         if resume_tb_folder is not None:
             logger.info(f"Try mv tensorboard logs: {resume_tb_folder} to {tb_folder}...")
-            copy_ignore_folder(resume_tb_folder, tb_folder)
+            os.system(f"cp -r {resume_tb_folder}/* {tb_folder}/")
+            os.system(f"chmod -R +w {tb_folder}/")
         else:
             logger.info(f"Login tensorboard logs to: {tb_folder}")
 
