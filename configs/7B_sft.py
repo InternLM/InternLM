@@ -128,6 +128,18 @@ model = dict(
     num_chunks=1,  # if num_chunks > 1, interleaved pipeline scheduler is used.
     num_experts=8,
 )
+"""
+zero1 parallel:
+    1. if zero1 <= 0, The size of the zero process group is equal to the size of the dp process group,
+        so parameters will be divided within the range of dp.
+    2. if zero1 == 1, zero is not used, and all dp groups retain the full amount of model parameters.
+    3. zero1 > 1 and zero1 <= dp world size, the world size of zero is a subset of dp world size.
+        For smaller models, it is usually a better choice to split the parameters within nodes with a setting <= 8.
+pipeline parallel (dict):
+    1. size: int, the size of pipeline parallel.
+    2. interleaved_overlap: bool, enable/disable communication overlap when using interleaved pipeline scheduler.
+tensor parallel: tensor parallel size, usually the number of GPUs per node.
+"""
 parallel = dict(
     zero1=8,
     pipeline=dict(size=1, interleaved_overlap=True),
