@@ -1,7 +1,7 @@
 name: Sonarqube
 on:
   workflow_dispatch:
-     
+
 jobs:
   sonarqube:
     name: SonarQube Scan

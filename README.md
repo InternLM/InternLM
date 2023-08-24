@@ -45,6 +45,10 @@ InternLM has open-sourced a 7 billion parameter base model and a chat model tail
 
 Additionally, a lightweight training framework is offered to support model pre-training without the need for extensive dependencies. With a single codebase, it supports pre-training on large-scale clusters with thousands of GPUs, and fine-tuning on a single GPU while achieving remarkable performance optimizations. InternLM achieves nearly 90% acceleration efficiency during training on 1024 GPUs.
 
+## News
+
+InternLM-7B-Chat v1.1 is released with code interpreter and function calling capability. You can try it with [Lagent](https://github.com/InternLM/lagent).
+
 ## InternLM-7B
 
 ### Performance Evaluation
@@ -74,6 +78,7 @@ InternLM 7B and InternLM 7B Chat, trained using InternLM, have been open-sourced
 | Model                         | InternLM Format Weight Download Link                                                                                                                 | Transformers Format Weight Download Link                                         |
 | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | **InternLM 7B**         | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-7b)         | [🤗internlm/intern-7b](https://huggingface.co/internlm/internlm-7b)                 |
+| **InternLM Chat 7B v1.1**    | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b-v1.1)    | [🤗internlm/intern-chat-7b-v1.1](https://huggingface.co/internlm/internlm-chat-7b-v1.1)       |
 | **InternLM Chat 7B**    | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b)    | [🤗internlm/intern-chat-7b](https://huggingface.co/internlm/internlm-chat-7b)       |
 | **InternLM Chat 7B 8k** | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b-8k) | [🤗internlm/intern-chat-7b-8k](https://huggingface.co/internlm/internlm-chat-7b-8k) |
 
@@ -85,8 +90,8 @@ To load the InternLM 7B Chat model using Transformers, use the following code:
 
 ```python
 >>> from transformers import AutoTokenizer, AutoModelForCausalLM
->>> tokenizer = AutoTokenizer.from_pretrained("internlm/internlm-chat-7b", trust_remote_code=True)
->>> model = AutoModelForCausalLM.from_pretrained("internlm/internlm-chat-7b", trust_remote_code=True).cuda()
+>>> tokenizer = AutoTokenizer.from_pretrained("internlm/internlm-chat-7b-v1_1", trust_remote_code=True)
+>>> model = AutoModelForCausalLM.from_pretrained("internlm/internlm-chat-7b-v1_1", trust_remote_code=True).cuda()
 >>> model = model.eval()
 >>> response, history = model.chat(tokenizer, "hello", history=[])
 >>> print(response)
@@ -118,28 +123,45 @@ The effect is as follows
 
 ### Deployment
 
-We use [LMDeploy](https://github.com/InternLM/LMDeploy) to complete the one-click deployment of InternLM.
+We use [LMDeploy](https://github.com/InternLM/LMDeploy) to complete the workflow of InternLM deployment.
 
-1. First, install LMDeploy:
+```bash
+python3 -m pip install lmdeploy
+```
 
-    ```bash
-    python3 -m pip install lmdeploy
-    ```
+You can utilize the following commands to conduct `internlm-chat-7b` FP16 inference, serve it and interact with AI assistant via WebUI:
 
-2. Use the following command for quick deployment:
+```bash
+# convert weight layout
+python3 -m lmdeploy.serve.turbomind.deploy internlm-chat-7b
 
-    ```bash
-    python3 -m lmdeploy.serve.turbomind.deploy internlm-chat-7b /path/to/internlm-chat-7b/model
-    ```
+# inference lmdeploy's turbomind engine
+python3 -m lmdeploy.turbomind.chat ./workspace
 
-3. After exporting the model, you can start a server and have a conversation with the deployed model using the following command:
-   
-    ```bash
-    bash workspace/service_docker_up.sh
-    python3 -m lmdeploy.serve.client {server_ip_addresss}:33337
-    ```
+# serving with gradio
+python3 -m lmdeploy.serve.gradio.app ./workspace
+```
 
-[LMDeploy](https://github.com/InternLM/LMDeploy) provides a complete workflow for deploying InternLM. Please refer to the [deployment tutorial](https://github.com/InternLM/LMDeploy) for more details on deploying InternLM.
+You can also deploy 4-bit quantized `internlm-chat-7b` model via LMDeploy. It greatly trims down the model's memory overhead to 6G, just 40% of what FP16 inference would take. More importantly, with extreme optimized kernel, the inference performance achieves 2.4x faster than FP16 inference on A100-80G.
+
+Try the followings to enjoy 4-bit `internlm-chat-7b` on a Geforce RTX 30x GPU card. You can find the inference benchmark from [here](https://github.com/InternLM/lmdeploy/blob/main/docs/en/w4a16.md#inference-performance).
+
+```bash
+# download prequnantized internlm-chat-7b model from huggingface
+git-lfs install
+git clone https://huggingface.co/lmdeploy/llama2-chat-7b-w4
+
+# Convert the model's layout and store it in the default path, ./workspace.
+python3 -m lmdeploy.serve.turbomind.deploy internlm-chat-7b ./llama2-chat-7b-w4 awq --group-size 128
+
+# inference lmdeploy's turbomind engine
+python3 -m lmdeploy.turbomind.chat ./workspace
+
+# serving with gradio
+python3 -m lmdeploy.serve.gradio.app ./workspace
+```
+
+LMDeploy is an efficient toolkit for compressing, deploying, and serving LLM models. Please refer to the [deployment tutorial](https://github.com/InternLM/LMDeploy) for more details on deploying InternLM.
 
 ## Fine-tuning & Training
 
