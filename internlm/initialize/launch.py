@@ -277,6 +277,19 @@ and 'load_given_ckpt' is True, so internlm will load from 'load_ckpt_folder'"
     if "alert_address" not in gpc.config:
         gpc.config._add_item("alert_address", None)
 
+    optim_ckpt = gpc.config.hybrid_zero_optimizer
+    if "zero_overlap_communication" in optim_ckpt:
+        # Compatible with the old interfaces.
+        optim_ckpt._add_item("overlap_sync_grad", optim_ckpt.zero_overlap_communication)
+    if "overlap_sync_grad" not in optim_ckpt:
+        optim_ckpt._add_item("overlap_sync_grad", False)
+    if "overlap_sync_param" not in optim_ckpt:
+        optim_ckpt._add_item("overlap_sync_param", False)
+    if gpc.is_rank_for_log():
+        logger.info(
+            f"overlap_sync_grad:{optim_ckpt.overlap_sync_grad}, overlap_sync_param:{optim_ckpt.overlap_sync_param}"
+        )
+
 
 def launch(
     config: Union[str, Path, Config, Dict],

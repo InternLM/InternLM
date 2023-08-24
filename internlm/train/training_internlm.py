@@ -92,7 +92,11 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
 
     Returns: A tuple of (optimizer, beta2_scheduler, lr_scheduler).
     """
-    param_bcast_sync_handler = ParamBcastSyncHandler(model)
+    if gpc.config.hybrid_zero_optimizer.overlap_sync_param:
+        param_bcast_sync_handler = ParamBcastSyncHandler(model)
+    else:
+        param_bcast_sync_handler = None
+
     adam_cfg = gpc.config.adam
     naive_optimizer = torch.optim.AdamW(
         params=[{"params": model.parameters(), "weight_decay": adam_cfg.weight_decay}],
