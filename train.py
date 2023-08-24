@@ -96,20 +96,6 @@ def main(args):
     # initialize customed llm logger
     uniscale_logger = initialize_llm_logger(start_time=current_time)
 
-    # initialize customed llm writer
-    with open(args.config, "r") as f:
-        config_lines = f.readlines()
-    writer = Writer(
-        job_name=gpc.config.JOB_NAME,
-        launch_time=current_time,
-        file_name=get_parallel_log_file_name(),
-        tensorboard_folder=gpc.config.tensorboard_folder,
-        resume_tb_folder=gpc.config.resume_tb_folder,
-        config=config_lines,
-        logger=logger,
-        enable_tb=gpc.config.enable_tb,
-    )
-
     # initialize and resume train state
     train_state = TrainState(gpc.config)
 
@@ -138,6 +124,21 @@ def main(args):
 
     # Loading other persistent training states.
     ckpt_manager.try_resume_training(lr_scheduler, optimizer, lr, train_state, train_dl)
+
+    # initialize customed llm writer
+    with open(args.config, "r") as f:
+        config_lines = f.readlines()
+    writer = Writer(
+        job_name=gpc.config.JOB_NAME,
+        launch_time=current_time,
+        file_name=get_parallel_log_file_name(),
+        tensorboard_folder=gpc.config.tensorboard_folder,
+        resume_tb_folder=train_state.resume_tb_folder,  # resume from ckpt.
+        step_count=train_state.step_count,  # resume from ckpt.
+        config=config_lines,
+        logger=logger,
+        enable_tb=gpc.config.enable_tb,
+    )
 
     # initialize metric for calculating accuracy and perplexity
     metric = AccPerplex(
