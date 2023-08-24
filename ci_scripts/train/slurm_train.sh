@@ -5,7 +5,7 @@ set -x
 readonly CKPTS_PATH="$GITHUB_WORKSPACE/llm_ckpts"
 readonly CKPTS20_PATH="$GITHUB_WORKSPACE/llm_ckpts/20"
 readonly CKPTS20_OUTPUT="${CKPTS20_PATH}/*.pt"
-expected_num=21
+expected_num=22
 exit_code=0
 
 source ./ci_scripts/common/basic_func.sh

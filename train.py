@@ -102,10 +102,13 @@ def main(args):
     # initialize model
     model = initialize_model()
 
+    with open(args.config, "r") as f:
+        config_lines = f.readlines()
     ckpt_manager = CheckpointManager(
         ckpt_config=gpc.config.ckpt,
         model=model,
         model_config=gpc.config.model,
+        model_config_file="".join(config_lines),
         feishu_address=gpc.config.alert_address,
     )
 
@@ -126,8 +129,6 @@ def main(args):
     ckpt_manager.try_resume_training(lr_scheduler, optimizer, lr, train_state, train_dl)
 
     # initialize customed llm writer
-    with open(args.config, "r") as f:
-        config_lines = f.readlines()
     writer = Writer(
         job_name=gpc.config.JOB_NAME,
         launch_time=current_time,
