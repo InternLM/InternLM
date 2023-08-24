@@ -13,7 +13,6 @@ import internlm.core.communication as comm
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.core.engine import Engine
-# from internlm.core.naive_amp import NaiveAMPModel
 from internlm.utils.common import get_current_device, move_to_device
 from internlm.utils.logger import get_logger
 

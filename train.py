@@ -574,18 +574,6 @@ def main(args):
     else:
         memory_profiler = None
 
-    # initialize simple memory profiler
-    if args.profiling:
-        memory_profiler = SimpleMemoryProfiler(
-            model,
-            optimizer.optim,
-            log_folder=f"memory_trace/rank{gpc.get_global_rank()}_"
-            + f"dp{gpc.get_local_rank(ParallelMode.DATA)}_"
-            + f"tp{gpc.get_local_rank(ParallelMode.TENSOR)}",
-        )
-    else:
-        memory_profiler = None
-
     # initialize the batch skipper
     batch_skipper = BatchSkipper(skip_batches)
 
@@ -687,8 +675,6 @@ def main(args):
 
             prof.step()
 
-            torch.cuda.reset_max_memory_allocated()
-
     ckpt_manager.wait_async_upload_finish()
 
 
@@ -705,12 +691,7 @@ if __name__ == "__main__":
         try:
             main(args)
         except Exception as e:
-            # logger.error(
-            #     f"Raise exception from {hostname} with rank id: {gpc.get_global_rank()}",
-            #     exc_info=traceback.format_exc(),
-            # )
             logger.error(
                 f"Raise exception from {hostname} with rank id: {gpc.get_global_rank()}\n{traceback.format_exc()}",
             )
-            logger.exception(e)
             mm.monitor_exception(alert_address=gpc.config.alert_address, excp_info=traceback.format_exc())

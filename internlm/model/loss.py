@@ -44,7 +44,6 @@ class FlashGPTLMLoss(nn.Module):
             logits, labels = args
         else:
             raise RuntimeError(f"The number of criterion inputs are:{len(args)}")
-
         shift_logits = logits.contiguous().view(-1, logits.size(-1))
         shift_labels = labels.contiguous().view(-1)
         loss = self.loss_fn(

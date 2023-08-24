@@ -504,6 +504,7 @@ class HybridZeroOptimizer(BaseOptimizer):
             Union[bool, float]: Whether the gradient is success updated, and the gradient.
         """
         assert closure is None, "closure is not supported by step()"
+
         # if not overlapping communication (no reduction hook is attached)
         # we need to manually reduce these gradients
         if not self._overlap_communication:
@@ -543,6 +544,7 @@ class HybridZeroOptimizer(BaseOptimizer):
 
     def _step(self, closure=None, norms=None):
         assert closure is None, "closure is not supported by step()"
+
         # check for overflow
         found_inf = False
         # if there is INF values in grades, compute_norm func would also returns -1
@@ -572,17 +574,16 @@ class HybridZeroOptimizer(BaseOptimizer):
             # The following operations are performed only on the rank to which parameters are assigned.
             if not self.param_group_has_params[group_id]:
                 continue
-
+            # create flat gradient for the flat fp32 params
             gradients = self._grad_store.get_averaged_gradients_by_group(group_id)
             with torch.no_grad():
                 flat_fp16_avg_grads = flatten(gradients)
             self._grad_store.reset_average_gradients_by_group(group_id)
-            del gradients  # release cuda memory
+            gradients = None  # release cuda memory
 
-            # create flat gradient for the flat fp32 params
             dtype = self._fp32_flat_param_groups_of_current_rank[group_id].dtype
             flat_fp32_avg_grads = flat_fp16_avg_grads.to(dtype)
-            del flat_fp16_avg_grads  # release cuda memory
+            flat_fp16_avg_grads = None  # release cuda memory
 
             param_shape = self._fp32_flat_param_groups_of_current_rank[group_id].shape
             assert (
@@ -614,7 +615,6 @@ class HybridZeroOptimizer(BaseOptimizer):
         # to send them updated their own parameters.
         if self.has_params:
             self.optim.step()
-
             # release the fp32 grad
             release_param_grad(self._fp32_flat_param_groups_of_current_rank.values())
             # update fp16 partition updated by the current rank
