@@ -12,9 +12,9 @@ make -f docker.Makefile BASE_OS=centos7 DOCKERFILE_PATH=./dockerfile/Dockerfile-
 
 ```
 # ubuntu20.04
-docker pull li126com/internlm:torch1.13.1-cuda11.7.1-flashatten1.0.5-ubuntu20.04
+docker pull internlm/internlm:torch1.13.1-cuda11.7.1-flashatten1.0.5-ubuntu20.04
 # centos7
-docker pull li126com/internlm:torch1.13.1-cuda11.7.1-flashatten1.0.5-centos7
+docker pull internlm/internlm:torch1.13.1-cuda11.7.1-flashatten1.0.5-centos7
 ```
 
 ### 容器启动

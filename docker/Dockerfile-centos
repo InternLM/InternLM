@@ -3,7 +3,7 @@ ARG https_proxy
 ARG http_proxy
 
 ##############################################################################
-# Install the basic environment on ubuntu
+# Install the basic environment on centos
 ##############################################################################
 FROM ${BASE_IMAGE} as base
 ARG https_proxy

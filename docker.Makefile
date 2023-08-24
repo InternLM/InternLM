@@ -65,7 +65,12 @@ endif
 # endif
 # endif
 
-DOCKERFILE_PATH          ?=  ./dockerfile/Dockerfile-centos
+ifeq ($(findstring centos,$(BASE_OS)),centos)
+    DOCKERFILE_PATH ?= ./docker/Dockerfile-centos
+else
+    DOCKERFILE_PATH ?= ./docker/Dockerfile-ubuntu
+endif
+
 #use -f to specify dockerfile
 DOCKER_BUILD              = DOCKER_BUILDKIT=1 \
                                                         docker $(BUILD) \

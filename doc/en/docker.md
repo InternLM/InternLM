@@ -12,9 +12,9 @@ The standard image based on ubuntu and centos has been built and can be directly
 
 ```
 # ubuntu20.04
-docker pull li126com/internlm:torch1.13.1-cuda11.7.1-flashatten1.0.5-ubuntu20.04
+docker pull internlm/internlm:torch1.13.1-cuda11.7.1-flashatten1.0.5-ubuntu20.04
 # centos7
-docker pull li126com/internlm:torch1.13.1-cuda11.7.1-flashatten1.0.5-centos7
+docker pull internlm/internlm:torch1.13.1-cuda11.7.1-flashatten1.0.5-centos7
 ```
 
 ### Run container
