@@ -131,7 +131,7 @@ class MHA(nn.Module):
             if gpc.config.model.dtype is torch.float32 and gpc.config.model.use_flash_attn:
                 with torch.cuda.amp.autocast(dtype=torch.float16):
                     if qkv.dtype not in [torch.float16, torch.bfloat16]:
-                        qkv = qkv.to(torch.float16)
+                        qkv = qkv.to(torch.bfloat16)
                     context = self.inner_attn(qkv).to(x.dtype)
             else:
                 context = self.inner_attn(qkv)
@@ -169,7 +169,7 @@ class MHA(nn.Module):
             if gpc.config.model.dtype is torch.float32 and gpc.config.model.use_flash_attn:
                 with torch.cuda.amp.autocast(dtype=torch.float16):
                     if qkv.dtype not in [torch.float16, torch.bfloat16]:
-                        qkv = qkv.to(torch.float16)
+                        qkv = qkv.to(torch.bfloat16)
                     context = self.inner_attn(qkv, **kwargs).to(x.dtype)
             else:
                 context = self.inner_attn(qkv, **kwargs)
