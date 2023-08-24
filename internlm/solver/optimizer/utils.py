@@ -12,9 +12,10 @@ import torch.distributed as dist
 from torch import Tensor, nn
 from torch._utils import _flatten_dense_tensors, _unflatten_dense_tensors
 
+from internlm.core.amp.naive_amp import NaiveAMPModel
+from internlm.core.amp.torch_amp import TorchAMPModel
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
-from internlm.core.naive_amp import NaiveAMPModel
 from internlm.utils.common import get_tensor_norm, move_norm_to_cuda
 from internlm.utils.logger import get_logger
 from internlm.utils.parallel import is_model_parallel_parameter
@@ -503,7 +504,7 @@ class ParamBcastSyncHandler:
 
         # record the parameters to transformer/embeding/head/norm block
         for _chunk in model:
-            if isinstance(_chunk, NaiveAMPModel):
+            if isinstance(_chunk, (NaiveAMPModel, TorchAMPModel)):
                 _chunk = _chunk.model
 
             for _, children in _chunk.named_children():

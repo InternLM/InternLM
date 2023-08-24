@@ -124,11 +124,12 @@ class NaiveAMPModel(nn.Module):
             if self._first_eval_run:
                 self._first_eval_run = False
 
-        if args:
+        if args and self.dtype in [torch.float16, torch.bfloat16]:
             args = [self._convert_to_fp16(arg) for arg in args]
-        if kwargs:
+        if kwargs and self.dtype in [torch.float16, torch.bfloat16]:
             for k, v in kwargs.items():
                 kwargs[k] = self._convert_to_fp16(v)
+        import pdb; pdb.set_trace()
         out = self.model(*args, **kwargs)
 
         if self._output_to_fp32:

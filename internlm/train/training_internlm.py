@@ -11,9 +11,9 @@ from torch import nn
 from torch.utils.data import ConcatDataset, DataLoader
 
 import internlm
+from internlm.core.amp import convert_to_amp
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
-from internlm.core.naive_amp import NaiveAMPModel
 from internlm.core.trainer import TrainState
 from internlm.data.batch_sampler import StaticBatchSampler, get_dpsampler_dataloader
 from internlm.data.collaters import jsonl_ds_collate_fn, packed_collate_fn
@@ -70,7 +70,7 @@ def initialize_distributed_env(config: str, launcher: str = "slurm", master_port
         assert launcher in ["slurm", "torch"], "launcher only support slurm or torch"
 
 
-def initialize_model():
+def initialize_model(criterion):
     """
     Initialize model.
 
@@ -78,25 +78,8 @@ def initialize_model():
     """
 
     model = MODEL_INITIALIZER.get_module(module_name=gpc.config.model_type)(**(gpc.config.model))
-    if isinstance(model, nn.ModuleList):
-        model = nn.ModuleList(
-            [
-                NaiveAMPModel(
-                    model=_m,
-                    output_to_fp32=False,  # manually controlled by interleaved pipleline scheduler
-                    dtype=gpc.config.model.get("dtype", torch.half),
-                    sync_buffer=False,
-                )
-                for _m in model
-            ]
-        )
-    else:
-        model = NaiveAMPModel(
-            model=model,
-            output_to_fp32=is_no_pp_or_last_stage(),
-            dtype=gpc.config.model.get("dtype", torch.half),
-            sync_buffer=False,
-        )
+
+    model, criterion = convert_to_amp(model, criterion, gpc.config.model.use_amp)
 
     # This sync is very important, cause the model weights kept in optimizer are copied
     # from the origin parameters in the memory, so we should make sure the dp sync
@@ -107,7 +90,7 @@ def initialize_model():
     # the same across tensor parallelism.
     sync_model_param_within_tp(model)
 
-    return model
+    return model, criterion
 
 
 def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
