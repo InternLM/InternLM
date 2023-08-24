@@ -3,9 +3,9 @@
 ### 镜像配置及构造
 dockerfile 的配置以及构造均通过 docker.Makefile 文件实现，在 InternLM 根目录下执行如下命令即可 build 镜像：
 ``` 
-make -f docker.Makefile BASE_OS=centos7 DOCKERFILE_PATH=./dockerfile/Dockerfile-centos
+make -f docker.Makefile BASE_OS=centos7
 ``` 
-在 docker.Makefile 中可自定义基础镜像，环境版本等内容，对应参数可直接通过命令行传递。对于 BASE_OS 分别支持 ubuntu20.04 和 centos7，通过 DOCKERFILE_PATH 来指定具体 Dockerfile。
+在 docker.Makefile 中可自定义基础镜像，环境版本等内容，对应参数可直接通过命令行传递。对于 BASE_OS 分别支持 ubuntu20.04 和 centos7。
 
 ### 镜像拉取
 基于 ubuntu 和 centos 的标准镜像已经 build 完成也可直接拉取使用：

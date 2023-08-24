@@ -3,9 +3,9 @@
 ### Image Configuration and Build
 The configuration and build of the Dockerfile are implemented through the docker.Makefile. To build the image, execute the following command in the root directory of InternLM:
 ``` 
-make -f docker.Makefile BASE_OS=centos7 DOCKERFILE_PATH=./dockerfile/Dockerfile-centos
+make -f docker.Makefile BASE_OS=centos7
 ``` 
-In docker.Makefile, you can customize the basic image, environment version, etc., and the corresponding parameters can be passed directly through the command line. For BASE_OS, ubuntu20.04 and centos7 are respectively supported. The specific Dockerfile is specified through DOCKERFILE_PATH.
+In docker.Makefile, you can customize the basic image, environment version, etc., and the corresponding parameters can be passed directly through the command line. For BASE_OS, ubuntu20.04 and centos7 are respectively supported.
 
 ### Pull standard image
 The standard image based on ubuntu and centos has been built and can be directly pulled:
