@@ -565,6 +565,7 @@ set load_ckpt_folder or use default value \
 
         start = time.time()
         self.set_save_folder(folder, train_state.step_count)
+        torch.cuda.synchronize()
         torch.distributed.barrier()
         if gpc.is_rank_for_log():
             logger.info(f"Saving checkpoint to `{folder}` at batch count:{train_state.step_count}...")

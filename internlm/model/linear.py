@@ -62,7 +62,7 @@ class ScaleColumnParallelLinear(nn.Linear):
             weight,
             self.bias,
             process_group=self.process_group,
-            sequence_parallel=gpc.config.model.sequence_parallel,
+            sequence_parallel=gpc.config.parallel.sequence_parallel,
         )
 
 
@@ -111,7 +111,7 @@ class RewardModelLinear(ScaleColumnParallelLinear):
             weight,
             self.bias,
             process_group=self.process_group,
-            sequence_parallel=gpc.config.model.sequence_parallel,
+            sequence_parallel=gpc.config.parallel.sequence_parallel,
         )
 
 
@@ -173,7 +173,7 @@ class FeedForward(nn.Module):
             hidden_features,
             process_group,
             bias,
-            sequence_parallel=gpc.config.model.sequence_parallel,
+            sequence_parallel=gpc.config.parallel.sequence_parallel,
             device=device,
             dtype=dtype,
         )
@@ -182,7 +182,7 @@ class FeedForward(nn.Module):
             hidden_features,
             process_group,
             bias,
-            sequence_parallel=gpc.config.model.sequence_parallel,
+            sequence_parallel=gpc.config.parallel.sequence_parallel,
             device=device,
             dtype=dtype,
         )
@@ -191,7 +191,7 @@ class FeedForward(nn.Module):
             out_features,
             process_group,
             bias=bias,
-            sequence_parallel=gpc.config.model.sequence_parallel,
+            sequence_parallel=gpc.config.parallel.sequence_parallel,
             device=device,
             dtype=dtype,
         )

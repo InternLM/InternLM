@@ -120,12 +120,11 @@ model = dict(
     num_layers=NUM_LAYER,
     mlp_ratio=MLP_RATIO,
     apply_post_layer_norm=False,
-    dtype="torch.bfloat16",
+    dtype="torch.float16",  # Support: "torch.float16", "torch.half", "torch.bfloat16", "torch.float32", "torch.tf32"
     norm_type="rmsnorm",
     layer_norm_epsilon=1e-5,
     use_flash_attn=True,
     num_chunks=1,  # if num_chunks > 1, interleaved pipeline scheduler is used.
-    sequence_parallel=False,
 )
 """
 zero1 parallel:
@@ -142,6 +141,7 @@ tensor parallel: tensor parallel size, usually the number of GPUs per node.
 parallel = dict(
     zero1=8,
     pipeline=dict(size=1, interleaved_overlap=True),
+    sequence_parallel=False,
 )
 
 cudnn_deterministic = False
