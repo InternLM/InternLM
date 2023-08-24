@@ -58,7 +58,6 @@ from internlm.utils.registry import MODEL_INITIALIZER
 from internlm.utils.simple_memory_profiler import SimpleMemoryProfiler
 from internlm.utils.writer import Writer
 
-
 # global llm logger
 logger = get_logger(__file__)
 
@@ -117,7 +116,7 @@ def initialize_model(criterion):
     """
 
     model = MODEL_INITIALIZER.get_module(module_name=gpc.config.model_type)(**(gpc.config.model))
-    
+
     model, criterion = convert_to_amp(model, criterion, gpc.config.model.use_amp)
 
     # This sync is very important, cause the model weights kept in optimizer are copied
@@ -128,10 +127,10 @@ def initialize_model(criterion):
     # This function is needed to make sure parameters that are not splitted by tensor parallelism are
     # the same across tensor parallelism.
     sync_model_param_within_tp(model)
-    
+
     # def get_intermediate_output(module, input, output):
     #     print(module, output.dtype)
-    
+
     # def bwd_hook(module, grad_input, grad_output):
     #     import pdb; pdb.set_trace()
     #     print("bwd: ", end='')
@@ -148,14 +147,14 @@ def initialize_model(criterion):
     #             continue
     #         r.append(t.dtype)
     #     print(module, r)
-    
+
     # def add_hooks_recursively(module):
     #     # module.register_forward_hook(get_intermediate_output)
     #     module.register_full_backward_hook(bwd_hook)
-        
+
     #     for child in module.children():
     #         add_hooks_recursively(child)
-    
+
     # add_hooks_recursively(model)
 
     return model, criterion
@@ -506,18 +505,18 @@ def main(args):
     # initialize and resume train state
     train_state = TrainState(gpc.config)
 
+    # initialize loss function
+    criterion = FlashGPTLMLoss(parallel_output=True, label_smoothing=label_smoothing)
+
+    # initialize model
+    model, criterion = initialize_model(criterion)
+
     ckpt_manager = CheckpointManager(
         ckpt_config=gpc.config.ckpt,
         model=model,
         model_config=gpc.config.model,
         feishu_address=gpc.config.alert_address,
     )
-
-    # initialize loss function
-    criterion = FlashGPTLMLoss(parallel_output=True, label_smoothing=label_smoothing)
-    
-    # initialize model
-    model, criterion = initialize_model(criterion)
 
     # initialize the train and validation data loader
     train_dl, dataset_types = get_train_data_loader(num_worker=4)
@@ -562,8 +561,8 @@ def main(args):
         beta2_scheduler=beta2_scheduler,
         scheduler_hooks=scheduler_hooks,
     )
-    
-     # initialize simple memory profiler
+
+    # initialize simple memory profiler
     if args.profiling:
         memory_profiler = SimpleMemoryProfiler(
             model,
@@ -621,14 +620,14 @@ def main(args):
             # process data
             if batch[0].get("type_ids", None) is not None:
                 metric.set_current_type_ids(type_ids=batch[0].pop("type_ids", None))
-            
+
             # do forward and backward
             timer("fwd-bwd").start()
             _, _, loss = trainer.execute_schedule(
                 batch, forward_only=False, return_loss=True, return_output_label=False
             )
             timer("fwd-bwd").stop()
-            
+
             # update parameters, and returns (success_update, grad_norm)
             trainer_result = trainer.step()
             assert trainer_result is not None
@@ -687,7 +686,7 @@ def main(args):
                 memory_profiler.step()
 
             prof.step()
-            
+
             torch.cuda.reset_max_memory_allocated()
 
     ckpt_manager.wait_async_upload_finish()

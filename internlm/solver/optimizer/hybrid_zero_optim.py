@@ -572,13 +572,13 @@ class HybridZeroOptimizer(BaseOptimizer):
             # The following operations are performed only on the rank to which parameters are assigned.
             if not self.param_group_has_params[group_id]:
                 continue
-            
+
             gradients = self._grad_store.get_averaged_gradients_by_group(group_id)
             with torch.no_grad():
                 flat_fp16_avg_grads = flatten(gradients)
             self._grad_store.reset_average_gradients_by_group(group_id)
             del gradients  # release cuda memory
-            
+
             # create flat gradient for the flat fp32 params
             dtype = self._fp32_flat_param_groups_of_current_rank[group_id].dtype
             flat_fp32_avg_grads = flat_fp16_avg_grads.to(dtype)
@@ -592,7 +592,7 @@ class HybridZeroOptimizer(BaseOptimizer):
             single_grad_partition_groups.append(flat_fp32_avg_grads)
             device = self._fp32_flat_param_groups_of_current_rank[group_id].device
             self._fp32_flat_param_groups_of_current_rank[group_id].grad = flat_fp32_avg_grads.to(device)
-        
+
         # unscale and clip grads
         # get the global norm
         global_norm_groups = []
@@ -601,7 +601,9 @@ class HybridZeroOptimizer(BaseOptimizer):
                 global_norm_groups.append(norm**0.5)
 
         # the following operations are performed only on the rank to which parameters are assigned.
-        if (not (gpc.config.model.dtype is torch.float32 and gpc.config.model.use_amp is False)) or gpc.config.model.use_amp:
+        if (
+            not (gpc.config.model.dtype is torch.float32 and gpc.config.model.use_amp is False)
+        ) or gpc.config.model.use_amp:
             if len(single_grad_partition_groups) != 0:
                 self._unscale_and_clip_grads(single_grad_partition_groups, global_norm_groups, loss_scale)
 

@@ -196,7 +196,9 @@ def _unpack_naive_wrapper(model: torch.nn.Module) -> Tuple[torch.nn.Module, int]
     num_chunks = len(model) if isinstance(model, torch.nn.ModuleList) else 1
 
     if num_chunks > 1:
-        model = torch.nn.ModuleList([_model.model if isinstance(_model, (NaiveAMPModel, TorchAMPModel)) else _model for _model in model])
+        model = torch.nn.ModuleList(
+            [_model.model if isinstance(_model, (NaiveAMPModel, TorchAMPModel)) else _model for _model in model]
+        )
     else:
         model = model.model if isinstance(model, (NaiveAMPModel, TorchAMPModel)) else model
 

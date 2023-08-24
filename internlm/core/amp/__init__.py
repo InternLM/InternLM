@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-import torch.nn as nn
+from torch import nn
 
 from .naive_amp import convert_to_naive_amp
 from .torch_amp import convert_to_torch_amp
@@ -16,12 +16,10 @@ def convert_to_amp(model: nn.Module, criterion, use_amp):
     Returns:
         model.
     """
-    
+
     if use_amp:
         model, criterion = convert_to_torch_amp(model, criterion)
     else:
         model, criterion = convert_to_naive_amp(model, criterion)
-    
+
     return model, criterion
-    
-    
