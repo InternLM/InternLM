@@ -38,7 +38,7 @@ class TorchAMPModel(nn.Module):
 
         return out
 
-    @torch_amp.autocast()
+    @torch_amp.autocast(dtype=torch.bfloat16)
     def forward(self, *args, **kwargs):
         """
         Execute forward under the torch amp context
@@ -62,7 +62,7 @@ class TorchAMPLoss(nn.Module):
         super().__init__()
         self.loss = loss
 
-    @torch_amp.autocast()
+    @torch_amp.autocast(dtype=torch.bfloat16)
     def forward(self, *args, **kwargs):
         """
         Execute forward under the torch amp context

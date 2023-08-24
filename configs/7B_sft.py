@@ -120,12 +120,12 @@ model = dict(
     num_layers=NUM_LAYER,
     mlp_ratio=MLP_RATIO,
     apply_post_layer_norm=False,
-    dtype="torch.bfloat16",
+    dtype="torch.float32",
     norm_type="rmsnorm",
     layer_norm_epsilon=1e-5,
     use_flash_attn=True,
+    use_amp=True, # whether to use mixed precision training
     num_chunks=1,  # if num_chunks > 1, interleaved pipeline scheduler is used.
-    use_amp=False, # whether to use mixed precision training
 )
 """
 zero1 parallel:

@@ -216,12 +216,12 @@ and 'load_given_ckpt' is True, so internlm will load from 'load_ckpt_folder'"
         model._add_item("dtype", torch.float16)
     else:
         if gpc.config.model.dtype == "torch.bfloat16":
+            assert gpc.config.model.use_amp is False, "There is no need to use amp when dtype is bfloat16"
             gpc.config.model.dtype = torch.bfloat16
         elif gpc.config.model.dtype in ("torch.float16", "torch.half"):
+            assert gpc.config.model.use_amp is False, "There is no need to use amp when dtype is float16"
             gpc.config.model.dtype = torch.float16
         elif gpc.config.model.dtype == "torch.float32":
-            if gpc.config.model.use_amp is False:
-                assert gpc.config.model.use_flash_attn is False, "when using float32, the use_flash_attn must be False"
             gpc.config.model.dtype = torch.float32
         elif gpc.config.model.dtype == "torch.tf32":
             torch.backends.cudnn.allow_tf32 = True
