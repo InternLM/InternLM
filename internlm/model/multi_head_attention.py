@@ -82,7 +82,7 @@ class MHA(nn.Module):
             3 * embed_dim,
             process_group,
             bias=True,
-            sequence_parallel=gpc.config.model.sequence_parallel,
+            sequence_parallel=gpc.config.parallel.sequence_parallel,
             **factory_kwargs,
         )  # according to https://spaces.ac.cn/archives/9577
 
@@ -95,7 +95,11 @@ class MHA(nn.Module):
 
         # output projection always have the bias (for now)
         self.out_proj = RowParallelLinearTorch(
-            embed_dim, embed_dim, process_group, sequence_parallel=gpc.config.model.sequence_parallel, **factory_kwargs
+            embed_dim,
+            embed_dim,
+            process_group,
+            sequence_parallel=gpc.config.parallel.sequence_parallel,
+            **factory_kwargs,
         )
         # need to assign tp attribute so that internlm know it is tensor parallel module
         if gpc.get_world_size(ParallelMode.TENSOR) > 1:
@@ -128,7 +132,13 @@ class MHA(nn.Module):
             qkv = self.rotary_emb(qkv, **kwargs)
 
         if inference_params is None:
-            context = self.inner_attn(qkv)
+            if gpc.config.model.dtype is torch.float32 and gpc.config.model.use_flash_attn:
+                with torch.cuda.amp.autocast(dtype=torch.float16):
+                    if qkv.dtype not in [torch.float16, torch.bfloat16]:
+                        qkv = qkv.to(torch.bfloat16)
+                    context = self.inner_attn(qkv).to(x.dtype)
+            else:
+                context = self.inner_attn(qkv)
         else:
             q = qkv[:, :, 0]
             assert self.layer_idx is not None, "Generation requires layer_idx in the constructor"
@@ -160,7 +170,14 @@ class MHA(nn.Module):
         kwargs.pop("indexes")
 
         if inference_params is None:
-            context = self.inner_attn(qkv, **kwargs)
+            if gpc.config.model.dtype is torch.float32 and gpc.config.model.use_flash_attn:
+                with torch.cuda.amp.autocast(dtype=torch.float16):
+                    if qkv.dtype not in [torch.float16, torch.bfloat16]:
+                        qkv = qkv.to(torch.bfloat16)
+                    context = self.inner_attn(qkv, **kwargs).to(x.dtype)
+            else:
+                context = self.inner_attn(qkv, **kwargs)
+
         else:
             raise RuntimeError("Not support this right now")
 

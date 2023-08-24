@@ -199,18 +199,6 @@ and 'load_given_ckpt' is True, so internlm will load from 'load_ckpt_folder'"
             "resume_tb_folder", os.environ["resume_tb_folder"] if "resume_tb_folder" in os.environ else None
         )
 
-    # process the model config
-    if "use_flash_attn" not in gpc.config.model:
-        gpc.config.model._add_item("use_flash_attn", True)
-    if "sequence_parallel" not in gpc.config.model:
-        gpc.config.model._add_item("sequence_parallel", False)
-    else:
-        assert not (
-            gpc.config.model.sequence_parallel is True and gpc.config.model.use_flash_attn is False
-        ), "sequence parallel does not support use_flash_attn=False"
-    if "use_amp" not in gpc.config.model:
-        gpc.config.model._add_item("use_amp", False)
-
     # cudnn
     torch.backends.cudnn.benchmark = gpc.config.get("cudnn_benchmark", False)
     torch.backends.cudnn.deterministic = gpc.config.get("cudnn_deterministic", False)
@@ -236,7 +224,6 @@ and 'load_given_ckpt' is True, so internlm will load from 'load_ckpt_folder'"
                 assert gpc.config.model.use_flash_attn is False, "when using float32, the use_flash_attn must be False"
             gpc.config.model.dtype = torch.float32
         elif gpc.config.model.dtype == "torch.tf32":
-            assert gpc.config.model.use_flash_attn is False, "when using tf32, the use_flash_attn must be False"
             torch.backends.cudnn.allow_tf32 = True
             torch.backends.cuda.matmul.allow_tf32 = True
             gpc.config.model.dtype = torch.float32
@@ -274,6 +261,20 @@ and 'load_given_ckpt' is True, so internlm will load from 'load_ckpt_folder'"
 
         logger.info("+" * 15 + " beta2_scheduler Info " + "+" * 15)  # pylint: disable=W1201
         logger.info(f"beta2_scheduler: {gpc.config.beta2_scheduler}")
+
+    # process the model config
+    if "use_flash_attn" not in gpc.config.model:
+        gpc.config.model._add_item("use_flash_attn", True)
+    if "use_amp" not in gpc.config.model:
+        gpc.config.model._add_item("use_amp", False)
+
+    # process the parallel config
+    if "sequence_parallel" not in gpc.config.parallel:
+        gpc.config.parallel._add_item("sequence_parallel", False)
+    else:
+        assert not (
+            gpc.config.parallel.sequence_parallel is True and gpc.config.model.use_flash_attn is False
+        ), "sequence parallel does not support use_flash_attn=False"
 
     # feishu webhook address for alerting
     if "alert_address" not in gpc.config:

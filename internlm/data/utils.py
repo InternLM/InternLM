@@ -5,7 +5,7 @@ import torch
 
 from internlm.core.context import global_context as gpc
 
-DATASET_TYPE_IDS_MAP = {"en": 0, "cn": 1}
+DATASET_TYPE_IDS_MAP = {"en": 0, "cn": 1, "code": 2}
 
 
 def get_dataset_type_id(path):

@@ -121,7 +121,7 @@ class PackedFlashBaseLayer1D(nn.Module):
                 process_group=gpc.get_group(ParallelMode.TENSOR),
                 bias1=False,
                 bias2=False,
-                sequence_parallel=gpc.config.model.sequence_parallel,
+                sequence_parallel=gpc.config.parallel.sequence_parallel,
                 checkpoint_lvl=0,
                 heuristic="auto",
                 device=device,
@@ -296,7 +296,7 @@ class PackedFlashInternLm1D(nn.Module):
                     max_position_embeddings=-1,
                     process_group=gpc.get_group(ParallelMode.TENSOR),
                     padding_idx=None,
-                    sequence_parallel=gpc.config.model.sequence_parallel,
+                    sequence_parallel=gpc.config.parallel.sequence_parallel,
                     device=device,
                     dtype=dtype,
                 )

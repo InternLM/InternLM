@@ -52,12 +52,12 @@ def switch_evaluation_pipeline_scheduler(trainer, num_microbatches, tensor_shape
 
 @contextmanager
 def switch_sequence_parallel_mode():
-    prev_mode = gpc.config.model.sequence_parallel
+    prev_mode = gpc.config.parallel.sequence_parallel
     try:
-        gpc.config.model.sequence_parallel = False
+        gpc.config.parallel.sequence_parallel = False
         yield
     finally:
-        gpc.config.model.sequence_parallel = prev_mode
+        gpc.config.parallel.sequence_parallel = prev_mode
 
 
 def evaluate_on_val_dls(
@@ -67,6 +67,7 @@ def evaluate_on_val_dls(
     logger,
     step_count,
     update_panel: bool = False,
+    streaming: bool = False,
 ):
     with switch_sequence_parallel_mode():
         torch.cuda.empty_cache()
@@ -75,7 +76,7 @@ def evaluate_on_val_dls(
         data_cfg = gpc.config.data
 
         for val_name, val_dl in val_dls.items():
-            if len(val_dl) == 0 and verbose:
+            if len(val_dl) == 0 and verbose and not streaming:
                 logger.info(f"Validation dataset: {val_name} is empty")
                 continue
 
@@ -91,7 +92,7 @@ def evaluate_on_val_dls(
             for val_idx, batch in tqdm(
                 enumerate(val_dl),
                 desc="Val.",
-                total=len(val_dl),
+                total=len(val_dl) if not streaming else None,
                 position=1,
                 disable=not verbose,
                 leave=False,

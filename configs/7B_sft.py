@@ -125,7 +125,6 @@ model = dict(
     layer_norm_epsilon=1e-5,
     use_flash_attn=True,
     num_chunks=1,  # if num_chunks > 1, interleaved pipeline scheduler is used.
-    sequence_parallel=False,
     use_amp=True, # whether to use mixed precision training
 )
 """
@@ -141,9 +140,9 @@ pipeline parallel (dict):
 tensor parallel: tensor parallel size, usually the number of GPUs per node.
 """
 parallel = dict(
-    zero1=-1,
-    tensor=2,
-    # pipeline=dict(size=2, interleaved_overlap=True),
+    zero1=8,
+    pipeline=dict(size=1, interleaved_overlap=True),
+    sequence_parallel=False,
 )
 
 cudnn_deterministic = False

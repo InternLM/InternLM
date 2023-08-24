@@ -5,13 +5,10 @@ import socket
 import time
 import traceback
 from functools import partial
-from typing import Iterable
 
 import numpy as np
 import torch
 import torch.distributed as dist
-from torch import nn
-from torch.utils.data import DataLoader
 
 import internlm
 from internlm.core.amp import convert_to_amp
@@ -19,27 +16,22 @@ from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.core.scheduler import SchedulerMetricHook
 from internlm.core.trainer import TrainState
-from internlm.data.batch_sampler import StaticBatchSampler, get_dpsampler_dataloader
-from internlm.data.collaters import jsonl_ds_collate_fn, packed_collate_fn
-from internlm.data.dataset import get_dataset_dict
-from internlm.data.dummy_dataset import RandomDataset
-from internlm.data.packed_dataset import (
-    PackedDataset,
-    PackedDatasetWithoutCuSeqlen,
-    get_packed_dataset_without_short_length,
-)
-from internlm.data.utils import DATASET_TYPE_IDS_MAP, unpack_data
 from internlm.model.loss import FlashGPTLMLoss
 from internlm.model.metrics import AccPerplex
-from internlm.monitor import initialize_monitor_manager, send_alert_message, set_env_var
+from internlm.monitor import initialize_monitor_manager, send_alert_message
 from internlm.monitor.monitor import monitor_manager as mm
-from internlm.solver.beta2_scheduler import Beta2Scheduler
-from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
-from internlm.solver.optimizer import HybridZeroOptimizer
+from internlm.train import (
+    get_train_data_loader,
+    get_validation_data_loader,
+    initialize_distributed_env,
+    initialize_llm_profile,
+    initialize_model,
+    initialize_optimizer,
+    load_new_batch,
+    record_current_batch_training_metrics,
+)
 from internlm.utils.common import (
     BatchSkipper,
-    DummyProfile,
-    get_master_node,
     get_megatron_flops,
     launch_time,
     parse_args,
@@ -48,44 +40,12 @@ from internlm.utils.evaluation import evaluate_on_val_dls
 from internlm.utils.logger import get_logger, initialize_uniscale_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
 from internlm.utils.model_checkpoint import CheckpointManager
-from internlm.utils.parallel import (
-    get_parallel_log_file_name,
-    is_no_pp_or_last_stage,
-    sync_model_param,
-    sync_model_param_within_tp,
-)
-from internlm.utils.registry import MODEL_INITIALIZER
+from internlm.utils.parallel import get_parallel_log_file_name
 from internlm.utils.simple_memory_profiler import SimpleMemoryProfiler
 from internlm.utils.writer import Writer
 
 # global llm logger
 logger = get_logger(__file__)
-
-
-def initialize_distributed_env(config: str, launcher: str = "slurm", master_port: int = 8888, seed: int = 1024):
-    """
-    Initialize distributed environment for distributed training.
-
-    Args:
-        config (str): Config file path.
-        launcher (str): Launcher for launching distributed environment, can be slurm or torch. "slurm" by default.
-        master_port (str): The master port for distributed training. 8888 by default.
-        seed (int, optional): Specified random seed for every process. 1024 by default.
-    """
-
-    torch.cuda.empty_cache()
-
-    if launcher == "torch":
-        internlm.launch_from_torch(config=config, seed=seed)
-    elif launcher == "slurm":
-        internlm.launch_from_slurm(
-            config=config,
-            host=get_master_node(),
-            port=master_port,
-            seed=seed,
-        )
-    else:
-        assert launcher in ["slurm", "torch"], "launcher only support slurm or torch"
 
 
 def initialize_llm_logger(start_time: str):
@@ -108,6 +68,7 @@ def initialize_llm_logger(start_time: str):
     return uniscale_logger
 
 
+<<<<<<< HEAD
 def initialize_model(criterion):
     """
     Initialize model.
@@ -459,6 +420,8 @@ def record_current_batch_training_metrics(
         mm.monitor_loss_spike(alert_address=gpc.config.alert_address, step_count=batch_count, cur_step_loss=loss.item())
 
 
+=======
+>>>>>>> develop
 def main(args):
     # init setting
     skip_batches = gpc.config.data.skip_batches
@@ -611,6 +574,7 @@ def main(args):
 
             # do forward and backward
             timer("fwd-bwd").start()
+
             _, _, loss = trainer.execute_schedule(
                 batch, forward_only=False, return_loss=True, return_output_label=False
             )
@@ -673,7 +637,8 @@ def main(args):
             if memory_profiler is not None:
                 memory_profiler.step()
 
-            prof.step()
+            if batch_count % 2 == 0:
+                prof.step()
 
     ckpt_manager.wait_async_upload_finish()
 
