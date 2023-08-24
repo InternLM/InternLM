@@ -7,31 +7,43 @@ MLP_RATIO = 8 / 3
 NUM_LAYER = 32
 VOCAB_SIZE = 103168
 
+MODEL_ONLY_FOLDER = "local:llm_ckpts/xxxx"
 # Ckpt folder format:
 # fs: 'local:/mnt/nfs/XXX'
-# oss: 'boto3:s3://model_weights/XXX'
-MODEL_ONLY_FOLDER = "local:llm_ckpts/xxxx"
 SAVE_CKPT_FOLDER = "local:llm_ckpts"
 LOAD_CKPT_FOLDER = "local:llm_ckpts/49"
+
+# boto3 Ckpt folder format:
+# import os
+# BOTO3_IP = os.environ["BOTO3_IP"] # boto3 bucket endpoint
+# SAVE_CKPT_FOLDER = f"boto3:s3://model_weights.{BOTO3_IP}/internlm"
+# LOAD_CKPT_FOLDER = f"boto3:s3://model_weights.{BOTO3_IP}/internlm/snapshot/1/"
+CHECKPOINT_EVERY = 50
 ckpt = dict(
-    # Path to save training ckpt.
-    save_ckpt_folder=SAVE_CKPT_FOLDER,
-    # Path to continue training ckpt (load model weights and scheduler/context states).
-    # load_ckpt_folder=LOAD_CKPT_FOLDER,
-    # Path to initialize with given model weights.
-    # load_model_only_folder=MODEL_ONLY_FOLDER,
-    checkpoint_every=50,
-    # Wheter to load optimizer states when continuing training.
-    load_optimizer=True,
+    enable_save_ckpt=False,  # enable ckpt save.
+    save_ckpt_folder=SAVE_CKPT_FOLDER,  # Path to save training ckpt.
+    # load_ckpt_folder=LOAD_CKPT_FOLDER, # Ckpt path to resume training(load weights and scheduler/context states).
+    # load_model_only_folder=MODEL_ONLY_FOLDER, # Path to initialize with given model weights.
+    load_optimizer=True,  # Wheter to load optimizer states when continuing training.
+    checkpoint_every=CHECKPOINT_EVERY,
+    async_upload=True,  # async ckpt upload. (only work for boto3 ckpt)
+    async_upload_tmp_folder="/dev/shm/internlm_tmp_ckpt/",  # path for temporarily files during asynchronous upload.
+    snapshot_ckpt_folder="/".join([SAVE_CKPT_FOLDER, "snapshot"]),  # directory for snapshot ckpt storage path.
+    oss_snapshot_freq=int(CHECKPOINT_EVERY / 2),  # snapshot ckpt save frequency.
 )
 
 TRAIN_FOLDER = "/path/to/dataset"
+VALID_FOLDER = "/path/to/dataset"
 data = dict(
     seq_len=SEQ_LEN,
     # micro_num means the number of micro_batch contained in one gradient update
     micro_num=4,
     # packed_length = micro_bsz * SEQ_LEN
     micro_bsz=2,
+    # defaults to the value of micro_num
+    valid_micro_num=4,
+    # defaults to 0, means disable evaluate
+    valid_every=50,
     pack_sample_into_one=False,
     total_steps=50000,
     skip_batches="",
@@ -39,6 +51,7 @@ data = dict(
     # Datasets with less than 50 rows will be discarded
     min_length=50,
     # train_folder=TRAIN_FOLDER,
+    # valid_folder=VALID_FOLDER,
 )
 
 grad_scaler = dict(
@@ -62,7 +75,8 @@ grad_scaler = dict(
 
 hybrid_zero_optimizer = dict(
     # Enable low_level_optimzer overlap_communication
-    zero_overlap_communication=True,
+    overlap_sync_grad=True,
+    overlap_sync_param=True,
     # bucket size for nccl communication params
     reduce_bucket_size=512 * 1024 * 1024,
     # grad clipping
@@ -107,9 +121,11 @@ model = dict(
     num_layers=NUM_LAYER,
     mlp_ratio=MLP_RATIO,
     apply_post_layer_norm=False,
-    dtype="torch.bfloat16",
+    dtype="torch.float16",  # Support: "torch.float16", "torch.half", "torch.bfloat16", "torch.float32", "torch.tf32"
     norm_type="rmsnorm",
     layer_norm_epsilon=1e-5,
+    use_flash_attn=True,
+    num_chunks=1,  # if num_chunks > 1, interleaved pipeline scheduler is used.
 )
 """
 zero1 parallel:
@@ -118,11 +134,15 @@ zero1 parallel:
     2. if zero1 == 1, zero is not used, and all dp groups retain the full amount of model parameters.
     3. zero1 > 1 and zero1 <= dp world size, the world size of zero is a subset of dp world size.
         For smaller models, it is usually a better choice to split the parameters within nodes with a setting <= 8.
-pipeline parallel: pipeline parallel size, only 1 is accepted currently.
-tensor parallel: tensor parallel size, usually the number of GPUs per node, only 1 is accepted currently.
+pipeline parallel (dict):
+    1. size: int, the size of pipeline parallel.
+    2. interleaved_overlap: bool, enable/disable communication overlap when using interleaved pipeline scheduler.
+tensor parallel: tensor parallel size, usually the number of GPUs per node.
 """
 parallel = dict(
     zero1=8,
+    pipeline=dict(size=1, interleaved_overlap=True),
+    sequence_parallel=False,
 )
 
 cudnn_deterministic = False

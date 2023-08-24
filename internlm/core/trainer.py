@@ -7,7 +7,12 @@ import json
 from typing import Iterable, Optional
 
 from internlm.core.engine import Engine
-from internlm.core.no_pipeline_scheduler import BaseScheduler, NonPipelineScheduler
+from internlm.core.scheduler import (
+    BaseScheduler,
+    InterleavedPipelineScheduler,
+    NonPipelineScheduler,
+    PipelineScheduler,
+)
 
 
 class TrainState:
@@ -32,6 +37,11 @@ class TrainState:
 
         # Total step count
         self.total_steps: int = config.data.total_steps
+
+        # resume tensorboard folder, need load from checkpoint or set manually.
+        self.resume_tb_folder = config.resume_tb_folder
+
+        self.tensorboard_folder = config.tensorboard_folder
 
     def init_batch_sampler(self, train_dl):
         # Copy of the batch sampler from the DataLoader
@@ -71,6 +81,9 @@ class TrainState:
         self.batch_sampler = train_dl.batch_sampler.copy()
         self.batch_sampler_iter = iter(self.batch_sampler)
 
+        # resume tensorboard from older tensorboard_folder
+        self.resume_tb_folder = other_stuffs.get("tensorboard_folder", None)
+
     def state_dict(self):
         return {
             "batch_count": self.batch_count,
@@ -78,6 +91,7 @@ class TrainState:
             "num_consumed_tokens": self.num_consumed_tokens,
             "inf_nan_skip_batches": self.inf_nan_skip_batches,
             "step_count": self.step_count,
+            "tensorboard_folder": self.tensorboard_folder,
         }
 
 
@@ -112,8 +126,7 @@ class Trainer:
             ), f"expected schedule to be of type BaseSchedule, but got {type(schedule)}"
             self._schedule = schedule
 
-        if self.uses_pipeline:
-            self._schedule.pre_processing(self)
+        self._schedule.pre_processing(self._engine)
 
     @property
     def engine(self):
@@ -126,7 +139,7 @@ class Trainer:
     @property
     def uses_pipeline(self):
         """Returns whether the pipeline parallel is used or not."""
-        return False
+        return isinstance(self._schedule, (PipelineScheduler, InterleavedPipelineScheduler))
 
     def train(self):
         self._engine.train()

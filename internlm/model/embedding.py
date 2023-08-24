@@ -7,13 +7,14 @@ import rotary_emb
 import torch
 import torch.nn.functional as F
 from einops import rearrange
+from flash_attn.layers.rotary import ApplyRotaryEmb as LegacyApplyRotaryEmb
 from flash_attn.layers.rotary import ApplyRotaryEmbQKV_ as LegacyApplyRotaryEmbQKV_
 from torch import Tensor, nn
 
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 
-from .utils import gather_forward_split_backward
+from .utils import gather_forward_split_backward, split_forward_gather_backward
 
 
 class Embedding1D(nn.Module):
@@ -55,6 +56,9 @@ class Embedding1D(nn.Module):
         output_parallel = F.embedding(input_, self.weight, self.padding_idx, *self.embed_args, **self.embed_kwargs)
 
         output = gather_forward_split_backward(output_parallel, ParallelMode.TENSOR, dim=-1)
+
+        if gpc.config.parallel.sequence_parallel:
+            output = split_forward_gather_backward(output, ParallelMode.TENSOR, dim=1)
 
         return output
 
@@ -108,6 +112,7 @@ class ApplyRotaryEmbQKV_(torch.autograd.Function):
 
 apply_rotary_emb_qkv_ = ApplyRotaryEmbQKV_.apply
 legacy_apply_rotary_embed_qkv = LegacyApplyRotaryEmbQKV_.apply
+legacy_apply_rotary_embed = LegacyApplyRotaryEmb.apply
 
 
 class RotaryEmbedding(torch.nn.Module):
@@ -176,7 +181,15 @@ class RotaryEmbedding(torch.nn.Module):
                 self._cos_k_cached = (torch.cos(freqs) / scale).to(x.dtype)
                 self._sin_k_cached = (torch.sin(freqs) / scale).to(x.dtype)
 
-    def forward(self, qkv: torch.Tensor, indexes=0) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, qkv: torch.Tensor, **kwargs):
+        if kwargs.get("indexes", None) is not None:
+            return self._forward(qkv, kwargs.pop("indexes"))
+        if kwargs.get("inference_params", None) is not None:
+            return self._eval_forward(qkv, seqlen_offset=kwargs.get("inference_params", None).sequence_len_offset)
+        else:
+            return self._eval_forward(qkv)
+
+    def _forward(self, qkv: torch.Tensor, indexes=0) -> Tuple[torch.Tensor, torch.Tensor]:
         self._update_cos_sin_cache(qkv, indexes)
         if self.scale is None:
             return apply_rotary_emb_qkv_(qkv, self._cos_cached[indexes], self._sin_cached[indexes])
@@ -189,7 +202,7 @@ class RotaryEmbedding(torch.nn.Module):
                 self._sin_k_cached[indexes],
             )
 
-    def eval_forward(self, qkv, seqlen_offset=0):
+    def _eval_forward(self, qkv, seqlen_offset=0):
         """
         seqlen_offset: can be used in generation where the qkv being passed in is only the last
         token in the batch.

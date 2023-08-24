@@ -1,5 +1,5 @@
 name: demo-in-readme
-on:
+on: 
   pull_request:
     branches:
       - "main"
@@ -110,7 +110,6 @@ jobs:
         srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --gpus-per-task=2 python ../ci_scripts/model/loaded_as_transformer.py
         cd ..
         rm -rf $GITHUB_WORKSPACE/hf_ckpt
-
   load-chat-model-in-hf:
     if: ${{ always() }}
     needs: check-requirements

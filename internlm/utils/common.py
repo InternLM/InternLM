@@ -34,18 +34,6 @@ def get_master_node():
     return result
 
 
-def get_process_rank():
-    proc_rank = -1
-    if os.getenv("SLURM_PROCID") is not None:
-        proc_rank = int(os.getenv("SLURM_PROCID"))
-    elif os.getenv("RANK") is not None:
-        # In k8s env, we use $RANK.
-        proc_rank = int(os.getenv("RANK"))
-
-    # assert proc_rank != -1, "get_process_rank cant't get right process rank!"
-    return proc_rank
-
-
 def move_norm_to_cuda(norm: Union[float, torch.Tensor]) -> Union[float, torch.Tensor]:
     if torch.is_tensor(norm) and norm.device.type != "cuda":
         norm = norm.to(torch.cuda.current_device())
@@ -81,28 +69,12 @@ def move_to_device(data):
         data_to_return = []
         for element in data:
             if isinstance(element, dict):
-                data_to_return.append(
-                    {
-                        k: (
-                            _move_tensor(v)
-                            if k != "inference_params"
-                            else v._replace(attention_mask=_move_tensor(v.attention_mask))
-                        )
-                        for k, v in element.items()
-                    }
-                )
+                data_to_return.append({k: _move_tensor(v) for k, v in element.items()})
             else:
                 data_to_return.append(_move_tensor(element))
         data = data_to_return
     elif isinstance(data, dict):
-        data = {
-            k: (
-                _move_tensor(v)
-                if k != "inference_params"
-                else v._replace(attention_mask=_move_tensor(v.attention_mask))
-            )
-            for k, v in data.items()
-        }
+        data = {k: _move_tensor(v) for k, v in data.items()}
     else:
         raise TypeError(f"Expected batch data to be of type torch.Tensor, list, tuple, or dict, but got {type(data)}")
     return data
@@ -246,3 +218,21 @@ def get_megatron_flops(
 
     tflops = flops_per_iteration / (elapsed_time_per_iter * global_world_size * (10**12))
     return tflops
+
+
+class DummyProfile:
+    """
+    Dummy Profile.
+    """
+
+    def __init__(self, *args, **kwargs) -> None:
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, a, b, c):
+        pass
+
+    def step(self):
+        pass

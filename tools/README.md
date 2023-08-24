@@ -30,7 +30,6 @@ $ python tools/tokenizer.py --text_input_path your_input_text_path --bin_output_
 ```
 
 可以通过运行以下命令来生成`bin`和`meta`文件：
-
 ```bash
 $ python tools/tokenizer.py --text_input_path raw_data.txt --bin_output_path cn/output.bin
 ```

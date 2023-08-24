@@ -14,7 +14,6 @@ This directory provide some tools for model training with the following file str
 We need to use a `tokenizer` to generate `bin` and `meta` files for raw data. We import the tokenizer model by specifying the model weight path in `tools/tokenizer.py`. Currently, we provide `V7.model` to generate tokens. If you want to use a different model, you can modify the model weight path in `tokenizer.py` directly.
 
 We can run the following command to generate `bin` and `meta` files corresponding to the original data. The parameter `text_input_path` represents the path of the original text data, currently supporting `txt`, `json`, and `jsonl` formats, while `bin_output_path` represents the save path of the generated `bin` files.
-
 ```bash
 $ python tools/tokenizer.py --text_input_path your_input_text_path --bin_output_path your_output_bin_path
 ```

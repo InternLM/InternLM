@@ -1,19 +1,36 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
+import math
 from abc import ABC, abstractmethod
-from typing import Dict, Optional
+from collections import OrderedDict
+from functools import partial
+from typing import Any, Dict, Optional, Union
 
 import torch
 import torch.distributed as dist
-from torch import Tensor
+from torch import Tensor, nn
 from torch._utils import _flatten_dense_tensors, _unflatten_dense_tensors
 
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
+from internlm.core.naive_amp import NaiveAMPModel
+from internlm.utils.common import get_tensor_norm, move_norm_to_cuda
 from internlm.utils.logger import get_logger
+from internlm.utils.parallel import is_model_parallel_parameter
 
 logger = get_logger(__file__)
+
+try:
+    import amp_C
+    from apex.multi_tensor_apply import multi_tensor_applier
+
+    APEX_AVAILABLE = True
+except (ModuleNotFoundError, ImportError):
+    logger.warning("The torch implementation for cal_l2norm is slower than apex. Please note this!")
+    APEX_AVAILABLE = False
+
+inf = math.inf
 
 
 def flatten(input_):
@@ -46,12 +63,19 @@ def get_grad_accumulate_object(tensor):
 
 
 def split_half_float_double(tensor_list):
-    dtypes = ["torch.cuda.HalfTensor", "torch.cuda.FloatTensor", "torch.cuda.DoubleTensor", "torch.cuda.BFloat16Tensor"]
-    buckets = []
-    for _, dtype in enumerate(dtypes):
-        bucket = [t for t in tensor_list if t.type() == dtype]
-        if bucket:
-            buckets.append(bucket)
+    dtype_buckets = {
+        "torch.cuda.HalfTensor": [],
+        "torch.cuda.FloatTensor": [],
+        "torch.cuda.DoubleTensor": [],
+        "torch.cuda.BFloat16Tensor": [],
+    }
+
+    for t in tensor_list:
+        dtype = t.type()
+        if dtype in dtype_buckets:
+            dtype_buckets[dtype].append(t)
+
+    buckets = [bucket for bucket in dtype_buckets.values() if bucket]
     return buckets
 
 
@@ -148,6 +172,149 @@ def sync_param(flat_tensor, tensor_list):
     # update the tensor data
     for p, q in zip(tensor_list, updated_params):
         p.data = q.data
+
+
+def multi_tensor_l2norm_torch(tensor_list, per_tensor):
+    # Convert tensor_list elements to torch.float32
+    tensor_list = [tensor.float() for tensor in tensor_list]
+    norms_tensor = torch.stack([torch.norm(tensor, p=2) for tensor in tensor_list])
+    l2_norm = torch.norm(norms_tensor, p=2).unsqueeze(0)
+
+    if per_tensor:
+        per_tensor_norm = norms_tensor
+    else:
+        per_tensor_norm = torch.Tensor([]).to(norms_tensor.device)
+
+    return l2_norm, per_tensor_norm
+
+
+def calc_l2_norm(grads):
+    norm = 0.0
+    if len(grads) > 0:
+        if APEX_AVAILABLE:
+            dummy_overflow_buf = torch.cuda.IntTensor([0])
+            norm, _ = multi_tensor_applier(
+                amp_C.multi_tensor_l2norm,
+                dummy_overflow_buf,
+                [grads],
+                False,  # no per-parameter norm
+            )
+        else:
+            norm, _ = multi_tensor_l2norm_torch(grads, False)
+    return norm
+
+
+def calc_lp(grads, norm_type):
+    norm = 0.0
+    for grad in grads:
+        grad_norm = torch.norm(grad, norm_type)
+        norm += grad_norm**norm_type
+    return norm
+
+
+def compute_norm(gradients, parameters, last_stage=False, previous_norm=None, norm_type=2):
+    """Get the norm
+    Arguments:
+        gradients (Iterable[Tensor]): The gradient value.
+        parameters (Iterable[Tensor]): The parameter each gradient corresponds to.
+        norm_type (float or int): type of the used p-norm. Can be ``'inf'`` for
+            infinity norm.
+
+    Returns:
+        Total norm of the parameters, need total_norm**(1/norm) before using.
+    """
+
+    enable_cuda_kernels = gradients[0].device.type == "cuda"
+    # Norm parameters.
+    norm_type = float(norm_type)
+
+    # Calculate norm.
+    if norm_type == inf:
+        total_norm = max(g.data.abs().max() for g in gradients)
+        total_norm_cuda = torch.FloatTensor([float(total_norm)], device=gradients[0].device)
+
+        if last_stage is False:
+            return total_norm_cuda
+
+        if previous_norm is not None:
+            total_norm_cuda = max(total_norm_cuda, previous_norm)
+
+        # Take max across all model-parallel GPUs.
+        if gpc.get_world_size(ParallelMode.MODEL) > 1:
+            dist.all_reduce(
+                total_norm_cuda,
+                op=dist.ReduceOp.MAX,
+                group=gpc.get_group(ParallelMode.MODEL),
+            )
+        total_norm = total_norm_cuda[0].item()
+    else:
+        tensor_parallel_grads = []
+        for g, p in zip(gradients, parameters):
+            # TODO: consider the pipeline shared parameter
+            if (
+                gpc.is_initialized(ParallelMode.PIPELINE)
+                and hasattr(p, "pipeline_shared_module_pg")
+                and dist.get_rank(p.pipeline_shared_module_pg) == 0
+            ):  # if shared between different pipe, only count o
+                tensor_parallel_grads.append(g.data.float())
+            elif (
+                gpc.is_initialized(ParallelMode.PIPELINE)
+                and hasattr(p, "pipeline_shared_module_pg")
+                and dist.get_rank(p.pipeline_shared_module_pg) != 0
+            ):
+                continue
+            elif (
+                gpc.is_initialized(ParallelMode.TENSOR)
+                and not is_model_parallel_parameter(p)
+                and gpc.get_local_rank(ParallelMode.TENSOR) == 0
+            ):  # if not used in each chunk, such as layernorm
+                tensor_parallel_grads.append(g.data.float())
+            elif is_model_parallel_parameter(p):
+                tensor_parallel_grads.append(g.data.float())
+            elif gpc.get_local_rank(ParallelMode.TENSOR) != 0:
+                continue
+            else:
+                raise RuntimeError("Should not arrive here")
+
+        if norm_type == 2.0 and enable_cuda_kernels:
+            tensor_parallel_norm = calc_l2_norm(tensor_parallel_grads) ** norm_type
+        else:
+            tensor_parallel_norm = calc_lp(tensor_parallel_grads, norm_type)
+
+        # If norm is type of float, then we convert them into torch.Tensor.
+        tensor_parallel_norm = get_tensor_norm(tensor_parallel_norm, enable_cuda_kernels)
+        # If grads are on CPU, the norms is also on CPU. Cast them to CUDA tensors
+        if not enable_cuda_kernels:
+            tensor_parallel_norm = move_norm_to_cuda(tensor_parallel_norm)
+
+        total_norm = tensor_parallel_norm
+
+        if last_stage is False:
+            return total_norm
+
+        if previous_norm is not None:
+            total_norm = total_norm + previous_norm
+
+        # Sum across all model-parallel GPUs.
+        if gpc.is_initialized(ParallelMode.MODEL):
+            dist.all_reduce(
+                total_norm,
+                op=dist.ReduceOp.SUM,
+                group=gpc.get_group(ParallelMode.MODEL),
+            )
+
+        # This is because we use zero1, so we need to use this reduction.
+        # TODO: Check zero group to be a subset of dp group.
+        dist.all_reduce(total_norm, op=dist.ReduceOp.SUM, group=gpc.get_group(ParallelMode.ZERO1))
+
+        if torch.is_tensor(total_norm):
+            total_norm = total_norm.item()
+
+    # Scale.
+    if total_norm == float("inf") or total_norm == -float("inf"):
+        total_norm = -1
+
+    return total_norm
 
 
 class BaseGradScaler(ABC):
@@ -313,3 +480,90 @@ class DynamicGradScaler(BaseGradScaler):
         self._scale = self._scale.fill_(state_dict["_scale"])
         self._growth_step = state_dict["_growth_step"]
         self._hysteresis_step = state_dict["_hysteresis_step"]
+
+
+class ParamBcastSyncHandler:
+    """
+    Model Partition Handler for overlap broadcast with forward
+    """
+
+    def __init__(self, model: Union[nn.Module, nn.ModuleList]) -> None:
+        self._block_to_param = OrderedDict()  # <key: nn.Module> <value: list(param)>
+        self._param_to_rank = dict()  # <key: param> <value: rank)>
+        self._block_to_rank = dict()  # <key: nn.Module> <value: rank)>
+        self._bcast_handles = dict()  # <key: rank> <value: list(bcast handles))>
+
+        zero1_size = gpc.get_world_size(ParallelMode.ZERO1)
+        total_param_num = sum(p.numel() for p in model.parameters())
+        avg_param_num = total_param_num * 1.0 // zero1_size
+
+        # just want to share same for loop for ModuleList and Module
+        if not isinstance(model, nn.ModuleList):
+            model = [model]
+
+        # record the parameters to transformer/embeding/head/norm block
+        for _chunk in model:
+            if isinstance(_chunk, NaiveAMPModel):
+                _chunk = _chunk.model
+
+            for _, children in _chunk.named_children():
+                # should be the transformer block definaton in modeling_xxx.py
+                if isinstance(children, nn.ModuleList):
+                    # record the block that a parameter belongs to
+                    for _, block in enumerate(children):
+                        # self._block_to_param[f"{name}.{idx}"] = list(block.parameters())
+                        self._block_to_param[block] = list(block.parameters())
+                else:
+                    # record the block that a parameter belongs to
+                    # self._block_to_param[name] = list(children.parameters())
+                    self._block_to_param[children] = list(children.parameters())
+
+        alloc_num = 0
+        rank_to_go = 0
+
+        # process the parameters in block_to_param sequencially,
+        # allocate each parameter to a local rank of ParallelMode.ZERO1,
+        # NOTE that we do NOT consider following scenarios:
+        # 1) whether a parameter is trainable;
+        # 2) paramters maybe in different optimizer group
+        for block, params in self._block_to_param.items():
+            # allocate a model block to a local rank of ParallelMode.ZERO1
+            self._block_to_rank[block] = [rank_to_go]
+            for p in params:
+                alloc_num = alloc_num + p.numel()
+                # in this case, allocate the param to next rank if possible
+                if alloc_num > avg_param_num * 1.01 and rank_to_go < zero1_size - 1:
+                    rank_to_go = rank_to_go + 1
+                    alloc_num = 0
+                    self._block_to_rank[block].append(rank_to_go)
+                # allocate a parameter to a local rank of ParallelMode.ZERO1
+                self._param_to_rank[p] = rank_to_go
+
+        # initialize an empty list for _bcast_handles of each rank
+        for rank in range(gpc.get_world_size(ParallelMode.ZERO1)):
+            self._bcast_handles[rank] = []
+
+        # register_forward_pre_hook for transformer/embeding/norm/xxx block
+        self._register_sync_parameters_hook()
+
+    def _register_sync_parameters_hook(self) -> None:
+        def _pre_forward_hook(model: nn.Module, inputs: Any):  # pylint: disable=W0613
+            bcast_handles = []
+            # gather all required broadcast hanles into a list
+            for rank in self._block_to_rank[model]:
+                bcast_handles.extend(self._bcast_handles[rank])
+                # need to clear _bcast_handles since they would be processed later
+                self._bcast_handles[rank] = []
+            # wait all required broadcast handles to be completed
+            for handle in bcast_handles:
+                handle.wait()
+
+        # register_forward_pre_hook for transformer/embeding/norm/xxx block
+        for block, _ in self._block_to_rank.items():
+            block.register_forward_pre_hook(partial(_pre_forward_hook))
+
+    def get_rank_by_param(self, param) -> int:
+        return self._param_to_rank[param]
+
+    def add_bcast_handle(self, rank, handle) -> None:
+        self._bcast_handles[rank].append(handle)

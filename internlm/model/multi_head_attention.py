@@ -12,12 +12,12 @@ from flash_attn.modules.mha import (
     SelfAttention,
     _update_kv_cache,
 )
-from flash_attn.ops.fused_dense import ColumnParallelLinear, RowParallelLinear
 from torch import nn
 
 from internlm.core.context import IS_TENSOR_PARALLEL, ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.model.embedding import RotaryEmbedding
+from internlm.model.linear import ColumnParallelLinearTorch, RowParallelLinearTorch
 
 
 class MHA(nn.Module):
@@ -43,6 +43,7 @@ class MHA(nn.Module):
                                     of x will be done before doing the matmul.
         device (Optional[Union[str, torch.device]]): The device will be used.
         dtype (Optional[torch.dtype]): The type of data.
+        use_flash_attn (bool): Whether to use flash-attn. True by default.
 
     """
 
@@ -57,8 +58,7 @@ class MHA(nn.Module):
         layer_idx: int = None,
         rotary_emb_dim: int = 0,
         rotary_emb_scale_base: int = 0,
-        use_flash_attn: bool = False,
-        sequence_parallel: bool = True,
+        use_flash_attn: bool = True,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
@@ -77,12 +77,12 @@ class MHA(nn.Module):
             self.rotary_emb = RotaryEmbedding(self.rotary_emb_dim, scale_base=rotary_emb_scale_base, device=device)
 
         # notice here should change bias=True
-        self.Wqkv = ColumnParallelLinear(
+        self.Wqkv = ColumnParallelLinearTorch(
             embed_dim,
             3 * embed_dim,
             process_group,
             bias=True,
-            sequence_parallel=sequence_parallel,
+            sequence_parallel=gpc.config.parallel.sequence_parallel,
             **factory_kwargs,
         )  # according to https://spaces.ac.cn/archives/9577
 
@@ -94,8 +94,12 @@ class MHA(nn.Module):
         )
 
         # output projection always have the bias (for now)
-        self.out_proj = RowParallelLinear(
-            embed_dim, embed_dim, process_group, sequence_parallel=sequence_parallel, **factory_kwargs
+        self.out_proj = RowParallelLinearTorch(
+            embed_dim,
+            embed_dim,
+            process_group,
+            sequence_parallel=gpc.config.parallel.sequence_parallel,
+            **factory_kwargs,
         )
         # need to assign tp attribute so that internlm know it is tensor parallel module
         if gpc.get_world_size(ParallelMode.TENSOR) > 1:
@@ -107,9 +111,9 @@ class MHA(nn.Module):
         if kwargs.get("indexes", None) is not None:
             return self._packed_forward(x=x, inference_params=inference_params, **kwargs)
         else:
-            return self._forward(x=x, seqlen=seqlen, inference_params=inference_params)
+            return self._forward(x=x, seqlen=seqlen, inference_params=inference_params, **kwargs)
 
-    def _forward(self, x, seqlen=None, inference_params=None):
+    def _forward(self, x, seqlen=None, inference_params=None, **kwargs):
         """
         Arguments:
             x: (batch, seqlen, hidden_dim) (where hidden_dim = num heads * head dim) if seqlen=None.
@@ -124,13 +128,17 @@ class MHA(nn.Module):
             qkv = rearrange(qkv, "(b s) (three h d) -> b s three h d", s=seqlen, three=3, d=self.head_dim)
 
         if self.rotary_emb_dim > 0:
-            if inference_params is None:
-                qkv = self.rotary_emb.eval_forward(qkv)
-            else:
-                qkv = self.rotary_emb.eval_forward(qkv, seqlen_offset=inference_params.sequence_len_offset)
+            kwargs["inference_params"] = inference_params
+            qkv = self.rotary_emb(qkv, **kwargs)
 
         if inference_params is None:
-            context = self.inner_attn(qkv)
+            if gpc.config.model.dtype is torch.float32 and gpc.config.model.use_flash_attn:
+                with torch.cuda.amp.autocast(dtype=torch.bfloat16):
+                    if qkv.dtype not in [torch.float16, torch.bfloat16]:
+                        qkv = qkv.to(torch.bfloat16)
+                    context = self.inner_attn(qkv).to(x.dtype)
+            else:
+                context = self.inner_attn(qkv)
         else:
             q = qkv[:, :, 0]
             assert self.layer_idx is not None, "Generation requires layer_idx in the constructor"
@@ -158,10 +166,18 @@ class MHA(nn.Module):
         """
         qkv = self.Wqkv(x)  # total x hsz'
         qkv = rearrange(qkv, "t (three h d) -> t three h d", three=3, d=self.head_dim)  # total x 3 x n_head x d
-        qkv = self.rotary_emb(qkv, kwargs.pop("indexes"))
+        qkv = self.rotary_emb(qkv, **kwargs)
+        kwargs.pop("indexes")
 
         if inference_params is None:
-            context = self.inner_attn(qkv, **kwargs)
+            if gpc.config.model.dtype is torch.float32 and gpc.config.model.use_flash_attn:
+                with torch.cuda.amp.autocast(dtype=torch.bfloat16):
+                    if qkv.dtype not in [torch.float16, torch.bfloat16]:
+                        qkv = qkv.to(torch.bfloat16)
+                    context = self.inner_attn(qkv, **kwargs).to(x.dtype)
+            else:
+                context = self.inner_attn(qkv, **kwargs)
+
         else:
             raise RuntimeError("Not support this right now")
 
