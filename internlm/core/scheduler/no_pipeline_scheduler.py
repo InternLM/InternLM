@@ -115,8 +115,9 @@ class NonPipelineScheduler(BaseScheduler):
                 loss = self._call_engine_criterion(engine, output, label)
                 self._call_hooks("after_criterion", loss)
                 moe_loss = sum(moe_losses) * moe_loss_coeff
-                loss += moe_loss
+                moe_loss /= scale_loss
                 loss /= scale_loss
+                loss += moe_loss
 
         # backward
         if not forward_only:

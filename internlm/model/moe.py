@@ -74,7 +74,7 @@ class MoE(torch.nn.Module):
         drop_tokens: bool = True,
         use_rts: bool = True,
         using_default_moe: bool = True,
-        use_residual=True,
+        use_residual=False,
         residual_mlp=None,
     ):
 
