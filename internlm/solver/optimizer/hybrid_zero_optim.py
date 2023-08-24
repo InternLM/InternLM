@@ -585,7 +585,7 @@ class HybridZeroOptimizer(BaseOptimizer):
                 )
             self._grad_store._averaged_gradients = dict()
             self.zero_grad()
-            return False, None
+            return False, norms
 
         # copy the grad of fp16 param to fp32 param
         single_grad_partition_groups = []
