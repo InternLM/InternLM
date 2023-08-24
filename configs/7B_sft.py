@@ -18,7 +18,7 @@ LOAD_CKPT_FOLDER = "local:llm_ckpts/49"
 # BOTO3_IP = os.environ["BOTO3_IP"] # boto3 bucket endpoint
 # SAVE_CKPT_FOLDER = f"boto3:s3://model_weights.{BOTO3_IP}/internlm"
 # LOAD_CKPT_FOLDER = f"boto3:s3://model_weights.{BOTO3_IP}/internlm/snapshot/1/"
-CHECKPOINT_EVERY = 200
+CHECKPOINT_EVERY = 50
 ckpt = dict(
     enable_save_ckpt=False,  # enable ckpt save.
     save_ckpt_folder=SAVE_CKPT_FOLDER,  # Path to save training ckpt.
@@ -45,7 +45,7 @@ data = dict(
     # defaults to 0, means disable evaluate
     valid_every=50,
     pack_sample_into_one=False,
-    total_steps=100,
+    total_steps=50000,
     skip_batches="",
     rampup_batch_size="",
     # Datasets with less than 50 rows will be discarded
@@ -120,13 +120,14 @@ model = dict(
     num_layers=NUM_LAYER,
     mlp_ratio=MLP_RATIO,
     apply_post_layer_norm=False,
-    dtype="torch.float32",
     norm_type="rmsnorm",
     layer_norm_epsilon=1e-5,
-    use_flash_attn=True,
-    use_amp=True, # whether to use mixed precision training
+    dtype="torch.bfloat16", # data and model dtype
+    use_flash_attn=True, # whether to use flash_attn
+    use_amp=False, # whether to use mixed precision training
     num_chunks=1,  # if num_chunks > 1, interleaved pipeline scheduler is used.
 )
+
 """
 zero1 parallel:
     1. if zero1 <= 0, The size of the zero process group is equal to the size of the dp process group,
@@ -140,9 +141,8 @@ pipeline parallel (dict):
 tensor parallel: tensor parallel size, usually the number of GPUs per node.
 """
 parallel = dict(
-    zero1=-1,
-    tensor=2,
-    pipeline=dict(size=2, interleaved_overlap=True),
+    zero1=8,
+    pipeline=dict(size=1, interleaved_overlap=True),
     sequence_parallel=False,
 )
 
