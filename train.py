@@ -68,7 +68,6 @@ def initialize_llm_logger(start_time: str):
     return uniscale_logger
 
 
-<<<<<<< HEAD
 def initialize_model(criterion):
     """
     Initialize model.
@@ -420,8 +419,6 @@ def record_current_batch_training_metrics(
         mm.monitor_loss_spike(alert_address=gpc.config.alert_address, step_count=batch_count, cur_step_loss=loss.item())
 
 
-=======
->>>>>>> develop
 def main(args):
     # init setting
     skip_batches = gpc.config.data.skip_batches
