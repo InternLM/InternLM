@@ -15,6 +15,7 @@ from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.core.scheduler import SchedulerMetricHook
 from internlm.core.trainer import TrainState
+from internlm.initialize import initialize_distributed_env
 from internlm.model.loss import FlashGPTLMLoss
 from internlm.model.metrics import AccPerplex
 from internlm.monitor import initialize_monitor_manager, send_alert_message
@@ -22,7 +23,6 @@ from internlm.monitor.monitor import monitor_manager as mm
 from internlm.train import (
     get_train_data_loader,
     get_validation_data_loader,
-    initialize_distributed_env,
     initialize_llm_profile,
     initialize_model,
     initialize_optimizer,
