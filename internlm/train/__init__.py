@@ -1,7 +1,6 @@
 from .training_internlm import (
     get_train_data_loader,
     get_validation_data_loader,
-    initialize_distributed_env,
     initialize_llm_profile,
     initialize_model,
     initialize_optimizer,
@@ -12,7 +11,6 @@ from .training_internlm import (
 __all__ = [
     "get_train_data_loader",
     "get_validation_data_loader",
-    "initialize_distributed_env",
     "initialize_llm_profile",
     "initialize_model",
     "initialize_optimizer",

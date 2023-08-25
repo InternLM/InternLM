@@ -15,6 +15,7 @@ from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.core.scheduler import SchedulerMetricHook
 from internlm.core.trainer import TrainState
+from internlm.initialize import initialize_distributed_env
 from internlm.model.loss import FlashGPTLMLoss
 from internlm.model.metrics import AccPerplex
 from internlm.monitor import initialize_monitor_manager, send_alert_message
@@ -22,7 +23,6 @@ from internlm.monitor.monitor import monitor_manager as mm
 from internlm.train import (
     get_train_data_loader,
     get_validation_data_loader,
-    initialize_distributed_env,
     initialize_llm_profile,
     initialize_model,
     initialize_optimizer,
@@ -96,30 +96,19 @@ def main(args):
     # initialize customed llm logger
     uniscale_logger = initialize_llm_logger(start_time=current_time)
 
-    # initialize customed llm writer
-    with open(args.config, "r") as f:
-        config_lines = f.readlines()
-    writer = Writer(
-        job_name=gpc.config.JOB_NAME,
-        launch_time=current_time,
-        file_name=get_parallel_log_file_name(),
-        tensorboard_folder=gpc.config.tensorboard_folder,
-        resume_tb_folder=gpc.config.resume_tb_folder,
-        config=config_lines,
-        logger=logger,
-        enable_tb=gpc.config.enable_tb,
-    )
-
     # initialize and resume train state
     train_state = TrainState(gpc.config)
 
     # initialize model
     model = initialize_model()
 
+    with open(args.config, "r") as f:
+        config_lines = f.readlines()
     ckpt_manager = CheckpointManager(
         ckpt_config=gpc.config.ckpt,
         model=model,
         model_config=gpc.config.model,
+        model_config_file="".join(config_lines),
         feishu_address=gpc.config.alert_address,
     )
 
@@ -138,6 +127,19 @@ def main(args):
 
     # Loading other persistent training states.
     ckpt_manager.try_resume_training(lr_scheduler, optimizer, lr, train_state, train_dl)
+
+    # initialize customed llm writer
+    writer = Writer(
+        job_name=gpc.config.JOB_NAME,
+        launch_time=current_time,
+        file_name=get_parallel_log_file_name(),
+        tensorboard_folder=gpc.config.tensorboard_folder,
+        resume_tb_folder=train_state.resume_tb_folder,  # resume from ckpt.
+        step_count=train_state.step_count,  # resume from ckpt.
+        config=config_lines,
+        logger=logger,
+        enable_tb=gpc.config.enable_tb,
+    )
 
     # initialize metric for calculating accuracy and perplexity
     metric = AccPerplex(
@@ -238,7 +240,7 @@ def main(args):
                 train_state.step_count += 1
             else:
                 train_state.inf_nan_skip_batches += 1  # record the amount of updating parameters unsuccessfully.
-                if -99.0 in grad_norm_groups and gpc.is_rank_for_log():  # -99.0 encodes a specific failure case
+                if -1 in grad_norm_groups and gpc.is_rank_for_log():  # -1 encodes a specific failure case
                     logger.warning(f"Warning: skip parameter update at step {batch_count}.")
                     send_alert_message(
                         address=gpc.config.alert_address,

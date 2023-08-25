@@ -108,9 +108,10 @@ class HybridZeroOptimizer(BaseOptimizer):
         max_scale = grad_scal_cfg.max_scale
 
         # Zero related args
-        overlap_communication = zero_cfg.zero_overlap_communication
         reduce_bucket_size = zero_cfg.reduce_bucket_size
         clip_grad_norm = zero_cfg.clip_grad_norm
+        self._overlap_sync_grad = zero_cfg.overlap_sync_grad
+        self._overlap_sync_param = zero_cfg.overlap_sync_param
 
         super().__init__(optim=optimizer)
 
@@ -133,7 +134,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         self._fp32_flat_param_groups_of_current_rank = dict()
 
         # communication params
-        self._overlap_communication = overlap_communication
+        # self._overlap_communication = overlap_communication
         self._reduce_bucket_size = reduce_bucket_size
 
         # gradient scaler
@@ -165,8 +166,11 @@ class HybridZeroOptimizer(BaseOptimizer):
         )
         self.params_per_rank_id_dict = []
         self._param_bcast_sync_handler = param_bcast_sync_handler
-        if self._overlap_communication:
+        if self._overlap_sync_param:
             assert self._param_bcast_sync_handler is not None
+            self._broadcast_comm_stream = torch.cuda.Stream()
+        else:
+            self._broadcast_comm_stream = torch.cuda.current_stream()
 
         # iterate over the param group in the optimizer
         # partition these param groups for data parallel training
@@ -239,14 +243,14 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         # initialize communication stream for
         # communication-computation overlapping
-        if self._overlap_communication:
+        if self._overlap_sync_grad:
             self._comm_stream = torch.cuda.Stream()
         else:
             self._comm_stream = torch.cuda.current_stream()
 
         # reduction hook is only used if overlapping communication
         # if it is stage 1 without overlapping, no hook will be attached
-        if self._overlap_communication:
+        if self._overlap_sync_grad:
             self._attach_reduction_hook()
 
     @property
@@ -295,7 +299,7 @@ class HybridZeroOptimizer(BaseOptimizer):
                 global_id = str(i)
                 for j in range(len(param.size())):
                     global_id = "_".join([global_id, str(param.size()[j])])
-                if self._overlap_communication:
+                if self._overlap_sync_param:
                     rank_to_go = self._param_bcast_sync_handler.get_rank_by_param(param)
                 else:
                     rank_to_go = numel_per_rank.index(min(numel_per_rank))
@@ -422,7 +426,7 @@ class HybridZeroOptimizer(BaseOptimizer):
                 self._reduce_and_copy(bucket=param_bucket, reduce_rank=reduce_rank)
 
     def _reduce_and_copy(self, bucket: TensorBucket, reduce_rank):
-        if self._overlap_communication:
+        if self._overlap_sync_grad:
             self._comm_stream.synchronize()
             self._param_store.clear_grads_of_previous_reduced_params()
 
@@ -565,7 +569,7 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         # if not overlapping communication (no reduction hook is attached)
         # we need to manually reduce these gradients
-        if not self._overlap_communication:
+        if not self._overlap_sync_grad:
             for group_id in range(len(self._fp16_param_groups)):
                 for param in self._fp16_param_groups[group_id]:
                     # we should not reduce the param in moe
@@ -581,7 +585,7 @@ class HybridZeroOptimizer(BaseOptimizer):
             groups_norms.append(self._compute_norm_with_stage(group_id=group_id))
 
         # clear reduced grads
-        if self._overlap_communication:
+        if self._overlap_sync_grad:
             # grads in the last bucket is reduced
             self._comm_stream.synchronize()
             self._param_store.clear_grads_of_previous_reduced_params()
@@ -628,7 +632,7 @@ class HybridZeroOptimizer(BaseOptimizer):
                 )
             self._grad_store._averaged_gradients = dict()
             self.zero_grad()
-            return False, None
+            return False, norms
 
         # copy the grad of fp16 param to fp32 param
         single_grad_partition_groups = []
@@ -687,7 +691,7 @@ class HybridZeroOptimizer(BaseOptimizer):
                     fp32_param = self._fp32_flat_param_groups_of_current_rank[group_id]
                     fp16_param.data.copy_(fp32_param)
 
-        with torch.cuda.stream(self._comm_stream):
+        with torch.cuda.stream(self._broadcast_comm_stream):
             self.broadcast_params()
 
         timer("step").stop()
@@ -716,7 +720,7 @@ class HybridZeroOptimizer(BaseOptimizer):
                 async_op=True,
             )
 
-            if self._overlap_communication:
+            if self._overlap_sync_param:
                 self._param_bcast_sync_handler.add_bcast_handle(rank, handle)
             else:
                 handles.append(handle)

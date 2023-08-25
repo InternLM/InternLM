@@ -10,7 +10,6 @@ import torch.distributed as dist
 from torch import nn
 from torch.utils.data import ConcatDataset, DataLoader
 
-import internlm
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.core.naive_amp import NaiveAMPModel
@@ -32,7 +31,7 @@ from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
 from internlm.solver.optimizer import HybridZeroOptimizer
 from internlm.solver.optimizer.utils import ParamBcastSyncHandler
-from internlm.utils.common import DummyProfile, get_master_node
+from internlm.utils.common import DummyProfile
 from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
 from internlm.utils.parallel import (
@@ -43,32 +42,6 @@ from internlm.utils.parallel import (
 from internlm.utils.registry import MODEL_INITIALIZER
 
 logger = get_logger(__file__)
-
-
-def initialize_distributed_env(config: str, launcher: str = "slurm", master_port: int = 8888, seed: int = 1024):
-    """
-    Initialize distributed environment for distributed training.
-
-    Args:
-        config (str): Config file path.
-        launcher (str): Launcher for launching distributed environment, can be slurm or torch. "slurm" by default.
-        master_port (str): The master port for distributed training. 8888 by default.
-        seed (int, optional): Specified random seed for every process. 1024 by default.
-    """
-
-    torch.cuda.empty_cache()
-
-    if launcher == "torch":
-        internlm.launch_from_torch(config=config, seed=seed)
-    elif launcher == "slurm":
-        internlm.launch_from_slurm(
-            config=config,
-            host=get_master_node(),
-            port=master_port,
-            seed=seed,
-        )
-    else:
-        assert launcher in ["slurm", "torch"], "launcher only support slurm or torch"
 
 
 def initialize_model():
@@ -120,7 +93,11 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
 
     Returns: A tuple of (optimizer, beta2_scheduler, lr_scheduler).
     """
-    param_bcast_sync_handler = ParamBcastSyncHandler(model)
+    if gpc.config.hybrid_zero_optimizer.overlap_sync_param:
+        param_bcast_sync_handler = ParamBcastSyncHandler(model)
+    else:
+        param_bcast_sync_handler = None
+
     adam_cfg = gpc.config.adam
     if gpc.config.model.num_experts > 1:
         params = create_moe_param_groups(model, adam_cfg.weight_decay)

@@ -363,7 +363,7 @@ def load_scheduler(ckpt_path: str, lr_scheduler, optimizer, learning_rate, train
 class CheckpointManager:
     """StorageManagerContext"""
 
-    def __init__(self, ckpt_config, model, model_config, feishu_address=None) -> None:
+    def __init__(self, ckpt_config, model, model_config=None, model_config_file=None, feishu_address=None) -> None:
         """
         CheckpointManager is used to decide when to store ckpt. If it is an asynchronous
         upload mode, you must call wait_async_upload_finish at the end of the program to wait
@@ -390,6 +390,7 @@ class CheckpointManager:
 
         self.model = model
         self.model_config = model_config
+        self.model_config_file = model_config_file
 
         if self.stop_file_path and gpc.get_global_rank() == 0:
             dir_path = os.path.dirname(self.stop_file_path)
@@ -488,6 +489,7 @@ now step_count is {train_state.step_count}",
                 scheduler=self.lr_scheduler,
                 train_state=train_state,
                 model_config=self.model_config,
+                model_config_file=self.model_config_file,
             )
 
         return now_break
@@ -651,7 +653,16 @@ set load_ckpt_folder or use default value \
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
 
-    def save_checkpoint(self, folder, model, optimizer, scheduler, train_state: TrainState, model_config: Dict = None):
+    def save_checkpoint(
+        self,
+        folder,
+        model,
+        optimizer,
+        scheduler,
+        train_state: TrainState,
+        model_config: Dict = None,
+        model_config_file: str = None,
+    ):
         """
         Save checkpoint to the given folder path.
         """
@@ -692,7 +703,12 @@ set load_ckpt_folder or use default value \
             llm_save(os.path.join(folder, "context.pt"), saved_obj=train_state.state_dict())
 
             if model_config is not None:
+                # Model configuration dictionary.
                 llm_save(os.path.join(folder, "model_config.pt"), saved_obj=model_config)
+
+            if model_config_file is not None:
+                # The complete training config file content, stored in binary format.
+                llm_save(os.path.join(folder, "config_file.pt"), saved_obj=model_config_file)
 
         torch.distributed.barrier()
 
