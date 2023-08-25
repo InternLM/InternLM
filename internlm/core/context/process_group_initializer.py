@@ -349,7 +349,7 @@ class Initializer_Zero1(ProcessGroupInitializer):
 
 
 class Initializer_Expert(ProcessGroupInitializer):
-    """A ProcessGroupInitializer for zero-1 parallelism.
+    """A ProcessGroupInitializer for expert parallelism.
 
     Args:
         rank (int): The rank of current process.
@@ -406,7 +406,7 @@ class Initializer_Expert(ProcessGroupInitializer):
 
 
 class Initializer_Expert_Data(ProcessGroupInitializer):
-    """A ProcessGroupInitializer for zero-1 parallelism.
+    """A ProcessGroupInitializer for expert data parallelism.
 
     Args:
         rank (int): The rank of current process.

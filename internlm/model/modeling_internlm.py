@@ -175,6 +175,7 @@ class PackedFlashBaseLayer1D(nn.Module):
                 ]
             )
 
+            # residual network, see https://arxiv.org/pdf/2201.05596.pdf, seems useful for convergence
             if moe_use_residual:
                 residual_mlp = FeedForward(
                     hidden_size,
@@ -186,6 +187,7 @@ class PackedFlashBaseLayer1D(nn.Module):
                     dtype=torch.float,
                 )
 
+            # replace mlp by MoE module. The expert in MoE is a FeedForward module.
             self.mlp = MoE(
                 hidden_size=hidden_size,
                 experts=experts,
@@ -291,9 +293,9 @@ class PackedFlashBaseLayer1D(nn.Module):
 
         # MLP.
         moe_loss = torch.tensor(0.0, device=hidden_states.device, dtype=hidden_states.dtype)
-        if self.num_experts <= 1:
+        if self.num_experts <= 1:  # dense mlp output
             hidden_states = self.mlp(hidden_states)
-        else:
+        else:  # MoE output
             hidden_states, moe_loss, _ = self.mlp(hidden_states)
 
         return hidden_states + residual, moe_loss

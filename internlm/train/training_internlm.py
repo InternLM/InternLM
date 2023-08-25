@@ -24,7 +24,7 @@ from internlm.data.packed_dataset import (
     get_packed_dataset_without_short_length,
 )
 from internlm.data.utils import DATASET_TYPE_IDS_MAP, unpack_data
-from internlm.model.moe import create_moe_param_groups, has_moe_layers
+from internlm.model.moe import create_moe_param_groups
 from internlm.monitor import set_env_var
 from internlm.monitor.monitor import monitor_manager as mm
 from internlm.solver.beta2_scheduler import Beta2Scheduler
@@ -99,6 +99,7 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
         param_bcast_sync_handler = None
 
     adam_cfg = gpc.config.adam
+    # split the moe parameters into different groups
     if gpc.config.model.num_experts > 1:
         params = create_moe_param_groups(model, adam_cfg.weight_decay)
     else:
@@ -110,12 +111,10 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
         eps=adam_cfg.adam_eps,
     )
 
-    has_moe = has_moe_layers(model)
     optimizer = HybridZeroOptimizer(
         naive_optimizer,
         grad_scal_cfg=gpc.config.grad_scaler,
         zero_cfg=gpc.config.hybrid_zero_optimizer,
-        has_moe=has_moe,
         param_bcast_sync_handler=param_bcast_sync_handler,
     )
 
@@ -377,7 +376,7 @@ def record_current_batch_training_metrics(
             "tgs (tokens/gpu/second)": tk_per_gpu,
             "lr": lr,
             "loss_scale": scaler,
-            "grad_norm": grad_norm,
+            "grad_norm": grad_norm,  # TODO: not scalar
         }
 
         infos["micro_num"] = len(batch[1])

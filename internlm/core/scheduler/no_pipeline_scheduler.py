@@ -105,6 +105,7 @@ class NonPipelineScheduler(BaseScheduler):
         # forward
         with conditional_context(torch.no_grad(), enable=forward_only):
             self._call_hooks("before_forward", data)
+            # moe_losses contains the loss of each layer
             output, moe_losses = self._call_engine(engine, data)
             self._call_hooks("after_forward", output)
 

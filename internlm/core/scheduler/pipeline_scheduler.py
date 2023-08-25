@@ -278,6 +278,7 @@ class PipelineScheduler(BaseScheduler):
         data, label = self._get_data_label_for_current_step(input_obj, micro_batch_data)
 
         self._call_hooks("before_forward", data)
+        # moe_losses contains the loss of each layer in current stage
         output_obj, moe_losses = self._call_engine(engine.model, data)
         self._call_hooks("after_forward", output_obj)
 
@@ -345,6 +346,9 @@ class PipelineScheduler(BaseScheduler):
                 else:
                     # scale the latent loss
                     moe_loss = moe_loss * engine.optimizer.loss_scale
+                    # we perform chain rule here by projecting the grad to the direction of
+                    # [output_obj_grad, 1], Because moe_loss have no relation with subsequent
+                    # layer, we set it to None (will be ragarded as 1).
                     engine.backward_by_grad([output_obj, moe_loss], [output_obj_grad, None])
 
         # Collect the grad of the input_obj.

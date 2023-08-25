@@ -92,7 +92,6 @@ class HybridZeroOptimizer(BaseOptimizer):
         cpu_offload=False,
         grad_scal_cfg: Config = None,
         zero_cfg: Config = None,
-        has_moe: bool = False,
         param_bcast_sync_handler: ParamBcastSyncHandler = None,
     ):
         # DynamicGradScaler related args
@@ -114,8 +113,6 @@ class HybridZeroOptimizer(BaseOptimizer):
         self._overlap_sync_param = zero_cfg.overlap_sync_param
 
         super().__init__(optim=optimizer)
-
-        self.has_moe = has_moe
 
         self._dtype = self.optim.param_groups[0]["params"][0].dtype
         self._cpu_offload = cpu_offload
@@ -273,12 +270,6 @@ class HybridZeroOptimizer(BaseOptimizer):
     def num_param_groups(self):
         return len(self._fp16_param_groups)
 
-    def _get_real_dp_process_group(self, param_groups):
-        if "moe" in param_groups.keys() and param_groups["moe"]:
-            return ParallelMode.EXPERT_DATA
-        else:
-            return ParallelMode.DATA
-
     def _partition_param_list(self, param_group):
         no_params_ranks = []
         params_per_rank = [[] for _ in range(self._zero_world_size)]
@@ -287,7 +278,8 @@ class HybridZeroOptimizer(BaseOptimizer):
         param_list = param_group["params"]
 
         if self._is_moe_group(param_group):
-            # just add current params to params_per_rank[_zero_local_rank]
+            # for moe group, we do not need to partition the params, just add current
+            # params to params_per_rank[_zero_local_rank]
             params_per_rank[self._zero_local_rank] = list(param_list)
             self.params_per_rank_id_dict[-1][self._zero_local_rank].append(None)
             no_params_ranks = list(range(self._zero_world_size))
@@ -538,8 +530,8 @@ class HybridZeroOptimizer(BaseOptimizer):
 
     def _compute_norm_with_moe_group(self, group_id):
         parameters = self._param_store.get_fp16_params_by_rank_group(group_id=group_id, rank=self._zero_local_rank)
-        # wo do not get the average grad for moe parameters, so we have to constuct
-        # the gradients list hear. Maybe this can be optimized.
+        # wo do not get the average grad for moe parameters, so we have to constuct the gradients list here.
+        # Maybe this can be optimized.
         gradients = [p.grad for p in parameters]
         norm = compute_norm(
             gradients=gradients,
@@ -666,8 +658,8 @@ class HybridZeroOptimizer(BaseOptimizer):
         # get the global norm
         global_norm_groups = []
         if self._clip_grad_norm > 0:
-            for group_id in range(self.num_param_groups):
-                global_norm_groups.append(norms[group_id] ** 0.5)
+            for norm in norms:
+                global_norm_groups.append(norm**0.5)
 
         # the following operations are performed only on the rank to which parameters are assigned.
         if gpc.config.model.dtype is not torch.float32:

@@ -73,7 +73,7 @@ def save_model_checkpoint(folder, model):
     """
 
     states = model.state_dict()
-    # get non-moe parameters
+    # get non-expert parameters
     states = get_non_moe_state_dict(states)
     topo = get_model_topology(model)
 
@@ -98,7 +98,7 @@ def save_model_checkpoint(folder, model):
             topo_fp = os.path.join(folder, topo_fn)
             llm_save(topo_fp, saved_obj=topo)
 
-        # move the judgement logic into save_moe_checkpoint(.)
+        # try to save expert parameter to separate files if model have moe layer
         try_save_moe_checkpoint(folder, model)
 
     torch.distributed.barrier()
@@ -147,6 +147,7 @@ def load_model_checkpoint(folder, model):
             print("load: ", states[key].float(),flush=True)
     """
 
+    # try to load expert parameter to separate files if model have moe layer
     try_load_moe_checkpoint(folder, model, states)
 
     missing_k, unexpected_keys = model.load_state_dict(states, strict=False)
