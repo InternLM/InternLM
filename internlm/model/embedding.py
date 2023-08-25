@@ -2,6 +2,7 @@
 # -*- encoding: utf-8 -*-
 
 from typing import Tuple
+from venv import logger
 
 import rotary_emb
 import torch
@@ -137,15 +138,17 @@ class RotaryEmbedding(torch.nn.Module):
         """ """
         super().__init__()
         # Generate and save the inverse frequency buffer (non trainable)
-        inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2, device=device, dtype=torch.float32) / dim))
-        self.register_buffer("inv_freq", inv_freq)
+        
+        # In rotary position embeddings, it should not to set inv_freq in the buffer; 
+        # otherwise, it will be set as torch.bfloat16 together with the model.
+        # recommended to define self.inv_freq as a class attribute.
+        self.inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2, device=device, dtype=torch.float32) / dim))
         self.scale_base = scale_base
-        scale = (
+        self.scale = (
             (torch.arange(0, dim, 2, device=device, dtype=torch.float32) + 0.4 * dim) / (1.4 * dim)
             if scale_base > 0
             else None
         )
-        self.register_buffer("scale", scale)
 
         self._seq_len_cached = 0
         self._cos_cached = None
