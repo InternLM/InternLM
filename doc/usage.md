@@ -151,16 +151,20 @@ model = dict(
 ```python
 parallel = dict(
     zero1=8,
-    pipeline=1,
     tensor=1,
+    pipeline=dict(size=1, interleaved_overlap=True),
+    sequence_parallel=False,
 )
 ```
 - zero1：zero 并行策略，分如下三种情况，默认值为 -1
   - 当`size <= 0`，则 zero1 进程组的大小等于数据并行进程组的大小，因此优化器状态参数将在数据并行范围内分配
   - 当`size == 1`，则不使用 zero1 ，所有数据并行组保留完整的优化器状态参数
   - 当`size > 1`且`size <= data_parallel_world_size`，则 zero1 进程组是数据并行进程组的子集
-- pipeline：流水线并行大小，默认值为 1
 - tensor：张量并行大小，通常是每个节点的 GPU 数量，默认值为 1
+- pipeline：流水线并行策略
+  - size：流水线并行大小，默认值为 1
+  - interleaved_overlap：bool 类型，交错式调度时，开启或关闭通信优化，默认值为关闭
+- sequence_parallel：是否开启序列化并行，默认值为 False
 
 注意：`数据并行大小 = 总的 GPU 数目 / 流水线并行大小 / 张量并行大小`
 

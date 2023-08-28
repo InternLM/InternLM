@@ -6,11 +6,14 @@
 ├── internlm                                 # 系统代码的主目录
 │   ├── apis                                 # 接口模块，包含一些关于推理等的接口函数
 │   ├── core                                 # 核心模块，管理用于训练和推理的 parallel context 和训练调度引擎
+│   │   ├── communication                    # 通信模块，负责流水线并行调度中的p2p通信
 │   │   ├── context                          # context 模块，主要负责初始化并行进程组，并管理 parallel context
 │   │   │   ├── parallel_context.py
 │   │   │   └── process_group_initializer.py
+│   │   ├── scheduler                        # 调度模块，管理并行训练的调度器，包括非流水线并行调度器和流水线并行调度器
+│   │   │   ├── no_pipeline_scheduler.py
+│   │   │   └── pipeline_scheduler.py
 │   │   ├── engine.py                        # 负责管理模型的训练和评估过程
-│   │   ├── no_pipeline_scheduler.py         # 并行训练的调度器
 │   │   └── trainer.py                       # 负责管理训练引擎和调度器
 │   ├── data                                 # 数据模块，负责管理数据集生成和处理
 │   ├── initialize                           # 初始化模块，负责管理分布式环境启动和训练器初始化
