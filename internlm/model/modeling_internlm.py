@@ -184,39 +184,47 @@ class PackedFlashBaseLayer1D(nn.Module):
             "inference_params": inference_params,
         }
 
-        def _dropout_and_norm_attn(_hidden_states):
-            _dropped = self.dropout1(_hidden_states)
-            _residual = _dropped
-            _hidden_states = self.norm1(_residual.float())
-            return _residual, _hidden_states
+        # def _dropout_and_norm_attn(_hidden_states):
+        #     _dropped = self.dropout1(_hidden_states)
+        #     _residual = _dropped
+        #     _hidden_states = self.norm1(_residual.float())
+        #     return _residual, _hidden_states
 
-        if self.dropout_selective_checkpoint:
-            residual, hidden_states = activation_checkpoint(_dropout_and_norm_attn, False, hidden_states)
-        else:
-            residual, hidden_states = _dropout_and_norm_attn(hidden_states)
+        # if self.dropout_selective_checkpoint:
+        #     residual, hidden_states = activation_checkpoint(_dropout_and_norm_attn, False, hidden_states)
+        # else:
+        #     residual, hidden_states = _dropout_and_norm_attn(hidden_states)
+        
+        dropped1 = self.dropout1(hidden_states)
+        residual1 = dropped1
+        hidden_states = self.norm1(residual1.float())
 
         if self.residual_in_fp32:
-            residual = residual.to(torch.float32)
+            residual1 = residual1.to(torch.float32)
 
         hidden_states = self.mixer(hidden_states, **mixer_kwargs)
 
-        def _dropout_and_norm_ffn(_residual, _hidden_states):
-            _dropped = self.dropout2(_hidden_states)
-            _residual = (_dropped + _residual) if _residual is not None else _dropped
-            _hidden_states = self.norm2(_residual.float())
-            return _residual, _hidden_states
+        # def _dropout_and_norm_ffn(_residual, _hidden_states):
+        #     _dropped = self.dropout2(_hidden_states)
+        #     _residual = (_dropped + _residual) if _residual is not None else _dropped
+        #     _hidden_states = self.norm2(_residual.float())
+        #     return _residual, _hidden_states
 
-        if self.dropout_selective_checkpoint:
-            residual, hidden_states = activation_checkpoint(_dropout_and_norm_ffn, False, residual, hidden_states)
-        else:
-            residual, hidden_states = _dropout_and_norm_ffn(residual, hidden_states)
+        # if self.dropout_selective_checkpoint:
+        #     residual, hidden_states = activation_checkpoint(_dropout_and_norm_ffn, False, residual, hidden_states)
+        # else:
+        #     residual, hidden_states = _dropout_and_norm_ffn(residual, hidden_states)
+        
+        dropped2 = self.dropout2(hidden_states)
+        residual2 = (dropped2 + residual1) if residual1 is not None else dropped2
+        hidden_states = self.norm2(residual2.float())
 
         if self.residual_in_fp32:
-            residual = residual.to(torch.float32)
+            residual2 = residual2.to(torch.float32)
 
         hidden_states = self.mlp(hidden_states)
 
-        return hidden_states + residual
+        return hidden_states + residual2
 
 
 class PackedFlashInternLm1D(nn.Module):
