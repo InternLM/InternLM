@@ -59,14 +59,28 @@ cd ../../
 ```
 
 ### 环境镜像
-用户可以从 https://hub.docker.com/r/sunpengsdu/internlm 获取安装了 InternLM 运行环境的镜像，拉取镜像及启动容器的命令如下：
-```bash
-# 拉取镜像
-docker pull sunpengsdu/internlm:torch1.13-cuda11.7-flashatten1.0.5-centos
-# 启动容器
-docker run --gpus all -d -it --shm-size=2gb --name myinternlm sunpengsdu/internlm:torch1.13-cuda11.7-flashatten1.0.5-centos
-docker exec -it myinternlm bash
+用户可以使用提供的 dockerfile 结合 docker.Makefile 来构建自己的镜像，或者也可以从 https://hub.docker.com/r/internlm/internlm 获取安装了 InternLM 运行环境的镜像。
+
+#### 镜像配置及构造
+dockerfile 的配置以及构造均通过 docker.Makefile 文件实现，在 InternLM 根目录下执行如下命令即可 build 镜像：
+``` 
+make -f docker.Makefile BASE_OS=centos7
+``` 
+在 docker.Makefile 中可自定义基础镜像，环境版本等内容，对应参数可直接通过命令行传递。对于 BASE_OS 分别支持 ubuntu20.04 和 centos7。
+
+#### 镜像拉取
+基于 ubuntu 和 centos 的标准镜像已经 build 完成也可直接拉取使用：
+
+```
+# ubuntu20.04
+docker pull internlm/internlm:torch1.13.1-cuda11.7.1-flashatten1.0.5-ubuntu20.04
+# centos7
+docker pull internlm/internlm:torch1.13.1-cuda11.7.1-flashatten1.0.5-centos7
 ```
 
-### 标准镜像
-参考：[Docker 标准镜像](./docker.md)
+#### 容器启动
+对于使用 dockerfile 构建或拉取的本地标准镜像，使用如下命令启动并进入容器：
+```
+docker run --gpus all -it -m 500g --cap-add=SYS_PTRACE --cap-add=IPC_LOCK --shm-size 10g --network=host --name myinternlm internlm/internlm:torch1.13.1-cuda11.7.1-flashatten1.0.5-centos7 bash
+```
+容器内默认目录即 `/InternLM`，根据 README 即可启动训练。

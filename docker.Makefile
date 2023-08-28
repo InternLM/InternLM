@@ -61,7 +61,7 @@ endif
 
 # # Only set platforms flags if using buildx
 # ifeq ("$(WITH_PUSH)","true")
-# PUSH_FLAG                 = --push
+# PUSH_FLAG               = --push
 # endif
 # endif
 
@@ -73,16 +73,16 @@ endif
 
 #use -f to specify dockerfile
 DOCKER_BUILD              = DOCKER_BUILDKIT=1 \
-                                                        docker $(BUILD) \
-                                                                --progress=$(BUILD_PROGRESS) \
-                                                                $(EXTRA_DOCKER_BUILD_FLAGS) \
-                                                                $(PLATFORMS_FLAG) \
-                                                                $(PUSH_FLAG) \
-                                                                -f $(DOCKERFILE_PATH) \
-                                                                -t $(DOCKER_FULL_NAME):$(DOCKER_TAG) \
-                                                                $(BUILD_ARGS) .
+                            docker $(BUILD) \
+                                   --progress=$(BUILD_PROGRESS) \
+                                   $(EXTRA_DOCKER_BUILD_FLAGS) \
+                                   $(PLATFORMS_FLAG) \
+                                   $(PUSH_FLAG) \
+                                   -f $(DOCKERFILE_PATH) \
+                                   -t $(DOCKER_FULL_NAME):$(DOCKER_TAG) \
+                                   $(BUILD_ARGS) .
 
-                                                                # --target $(BUILD_TYPE)
+                                   # --target $(BUILD_TYPE)
 
 .PHONY: all
 all: devel-image
