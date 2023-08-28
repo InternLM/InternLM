@@ -262,7 +262,7 @@ def main(args):
                 start_time=start_time,
                 loss=loss,
                 moe_loss=moe_loss,
-                grad_norm=np.array(grad_norm_groups),
+                grad_norm=np.linalg.norm(grad_norm_groups),
                 metric=metric,
                 update_panel=uniscale_logger is not None,
             )

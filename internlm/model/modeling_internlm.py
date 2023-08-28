@@ -160,37 +160,9 @@ class PackedFlashBaseLayer1D(nn.Module):
                     dtype=dtype,
                 )
         else:
-            experts = torch.nn.ModuleList(
-                [
-                    FeedForward(
-                        hidden_size,
-                        int(hidden_size * gpc.config.model.mlp_ratio),
-                        out_features=hidden_size,
-                        process_group=gpc.get_group(ParallelMode.TENSOR),
-                        bias=False,
-                        device=torch.device("cuda"),
-                        dtype=torch.float,
-                    )
-                    for i in range(num_experts // ep_size)
-                ]
-            )
-
-            # residual network, see https://arxiv.org/pdf/2201.05596.pdf, seems useful for convergence
-            if moe_use_residual:
-                residual_mlp = FeedForward(
-                    hidden_size,
-                    int(hidden_size * gpc.config.model.mlp_ratio),
-                    out_features=hidden_size,
-                    process_group=gpc.get_group(ParallelMode.TENSOR),
-                    bias=False,
-                    device=torch.device("cuda"),
-                    dtype=torch.float,
-                )
-
             # replace mlp by MoE module. The expert in MoE is a FeedForward module.
             self.mlp = MoE(
                 hidden_size=hidden_size,
-                experts=experts,
                 num_experts=num_experts,
                 ep_size=ep_size,
                 k=moe_gate_k,
@@ -201,7 +173,6 @@ class PackedFlashBaseLayer1D(nn.Module):
                 drop_tokens=moe_drop_tokens,
                 use_rts=moe_use_rts,
                 use_residual=moe_use_residual,
-                residual_mlp=residual_mlp if moe_use_residual else None,
             )
 
         self.dropout2 = nn.Dropout(drop_rate)

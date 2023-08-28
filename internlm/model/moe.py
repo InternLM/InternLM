@@ -5,6 +5,7 @@ import torch
 
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
+from internlm.model.linear import FeedForward
 from internlm.moe.experts import Experts
 from internlm.moe.sharded_moe import MOELayer, TopKGate
 from internlm.utils.logger import get_logger
@@ -63,7 +64,6 @@ class MoE(torch.nn.Module):
     def __init__(
         self,
         hidden_size,
-        experts,
         num_experts=1,
         ep_size=1,
         k=1,
@@ -75,7 +75,6 @@ class MoE(torch.nn.Module):
         use_rts: bool = True,
         using_default_moe: bool = True,
         use_residual=False,
-        residual_mlp=None,
     ):
 
         super().__init__()
@@ -91,12 +90,26 @@ class MoE(torch.nn.Module):
             f"Creating MoE layer with num_experts: {num_experts} | num_local_experts:"
             f"{self.num_local_experts} | expert_parallel_size: {self.ep_size}"
         )
-
         assert noisy_gate_policy is None or noisy_gate_policy in ["None", "Jitter", "RSample"], (
             "Unsupported noisy_gate_policy: " + noisy_gate_policy
         )
 
+        # for elastic expert paralle, experts may have multiple groups
         expert_group_name = f"ep_size_{self.ep_size}"
+        experts = torch.nn.ModuleList(
+            [
+                FeedForward(
+                    hidden_size,
+                    int(hidden_size * gpc.config.model.mlp_ratio),
+                    out_features=hidden_size,
+                    process_group=gpc.get_group(ParallelMode.TENSOR),
+                    bias=False,
+                    device=torch.device("cuda"),
+                    dtype=torch.float,
+                )
+                for _ in range(self.num_local_experts)
+            ]
+        )
         experts = Experts(experts, self.num_local_experts, expert_group_name)
 
         if using_default_moe:
@@ -118,10 +131,19 @@ class MoE(torch.nn.Module):
                 self.num_local_experts,
             )
 
+        # residual network, see https://arxiv.org/pdf/2201.05596.pdf, seems useful for convergence
         self.use_residual = use_residual
         if use_residual:
-            self.residual_mlp = residual_mlp
-            # coefficient is used for weighted sum of the output of expert and mlp
+            self.residual_mlp = FeedForward(
+                hidden_size,
+                int(hidden_size * gpc.config.model.mlp_ratio),
+                out_features=hidden_size,
+                process_group=gpc.get_group(ParallelMode.TENSOR),
+                bias=False,
+                device=torch.device("cuda"),
+                dtype=torch.float,
+            )
+            # coefficient is used for weighted sum of the output of expert and residual mlp
             self.coefficient = torch.nn.Linear(hidden_size, 2)
 
     def forward(self, hidden_states, used_token=None):

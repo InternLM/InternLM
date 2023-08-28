@@ -356,7 +356,6 @@ class TopKGate(Module):
         # Only top-1 and top-2 are supported at the moment.
         if k not in (1, 2):
             raise ValueError("Only top-1 and top-2 gatings are supported.")
-        # TODO: can we use tensor parallel here?
         # Deepspeed's mechisms, alway use fp32
         self.wg = torch.nn.Linear(model_dim, num_experts, bias=False).float()
         self.k = k
@@ -436,9 +435,6 @@ class MOELayer(Base):
         self.time_salltoall = 0.0
         self.time_moe = 0.0
         self.wall_clock_breakdown = False
-
-    def _set_ep_group(self, ep_group):
-        self.ep_group = ep_group
 
     def forward(self, *inputs: Tensor) -> Tensor:
 
