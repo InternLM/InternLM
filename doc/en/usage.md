@@ -165,8 +165,9 @@ Training parallel configuration example:
 ```python
 parallel = dict(
     zero1=8,
-    pipeline=1,
     tensor=1,
+    pipeline=dict(size=1, interleaved_overlap=True),
+    sequence_parallel=False,
 )
 ```
 
@@ -174,8 +175,11 @@ parallel = dict(
   - When `size <= 0`, the size of the zero1 process group is equal to the size of the data parallel process group, so the optimizer state parameters will be split within the data parallel range.
   - When `size == 1`, zero1 is not used, and all data parallel groups retain the complete optimizer state parameters.
   - When `size > 1` and `size <= data_parallel_world_size`, the zero1 process group is a subset of the data parallel process group.
-- pipeline: pipeline parallel size, default value is 1
-- tensor: tensor parallel size, usually the number of GPUs per node, default value is 1
+- tensor: tensor parallel size, usually the number of GPUs per node, default is 1
+- pipeline: pipeline parallel strategy
+   - size: pipeline parallel size, the default value is 1
+   - interleaved_overlap: bool type, when interleaved scheduling, enable or disable communication optimization, the default value is False
+- sequence_parallel: Whether to enable sequence parallelism, the default value is False
 
 Note: `Data parallel size = Total number of GPUs / Pipeline parallel size / Tensor parallel size`
 
