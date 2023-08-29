@@ -99,7 +99,6 @@ def main(args):
     # initialize and resume train state
     train_state = TrainState(gpc.config)
 
-    import pdb; pdb.set_trace()
     # initialize model
     model = initialize_model()
 
@@ -128,8 +127,6 @@ def main(args):
 
     # Loading other persistent training states.
     ckpt_manager.try_resume_training(lr_scheduler, optimizer, lr, train_state, train_dl)
-    
-    #========================================================
     
     # initialize customed llm writer
     writer = Writer(
@@ -260,7 +257,7 @@ def main(args):
                 trainer=trainer,
                 start_time=start_time,
                 loss=loss,
-                grad_norm=np.array(grad_norm_groups),
+                grad_norm=np.linalg.norm(grad_norm_groups),
                 metric=metric,
                 update_panel=uniscale_logger is not None,
             )

@@ -202,7 +202,7 @@ class PackedFlashBaseLayer1D(nn.Module):
         if self.residual_in_fp32:
             residual1 = residual1.to(torch.float32)
 
-        hidden_states = self.mixer(hidden_states, **mixer_kwargs)
+        hidden_states = self.mixer(hidden_states.half(), **mixer_kwargs)
 
         # def _dropout_and_norm_ffn(_residual, _hidden_states):
         #     _dropped = self.dropout2(_hidden_states)
@@ -222,7 +222,7 @@ class PackedFlashBaseLayer1D(nn.Module):
         if self.residual_in_fp32:
             residual2 = residual2.to(torch.float32)
 
-        hidden_states = self.mlp(hidden_states)
+        hidden_states = self.mlp(hidden_states.half())
 
         return hidden_states + residual2
 
@@ -389,7 +389,7 @@ class PackedFlashInternLm1D(nn.Module):
         if hasattr(self, "norm"):
             hidden_states = self.norm(hidden_states.float())
         if hasattr(self, "head"):
-            hidden_states = self.head(hidden_states)
+            hidden_states = self.head(hidden_states.half())
 
         if not self.parallel_output:
             hidden_states = gather_forward_split_backward(hidden_states, ParallelMode.TENSOR, dim=-1)
