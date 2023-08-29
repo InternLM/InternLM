@@ -22,4 +22,4 @@ docker pull internlm/internlm:experiment-torch2.0.1-flashatten2.1.0-centos7
 ```bash
 docker run --gpus all -it -m 500g --cap-add=SYS_PTRACE --cap-add=IPC_LOCK --shm-size 20g --network=host --name myinternlm internlm/internlm:experiment-torch2.0.1-flashatten2.1.0-centos7 bash
 ```
-容器内默认目录即 `/InternLM`，根据[使用文档](./usage.md)即可启动训练。
+容器内默认目录即 `/InternLM`，根据[使用文档](../doc/usage.md)即可启动训练。

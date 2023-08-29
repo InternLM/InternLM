@@ -22,4 +22,4 @@ For the local standard image built with dockerfile or pulled, use the following 
 ```bash
 docker run --gpus all -it -m 500g --cap-add=SYS_PTRACE --cap-add=IPC_LOCK --shm-size 20g --network=host --name myinternlm internlm/internlm:experiment-torch2.0.1-flashatten2.1.0-centos7 bash
 ```
-The default directory in the container is `/InternLM`, please start training according to the [Usage](./usage.md).
+The default directory in the container is `/InternLM`, please start training according to the [Usage](../doc/en/usage.md).
