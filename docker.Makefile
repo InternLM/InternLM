@@ -18,6 +18,8 @@ INSTALL_CHANNEL          ?= pytorch
 
 PYTHON_VERSION           ?= 3.10
 PYTORCH_VERSION          ?= 1.13.1
+TORCHVISION_VERSION      ?= 0.14.1
+TORCHAUDIO_VERSION       ?= 0.13.1
 BUILD_PROGRESS           ?= auto
 TRITON_VERSION           ?=
 GMP_VERSION              ?= 6.2.1
@@ -26,11 +28,16 @@ MPC_VERSION              ?= 1.2.1
 GCC_VERSION              ?= 10.2.0
 HTTPS_PROXY_I            ?=
 HTTP_PROXY_I             ?=
+FLASH_ATTEN_VERSION      ?= 1.0.5
+FLASH_ATTEN_TAG          ?= v${FLASH_ATTEN_VERSION}
+
 BUILD_ARGS                = --build-arg BASE_IMAGE=$(BASE_IMAGE) \
                             --build-arg PYTHON_VERSION=$(PYTHON_VERSION) \
                             --build-arg CUDA_VERSION=$(CUDA_VERSION) \
                             --build-arg CUDA_CHANNEL=$(CUDA_CHANNEL) \
                             --build-arg PYTORCH_VERSION=$(PYTORCH_VERSION) \
+                            --build-arg TORCHVISION_VERSION=$(TORCHVISION_VERSION) \
+                            --build-arg TORCHAUDIO_VERSION=$(TORCHAUDIO_VERSION) \
                             --build-arg INSTALL_CHANNEL=$(INSTALL_CHANNEL) \
                             --build-arg TRITON_VERSION=$(TRITON_VERSION) \
                             --build-arg GMP_VERSION=$(GMP_VERSION) \
@@ -38,7 +45,9 @@ BUILD_ARGS                = --build-arg BASE_IMAGE=$(BASE_IMAGE) \
                             --build-arg MPC_VERSION=$(MPC_VERSION) \
                             --build-arg GCC_VERSION=$(GCC_VERSION) \
                             --build-arg https_proxy=$(HTTPS_PROXY_I) \
-                            --build-arg http_proxy=$(HTTP_PROXY_I)
+                            --build-arg http_proxy=$(HTTP_PROXY_I) \
+                            --build-arg FLASH_ATTEN_TAG=$(FLASH_ATTEN_TAG)
+
 EXTRA_DOCKER_BUILD_FLAGS ?=
 
 BUILD                    ?= build
@@ -89,7 +98,7 @@ all: devel-image
 
 .PHONY: devel-image
 devel-image: BASE_IMAGE := $(BASE_DEVEL)
-devel-image: DOCKER_TAG := torch${PYTORCH_VERSION}-cuda${CUDA_VERSION}-flashatten1.0.5-${BASE_OS}
+devel-image: DOCKER_TAG := torch${PYTORCH_VERSION}-cuda${CUDA_VERSION}-flashatten${FLASH_ATTEN_VERSION}-${BASE_OS}
 devel-image:
 	$(DOCKER_BUILD)
 
