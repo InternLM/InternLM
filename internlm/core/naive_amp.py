@@ -11,6 +11,8 @@ from torch import Tensor, nn
 from torch._utils import _flatten_dense_tensors, _unflatten_dense_tensors
 from torch.distributed import ReduceOp
 
+from apex.normalization.fused_layer_norm import MixedFusedRMSNorm as RMSNorm
+
 from internlm.core.context import ParallelMode
 from internlm.core.context.parallel_context import global_context as gpc
 
@@ -50,6 +52,18 @@ class NaiveAMPModel(nn.Module):
             self._world_size = 1
             self._sync_buf = False
         self._first_eval_run = False
+
+        # set the norm weight dtype to fp32
+        self.set_norm_fp32(self.model)
+        
+    def set_norm_fp32(self, module):
+        if len(list(module.children())) == 0:
+            if isinstance(module, RMSNorm):
+                module = module.to(torch.float32)
+                return
+        for name, m in module.named_children():
+            self.set_norm_fp32(m)
+        return
 
     @property
     def sync_buffer(self):

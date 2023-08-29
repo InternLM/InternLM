@@ -99,6 +99,7 @@ def main(args):
     # initialize and resume train state
     train_state = TrainState(gpc.config)
 
+    import pdb; pdb.set_trace()
     # initialize model
     model = initialize_model()
 
@@ -127,7 +128,9 @@ def main(args):
 
     # Loading other persistent training states.
     ckpt_manager.try_resume_training(lr_scheduler, optimizer, lr, train_state, train_dl)
-
+    
+    #========================================================
+    
     # initialize customed llm writer
     writer = Writer(
         job_name=gpc.config.JOB_NAME,
