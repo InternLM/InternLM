@@ -100,7 +100,7 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
 
     adam_cfg = gpc.config.adam
     # split the moe parameters into different groups
-    if gpc.config.model.num_experts > 1:
+    if gpc.config.model.num_experts != 0:
         params = create_moe_param_groups(model, adam_cfg.weight_decay)
     else:
         params = [{"params": model.parameters(), "weight_decay": adam_cfg.weight_decay}]

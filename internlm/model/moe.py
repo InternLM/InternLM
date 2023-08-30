@@ -2,10 +2,10 @@ import typing
 from typing import Dict, Tuple
 
 import torch
+from flash_attn.modules.mlp import ParallelFusedMLP
 
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
-from internlm.model.linear import FeedForward
 from internlm.moe.experts import Experts
 from internlm.moe.sharded_moe import MOELayer, TopKGate
 from internlm.utils.logger import get_logger
@@ -33,7 +33,7 @@ def has_moe_layers(m):
 
 
 def is_moe_param(param: torch.Tensor) -> bool:
-    if hasattr(param, "all_reduce") and not param.all_reduce:
+    if hasattr(param, "is_expert") and param.is_expert:
         return True
     return False
 
@@ -75,6 +75,8 @@ class MoE(torch.nn.Module):
         use_rts: bool = True,
         using_default_moe: bool = True,
         use_residual=False,
+        device=None,
+        dtype=None,
     ):
 
         super().__init__()
@@ -86,10 +88,11 @@ class MoE(torch.nn.Module):
         self.num_experts = num_experts
         self.num_local_experts = num_experts // self.ep_size
 
-        logger.info(  # pylint: disable=W1203
-            f"Creating MoE layer with num_experts: {num_experts} | num_local_experts:"
-            f"{self.num_local_experts} | expert_parallel_size: {self.ep_size}"
-        )
+        if gpc.is_rank_for_log():
+            logger.info(  # pylint: disable=W1203
+                f"Creating MoE layer with num_experts: {num_experts} | num_local_experts:"
+                f"{self.num_local_experts} | expert_parallel_size: {self.ep_size}"
+            )
         assert noisy_gate_policy is None or noisy_gate_policy in ["None", "Jitter", "RSample"], (
             "Unsupported noisy_gate_policy: " + noisy_gate_policy
         )
@@ -98,14 +101,20 @@ class MoE(torch.nn.Module):
         expert_group_name = f"ep_size_{self.ep_size}"
         experts = torch.nn.ModuleList(
             [
-                FeedForward(
+                # TODO have trouble when use internlm.model.linear.FeedForward
+                ParallelFusedMLP(
                     hidden_size,
                     int(hidden_size * gpc.config.model.mlp_ratio),
                     out_features=hidden_size,
+                    activation="gelu_approx",
                     process_group=gpc.get_group(ParallelMode.TENSOR),
-                    bias=False,
-                    device=torch.device("cuda"),
-                    dtype=torch.float,
+                    bias1=False,
+                    bias2=False,
+                    sequence_parallel=gpc.config.model.sequence_parallel,
+                    checkpoint_lvl=0,
+                    heuristic="auto",
+                    device=device,
+                    dtype=dtype,
                 )
                 for _ in range(self.num_local_experts)
             ]
@@ -134,14 +143,19 @@ class MoE(torch.nn.Module):
         # residual network, see https://arxiv.org/pdf/2201.05596.pdf, seems useful for convergence
         self.use_residual = use_residual
         if use_residual:
-            self.residual_mlp = FeedForward(
+            self.residual_mlp = ParallelFusedMLP(
                 hidden_size,
                 int(hidden_size * gpc.config.model.mlp_ratio),
                 out_features=hidden_size,
+                activation="gelu_approx",
                 process_group=gpc.get_group(ParallelMode.TENSOR),
-                bias=False,
-                device=torch.device("cuda"),
-                dtype=torch.float,
+                bias1=False,
+                bias2=False,
+                sequence_parallel=gpc.config.model.sequence_parallel,
+                checkpoint_lvl=0,
+                heuristic="auto",
+                device=device,
+                dtype=dtype,
             )
             # coefficient is used for weighted sum of the output of expert and residual mlp
             self.coefficient = torch.nn.Linear(hidden_size, 2)

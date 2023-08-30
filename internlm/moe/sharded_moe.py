@@ -375,7 +375,7 @@ class TopKGate(Module):
         if self.wall_clock_breakdown:
             timer("TopKGate").start()
 
-        if self.wg.weight.dtype != torch.float32:
+        if self.wg.weight.dtype != torch.float32:  # TODO can we change it to fp16
             self.wg = self.wg.float()
         inputs_fp32 = inputs.float()
         # input jittering

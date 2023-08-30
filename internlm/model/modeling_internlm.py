@@ -133,7 +133,7 @@ class PackedFlashBaseLayer1D(nn.Module):
         self.moe_use_rts = moe_use_rts
         self.moe_use_residual = moe_use_residual
         ep_size = gpc.get_world_size(ParallelMode.EXPERT)
-        if num_experts <= 1:  # dense, not MoE
+        if num_experts == 0:  # dense, not MoE
             if use_swiglu:
                 self.mlp = FeedForward(
                     hidden_size,
@@ -173,6 +173,8 @@ class PackedFlashBaseLayer1D(nn.Module):
                 drop_tokens=moe_drop_tokens,
                 use_rts=moe_use_rts,
                 use_residual=moe_use_residual,
+                device=device,
+                dtype=dtype,
             )
 
         self.dropout2 = nn.Dropout(drop_rate)
