@@ -58,7 +58,7 @@ pip install -v --disable-pip-version-check --no-cache-dir --global-option="--cpp
 cd ../../
 ```
 
-### Environment Image
+### Docker Image
 Users can use the provided dockerfile combined with docker.Makefile to build their own images, or obtain images with InternLM runtime environment installed from https://hub.docker.com/r/internlm/internlm.
 
 #### Image Configuration and Build
