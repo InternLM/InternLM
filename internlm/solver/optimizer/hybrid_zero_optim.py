@@ -94,10 +94,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         param_bcast_sync_handler: ParamBcastSyncHandler = None,
     ):
         # DynamicGradScaler related args
-        if gpc.config.model.dtype is torch.float32:
-            initial_scale = 1
-        else:
-            initial_scale = grad_scal_cfg.fp16.initial_scale
+        initial_scale = grad_scal_cfg.fp16.initial_scale
         min_scale = grad_scal_cfg.fp16.min_scale
         growth_interval = grad_scal_cfg.fp16.growth_interval
         growth_factor = grad_scal_cfg.growth_factor
@@ -113,7 +110,7 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         super().__init__(optim=optimizer)
 
-        self._dtype = self.optim.param_groups[0]["params"][0].dtype
+        self._dtype = self.optim.param_groups[0]["params"][0].dtype #TODO there are two param groups
         self._cpu_offload = cpu_offload
         self._zero_local_rank = gpc.get_local_rank(ParallelMode.ZERO1)
         self._zero_world_size = gpc.get_world_size(ParallelMode.ZERO1)
@@ -406,7 +403,7 @@ class HybridZeroOptimizer(BaseOptimizer):
             flat = bucket.flatten()
             reduced_flat = reduce_tensor(
                 tensor=flat,
-                dtype=self.dtype,
+                dtype=self.dtype, #TODO should change
                 dst_rank=reduce_rank,
                 parallel_mode=ParallelMode.DATA,
             )
@@ -488,7 +485,6 @@ class HybridZeroOptimizer(BaseOptimizer):
         self,
         group_id: int = 0,
         last_bucket: bool = False,
-        last_stage: bool = False,
         previous_norm=None,
     ):
         # compute norm for gradients that have been reduced
@@ -502,7 +498,7 @@ class HybridZeroOptimizer(BaseOptimizer):
             norm = compute_norm(
                 gradients=grads,
                 parameters=params,
-                last_stage=last_stage,
+                last_bucket=last_bucket,
                 previous_norm=previous_norm,
             )
 
@@ -548,7 +544,6 @@ class HybridZeroOptimizer(BaseOptimizer):
                 self._compute_norm_with_stage(
                     group_id=group_id,
                     last_bucket=True,
-                    last_stage=True,
                     previous_norm=groups_norms[group_id],
                 )
             )
@@ -573,8 +568,7 @@ class HybridZeroOptimizer(BaseOptimizer):
             found_inf = True
 
         loss_scale = float(self.loss_scale.item())  # backup
-        if gpc.config.model.dtype is not torch.float32:
-            self.grad_scaler.update(found_inf)
+        self.grad_scaler.update(found_inf)
         # update loss scale if overflow occurs
         if found_inf:
             if gpc.is_rank_for_log():
@@ -623,9 +617,8 @@ class HybridZeroOptimizer(BaseOptimizer):
                 global_norm_groups.append(norm**0.5)
 
         # the following operations are performed only on the rank to which parameters are assigned.
-        if gpc.config.model.dtype is not torch.float32:
-            if len(single_grad_partition_groups) != 0:
-                self._unscale_and_clip_grads(single_grad_partition_groups, global_norm_groups, loss_scale)
+        if len(single_grad_partition_groups) != 0:
+            self._unscale_and_clip_grads(single_grad_partition_groups, global_norm_groups, loss_scale)
 
         # update the parameters
         timer("step").start()

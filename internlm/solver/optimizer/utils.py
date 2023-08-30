@@ -212,7 +212,7 @@ def calc_lp(grads, norm_type):
     return norm
 
 
-def compute_norm(gradients, parameters, last_stage=False, previous_norm=None, norm_type=2):
+def compute_norm(gradients, parameters, last_bucket=False, previous_norm=None, norm_type=2):
     """Get the norm
     Arguments:
         gradients (Iterable[Tensor]): The gradient value.
@@ -233,7 +233,7 @@ def compute_norm(gradients, parameters, last_stage=False, previous_norm=None, no
         total_norm = max(g.data.abs().max() for g in gradients)
         total_norm_cuda = torch.FloatTensor([float(total_norm)], device=gradients[0].device)
 
-        if last_stage is False:
+        if last_bucket is False:
             return total_norm_cuda
 
         if previous_norm is not None:
@@ -289,7 +289,7 @@ def compute_norm(gradients, parameters, last_stage=False, previous_norm=None, no
 
         total_norm = tensor_parallel_norm
 
-        if last_stage is False:
+        if last_bucket is False:
             return total_norm
 
         if previous_norm is not None:
