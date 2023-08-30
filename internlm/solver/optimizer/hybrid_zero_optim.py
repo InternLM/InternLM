@@ -170,7 +170,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         # and add buffers to parameter store for future access
         for group_id, param_group in enumerate(self.optim.param_groups):
             group_params = param_group["params"]
-            
+
             self._dtype[group_id] = group_params[0].dtype
             self.padding_grad[group_id] = torch.zeros([32], dtype=self._dtype[group_id], device=get_current_device())
             self.padding_tensor[group_id] = torch.zeros([32], dtype=self._dtype[group_id], device=get_current_device())

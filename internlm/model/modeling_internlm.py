@@ -194,7 +194,7 @@ class PackedFlashBaseLayer1D(nn.Module):
         #     residual, hidden_states = activation_checkpoint(_dropout_and_norm_attn, False, hidden_states)
         # else:
         #     residual, hidden_states = _dropout_and_norm_attn(hidden_states)
-        
+
         dropped1 = self.dropout1(hidden_states)
         residual1 = dropped1
         hidden_states = self.norm1(residual1.float())
@@ -214,7 +214,7 @@ class PackedFlashBaseLayer1D(nn.Module):
         #     residual, hidden_states = activation_checkpoint(_dropout_and_norm_ffn, False, residual, hidden_states)
         # else:
         #     residual, hidden_states = _dropout_and_norm_ffn(residual, hidden_states)
-        
+
         dropped2 = self.dropout2(hidden_states)
         residual2 = (dropped2 + residual1) if residual1 is not None else dropped2
         hidden_states = self.norm2(residual2.float())

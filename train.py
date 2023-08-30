@@ -127,7 +127,7 @@ def main(args):
 
     # Loading other persistent training states.
     ckpt_manager.try_resume_training(lr_scheduler, optimizer, lr, train_state, train_dl)
-    
+
     # initialize customed llm writer
     writer = Writer(
         job_name=gpc.config.JOB_NAME,

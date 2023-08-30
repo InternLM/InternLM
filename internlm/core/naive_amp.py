@@ -7,11 +7,10 @@ from typing import Any
 
 import torch
 import torch.distributed as dist
+from apex.normalization.fused_layer_norm import MixedFusedRMSNorm as RMSNorm
 from torch import Tensor, nn
 from torch._utils import _flatten_dense_tensors, _unflatten_dense_tensors
 from torch.distributed import ReduceOp
-
-from apex.normalization.fused_layer_norm import MixedFusedRMSNorm as RMSNorm
 
 from internlm.core.context import ParallelMode
 from internlm.core.context.parallel_context import global_context as gpc
@@ -43,7 +42,7 @@ class NaiveAMPModel(nn.Module):
         self._output_to_fp32 = output_to_fp32
         self._sync_buf = sync_buffer
         self.dtype = dtype
-        
+
         # not-norm parameters
         self.not_norm = []
         # norm parameters
@@ -57,11 +56,11 @@ class NaiveAMPModel(nn.Module):
             self._world_size = 1
             self._sync_buf = False
         self._first_eval_run = False
-        
+
         if self.dtype in [torch.float16, torch.bfloat16]:
             # set the norm weight dtype to fp32
             self.set_norm_fp32(self.model)
-        
+
     def set_norm_fp32(self, module):
         if len(list(module.children())) == 0:
             module_parameters = list(module.parameters())
@@ -71,7 +70,7 @@ class NaiveAMPModel(nn.Module):
             else:
                 self.not_norm.extend(module_parameters)
             return
-        for name, m in module.named_children():
+        for _, m in module.named_children():
             self.set_norm_fp32(m)
         return
 
