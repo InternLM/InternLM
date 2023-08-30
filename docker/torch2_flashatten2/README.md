@@ -6,9 +6,9 @@ When building the image, please make docker.Makefile in the InternLM root direct
 ```bash
 # Build Image
 # ubuntu20.04
-make -f docker.Makefile BASE_OS=ubuntu20.04 DOCKERFILE_PATH=./torch2_flashatten2/Dockerfile-ubuntu PYTORCH_VERSION=2.0.1 TORCHVISION_VERSION=0.15.2 TORCHAUDIO_VERSION=2.0.2 FLASH_ATTEN_VERSION=2.1.0
+make -f docker.Makefile BASE_OS=ubuntu20.04 DOCKERFILE_PATH=./docker/torch2_flashatten2/Dockerfile-ubuntu PYTORCH_VERSION=2.0.1 TORCHVISION_VERSION=0.15.2 TORCHAUDIO_VERSION=2.0.2 FLASH_ATTEN_VERSION=2.1.0
 # centos7
-make -f docker.Makefile BASE_OS=centos7 DOCKERFILE_PATH=./torch2_flashatten2/Dockerfile-centos PYTORCH_VERSION=2.0.1 TORCHVISION_VERSION=0.15.2 TORCHAUDIO_VERSION=2.0.2 FLASH_ATTEN_VERSION=2.1.0
+make -f docker.Makefile BASE_OS=centos7 DOCKERFILE_PATH=./docker/torch2_flashatten2/Dockerfile-centos PYTORCH_VERSION=2.0.1 TORCHVISION_VERSION=0.15.2 TORCHAUDIO_VERSION=2.0.2 FLASH_ATTEN_VERSION=2.1.0
 
 # Pull Image
 # ubuntu20.04
