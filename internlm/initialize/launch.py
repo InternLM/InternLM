@@ -296,6 +296,9 @@ and 'load_given_ckpt' is True, so internlm will load from 'load_ckpt_folder'"
             f"overlap_sync_grad:{optim_ckpt.overlap_sync_grad}, overlap_sync_param:{optim_ckpt.overlap_sync_param}"
         )
 
+    if "moe_loss_coeff" not in gpc.config.loss:
+        gpc.config.loss._add_item("moe_loss_coeff", 1.0)
+
 
 def launch(
     config: Union[str, Path, Config, Dict],
