@@ -12,7 +12,14 @@ import sys
 project = "InternLM"
 copyright = "2023, InternLM Team"
 author = "InternLM Team"
-release = "v0.2.0"
+
+# The full version, including alpha/beta/rc tags
+with open("../../../version.txt", "r") as f:
+    release = f.readline().rstrip()
+
+master_doc = 'index'
+
+autodoc_member_order = 'bysource'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -57,6 +64,6 @@ sys.path.insert(0, os.path.abspath("../../../"))
 # Prepend module names to class descriptions
 add_module_names = True
 
-autoclass_content = "init"
+autoclass_content = "auto"
 
-autodoc_mock_imports = ["apex", "torch"]
+autodoc_mock_imports = ["apex", "numpy", "torch"]

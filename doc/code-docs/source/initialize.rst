@@ -20,16 +20,30 @@ parser with some builtin arguments, users can add custom parameters to this pars
 .. autofunction:: internlm.initialize.get_default_parser
 
 
-.. _InternLM-init:
+.. _InternLM-model-init:
 
 Model Initialization
 -------------------------
 
+.. autofunction:: internlm.train.initialize_model
+
+.. _InternLM-optim-init:
+
 Optimizer Initialization
 -------------------------
+
+.. autofunction:: internlm.train.initialize_optimizer
+
+.. _InternLM-dl-init:
 
 Dataloader Initialization
 -------------------------
 
+.. autofunction:: internlm.train.get_train_data_loader
+
+.. _InternLM-trainer-init:
+
 Trainer Initialization
 -------------------------
+
+.. autofunction:: internlm.initialize.initialize_trainer

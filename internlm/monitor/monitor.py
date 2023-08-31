@@ -211,6 +211,14 @@ monitor_manager = MonitorManager()
 
 @contextmanager
 def initialize_monitor_manager(job_name: str = None, alert_address: str = None):
+    """
+    Initialize monitor manager for future monitor and alert functions
+
+    Args:
+        job_name (str): The training job name.
+        alert_address (str): The Feishu webhook address for sending alert messages.
+    """
+
     if alert_address is not None:
         try:
             monitor_manager.start_monitor(job_name=job_name, alert_address=alert_address)
