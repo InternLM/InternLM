@@ -2,6 +2,7 @@
 # -*- encoding: utf-8 -*-
 
 import math
+import socket
 
 import torch
 import torch.distributed as dist
@@ -80,6 +81,47 @@ def get_cpu_temperature():
     return cpu_temperature
 
 
+def bench_net():
+    """Benchmark nccl performance for slow node detection."""
+
+    if gpc.get_world_size(ParallelMode.GLOBAL) <= 1:
+        return
+
+    if gpc.is_rank_for_log():
+        logger.info("benchmarking network speed ...")
+
+    repeats = 100
+    input_data = torch.randn(
+        8 * 1024 * 1024,
+        device=get_current_device(),
+        dtype=torch.bfloat16,
+    )
+
+    def allreduce_fn(inputs):
+        dist.all_reduce(inputs, op=torch.distributed.ReduceOp.AVG, group=gpc.get_group(ParallelMode.NETTEST))
+
+    bench_timer = benchmark.Timer(
+        stmt="test_fn_amp(inputs)",
+        globals={"test_fn_amp": allreduce_fn, "inputs": input_data},
+        num_threads=torch.get_num_threads(),
+    )
+    allreduce_time = bench_timer.timeit(repeats).mean
+    allreduce_time = allreduce_time * 10**3
+    allreduce_time_this = allreduce_time
+    allreduce_time = torch.Tensor([allreduce_time]).to(device=get_current_device())
+    dist.all_reduce(allreduce_time, group=gpc.get_group(ParallelMode.GLOBAL))
+    allreduce_time_avg = allreduce_time / gpc.get_world_size(ParallelMode.GLOBAL)
+    allreduce_time_avg = float(allreduce_time_avg.item())
+
+    if allreduce_time_this >= allreduce_time_avg * 1.05:
+        logger.warning(
+            f"Rank {gpc.get_local_rank(ParallelMode.GLOBAL)} NCCL test is slower than avg, "
+            f"Hostname {socket.gethostname()}, "
+            f"allreduce_time {allreduce_time_this:.2f}, avg {allreduce_time_avg:.2f}, "
+            f"CPU temp {get_cpu_temperature()}, GPU temp { get_gpu_temperature()}"
+        )
+
+
 def bench_gpu(use_flash_attn=True):
     """Benchmark single GPU performance for slow node detection."""
 
@@ -115,6 +157,7 @@ def bench_gpu(use_flash_attn=True):
     if speed_this <= speed_avg * 0.95:
         logger.warning(
             f"Rank {gpc.get_local_rank(ParallelMode.GLOBAL)} GPU is slower than avg, "
+            f"Hostname {socket.gethostname()}, "
             f"tflops {speed_this:.2f}, avg {speed_avg:.2f}, "
             f"CPU temp {get_cpu_temperature()}, GPU temp { get_gpu_temperature()}"
         )

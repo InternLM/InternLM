@@ -34,6 +34,7 @@ __all__ = [
     "Initializer_Pipeline",
     "Initializer_Data",
     "Initializer_Zero1",
+    "Initializer_Nettest",
     "ProcessGroupInitializer",
     "Initializer_Model",
     "seed",

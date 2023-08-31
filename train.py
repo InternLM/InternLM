@@ -35,6 +35,7 @@ from internlm.utils.common import (
     launch_time,
     parse_args,
 )
+from internlm.utils.gputest import bench_gpu, bench_net
 from internlm.utils.evaluation import evaluate_on_val_dls
 from internlm.utils.logger import get_logger, initialize_uniscale_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
@@ -197,6 +198,8 @@ def main(args):
         for batch_count in range(train_state.batch_count, total_steps):
             if batch_count % 50 == 0:
                 torch.cuda.empty_cache()
+                bench_gpu()
+                bench_net()
 
             start_time = time.time()
             timer("one-batch").start()
