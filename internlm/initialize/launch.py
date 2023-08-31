@@ -111,7 +111,7 @@ def args_sanity_check():
     # processing the checkpoint config
     ckpt = gpc.config.ckpt
     if "enable_save_ckpt" not in ckpt:
-        ckpt._add_item("enable_save_ckpt", False)
+        ckpt._add_item("enable_save_ckpt", True)
 
     # Saving checkpoint args.
     if ckpt.enable_save_ckpt:
@@ -137,9 +137,6 @@ def args_sanity_check():
         if not ckpt.async_upload:
             ckpt._add_item("async_upload_tmp_folder", None)
 
-        if "snapshot_ckpt_folder" not in ckpt:
-            ckpt._add_item("snapshot_ckpt_folder", os.path.join(ckpt.save_ckpt_folder, "snapshot"))
-
         if "oss_snapshot_freq" not in ckpt:
             ckpt._add_item("oss_snapshot_freq", float("inf"))  # if oss_snapshot_freq not given, we disable.
     else:
@@ -149,17 +146,13 @@ def args_sanity_check():
         ckpt._add_item("async_upload", False)
         ckpt._add_item("async_upload_tmp_folder", None)
         ckpt._add_item("snapshot_ckpt_folder", None)
-        ckpt._add_item("snapshot_ckpt_folder", None)
 
     # Loading checkpoint args.
-    if "load_model_only_folder" not in ckpt:
-        ckpt._add_item("load_model_only_folder", None)
+    # if "load_model_only_folder" not in ckpt:
+    #     ckpt._add_item("load_model_only_folder", None)
 
     if "load_ckpt_folder" not in ckpt:
         ckpt._add_item("load_ckpt_folder", None)
-
-    if "load_optimizer" not in ckpt:
-        ckpt._add_item("load_optimizer", True)
 
     if "stop_file_path" not in ckpt:
         ckpt._add_item("stop_file_path", None)
@@ -169,14 +162,14 @@ def args_sanity_check():
         # to auto-load latest checkpoint.
         ckpt._add_item("load_given_ckpt", False)
 
-    if ckpt.load_given_ckpt:
-        # Priority: load_given_ckpt(True) > latest_checkpoint > load_model_only_folder
-        if ckpt.load_ckpt_folder and ckpt.load_model_only_folder:
-            logger.warning(
-                "Detect 'load_ckpt_folder' and 'load_model_only_folder' set at the same time, \
-and 'load_given_ckpt' is True, so internlm will load from 'load_ckpt_folder'"
-            )
-            ckpt.load_model_only_folder = None
+#     if ckpt.load_given_ckpt:
+#         # Priority: load_given_ckpt(True) > latest_checkpoint > load_model_only_folder
+#         if ckpt.load_ckpt_folder and ckpt.load_model_only_folder:
+#             logger.warning(
+#                 "Detect 'load_ckpt_folder' and 'load_model_only_folder' set at the same time, \
+# and 'load_given_ckpt' is True, so internlm will load from 'load_ckpt_folder'"
+#             )
+#             ckpt.load_model_only_folder = None
 
     if gpc.is_rank_for_log():
         logger.info("+" * 15 + " Ckpt Info " + "+" * 15)  # pylint: disable=W1201

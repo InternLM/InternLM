@@ -23,7 +23,7 @@ class TrainState:
         train_dl (DataLoader): The DataLoader object used for training.
     """
 
-    def __init__(self, config) -> None:
+    def __init__(self, config, batch_sampler) -> None:
         # The number of batches produced by the data iterator
         self.batch_count: int = 0
         # Used to store the number of samples consumed in the current epoch
@@ -43,9 +43,19 @@ class TrainState:
 
         self.tensorboard_folder = config.tensorboard_folder
 
-    def init_batch_sampler(self, train_dl):
-        # Copy of the batch sampler from the DataLoader
-        self.batch_sampler = train_dl.batch_sampler.copy()
+        # learning rate
+        self.lr = config.adam.lr
+
+        # smapler state
+        if batch_sampler:
+            self.init_batch_sampler(batch_sampler)
+
+    def init_batch_sampler(self, batch_sampler):
+        # Because the dataloader loading is asynchronous and prefetched,
+        # the batch_sampler state maintained inside the dataloader are faster then the actual
+        # training progress, so we clone the batch_sampler as the anchor point of ckpt reload.
+
+        self.batch_sampler = batch_sampler.copy()
         # Iterator for the batch sampler
         self.batch_sampler_iter = iter(self.batch_sampler)
 
@@ -61,25 +71,23 @@ class TrainState:
 
         return json.dumps(info, indent=4, sort_keys=True)
 
-    def load_state_dict(self, other_stuffs, train_dl):
+    def load_state_dict(self, other_stuffs):
         """
         Resumes training from a checkpoint.
 
         Args:
             other_stuffs (dict): Other information needed to resume training.
-            train_dl (DataLoader): The DataLoader object used for training.
+            batch_sampler ():s.
         """
-
-        self.batch_count = other_stuffs["batch_count"] + 1  # here you need to shift a batch backward
         self.num_consumed_samples_in_epoch = other_stuffs["num_consumed_samples_in_epoch"]
         self.num_consumed_tokens = other_stuffs["num_consumed_tokens"]
         self.inf_nan_skip_batches = other_stuffs["inf_nan_skip_batches"]
-        # compatible with previous checkpoints without this parameter
-        self.step_count = other_stuffs.get("step_count", other_stuffs["batch_count"]) + 1
 
-        # track the actual updates of sampler when using weighted sampling
-        self.batch_sampler = train_dl.batch_sampler.copy()
-        self.batch_sampler_iter = iter(self.batch_sampler)
+        # Because the ckpt save occurs after updating 'step_count',
+        # there is no need to increment 'step_count' here (Does our step count start from 0 ?),
+        # However, 'batch_count' is updating before ckpt storage, so it need to inc 1 when resume.
+        self.batch_count = other_stuffs["batch_count"] + 1  # here you need to shift a batch backward
+        self.step_count = other_stuffs.get("step_count", other_stuffs["batch_count"])
 
         # resume tensorboard from older tensorboard_folder
         self.resume_tb_folder = other_stuffs.get("tensorboard_folder", None)

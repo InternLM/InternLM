@@ -121,6 +121,10 @@ def sync_states():
     set_seed_states(current_mode, current_states)
 
 
+def reset_seed():
+    _SEED_MANAGER.reset()
+
+
 @contextmanager
 def seed(parallel_mode: ParallelMode):
     """A context for seed switch"""

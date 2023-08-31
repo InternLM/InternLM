@@ -21,7 +21,7 @@ from internlm.utils.logger import get_logger
 
 from . import process_group_initializer as pgroup_initializer
 from .process_group_initializer import ParallelMode
-from .random import add_seed, get_seeds, set_mode
+from .random import add_seed, get_seeds, reset_seed, set_mode
 
 IS_TENSOR_PARALLEL = "is_tensor_parallel"
 
@@ -542,6 +542,9 @@ class ParallelContext(metaclass=SingletonMeta):
 
     def set_virtual_pipeline_parallel_rank(self, rank):
         self.virtual_pipeline_parallel_rank = rank
+
+    def reset_seed(self):
+        reset_seed()
 
 
 global_context = ParallelContext()

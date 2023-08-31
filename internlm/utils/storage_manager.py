@@ -136,6 +136,22 @@ def compute_file_md5_by_chunk(file_name: str):
     return hash_md5.hexdigest()
 
 
+def try_get_storage_backend(path: str):
+    sre = path.split(":", maxsplit=1)
+    if len(sre) == 1:
+        if path.startswith("s3:"):
+            backend = "boto3"
+            if gpc.is_rank_for_log():
+                logger.warning(f"path: '{path}' not start with backend prefix, guess it is the backend of boto3.")
+        else:
+            backend = "local"
+            if gpc.is_rank_for_log():
+                logger.warning(f"path: '{path}' not start with backend prefix, guess it is the backend of local.")
+        return backend, sre
+    else:
+        return sre[0], sre[1]  # (backend_prefix, splited_path)
+
+
 class Boto3Client(StorageClient):
     """
     Boto3Client
@@ -232,20 +248,33 @@ class Boto3Client(StorageClient):
         assert len(list(handler.client.list_objects(Bucket=bucket_name, Prefix=fp)["Contents"])) > 0, fp
 
     @staticmethod
+    def is_fp_exists(handler, bucket_name: str, fp: str, local_nvme_path: str):  # pylint: disable=W0613
+        re = handler.client.list_objects(Bucket=bucket_name, Prefix=fp)
+        if "Contents" in re:
+            return len(list(re["Contents"])) > 0
+        else:
+            return False
+
+    @staticmethod
     def get_fns(handler, bucket_name: str, fp: str, local_nvme_path: str, *args, **kwargs):  # pylint: disable=W0613
         """
         Ref: https://stackoverflow.com/questions/54314563/
         how-to-get-more-than-1000-objects-from-s3-by-using-list-objects-v2
         """
-        paginator = handler.client.get_paginator("list_objects_v2")
-        pages = paginator.paginate(Bucket=bucket_name, Prefix=fp)
-        folder_name_list = []
-        for page in pages:
-            if "Contents" in page:
-                for obj in page["Contents"]:
-                    pth: str = obj["Key"]
-                    folder_name_list.append(pth.split(fp, maxsplit=1)[1].strip("/").split("/", maxsplit=1)[0])
-        return list(set(folder_name_list))
+        if Boto3Client.is_fp_exists(handler, bucket_name, fp, None):
+            paginator = handler.client.get_paginator("list_objects_v2")
+            pages = paginator.paginate(Bucket=bucket_name, Prefix=fp)
+            folder_name_list = []
+            for page in pages:
+                if "Contents" in page:
+                    for obj in page["Contents"]:
+                        pth: str = obj["Key"]
+                        folder_name_list.append(pth.split(fp, maxsplit=1)[1].strip("/").split("/", maxsplit=1)[0])
+            return list(set(folder_name_list))
+        else:
+            if gpc.is_rank_for_log():
+                logger.warning(f"'{fp}' not found!")
+            return None
 
     @staticmethod
     def async_upload_fileobj(handler, bucket_name: str, fp: str, local_nvme_path: str):
@@ -297,9 +326,12 @@ class LocalClient(StorageClient):
     @staticmethod
     def get_fns(handler, folder):
         assert isinstance(handler, LocalClient)
-        assert os.path.exists(folder), f"folder '{folder}' not exists!"
-        fns = os.listdir(folder)
-        return fns
+        if not os.path.exists(folder):
+            if gpc.is_rank_for_log():
+                logger.warning(f"'{folder}' not found!")
+            return None
+        else:
+            return os.listdir(folder)
 
     @staticmethod
     def delete_obj(handler, fp: str):
@@ -436,10 +468,7 @@ class StorageManager(metaclass=SingletonMeta):
         Args:
             path (str): _description_
         """
-        try:
-            backend, path = path.split(":", maxsplit=1)
-        except Exception as exc:
-            raise AttributeError(f"Given path '{path}' is not startwith backend prefix:'local/boto3'") from exc
+        backend, path = try_get_storage_backend(path)
 
         init_args = (None,)
         if backend == "local":
@@ -594,12 +623,13 @@ class StorageManager(metaclass=SingletonMeta):
 
         if gpc.is_rank_for_log():
             self.upload_count += 1
-            if self.async_mode:
+            if self.async_mode and self.latest_save_folder:
                 self.save(
                     os.path.join(self.latest_save_folder, f"{self.latest_save_step}.step"),
                     saved_obj=dict({"step": self.latest_save_step}),
                     async_upload=False,
                 )
+                self.latest_save_folder = None
 
 
 storage_manager: StorageManager = None
