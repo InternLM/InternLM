@@ -3,16 +3,15 @@
 
 import math
 
-import torch
 from torch import Tensor, nn
 
 
-def scaled_init_method_normal(sigma, num_layers):
+def scaled_init_method_normal(sigma: float = 1.0, num_layers: int = 1):
     """Init method based on N(0, sigma/sqrt(2*num_layers)."""
     std = sigma / math.sqrt(2.0 * num_layers)
 
     def init_(tensor):
-        return torch.nn.init.normal_(tensor, mean=0.0, std=std)
+        return nn.init.normal_(tensor, mean=0.0, std=std)
 
     return init_
 
@@ -34,13 +33,13 @@ def normal_(mean: float = 0.0, std: float = 1.0):
     return initializer
 
 
-def scaled_init_method_uniform(sigma, num_layers):
+def scaled_init_method_uniform(sigma: float = 1.0, num_layers: int = 1):
     """Init method based on p(x)=Uniform(-a, a) where std(x)=sigma/sqrt(2*num_layers)."""
     std = sigma / math.sqrt(2.0 * num_layers)
     a = math.sqrt(3.0 * std)
 
     def init_(tensor):
-        return torch.nn.init.uniform_(tensor, -a, a)
+        return nn.init.uniform_(tensor, -a, a)
 
     return init_
 
