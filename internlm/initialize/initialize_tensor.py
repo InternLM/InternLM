@@ -59,6 +59,6 @@ def uniform_(mean: float = 0.0, std: float = 1.0):
     a = math.sqrt(3.0 * std)
 
     def initializer(tensor: Tensor):
-        return nn.init.normal_(tensor, mean - a, mean + a)
+        return nn.init.uniform_(tensor, mean - a, mean + a)
 
     return initializer
