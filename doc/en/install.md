@@ -66,7 +66,7 @@ The configuration and build of the Dockerfile are implemented through the docker
 ``` bash
 make -f docker.Makefile BASE_OS=centos7
 ``` 
-In docker.Makefile, you can customize the basic image, environment version, etc., and the corresponding parameters can be passed directly through the command line. For BASE_OS, ubuntu20.04 and centos7 are respectively supported.
+In docker.Makefile, you can customize the basic image, environment version, etc., and the corresponding parameters can be passed directly through the command line. For BASE_OS, ubuntu20.04 and centos7 are respectively supported. The network proxy uses system environment variables by default. If you need to manually set them, please pass in http_proxy and https_proxy in the command.
 
 #### Pull Standard Image
 The standard image based on ubuntu and centos has been built and can be directly pulled:

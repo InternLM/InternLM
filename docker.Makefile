@@ -1,10 +1,12 @@
 DOCKER_REGISTRY          ?= docker.io
-DOCKER_ORG               ?= my
+DOCKER_ORG               ?= internlm
 DOCKER_IMAGE             ?= internlm
 DOCKER_FULL_NAME          = $(DOCKER_REGISTRY)/$(DOCKER_ORG)/$(DOCKER_IMAGE)
 
-CUDA_VERSION              = 11.7.1
-GCC_VERSION               = 10.2.0
+CUDA_VERSION             ?= 11.7.1
+GCC_VERSION              ?= 10.2.0
+CUDA_SIMPLE               = $(shell echo $(CUDA_VERSION) | cut -d'=' -f2 | cut -d'.' -f1-2)
+CU_VERSION                = $(subst .,,$(CUDA_SIMPLE))
 
 CUDNN_VERSION             = 8
 BASE_RUNTIME              =
@@ -26,14 +28,15 @@ GMP_VERSION              ?= 6.2.1
 MPFR_VERSION             ?= 4.1.0
 MPC_VERSION              ?= 1.2.1
 GCC_VERSION              ?= 10.2.0
-HTTPS_PROXY_I            ?=
-HTTP_PROXY_I             ?=
 FLASH_ATTEN_VERSION      ?= 1.0.5
 FLASH_ATTEN_TAG          ?= v${FLASH_ATTEN_VERSION}
+https_proxy              ?=
+http_proxy               ?=
 
 BUILD_ARGS                = --build-arg BASE_IMAGE=$(BASE_IMAGE) \
                             --build-arg PYTHON_VERSION=$(PYTHON_VERSION) \
                             --build-arg CUDA_VERSION=$(CUDA_VERSION) \
+                            --build-arg CU_VERSION=$(CU_VERSION) \
                             --build-arg CUDA_CHANNEL=$(CUDA_CHANNEL) \
                             --build-arg PYTORCH_VERSION=$(PYTORCH_VERSION) \
                             --build-arg TORCHVISION_VERSION=$(TORCHVISION_VERSION) \
@@ -44,9 +47,9 @@ BUILD_ARGS                = --build-arg BASE_IMAGE=$(BASE_IMAGE) \
                             --build-arg MPFR_VERSION=$(MPFR_VERSION) \
                             --build-arg MPC_VERSION=$(MPC_VERSION) \
                             --build-arg GCC_VERSION=$(GCC_VERSION) \
-                            --build-arg https_proxy=$(HTTPS_PROXY_I) \
-                            --build-arg http_proxy=$(HTTP_PROXY_I) \
-                            --build-arg FLASH_ATTEN_TAG=$(FLASH_ATTEN_TAG)
+                            --build-arg FLASH_ATTEN_TAG=$(FLASH_ATTEN_TAG) \
+                            --build-arg https_proxy=$(https_proxy) \
+                            --build-arg http_proxy=$(http_proxy)
 
 EXTRA_DOCKER_BUILD_FLAGS ?=
 

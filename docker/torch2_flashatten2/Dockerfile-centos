@@ -116,6 +116,7 @@ ARG http_proxy
 ARG PYTORCH_VERSION
 ARG TORCHVISION_VERSION
 ARG TORCHAUDIO_VERSION
+ARG CU_VERSION
 
 RUN /opt/conda/bin/pip --no-cache-dir install \
     transformers==4.29.2 \
@@ -133,11 +134,11 @@ RUN /opt/conda/bin/pip --no-cache-dir install \
     botocore \
     torch-scatter \
     pyecharts \
-    -f https://data.pyg.org/whl/torch-${PYTORCH_VERSION}+cu117.html \
+    -f https://data.pyg.org/whl/torch-${PYTORCH_VERSION}+cu${CU_VERSION}.html \
     && /opt/conda/bin/pip --no-cache-dir install \
-    --extra-index-url https://download.pytorch.org/whl/cu117 \
-    torch==${PYTORCH_VERSION}+cu117 \
-    torchvision==${TORCHVISION_VERSION}+cu117 \
+    --extra-index-url https://download.pytorch.org/whl/cu${CU_VERSION} \
+    torch==${PYTORCH_VERSION}+cu${CU_VERSION} \
+    torchvision==${TORCHVISION_VERSION}+cu${CU_VERSION} \
     torchaudio==${TORCHAUDIO_VERSION}
 
 ARG https_proxy
