@@ -6,7 +6,6 @@ import time
 import traceback
 from functools import partial
 
-import numpy as np
 import torch
 import torch.distributed as dist
 
@@ -227,7 +226,6 @@ def main(args):
                 forward_only=False,
                 return_loss=True,
                 return_output_label=False,
-                moe_loss_coeff=gpc.config.loss.moe_loss_coeff,
             )
             timer("fwd-bwd").stop()
 
@@ -262,7 +260,7 @@ def main(args):
                 start_time=start_time,
                 loss=loss,
                 moe_loss=moe_loss,
-                grad_norm=np.linalg.norm(grad_norm_groups),
+                grad_norm=grad_norm_groups,
                 metric=metric,
                 update_panel=uniscale_logger is not None,
             )

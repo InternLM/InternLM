@@ -133,7 +133,7 @@ class PackedFlashBaseLayer1D(nn.Module):
         self.moe_use_rts = moe_use_rts
         self.moe_use_residual = moe_use_residual
         ep_size = gpc.get_world_size(ParallelMode.EXPERT)
-        if num_experts == 0:  # dense, not MoE
+        if num_experts <= 1:  # dense, not MoE
             if use_swiglu:
                 self.mlp = FeedForward(
                     hidden_size,

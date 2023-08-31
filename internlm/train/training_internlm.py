@@ -100,7 +100,7 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
 
     adam_cfg = gpc.config.adam
     # split the moe parameters into different groups
-    if gpc.config.model.num_experts != 0:
+    if gpc.config.model.num_experts > 1:
         params = create_moe_param_groups(model, adam_cfg.weight_decay)
     else:
         params = [{"params": model.parameters(), "weight_decay": adam_cfg.weight_decay}]
@@ -368,6 +368,12 @@ def record_current_batch_training_metrics(
 
         tflops = get_tflops_func((time.time() - start_time))
 
+        # change grad_norm list to dict for calling writer's add_scalars
+        grad_norm_dict = {}
+        assert isinstance(grad_norm, list)
+        for inx, norm in enumerate(grad_norm):
+            grad_norm_dict[f"grad_norm_{inx}"] = norm
+
         infos = {
             "tflops": tflops,
             "step": batch_count,
@@ -376,7 +382,7 @@ def record_current_batch_training_metrics(
             "tgs (tokens/gpu/second)": tk_per_gpu,
             "lr": lr,
             "loss_scale": scaler,
-            "grad_norm": grad_norm,  # TODO: not scalar
+            "grad_norm": grad_norm_dict,
         }
 
         infos["micro_num"] = len(batch[1])
@@ -397,24 +403,31 @@ def record_current_batch_training_metrics(
         line = ""
         for key, value in infos.items():
             line += f"{key}={value} "
-            writer.add_scalar(key=key, value=value, step=train_state.step_count)
+            if isinstance(value, dict):
+                writer.add_scalars(key=key, value=value, step=train_state.step_count)
+            else:
+                writer.add_scalar(key=key, value=value, step=train_state.step_count)
 
         if update_panel:
+            # metrics shown with dashboard panels
+            panel_metrics = {
+                "step": batch_count,
+                "lr": lr,
+                "num_consumed_tokens": train_state.num_consumed_tokens,
+                "loss": loss.item(),
+                "flops": tflops,
+                "tgs": tk_per_gpu,
+                "acc": acc_perplex["acc"],
+                "perplexity": acc_perplex["perplexity"],
+                "fwd_bwd_time": fwd_bwd_time,
+            }
+            for norm_key, norm_value in grad_norm_dict.items():
+                panel_metrics[norm_key] = norm_value
+
             logger.info(
-                line,
-                extra={
-                    "step": batch_count,
-                    "lr": lr,
-                    "num_consumed_tokens": train_state.num_consumed_tokens,
-                    "grad_norm": grad_norm,
-                    "loss": loss.item(),
-                    "moe_loss": moe_loss.item(),
-                    "flops": tflops,
-                    "tgs": tk_per_gpu,
-                    "acc": acc_perplex["acc"],
-                    "perplexity": acc_perplex["perplexity"],
-                    "fwd_bwd_time": fwd_bwd_time,
-                },
+                "{line}",
+                line=line,
+                extra=panel_metrics,
             )
         else:
             logger.info(line)

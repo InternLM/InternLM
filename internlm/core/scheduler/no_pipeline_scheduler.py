@@ -7,6 +7,7 @@ from typing import Any, Callable, Iterable, List, Optional
 
 import torch
 
+from internlm.core.context import global_context as gpc
 from internlm.core.engine import Engine
 from internlm.utils.common import conditional_context
 
@@ -88,7 +89,6 @@ class NonPipelineScheduler(BaseScheduler):
         forward_only: bool = False,
         return_loss: bool = True,
         scale_loss: int = 1,
-        moe_loss_coeff: float = 0.01,
     ):
         """Trains one batch of data.
 
@@ -115,7 +115,7 @@ class NonPipelineScheduler(BaseScheduler):
                 self._call_hooks("before_criterion", output, label)
                 loss = self._call_engine_criterion(engine, output, label)
                 self._call_hooks("after_criterion", loss)
-                moe_loss = sum(moe_losses) * moe_loss_coeff
+                moe_loss = sum(moe_losses) * gpc.config.loss.moe_loss_coeff
                 moe_loss /= scale_loss
                 loss /= scale_loss
                 loss += moe_loss
@@ -138,7 +138,6 @@ class NonPipelineScheduler(BaseScheduler):
         forward_only: bool = False,
         return_loss: bool = True,
         return_output_label: bool = True,
-        moe_loss_coeff: float = 0.01,
     ):
         """The process function that loads a batch of dataset and feeds it to the model.
         The returned labels and loss will None if :attr:`return_loss` is False.
@@ -184,7 +183,7 @@ class NonPipelineScheduler(BaseScheduler):
             _data, _label = self._load_accum_batch(data, label)
 
             _output, _loss, _moe_loss = self._train_one_batch(
-                _data, _label, engine, forward_only, return_loss, self._grad_accum_size, moe_loss_coeff
+                _data, _label, engine, forward_only, return_loss, self._grad_accum_size
             )
 
             if return_loss:
