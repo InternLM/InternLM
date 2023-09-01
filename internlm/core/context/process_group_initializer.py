@@ -35,6 +35,9 @@ class ParallelMode(Enum):
     # runntime network test
     NETTEST = "nettest"
 
+    # dummy mode, only used during mode construction
+    DUMMY = "dummy"
+
 
 class ProcessGroupInitializer(ABC):
     """An object, knowing the parallelism configuration, that initializes parallel groups.
