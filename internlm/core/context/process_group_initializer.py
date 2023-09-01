@@ -3,9 +3,9 @@
 
 # adopted from https://github.com/hpcaitech/ColossalAI/blob/main/colossalai/context
 
+import math
 from abc import ABC, abstractmethod
 from enum import Enum
-import math
 
 import torch.distributed as dist
 
