@@ -100,8 +100,8 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
     adam_cfg = gpc.config.adam
     naive_optimizer = torch.optim.AdamW(
         params=[
-            {"params": model.not_norm, "weight_decay": adam_cfg.weight_decay},
-            {"params": model.norm, "weight_decay": adam_cfg.weight_decay},
+            {"params": model.not_norm, "weight_decay": adam_cfg.weight_decay, "name": "default"},
+            {"params": model.norm, "weight_decay": adam_cfg.weight_decay, "name": "norm"},
         ],
         lr=adam_cfg.lr,
         betas=(adam_cfg.adam_beta1, adam_cfg.adam_beta2),
