@@ -10,6 +10,7 @@ from .process_group_initializer import (
     Initializer_Pipeline,
     Initializer_Tensor,
     Initializer_Zero1,
+    Initializer_Nettest,
     ParallelMode,
     ProcessGroupInitializer,
 )
