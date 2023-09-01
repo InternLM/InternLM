@@ -361,12 +361,6 @@ def record_current_batch_training_metrics(
 
         tflops = get_tflops_func((time.time() - start_time))
 
-        # change grad_norm list to dict for calling writer's add_scalars
-        grad_norm_dict = {}
-        assert isinstance(grad_norm, list)
-        for inx, norm in enumerate(grad_norm):
-            grad_norm_dict[f"grad_norm_{inx}"] = norm
-
         infos = {
             "tflops": tflops,
             "step": batch_count,
@@ -374,7 +368,7 @@ def record_current_batch_training_metrics(
             "tgs (tokens/gpu/second)": tk_per_gpu,
             "lr": lr,
             "loss_scale": scaler,
-            "grad_norm": grad_norm_dict,
+            "grad_norm": grad_norm,
         }
 
         infos["micro_num"] = len(batch[1])
@@ -413,7 +407,7 @@ def record_current_batch_training_metrics(
                 "perplexity": acc_perplex["perplexity"],
                 "fwd_bwd_time": fwd_bwd_time,
             }
-            for norm_key, norm_value in grad_norm_dict.items():
+            for norm_key, norm_value in grad_norm.items():
                 panel_metrics[norm_key] = norm_value
 
             logger.info(

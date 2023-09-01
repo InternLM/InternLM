@@ -235,7 +235,7 @@ def main(args):
                 train_state.step_count += 1
             else:
                 train_state.inf_nan_skip_batches += 1  # record the amount of updating parameters unsuccessfully.
-                if -1 in grad_norm_groups and gpc.is_rank_for_log():  # -1 encodes a specific failure case
+                if -1 in grad_norm_groups.values() and gpc.is_rank_for_log():  # -1 encodes a specific failure case
                     logger.warning(f"Warning: skip parameter update at step {batch_count}.")
                     send_alert_message(
                         address=gpc.config.alert_address,
