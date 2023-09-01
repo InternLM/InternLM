@@ -6,7 +6,6 @@ import time
 import traceback
 from functools import partial
 
-import numpy as np
 import torch
 import torch.distributed as dist
 
@@ -236,7 +235,7 @@ def main(args):
                 train_state.step_count += 1
             else:
                 train_state.inf_nan_skip_batches += 1  # record the amount of updating parameters unsuccessfully.
-                if -1 in grad_norm_groups and gpc.is_rank_for_log():  # -1 encodes a specific failure case
+                if -1 in grad_norm_groups.values() and gpc.is_rank_for_log():  # -1 encodes a specific failure case
                     logger.warning(f"Warning: skip parameter update at step {batch_count}.")
                     send_alert_message(
                         address=gpc.config.alert_address,
@@ -257,7 +256,7 @@ def main(args):
                 trainer=trainer,
                 start_time=start_time,
                 loss=loss,
-                grad_norm=np.array(grad_norm_groups),
+                grad_norm=grad_norm_groups,
                 metric=metric,
                 update_panel=uniscale_logger is not None,
             )
