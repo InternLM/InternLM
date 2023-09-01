@@ -497,6 +497,7 @@ class HybridZeroOptimizer(BaseOptimizer):
             grads = [self.padding_grad]
             params = [self.padding_tensor]
 
+        norm = 0
         if self._clip_grad_norm > 0:
             # this norm is before scaling, it will be very large
             norm = compute_norm(
@@ -542,15 +543,15 @@ class HybridZeroOptimizer(BaseOptimizer):
             self._param_store.clear_grads_of_previous_reduced_params()
 
         # compute norm for gradients in the last bucket
-        total_norms = []
+        total_norms = {}
         for group_id in range(self.num_param_groups):
-            total_norms.append(
-                self._compute_norm_with_stage(
-                    group_id=group_id,
-                    last_bucket=True,
-                    last_stage=True,
-                    previous_norm=groups_norms[group_id],
-                )
+            group_name = self.param_groups[group_id]["name"] if "name" in self.param_groups[group_id] else "default"
+            group_name = f"{group_id}_{group_name}"
+            total_norms[group_name] = self._compute_norm_with_stage(
+                group_id=group_id,
+                last_bucket=True,
+                last_stage=True,
+                previous_norm=groups_norms[group_id],
             )
 
         timer("sync_grad").start()
@@ -569,7 +570,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         # found_inf = self._check_overflow()
         # Because you may encounter inf when computing norm
 
-        if -1 in norms:
+        if -1 in norms.values():
             found_inf = True
 
         loss_scale = float(self.loss_scale.item())  # backup
@@ -617,15 +618,17 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         # unscale and clip grads
         # get the global norm
-        global_norm_groups = []
+        global_norm_groups = {}
         if self._clip_grad_norm > 0:
-            for norm in norms:
-                global_norm_groups.append(norm**0.5)
+            for group_name, norm in norms.items():
+                global_norm_groups[group_name] = norm**0.5
 
         # the following operations are performed only on the rank to which parameters are assigned.
         if gpc.config.model.dtype is not torch.float32:
-            if len(single_grad_partition_groups) != 0:
-                self._unscale_and_clip_grads(single_grad_partition_groups, global_norm_groups, loss_scale)
+            if len(single_grad_partition_groups) != 0 and self._clip_grad_norm > 0:
+                self._unscale_and_clip_grads(
+                    single_grad_partition_groups, list(global_norm_groups.values()), loss_scale
+                )
 
         # update the parameters
         timer("step").start()
@@ -652,7 +655,9 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         # update gradients may not be needed here, because the sync_params function is used in initialization,
         # so synchronization is maintained
-        return True, [global_norm / loss_scale for global_norm in global_norm_groups]
+        for group_name, global_norm in global_norm_groups.items():
+            global_norm_groups[group_name] = global_norm / loss_scale
+        return True, global_norm_groups
 
     def broadcast_params(self):
         handles = []

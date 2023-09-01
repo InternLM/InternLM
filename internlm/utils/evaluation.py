@@ -76,7 +76,7 @@ def evaluate_on_val_dls(
         data_cfg = gpc.config.data
 
         for val_name, val_dl in val_dls.items():
-            if len(val_dl) == 0 and verbose and not streaming:
+            if not streaming and len(val_dl) == 0 and verbose:
                 logger.info(f"Validation dataset: {val_name} is empty")
                 continue
 
