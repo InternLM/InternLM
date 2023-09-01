@@ -534,10 +534,10 @@ class ParallelContext(metaclass=SingletonMeta):
             tp_seed = seed + tp_rank + pipeline_offset * 1024
             add_seed(ParallelMode.TENSOR, tp_seed)
 
-        # we do not set the random state mode to ParallelMode.DUMMY until model is built, this is because
-        # the random state will be different in diffenent tensor parallel device of the same data parallel
-        # group. The underlying reason is that the device of tp_rank = 0 will perform additional random
-        # operations during the RowParallelLinear module building process.
+        # we do not set the random state mode to ParallelMode.DATA until model is built (instead, we use a dummy mode
+        # during model construction), this is because the random state will be different in different tensor parallel
+        # device of the same data parallel group. The underlying reason is that the device of tp_rank = 0 will perform
+        # additional random operations during the RowParallelLinear module building process.
         set_mode(ParallelMode.DUMMY)
 
         seeds = get_seeds()
