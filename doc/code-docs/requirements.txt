@@ -5,3 +5,5 @@ sphinx_rtd_theme
 sphinx_markdown_tables
 autodoc_pydantic==1.9
 enum_tools
+numpy==1.25.1
+torch==1.13.0
