@@ -59,4 +59,8 @@ add_module_names = True
 
 autoclass_content = "init"
 
-autodoc_mock_imports = ["apex", "torch"]
+autodoc_mock_imports = [
+    "apex",
+    "torch",
+    "numpy",
+]
