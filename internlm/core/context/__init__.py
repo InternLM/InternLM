@@ -7,10 +7,10 @@ from .parallel_context import (
 from .process_group_initializer import (
     Initializer_Data,
     Initializer_Model,
+    Initializer_Nettest,
     Initializer_Pipeline,
     Initializer_Tensor,
     Initializer_Zero1,
-    Initializer_Nettest,
     ParallelMode,
     ProcessGroupInitializer,
 )
