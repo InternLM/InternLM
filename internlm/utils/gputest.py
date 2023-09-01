@@ -6,8 +6,8 @@ import socket
 
 import torch
 import torch.distributed as dist
-import torch.utils.benchmark as benchmark
 from flash_attn.modules.mha import FlashSelfAttention, SelfAttention
+from torch.utils import benchmark
 
 from internlm.utils.logger import get_logger
 
