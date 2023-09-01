@@ -7,3 +7,4 @@ autodoc_pydantic==1.9
 enum_tools
 numpy
 torch
+tqdm
