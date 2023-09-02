@@ -38,17 +38,17 @@ class CheckpointType(Enum):
 
 
 def is_rank0_warning(text):
-    if gpc.is_rank_for_log() == 0:
+    if gpc.is_rank_for_log():
         logger.warning(text)
 
 
 def is_rank0_info(text):
-    if gpc.is_rank_for_log() == 0:
+    if gpc.is_rank_for_log():
         logger.info(text)
 
 
 def is_rank0_error(text):
-    if gpc.is_rank_for_log() == 0:
+    if gpc.is_rank_for_log():
         logger.error(text)
 
 
@@ -574,7 +574,7 @@ now step_count is {train_state.step_count}",
         return dict(path=latest_ckpt, content=["model", "sampler", "optimizer"], ckpt_type="normal")
 
     def try_resume_training(self, train_state: TrainState, current_time=""):
-        if self.load_ckpt_info is None:
+        if self.load_ckpt_info is None or self.load_ckpt_info["path"] is None:
             is_rank0_info(
                 f"===========New Run {current_time} on host:{socket.gethostname()},rank={gpc.get_global_rank()},"
                 f"tp={gpc.get_local_rank(ParallelMode.TENSOR)},pp={gpc.get_local_rank(ParallelMode.PIPELINE)},"
@@ -629,6 +629,7 @@ now step_count is {train_state.step_count}",
                             fp16_flat_current_rank = self.optimizer._param_store.get_flat_fp16_param_by_rank_group(
                                 self._zero_local_rank, group_id
                             )
+                            # param_group["params"] is fp32 flatten optimizer states of this zero rank.
                             param_group["params"][0].copy_(fp16_flat_current_rank.float())
 
             # load lr scheduler states.
@@ -740,5 +741,5 @@ now step_count is {train_state.step_count}",
             test_fn = os.path.join(self.save_ckpt_folder, socket.gethostname())
             self.storage_manager.save(test_fn, buff)
             self.storage_manager.wait()
-            buff2 = self.storage_manager.load(test_fn)
-            del buff, buff2
+            self.storage_manager.load(test_fn)
+            del buff

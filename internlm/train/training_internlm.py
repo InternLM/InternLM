@@ -410,13 +410,7 @@ def record_current_batch_training_metrics(
             for norm_key, norm_value in grad_norm.items():
                 panel_metrics[norm_key] = norm_value
 
-            logger.info(
-                "{line}",
-                line=line,
-                extra=panel_metrics,
-            )
-        else:
-            logger.info(line)
+        logger.info(line)
 
         # if loss spike occurs, send alert info to feishu
         mm.monitor_loss_spike(alert_address=gpc.config.alert_address, step_count=batch_count, cur_step_loss=loss.item())
