@@ -5,6 +5,7 @@ from subprocess import PIPE, STDOUT, Popen
 import pytest
 import torch
 
+from internlm.utils.common import SingletonMeta
 from internlm.core.context import global_context as gpc
 from internlm.core.context.parallel_context import Config
 from internlm.core.trainer import TrainState
@@ -196,6 +197,7 @@ def del_tmp():
 @pytest.mark.usefixtures("reset_singletons")
 @pytest.mark.parametrize("ckpt_config", ckpt_config_list)
 def test_ckpt_mm(ckpt_config, init_dist_and_model):  # noqa # pylint: disable=unused-import
+    from internlm.utils.model_checkpoint import CheckpointLoadType, CheckpointLoadMask
 
     ckpt_config = Config(ckpt_config)
     assert ckpt_config.checkpoint_every < TOTAL_STEP
@@ -203,7 +205,6 @@ def test_ckpt_mm(ckpt_config, init_dist_and_model):  # noqa # pylint: disable=un
 
     model, opim = init_dist_and_model
     train_state = TrainState(gpc.config, None)
-    init_storage_manager(ckpt_config)
     if isinstance(opim, HybridZeroOptimizer):
         print("Is HybridZeroOptimizer!", flush=True)
     else:
@@ -233,6 +234,7 @@ def test_ckpt_mm(ckpt_config, init_dist_and_model):  # noqa # pylint: disable=un
         assert latest_ckpt == f"{BOTO_SAVE_PATH}/snapshot/0", latest_ckpt
 
     del ckpt_mm
+    SingletonMeta._instances = {}
     ckpt_mm = CheckpointManager(ckpt_config, model=model, optimizer=opim)
     ckpt_mm.try_resume_training(train_state)
     assert latest_ckpt_step == 6
@@ -243,11 +245,11 @@ def test_ckpt_mm(ckpt_config, init_dist_and_model):  # noqa # pylint: disable=un
 
     if ckpt_mm.save_ckpt_folder.startswith("local:"):
         ckpt_mm.load_ckpt_info = dict(
-            path=os.path.join(LOCAL_SAVE_PATH, "4"), content=["model", "sampler", "optimizer"], ckpt_type="normal"
+            path=os.path.join(LOCAL_SAVE_PATH, "4"), content=CheckpointLoadMask.LOAD_ALL, ckpt_type=CheckpointLoadType.INTERNLM
         )
     else:
         ckpt_mm.load_ckpt_info = dict(
-            path=os.path.join(BOTO_SAVE_PATH, "4"), content=["model", "sampler", "optimizer"], ckpt_type="normal"
+            path=os.path.join(BOTO_SAVE_PATH, "4"), content=CheckpointLoadMask.LOAD_ALL, ckpt_type=CheckpointLoadType.INTERNLM
         )
 
     ckpt_mm.try_resume_training(train_state)
@@ -263,9 +265,9 @@ def test_ckpt_mm(ckpt_config, init_dist_and_model):  # noqa # pylint: disable=un
 @pytest.mark.parametrize("ckpt_config", ckpt_config_list)
 def test_ckpt_mm_ping(ckpt_config, init_dist_and_model):  # noqa # pylint: disable=unused-import
     ckpt_config = Config(ckpt_config)
-    init_storage_manager(ckpt_config)
 
     model, opim = init_dist_and_model
+    SingletonMeta._instances = {}
     ckpt_mm = CheckpointManager(ckpt_config, model=model, optimizer=opim)
     ckpt_mm.try_ping_storage()
 

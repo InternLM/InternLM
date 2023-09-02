@@ -22,6 +22,7 @@ from internlm.utils.megatron_timers import megatron_timer as timer
 from internlm.utils.storage_manager import (
     get_fns,
     get_storage_manager,
+    init_storage_manager,
     llm_load,
     llm_save,
     try_get_storage_backend,
@@ -30,42 +31,21 @@ from internlm.utils.storage_manager import (
 logger = get_logger(__file__)
 
 
-class CheckpointType(Enum):
+class CheckpointSaveType(Enum):
     NORMAL_CHECKPOINT = 1
     SNAPSHOT_CHECKPOINT = 2
-    ONLY_MODEL_CHECKPOINT = 3
-    OTHER_CHECKPOINT = 4
 
 
-def is_rank0_warning(text):
-    if gpc.is_rank_for_log():
-        logger.warning(text)
+class CheckpointLoadType(Enum):
+    INTERNLM = 1
 
 
-def is_rank0_info(text):
-    if gpc.is_rank_for_log():
-        logger.info(text)
-
-
-def is_rank0_error(text):
-    if gpc.is_rank_for_log():
-        logger.error(text)
-
-
-def judge_ckpt_type(ckpt_info) -> CheckpointType:
-    if "content" not in ckpt_info:
-        ckpt_info["content"] = ["model", "sampler", "optimizer"]
-        return CheckpointType.NORMAL_CHECKPOINT
-
-    assert len(ckpt_info["content"]) <= 3
-    assert set(ckpt_info["content"]).issubset(set(["model", "sampler", "optimizer"]))
-
-    if len(ckpt_info["content"]) == 1 and ckpt_info["content"][0] == "model":
-        return CheckpointType.ONLY_MODEL_CHECKPOINT
-    elif len(ckpt_info["content"]) == 3:
-        return CheckpointType.NORMAL_CHECKPOINT
-    else:
-        return CheckpointType.OTHER_CHECKPOINT
+class CheckpointLoadMask:
+    LOAD_MODEL = 0b0001
+    LOAD_OPTIMIZER = 0b0010
+    LOAD_SCHEDULER = 0b0100
+    LOAD_SAMPLER = 0b1000
+    LOAD_ALL = 0b1111
 
 
 def get_config_value(config, key, defalut):
@@ -343,9 +323,21 @@ class CheckpointManager:
         self.stop_file_path = get_config_value(ckpt_config, "stop_file_path", None)
         self.load_model_only_folder = get_config_value(ckpt_config, "load_model_only_folder", None)
         self.load_optimizer = get_config_value(ckpt_config, "load_optimizer", True)
-        self.snapshot_ckpt_folder = get_config_value(
-            ckpt_config, "snapshot_ckpt_folder", os.path.join(self.save_ckpt_folder, "snapshot")
-        )
+        if self.save_ckpt_folder:
+            self.snapshot_ckpt_folder = get_config_value(
+                ckpt_config, "snapshot_ckpt_folder", os.path.join(self.save_ckpt_folder, "snapshot")
+            )
+            self.async_upload_tmp_folder = get_config_value(
+                ckpt_config, "async_upload_tmp_folder", "/dev/shm/internlm_tmp_ckpt/"
+            )
+        else:
+            self.snapshot_ckpt_folder = None
+            self.async_upload_tmp_folder = None
+
+        self.async_upload = get_config_value(ckpt_config, "async_upload", False)
+
+        # initialization storage manager
+        init_storage_manager(self.enable_save_ckpt, self.async_upload_tmp_folder, self.async_upload)
 
         self.feishu_address = feishu_address
         self.storage_manager = get_storage_manager()
@@ -366,28 +358,17 @@ class CheckpointManager:
                 f.write("0")
 
         # Compatible with old interfaces.
-        self.auto_reume = get_config_value(ckpt_config, "auto_resume_latest_ckpt", True)
+        self.auto_resume = get_config_value(ckpt_config, "auto_resume_latest_ckpt", True)
         if "load_given_ckpt" in ckpt_config:
-            self.auto_reume = not ckpt_config.load_given_ckpt
+            self.auto_resume = not ckpt_config.load_given_ckpt
 
-        self.load_ckpt_info = get_config_value(ckpt_config, "load_ckpt_folder", None)
-        if not isinstance(self.load_ckpt_info, dict):
-            self.load_ckpt_info = dict(
-                path=self.load_ckpt_info, content=["model", "sampler", "optimizer"], ckpt_type="normal"
-            )
-        else:
-            assert (
-                "path" in self.load_ckpt_info
-                and "content" in self.load_ckpt_info
-                and "ckpt_type" in self.load_ckpt_info
-            ), "please set content in ckpt setting, \
-eg: ckpt = dict(path='./XXX', content=['model'], ckpt_type='normal')"
-            assert set(self.load_ckpt_info["ckpt_type"]).issubset(
-                set(["normal", "other"])
-            ), "ckpt content only support 'normal', 'other'"
-            assert set(self.load_ckpt_info["content"]).issubset(
-                set(["model", "sampler", "optimizer"])
-            ), "ckpt content only support 'model', 'sampler', 'optimizer'"
+        self.load_ckpt_info = get_config_value(ckpt_config, "load_ckpt_info", None)
+        if self.load_ckpt_info is None:
+            load_ckpt_folder = get_config_value(ckpt_config, "load_ckpt_folder", None)
+            if isinstance(load_ckpt_folder, str):
+                self.load_ckpt_info = dict(
+                    path=load_ckpt_folder, content=("model", "sampler", "optimizer"), ckpt_type="normal"
+                )
 
         if self.load_model_only_folder is not None:
             assert (
@@ -396,14 +377,52 @@ eg: ckpt = dict(path='./XXX', content=['model'], ckpt_type='normal')"
 # and 'load_given_ckpt' is True, so internlm will load from 'load_ckpt_folder'"
             self.load_ckpt_info = dict(path=self.load_model_only_folder, content=["model"], ckpt_type="normal")
 
-        if self.auto_reume:
+        if self.auto_resume:
             self.load_ckpt_info = self.query_lastest_ckpt()
 
         if self.stop_file_path is None:
-            is_rank0_warning("no set stop_file_path, quit_signal_handler is disable")
+            if gpc.is_rank_for_log():
+                logger.warning("no set stop_file_path, quit_signal_handler is disable")
 
-        is_rank0_info(f"load_ckpt_info : {self.load_ckpt_info}")
-        self.try_ping_storage()
+        # set load mask.
+        if self.load_ckpt_info:
+            if gpc.is_rank_for_log():
+                logger.info(f"load_ckpt_info : {self.load_ckpt_info}")
+            assert (
+                "path" in self.load_ckpt_info
+                and "content" in self.load_ckpt_info
+                and "ckpt_type" in self.load_ckpt_info
+            ), "please set content in ckpt setting, eg: ckpt = dict(path='', content=['model'], ckpt_type='normal')"
+            assert set(self.load_ckpt_info["content"]).issubset(
+                set(["model", "sampler", "optimizer", "scheduler", "all"])
+            )
+            assert isinstance(self.load_ckpt_info["content"], tuple)
+
+            if "content" not in self.load_ckpt_info:
+                self.load_ckpt_info["content"] = CheckpointLoadMask.LOAD_ALL
+            else:
+                load_mask = 0b0000
+                for load_ctx in self.load_ckpt_info["content"]:
+                    if load_ctx.lower() == "model":
+                        load_mask |= int(CheckpointLoadMask.LOAD_MODEL)
+                    if load_ctx.lower() == "optimizer":
+                        load_mask |= CheckpointLoadMask.LOAD_OPTIMIZER
+                    if load_ctx.lower() == "scheduler":
+                        load_mask |= CheckpointLoadMask.LOAD_SCHEDULER
+                    if load_ctx.lower() == "sampler":
+                        load_mask |= CheckpointLoadMask.LOAD_SAMPLER
+                    if load_ctx.lower() == "all":
+                        load_mask |= CheckpointLoadMask.LOAD_ALL
+
+                self.load_ckpt_info["content"] = load_mask
+
+            assert set([self.load_ckpt_info["ckpt_type"]]).issubset(set(["normal"]))
+            if self.load_ckpt_info["ckpt_type"] == "normal":
+                self.load_ckpt_info["ckpt_type"] = CheckpointLoadType.INTERNLM
+
+        # test storage setting is ok.
+        if self.enable_save_ckpt:
+            self.try_ping_storage()
 
     def quit_signal_handler(self, train_state) -> bool:
         """
@@ -417,7 +436,7 @@ eg: ckpt = dict(path='./XXX', content=['model'], ckpt_type='normal')"
         Returns:
             bool: whether to quit.
         """
-        now_break, now_save_ckpt, save_type = False, False, CheckpointType.NORMAL_CHECKPOINT
+        now_break, now_save_ckpt, save_type = False, False, CheckpointSaveType.NORMAL_CHECKPOINT
 
         if self.stop_file_path is None:
             return now_break, now_save_ckpt, save_type
@@ -448,12 +467,12 @@ now step_count is {train_state.step_count}",
 
         return now_break, now_save_ckpt, save_type
 
-    def is_now_to_save_ckpt(self, train_state) -> (bool, CheckpointType, bool):
-        save_ckpts, save_type, now_break = False, CheckpointType.NORMAL_CHECKPOINT, False
+    def is_now_to_save_ckpt(self, train_state) -> (bool, CheckpointSaveType, bool):
+        save_ckpts, save_type, now_break = False, CheckpointSaveType.NORMAL_CHECKPOINT, False
         if self.oss_snapshot_freq > 1 and train_state.step_count % self.oss_snapshot_freq == 0:
-            save_ckpts, save_type = True, CheckpointType.SNAPSHOT_CHECKPOINT
+            save_ckpts, save_type = True, CheckpointSaveType.SNAPSHOT_CHECKPOINT
         if train_state.step_count % self.checkpoint_every == 0:
-            save_ckpts, save_type = True, CheckpointType.NORMAL_CHECKPOINT
+            save_ckpts, save_type = True, CheckpointSaveType.NORMAL_CHECKPOINT
         now_break, singal_save_ckpts, singal_save_type = self.quit_signal_handler(train_state)
         if save_ckpts is False:
             save_ckpts = singal_save_ckpts
@@ -470,7 +489,7 @@ now step_count is {train_state.step_count}",
         if save_ckpts:
             # Wait for the previous round of asynchronous upload storage to complete.
             self.storage_manager.wait()
-            if save_type == CheckpointType.SNAPSHOT_CHECKPOINT:
+            if save_type == CheckpointSaveType.SNAPSHOT_CHECKPOINT:
                 # Snapshot number, with only two snapshots written alternately.
                 self.snapshot_counter = (self.snapshot_counter + 1) % 2
                 save_ckpt_folder = os.path.join(self.snapshot_ckpt_folder, f"{self.snapshot_counter}")
@@ -570,56 +589,55 @@ now step_count is {train_state.step_count}",
                 if latest_ckpt and not latest_ckpt.startswith("local:"):
                     latest_ckpt = ":".join(["local", latest_ckpt])
 
-        is_rank0_info(f"Found latest ckpt {latest_ckpt if latest_ckpt else 'None'}, step: {step}...")
-        return dict(path=latest_ckpt, content=["model", "sampler", "optimizer"], ckpt_type="normal")
+        if gpc.is_rank_for_log():
+            logger.info(f"Found latest ckpt {latest_ckpt if latest_ckpt else 'None'}, step: {step}...")
+
+        # TODO: add more check point type.
+        return dict(path=latest_ckpt, content=("model", "sampler", "optimizer"), ckpt_type="normal")
 
     def try_resume_training(self, train_state: TrainState, current_time=""):
         if self.load_ckpt_info is None or self.load_ckpt_info["path"] is None:
-            is_rank0_info(
-                f"===========New Run {current_time} on host:{socket.gethostname()},rank={gpc.get_global_rank()},"
-                f"tp={gpc.get_local_rank(ParallelMode.TENSOR)},pp={gpc.get_local_rank(ParallelMode.PIPELINE)},"
-                f"dp={gpc.get_local_rank(ParallelMode.DATA)}==========="
-            )
+            if gpc.is_rank_for_log():
+                logger.info(
+                    f"===========New Run {current_time} on host:{socket.gethostname()},rank={gpc.get_global_rank()},"
+                    f"tp={gpc.get_local_rank(ParallelMode.TENSOR)},pp={gpc.get_local_rank(ParallelMode.PIPELINE)},"
+                    f"dp={gpc.get_local_rank(ParallelMode.DATA)}==========="
+                )
         else:
-            is_rank0_info(f"Try load_ckpt_folder: {self.load_ckpt_info}")
+            if gpc.is_rank_for_log():
+                logger.info(f"Try load_ckpt_folder: {self.load_ckpt_info}")
 
-            if self.load_ckpt_info["ckpt_type"] == "normal":
-                self.try_load_normal_ckpt(self.load_ckpt_info, train_state)
+            if self.load_ckpt_info["ckpt_type"] == CheckpointLoadType.INTERNLM:
+                load_content_str = self.try_load_normal_ckpt(self.load_ckpt_info, train_state)
+                if gpc.is_rank_for_log():
+                    logger.info(
+                        f"===========Resume training from `{self.load_ckpt_info['path']}` {current_time} on host:"
+                        f"{socket.gethostname()}==========="
+                    )
+                    logger.info(f"===========Load contents are: {load_content_str}")
             else:
                 raise NotImplementedError(f"unsupport ckpt_type : {self.load_ckpt_info['ckpt_type']}")
 
-            if judge_ckpt_type(self.load_ckpt_info) == CheckpointType.NORMAL_CHECKPOINT:
-                is_rank0_info(
-                    f"===========Resume training from `{self.load_ckpt_info['path']}` {current_time} on host:"
-                    f"{socket.gethostname()}==========="
-                )
-            elif judge_ckpt_type(self.load_ckpt_info) == CheckpointType.OTHER_CHECKPOINT:
-                is_rank0_info(
-                    f"===========Partial Resume training from `{self.load_ckpt_info['path']}` {current_time} on host:"
-                    f"{socket.gethostname()}==========="
-                )
-            elif judge_ckpt_type(self.load_ckpt_info) == CheckpointType.ONLY_MODEL_CHECKPOINT:
-                is_rank0_info(
-                    f"===========Load Model from `{self.load_ckpt_info['path']}` {current_time} on host:"
-                    f"{socket.gethostname()}==========="
-                )
-
     def try_load_normal_ckpt(self, load_info, train_state: TrainState):
+        load_content_str = ""
         load_ckpt_folder = load_info["path"]
-        load_content = set(load_info["content"])
-        assert "model" in load_content
+        load_content = load_info["content"]
 
-        load_model_checkpoint(folder=load_ckpt_folder, model=self.model)
+        if load_content & CheckpointLoadMask.LOAD_MODEL:
+            load_model_checkpoint(folder=load_ckpt_folder, model=self.model)
+            load_content_str += "model weigths, "
 
-        if judge_ckpt_type(load_info) != CheckpointType.ONLY_MODEL_CHECKPOINT:
+        if load_content | CheckpointLoadMask.LOAD_MODEL != CheckpointLoadMask.LOAD_MODEL:
             # load training states.
             load_context(load_ckpt_folder, train_state)
 
             # load optimzier states.
-            if "optimizer" in load_content and self.load_optimizer:
+            if load_content & CheckpointLoadMask.LOAD_OPTIMIZER:
                 load_optimizer_checkpoint(load_ckpt_folder, self.optimizer)
+                load_content_str += "optimizer, "
             else:
-                is_rank0_warning("CheckpointManager has no 'optimizer', skip reload optim checkpoint!")
+                if gpc.is_rank_for_log():
+                    logger.warning("CheckpointManager has no 'optimizer', skip reload optim checkpoint!")
                 # If we use AMP optimizer, we need to update its fp32 buffer as newly loaded weights value.
                 # Or we must ensure that loading model weights must be done before zero is initialized.
                 if isinstance(self.optimizer, HybridZeroOptimizer):
@@ -633,33 +651,39 @@ now step_count is {train_state.step_count}",
                             param_group["params"][0].copy_(fp16_flat_current_rank.float())
 
             # load lr scheduler states.
-            if self.lr_scheduler:
-                load_scheduler(load_ckpt_folder, self.lr_scheduler, self.optimizer, train_state)
-            else:
-                is_rank0_warning("CheckpointManager has no 'lr_scheduler', skip reload lr_scheduler checkpoint!")
+            if load_content & CheckpointLoadMask.LOAD_SCHEDULER:
+                if self.lr_scheduler:
+                    load_scheduler(load_ckpt_folder, self.lr_scheduler, self.optimizer, train_state)
+                    load_content_str += "lr_scheduler, "
+                else:
+                    if gpc.is_rank_for_log():
+                        logger.warning("CheckpointManager has no 'lr_scheduler', skip reload lr_scheduler checkpoint!")
 
             # load dataloader sampler states.
-            if "sampler" in load_content:
+            if load_content & CheckpointLoadMask.LOAD_SAMPLER:
                 if hasattr(train_state, "batch_sampler") and not isinstance(
                     train_state.batch_sampler, torch.utils.data.sampler.BatchSampler
                 ):
                     load_sampler(load_ckpt_folder, self.train_dl.batch_sampler)
                     # track the actual updates of sampler when using weighted sampling
                     train_state.init_batch_sampler(self.train_dl.batch_sampler)
+                    load_content_str += "batch_sampler, "
                 else:
-                    is_rank0_warning("CheckpointManager skip reload 'batch_sampler'")
+                    if gpc.is_rank_for_log():
+                        logger.warning("CheckpointManager skip reload 'batch_sampler'")
 
                 # reload data state dict.
                 if hasattr(train_state, "data_state_dict"):
                     self.train_dl.dataset.load_state_dict(
                         llm_load(os.path.join(load_ckpt_folder, "sampler_0.pt")), ckpt_path=load_ckpt_folder
                     )
+                    load_content_str += "data_state_dict, "
                 else:
-                    is_rank0_warning(
-                        "CheckpointManager has no 'data_state_dict', skip reload data_state_dict checkpoint!"
-                    )
-            else:
-                is_rank0_warning("CheckpointManager skip reload 'sampler'")
+                    if gpc.is_rank_for_log():
+                        logger.warning(
+                            "CheckpointManager has no 'data_state_dict', skip reload data_state_dict checkpoint!"
+                        )
+        return load_content_str
 
     def save_checkpoint(
         self,
@@ -737,8 +761,8 @@ now step_count is {train_state.step_count}",
 
     def try_ping_storage(self):
         if gpc.get_global_rank() % 8 == 0:
-            buff = torch.ones((1, 1024, 1024), dtype=torch.bfloat16)
-            test_fn = os.path.join(self.save_ckpt_folder, socket.gethostname())
+            buff = torch.ones((1, 64, 64), dtype=torch.bfloat16)
+            test_fn = os.path.join(self.save_ckpt_folder, f"pings/{socket.gethostname()}.ping")
             self.storage_manager.save(test_fn, buff)
             self.storage_manager.wait()
             self.storage_manager.load(test_fn)

@@ -106,6 +106,10 @@ def reset_singletons():
     SingletonMeta._instances = {}
 
 
+def reset_seed():
+    from internlm.core.context.random import _SEED_MANAGER
+    _SEED_MANAGER.reset()
+
 @pytest.fixture(scope="module")
 def init_dist_and_model():
     from internlm.initialize import initialize_distributed_env
@@ -129,7 +133,8 @@ def init_dist_and_model():
     del model, opim
     print("teardown", flush=True)
     gpc.destroy()
-    gpc.reset_seed()
+    reset_seed()
+
 
 
 def enter_flag(text):

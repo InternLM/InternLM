@@ -635,12 +635,12 @@ class StorageManager(metaclass=SingletonMeta):
 storage_manager: StorageManager = None
 
 
-def init_storage_manager(ckpt_config):
+def init_storage_manager(enable_save_ckpt, async_upload_tmp_folder, async_upload):
     global storage_manager
     storage_manager = StorageManager(
-        ckpt_config.enable_save_ckpt,
-        tmp_local_folder=ckpt_config.async_upload_tmp_folder,
-        async_mode=ckpt_config.async_upload,
+        enable_save_ckpt,
+        tmp_local_folder=async_upload_tmp_folder,
+        async_mode=async_upload,
     )
 
 

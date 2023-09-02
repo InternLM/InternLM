@@ -12,7 +12,6 @@ from internlm.core.context import Config
 from internlm.core.context import global_context as gpc
 from internlm.utils.common import get_master_node
 from internlm.utils.logger import get_logger
-from internlm.utils.storage_manager import init_storage_manager
 
 logger = get_logger(__file__)
 
@@ -163,9 +162,6 @@ def args_sanity_check():
         logger.info(f"is enable save ckpt: {ckpt.enable_save_ckpt}")
         logger.info(f"save_ckpt_folder: {ckpt.save_ckpt_folder}")
         logger.info(f"checkpoint_every: {ckpt.checkpoint_every}")
-
-    # initialization storage manager
-    init_storage_manager(ckpt)
 
     # tensorboard writer config
     if "enable_tb" not in gpc.config:

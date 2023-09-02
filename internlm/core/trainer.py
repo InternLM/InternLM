@@ -86,7 +86,7 @@ class TrainState:
         # there is no need to increment 'step_count' here (Does our step count start from 0 ?),
         # However, 'batch_count' is updating before ckpt storage, so it need to inc 1 when resume.
         self.batch_count = other_stuffs["batch_count"] + 1  # here you need to shift a batch backward
-        self.step_count = other_stuffs.get("step_count", other_stuffs["batch_count"])
+        self.step_count = other_stuffs.get("step_count", self.batch_count)
 
         # resume tensorboard from older tensorboard_folder
         self.resume_tb_folder = other_stuffs.get("tensorboard_folder", None)
