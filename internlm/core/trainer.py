@@ -77,7 +77,6 @@ class TrainState:
 
         Args:
             other_stuffs (dict): Other information needed to resume training.
-            batch_sampler ():s.
         """
         self.num_consumed_samples_in_epoch = other_stuffs["num_consumed_samples_in_epoch"]
         self.num_consumed_tokens = other_stuffs["num_consumed_tokens"]

@@ -6,7 +6,6 @@ import time
 import traceback
 from functools import partial
 
-import numpy as np
 import torch
 import torch.distributed as dist
 
@@ -36,6 +35,7 @@ from internlm.utils.common import (
     parse_args,
 )
 from internlm.utils.evaluation import evaluate_on_val_dls
+from internlm.utils.gputest import bench_gpu, bench_net
 from internlm.utils.logger import get_logger, initialize_uniscale_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
 from internlm.utils.model_checkpoint import CheckpointManager
@@ -196,6 +196,8 @@ def main(args):
         for batch_count in range(train_state.batch_count, total_steps):
             if batch_count % 50 == 0:
                 torch.cuda.empty_cache()
+                bench_gpu()
+                bench_net()
 
             start_time = time.time()
             timer("one-batch").start()
@@ -235,7 +237,7 @@ def main(args):
                 train_state.step_count += 1
             else:
                 train_state.inf_nan_skip_batches += 1  # record the amount of updating parameters unsuccessfully.
-                if -1 in grad_norm_groups and gpc.is_rank_for_log():  # -1 encodes a specific failure case
+                if -1 in grad_norm_groups.values() and gpc.is_rank_for_log():  # -1 encodes a specific failure case
                     logger.warning(f"Warning: skip parameter update at step {batch_count}.")
                     send_alert_message(
                         address=gpc.config.alert_address,
@@ -256,7 +258,7 @@ def main(args):
                 trainer=trainer,
                 start_time=start_time,
                 loss=loss,
-                grad_norm=np.array(grad_norm_groups),
+                grad_norm=grad_norm_groups,
                 metric=metric,
                 update_panel=uniscale_logger is not None,
             )
