@@ -5,3 +5,6 @@ sphinx_rtd_theme
 sphinx_markdown_tables
 autodoc_pydantic==1.9
 enum_tools
+numpy
+torch
+tqdm
