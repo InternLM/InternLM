@@ -4,7 +4,7 @@ Monitor and Alert
 Monitoring
 -----------------
 
-InternLM uses ``internlm.monitor.monitor.initialize_monitor_manager()`` to initialize monitor conetxt. During this time, 
+InternLM uses ``internlm.monitor.monitor.initialize_monitor_manager()`` to initialize conetxt monitor. During this time, 
 a singleton ``internlm.monitor.monitor.MonitorManager`` will manage monitoring thread and track training status 
 with ``internlm.monitor.monitor.MonitorTracker``. 
 

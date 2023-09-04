@@ -5,7 +5,7 @@ Profiler
 
 Torch Profiler
 -----------------
-InternLM uses ``internlm.train.initialize_llm_profile()`` to profle performance data, execution time duration and breakdown analysis of 
+InternLM uses ``internlm.train.initialize_llm_profile()`` to profile performance data, execution time duration and breakdown analysis of 
 step time. The implementation is based on `torch.profiler <https://pytorch.org/docs/stable/profiler.html>`_ and output tracing files can 
 be visualized with `tensorboard <https://www.tensorflow.org>`_.
 

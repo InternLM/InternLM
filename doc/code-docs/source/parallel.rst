@@ -37,7 +37,7 @@ InternLM uses `1F1B <https://arxiv.org/pdf/2104.04473.pdf>`_ (one forward pass f
   :scale: 45%
   :class: with-border
 
-  Non-interleaved and interleaved scheduler for 1F1B pipeline parallelism, adopted from Megatron -LM original paper
+  Non-interleaved and interleaved scheduler for 1F1B pipeline parallelism, adopted from Megatron-LM original paper
 
 scheduler for non-interleaved 1F1B strategy
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -82,7 +82,7 @@ ZeRO1.5
 
 The implementation of ZeRO1.5 uses the concept of hierarchical sharding via config value ``parallel.zero1``, which enables sharding within local nodes.
 
-1. If ``parallel.zero1 <= 0``, The size of the zero process group is equal to the size of the dp process group, so parameters will be divided within the range of dp.
+1. If ``parallel.zero1 <= 0``, the size of the zero process group is equal to the size of the dp process group, so parameters will be divided within the range of dp.
 2. If ``parallel.zero1 == 1``, zero is not used, and all dp groups retain the full amount of model parameters.
 3. If ``parallel.zero1 > 1`` and ``parallel.zero1 <= dp world size``, the world size of zero is a subset of dp world size. For smaller models, it is usually a better choice to split the parameters within nodes with a setting ``parallel.zero1 <= 8``.
 
