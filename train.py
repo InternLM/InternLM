@@ -12,7 +12,6 @@ import torch.distributed as dist
 import internlm
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
-from internlm.core.context.random import set_mode
 from internlm.core.scheduler import SchedulerMetricHook
 from internlm.core.trainer import TrainState
 from internlm.initialize import initialize_distributed_env
@@ -102,9 +101,6 @@ def main(args):
 
     # initialize model
     model = initialize_model()
-
-    # change random state mode to ParallelMode.DATA
-    set_mode(ParallelMode.DATA)
 
     with open(args.config, "r") as f:
         config_lines = f.readlines()
