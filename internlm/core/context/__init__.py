@@ -12,6 +12,7 @@ from .process_group_initializer import (
     Initializer_Zero1,
     ParallelMode,
     ProcessGroupInitializer,
+    Initializer_Zero3_dp,
 )
 from .random import (
     add_seed,
@@ -34,6 +35,7 @@ __all__ = [
     "Initializer_Pipeline",
     "Initializer_Data",
     "Initializer_Zero1",
+    "Initializer_Zero3_dp",
     "ProcessGroupInitializer",
     "Initializer_Model",
     "seed",

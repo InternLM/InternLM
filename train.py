@@ -28,6 +28,7 @@ from internlm.train import (
     initialize_optimizer,
     load_new_batch,
     record_current_batch_training_metrics,
+    warp_FSDP_model,
 )
 from internlm.utils.common import (
     BatchSkipper,
@@ -122,6 +123,9 @@ def main(args):
 
     # Loading model weights must be done before zero is initialized.
     ckpt_manager.try_load_model(current_time)
+
+    # if fsdp enabled, warp the model        
+    model = warp_FSDP_model(model)
 
     optimizer, beta2_scheduler, lr_scheduler = initialize_optimizer(model=model)
 

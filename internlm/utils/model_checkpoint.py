@@ -55,6 +55,26 @@ def get_model_topology(model):
     return topos
 
 
+def get_state_dict(model):
+    """
+    Only used for FSDP module saving. 
+    It's a warper of model.state_dict() and with the context of 'FSDP.state_dict_type', the sharded parameter 
+    (saved as model.flat_param_xx in sharded FSDP module) will be gathered at every gpu.
+    'offload_to_cpu' means that the model states are to be offloaded to cpu chunk by chunk, avoiding OOM in gpu
+    
+    """
+    from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+    from torch.distributed.fsdp import FullStateDictConfig, StateDictType# , FullOptimStateDictConfig
+
+    # TODO: rank0_only can save memory for non-rank0 gpu, but when tp is enabled, model saving will left some parameters
+    save_policy = FullStateDictConfig(offload_to_cpu=True, rank0_only=False)
+    with FSDP.state_dict_type(
+            model, StateDictType.FULL_STATE_DICT, save_policy):
+        states = model.state_dict()
+
+    return states
+
+
 def save_model_checkpoint(folder, model):
     """
     Save the model according to the relationship between tp and dp. The principle is that the data of each tp
@@ -69,7 +89,11 @@ def save_model_checkpoint(folder, model):
         model: The model to be saved
     """
 
-    states = model.state_dict()
+    if gpc.config.parallel.use_fsdp:
+        states = get_state_dict(model)
+    else: 
+        states = model.state_dict()
+        
     topo = get_model_topology(model)
 
     if folder is not None:

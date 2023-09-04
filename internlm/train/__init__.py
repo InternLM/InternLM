@@ -6,6 +6,7 @@ from .training_internlm import (
     initialize_optimizer,
     load_new_batch,
     record_current_batch_training_metrics,
+    warp_FSDP_model,
 )
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "initialize_optimizer",
     "load_new_batch",
     "record_current_batch_training_metrics",
+    "warp_FSDP_model",
 ]

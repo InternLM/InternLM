@@ -28,7 +28,7 @@ from internlm.monitor import set_env_var
 from internlm.monitor.monitor import monitor_manager as mm
 from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
-from internlm.solver.optimizer import HybridZeroOptimizer
+from internlm.solver.optimizer import HybridZeroOptimizer, FSDPadaptOptimizer
 from internlm.solver.optimizer.utils import ParamBcastSyncHandler
 from internlm.utils.common import DummyProfile
 from internlm.utils.logger import get_logger
@@ -39,6 +39,24 @@ from internlm.utils.parallel import (
     sync_model_param_within_tp,
 )
 from internlm.utils.registry import MODEL_INITIALIZER
+
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.distributed.fsdp.fully_sharded_data_parallel import (
+    CPUOffload,
+    BackwardPrefetch,
+    ShardingStrategy,
+    MixedPrecision,
+    BackwardPrefetch,
+)
+from torch.distributed.fsdp.wrap import (
+    size_based_auto_wrap_policy,
+    transformer_auto_wrap_policy,
+    enable_wrap,
+    wrap,
+)
+import functools
+from internlm.model.modeling_internlm import PackedFlashBaseLayer1D, PackedFlashInternLm1D
+
 
 logger = get_logger(__file__)
 
@@ -83,6 +101,30 @@ def initialize_model():
     return model
 
 
+def warp_FSDP_model(model: Union[nn.Module, nn.ModuleList]):
+    if gpc.config.parallel.use_fsdp:
+        transformer_wrap_policy = functools.partial(
+            transformer_auto_wrap_policy,
+            transformer_layer_cls = {PackedFlashBaseLayer1D, PackedFlashInternLm1D}
+        )
+        mx = MixedPrecision(
+            param_dtype=gpc.config.model.dtype, reduce_dtype=gpc.config.model.dtype, 
+            buffer_dtype=gpc.config.model.dtype, keep_low_precision_grads=True)
+        grp = gpc.get_group(ParallelMode.ZERO1)
+        model = FSDP(module=model, 
+                     process_group=grp,
+                     sharding_strategy=ShardingStrategy.FULL_SHARD,
+                     auto_wrap_policy=transformer_wrap_policy,
+                     forward_prefetch=True,
+                     backward_prefetch=BackwardPrefetch.BACKWARD_PRE,
+                     #cpu_offload=CPUOfload(offload_params=True)
+                     #mixed_precision=mx, 
+                     #device_id=torch.cuda.current_device()
+                     )
+        
+    return model
+
+
 def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
     """
     Initialize optimizer.
@@ -105,12 +147,19 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
         eps=adam_cfg.adam_eps,
     )
 
-    optimizer = HybridZeroOptimizer(
-        naive_optimizer,
-        grad_scal_cfg=gpc.config.grad_scaler,
-        zero_cfg=gpc.config.hybrid_zero_optimizer,
-        param_bcast_sync_handler=param_bcast_sync_handler,
-    )
+    if not gpc.config.parallel.use_fsdp:
+        optimizer = HybridZeroOptimizer(
+            naive_optimizer,
+            grad_scal_cfg=gpc.config.grad_scaler,
+            zero_cfg=gpc.config.hybrid_zero_optimizer,
+            param_bcast_sync_handler=param_bcast_sync_handler,
+        )
+    else:
+        optimizer = FSDPadaptOptimizer(
+            naive_optimizer, 
+            grad_scal_cfg=gpc.config.grad_scaler, 
+            zero_cfg=gpc.config.hybrid_zero_optimizer, 
+        )
 
     beta2_scheduler = Beta2Scheduler(optimizer=naive_optimizer, **gpc.config.beta2_scheduler)
 

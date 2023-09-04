@@ -80,6 +80,132 @@ class BaseOptimizer(Optimizer):
         pass
 
 
+class FSDPadaptOptimizer(BaseOptimizer):
+    '''
+    optimizer for Pytorch FSDP if 'use_fsdp' is True in config file
+    reserve some necessary components of hybird-optim:
+        grad_scaler;
+        grad_clip and unscale;
+        state_dict and load_state_dict
+    '''
+
+    def __init__(
+            self, 
+            optimizer: Optimizer,
+            grad_scal_cfg: Config = None,   
+            zero_cfg: Config = None, 
+        ):
+        super().__init__(optim=optimizer)
+        
+        # gradient scaler
+        self.grad_scaler = DynamicGradScaler(
+            initial_scale=grad_scal_cfg.fp16.initial_scale,
+            min_scale=grad_scal_cfg.fp16.min_scale,
+            growth_factor=grad_scal_cfg.growth_factor,
+            backoff_factor=grad_scal_cfg.backoff_factor,
+            growth_interval=grad_scal_cfg.fp16.growth_interval,
+            hysteresis=grad_scal_cfg.hysteresis,
+            max_scale=grad_scal_cfg.max_scale,
+        )
+
+        # clip gradient
+        self._clip_grad_norm = zero_cfg.clip_grad_norm
+        self.use_fsdp = gpc.config.parallel.use_fsdp
+
+    @property
+    def loss_scale(self):
+        return self.grad_scaler.scale
+
+    def backward(self, loss, retain_graph=False):
+        loss = self.loss_scale * loss
+        loss.backward(retain_graph=retain_graph)
+
+    def step(self):
+        # in case that fsdp-zero3 size is not equal to dp size
+        # FSDP module will only reduce gradient within FSDP process group
+        # so manually reduce grad is essential between two parallel FSDP process group
+        for group_idx in range(len(self.param_groups)):
+            params = self.param_groups[group_idx]["params"]
+            for param in params:
+                if param.requires_grad:
+                    reduce_tensor(tensor=param.grad, parallel_mode=ParallelMode.ZERO3_DP)
+
+        # compute norm
+        found_inf = False
+        norm_groups = []
+        for group_idx in range(len(self.param_groups)):
+            params = self.param_groups[group_idx]["params"]
+            gradients = [p.grad for p in params]
+            norm_group = compute_norm(
+                gradients=gradients,
+                parameters=params,
+                last_stage=True
+            )
+            if norm_group == -1:
+                found_inf = True
+                break
+            norm_groups.append(norm_group)
+
+        loss_scale = float(self.loss_scale.item())  # backup
+        self.grad_scaler.update(found_inf)
+        if found_inf:
+            if gpc.is_rank_for_log():
+                logger.warning("Overflow occurs, please check it.")
+            self.zero_grad()
+            return False, None
+        
+        if self._clip_grad_norm > 0:
+            global_norm = sum(norm_groups) ** 0.5       
+
+        # unscale
+        for group_idx in range(len(self.param_groups)):
+            params = self.param_groups[group_idx]["params"]
+            for p in params:
+                self._unscale_and_clip_grads(p.grad, global_norm, loss_scale)
+
+        self.optim.step() 
+        self.zero_grad()
+
+        return True, [global_norm / loss_scale]
+
+    def clip_grad_norm(self, model, max_norm):
+        # will conduct in the step()
+        pass
+
+    #########################
+    # utils from hybirdzero #
+    #########################
+
+    def _unscale_and_clip_grads(self, grad, total_norm, loss_scale):
+        # compute combined scale factor for this group
+        combined_scale = loss_scale
+
+        if self._clip_grad_norm > 0.0:
+            # norm is in fact norm*scale
+            clip = ((total_norm / loss_scale) + 1e-6) / self._clip_grad_norm
+            if clip > 1.0:
+                combined_scale = clip * loss_scale
+
+        # for grad in grad_groups_flat:
+        grad.data.mul_(1.0 / combined_scale)
+
+    def state_dict(self):
+        states = {}
+        grad_scaler = self.grad_scaler.state_dict()
+        states["grad_scaler"] = grad_scaler
+        optim_states = self.optim.state_dict()
+        states["base_optim_states"] = optim_states
+
+        return states
+
+    def load_state_dict(self, states):
+        assert "grad_scaler" in states, "Not found grad_scaler state!"
+        grad_scaler = states["grad_scaler"]
+        self.grad_scaler.load_state_dict(grad_scaler)
+        optim_states = states["base_optim_states"]
+        self.optim.load_state_dict(optim_states)
+
+
 class HybridZeroOptimizer(BaseOptimizer):
     """
     Hybrid Zero Optimizer.

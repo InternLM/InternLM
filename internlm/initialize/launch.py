@@ -61,6 +61,17 @@ def args_sanity_check():
     if "tensor" not in gpc.config.parallel:
         gpc.config.parallel._add_item("tensor", 1)
 
+    if isinstance(gpc.config.parallel.pipeline, int):
+        pp = gpc.config.parallel.pipeline
+    else:
+        pp = gpc.config.parallel.pipeline.size
+
+    if "use_fsdp" not in gpc.config.parallel:
+        gpc.config.parallel._add_item("use_fsdp", False)
+    elif gpc.config.parallel.use_fsdp and pp > 1:
+        logger.warning("FSDP not support when pipeline parallel is enabled, auto-close FSDP")
+        gpc.config.parallel._add_item("use_fsdp", False)
+
     # processing the data config in gpc
     data = gpc.config.data
 
