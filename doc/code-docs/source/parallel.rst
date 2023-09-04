@@ -12,23 +12,22 @@ The parallel setting of InternLM is fully config-driven, and you can change the 
 
 .. code-block:: python
 
-    """
-    zero1 parallel:
-        1. if zero1 <= 0, The size of the zero process group is equal to the size of the dp process group,
-            so parameters will be divided within the range of dp.
-        2. if zero1 == 1, zero is not used, and all dp groups retain the full amount of model parameters.
-        3. zero1 > 1 and zero1 <= dp world size, the world size of zero is a subset of dp world size.
-            For smaller models, it is usually a better choice to split the parameters within nodes with a setting <= 8.
-    pipeline parallel (dict):
-        1. size: int, the size of pipeline parallel.
-        2. interleaved_overlap: bool, enable/disable communication overlap when using interleaved pipeline scheduler.
-    tensor parallel: tensor parallel size, usually the number of GPUs per node.
-    """
     parallel = dict(
         zero1=8,
+        tensor=1,
         pipeline=dict(size=1, interleaved_overlap=True),
         sequence_parallel=False,
     )
+
+- zero1: zero parallel strategy, divided into the following three cases, default value is -1
+    #. When size <= 0, the size of the zero1 process group is equal to the size of the data parallel process group, so the optimizer state parameters will be split within the data parallel range.
+    #. When size == 1, zero1 is not used, and all data parallel groups retain the complete optimizer state parameters.
+    #. When size > 1 and size <= data_parallel_world_size, the zero1 process group is a subset of the data parallel process group.
+- tensor: tensor parallel size, usually the number of GPUs per node, default is 1
+- pipeline: pipeline parallel strategy
+    #. size: pipeline parallel size, the default value is 1
+    #. interleaved_overlap: bool type, when interleaved scheduling, enable or disable communication optimization, the default value is False
+- sequence_parallel: Whether to enable sequence parallelism, the default value is False
 
 Note: `Total number of GPUs = tensor parallel size * pipeline parallel size * data parallel size`
 
@@ -45,7 +44,7 @@ To use tensor parallel, you need to set the value of tensor parallel size ``para
   :scale: 50%
   :class: with-border
 
-  Tensor parallel, adopted from flash-attention original paper
+  Tensor parallel, adopted from flash-attention original paper [#f1]_
 
 Pipeline Parallel
 -----------------
@@ -57,7 +56,7 @@ InternLM uses `1F1B <https://arxiv.org/pdf/2104.04473.pdf>`_ (one forward pass f
   :scale: 45%
   :class: with-border
 
-  Non-interleaved and interleaved scheduler for 1F1B pipeline parallelism, adopted from Megatron-LM original paper
+  Non-interleaved and interleaved scheduler for 1F1B pipeline parallelism, adopted from Megatron-LM original paper [#f2]_
 
 scheduler for non-interleaved 1F1B strategy
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -88,14 +87,15 @@ To enable sequence parallel, you need to set ``parallel.sequence_parallel = True
   :scale: 50%
   :class: with-border
 
-  Sequence parallel, adopted from flash-attention original paper
+  Sequence parallel, adopted from flash-attention original paper [#f1]_
 
 Data Parallel
 -----------------
 
-InternLM supports both vanilla data parallel and ZeRO1.5 (an optimized implementation of ZeRO).
+InternLM supports both data parallel and ZeRO1.5 (an optimized implementation of ZeRO). For data parallel, model parameters will not been sharded across 
+the process group.
 
-To enable vanilla data parallel, you need to set ``parallel.zero1 == 1`` in the config file.
+To enable data parallel, you need to set ``parallel.zero1 = 1`` in the config file.
 
 ZeRO1.5
 -----------------
@@ -121,3 +121,6 @@ Furthermore, you can enable communication-computation overlap, bucket reduce ope
 
 .. autoclass:: internlm.solver.optimizer.hybrid_zero_optim.HybridZeroOptimizer
     :members:
+
+.. [#f1] FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness
+.. [#f2] Efficient Large-Scale Language Model Training on GPU Clusters Using Megatron-LM

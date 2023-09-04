@@ -25,6 +25,41 @@ parser with some builtin arguments, users can add custom parameters to this pars
 Model Initialization
 -------------------------
 
+.. code-block:: python
+
+    model_type = "INTERNLM"  # default is "INTERNLM", used to register classes and modules for model initialization
+    NUM_ATTENTION_HEAD = 32
+    VOCAB_SIZE = 103168
+    HIDDEN_SIZE = 4096
+    NUM_LAYER = 32
+    MLP_RATIO = 8 / 3
+    model = dict(
+        checkpoint=False,  # The proportion of layers for activation aheckpointing, the optional value are True/False/[0-1]
+        num_attention_heads=NUM_ATTENTION_HEAD,
+        embed_split_hidden=True,
+        vocab_size=VOCAB_SIZE,
+        embed_grad_scale=1,
+        parallel_output=True,
+        hidden_size=HIDDEN_SIZE,
+        num_layers=NUM_LAYER,
+        mlp_ratio=MLP_RATIO,
+        apply_post_layer_norm=False,
+        dtype="torch.bfloat16",  # Support: "torch.float16", "torch.half", "torch.bfloat16", "torch.float32", "torch.tf32"
+        norm_type="rmsnorm",
+        layer_norm_epsilon=1e-5,
+        use_flash_attn=True,
+        num_chunks=1,  # if num_chunks > 1, interleaved pipeline scheduler is used.
+    )
+
+1. The field ``model_type`` defines the model type to be registered and initialized.
+2. The parameters in field ``model`` define the configuration settings during model initialization.
+3. Through registry class ``internlm.util.registry.Registry``, you can register custom model initialization by decorating ``build_model_with_cfg`` function.
+
+.. code-block:: python
+
+    @MODEL_INITIALIZER.register_module(module_name=MODEL_TYPE)
+    def build_model_with_cfg(*args, **kwargs):
+
 .. autofunction:: internlm.train.initialize_model
 
 .. _InternLM-optim-init:
