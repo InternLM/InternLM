@@ -9,7 +9,7 @@ from flash_attn.ops.fused_dense import ColumnParallelLinear, RowParallelLinear
 from flash_attn.utils.distributed import all_reduce, reduce_scatter
 from torch import nn
 
-from internlm.core.context import IS_TENSOR_PARALLEL, ParallelMode
+from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.model.utils import fused_dense_func_torch
 
