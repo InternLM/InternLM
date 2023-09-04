@@ -25,6 +25,9 @@ parser with some builtin arguments, users can add custom parameters to this pars
 Model Initialization
 -------------------------
 
+InternLM uses the field ``model_type`` and ``model`` in the config file to control model initialization process. An example model initialization configuration 
+can be defined as follows:
+
 .. code-block:: python
 
     model_type = "INTERNLM"  # default is "INTERNLM", used to register classes and modules for model initialization

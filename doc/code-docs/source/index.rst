@@ -39,7 +39,7 @@ Parallel Training
    parallel
 
 Model Checkpointing
--------------------
+--------------------
 
 .. toctree::
    :maxdepth: 2
