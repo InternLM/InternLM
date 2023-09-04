@@ -8,7 +8,7 @@ When initializing the distributed environment, we need to specify tensor paralle
 and ZeRO1.5 strategy. 
 
 The parallel setting of InternLM is fully config-driven, and you can change the parallelism by modifying 
-`config file <https://github.com/InternLM/InternLM/blob/main/configs/7B_sft.py>`_.
+`config file <https://github.com/InternLM/InternLM/blob/main/configs/7B_sft.py>`_. An exmaple parallel training configuration can be defined as follows:
 
 .. code-block:: python
 
@@ -20,13 +20,13 @@ The parallel setting of InternLM is fully config-driven, and you can change the 
     )
 
 - zero1: zero parallel strategy, divided into the following three cases, the default value is -1
-    #. When ``size <= 0``, the size of the zero1 process group is equal to the size of the data parallel process group, so the optimizer state parameters will be split within the data parallel range.
-    #. When ``size == 1``, zero1 is not used, and all data parallel groups retain the complete optimizer state parameters.
-    #. When ``size > 1`` and ``size <= data_parallel_world_size``, the zero1 process group is a subset of the data parallel process group.
+    - When ``size <= 0``, the size of the zero1 process group is equal to the size of the data parallel process group, so the optimizer state parameters will be split within the data parallel range.
+    - When ``size == 1``, zero1 is not used, and all data parallel groups retain the complete optimizer state parameters.
+    - When ``size > 1`` and ``size <= data_parallel_world_size``, the zero1 process group is a subset of the data parallel process group.
 - tensor: tensor parallel size, usually the number of GPUs per node, the default value is 1
 - pipeline: pipeline parallel strategy
-    #. size: pipeline parallel size, the default value is 1
-    #. interleaved_overlap: bool type, when interleaved scheduling, enable or disable communication optimization, the default value is False
+    - size: pipeline parallel size, the default value is 1
+    - interleaved_overlap: bool type, when interleaved scheduling, enable or disable communication optimization, the default value is False
 - sequence_parallel: whether to enable sequence parallelism, the default value is False
 
 Note: `Total number of GPUs = tensor parallel size * pipeline parallel size * data parallel size`
