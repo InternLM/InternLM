@@ -1,7 +1,7 @@
 Parallel Training
 =================
 
-.. 整体说一下并行配置使用方式，接下来再分模块详细说明
+.. Brief introduction to training parallelism, and how-to guide about config setting
 
 InternLM supports tensor parallel, pipeline parallel, sequence parallel, data parallel, and ZeRO1.5 to parallelize the training pipeline. 
 When initializing the distributed environment, we need to specify tensor parallel size, pipeline parallel size, data parallel size, 
@@ -9,6 +9,26 @@ and ZeRO1.5 strategy.
 
 The parallel setting of InternLM is fully config-driven, and you can change the parallelism by modifying 
 `config file <https://github.com/InternLM/InternLM/blob/main/configs/7B_sft.py>`_.
+
+.. code-block:: python
+
+    """
+    zero1 parallel:
+        1. if zero1 <= 0, The size of the zero process group is equal to the size of the dp process group,
+            so parameters will be divided within the range of dp.
+        2. if zero1 == 1, zero is not used, and all dp groups retain the full amount of model parameters.
+        3. zero1 > 1 and zero1 <= dp world size, the world size of zero is a subset of dp world size.
+            For smaller models, it is usually a better choice to split the parameters within nodes with a setting <= 8.
+    pipeline parallel (dict):
+        1. size: int, the size of pipeline parallel.
+        2. interleaved_overlap: bool, enable/disable communication overlap when using interleaved pipeline scheduler.
+    tensor parallel: tensor parallel size, usually the number of GPUs per node.
+    """
+    parallel = dict(
+        zero1=8,
+        pipeline=dict(size=1, interleaved_overlap=True),
+        sequence_parallel=False,
+    )
 
 Note: `Total number of GPUs = tensor parallel size * pipeline parallel size * data parallel size`
 

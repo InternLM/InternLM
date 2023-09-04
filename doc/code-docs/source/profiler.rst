@@ -1,7 +1,7 @@
 Profiler
 ========
 
-.. 可介绍torch profiler, memory profiler的使用
+.. Mainly about the usage of torch profiler and memory profiler
 
 Torch Profiler
 -----------------

@@ -212,7 +212,7 @@ monitor_manager = MonitorManager()
 @contextmanager
 def initialize_monitor_manager(job_name: str = None, alert_address: str = None):
     """
-    Initialize monitor manager for future monitor and alert functions
+    Initialize monitor manager for monitoring training lifetime and alerting exception info to Feishu.
 
     Args:
         job_name (str): The training job name.
