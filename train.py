@@ -195,10 +195,6 @@ def main(args):
     with initialize_llm_profile(profiling=args.profiling, start_time=current_time) as prof:
         # start iterating the train data and begin training
         for batch_count in range(train_state.batch_count, total_steps):
-            if batch_count % 50 == 0:
-                torch.cuda.empty_cache()
-                bench_gpu()
-                bench_net()
 
             start_time = time.time()
             timer("one-batch").start()
@@ -286,8 +282,7 @@ def main(args):
             if memory_profiler is not None:
                 memory_profiler.step()
 
-            if batch_count % 2 == 0:
-                prof.step()
+            prof.step()
 
     ckpt_manager.wait_async_upload_finish()
 
