@@ -192,10 +192,11 @@ def main(args):
     # transfer the train data loader into train data iterator
     train_iter = iter(train_dl)
 
-    with initialize_llm_profile(profiling=args.profiling, start_time=current_time) as prof:
+    with LLMProfiler(
+        timer=timer, train_state=train_state, launch_time=launch_time, do_diagnosis=True, writer=writer, current_time=current_time
+    ) as prof:
         # start iterating the train data and begin training
         for batch_count in range(train_state.batch_count, total_steps):
-
             start_time = time.time()
             timer("one-batch").start()
 
@@ -281,8 +282,9 @@ def main(args):
 
             if memory_profiler is not None:
                 memory_profiler.step()
-
             prof.step()
+
+                
 
     ckpt_manager.wait_async_upload_finish()
 
