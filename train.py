@@ -17,7 +17,11 @@ from internlm.core.trainer import TrainState
 from internlm.initialize import initialize_distributed_env
 from internlm.model.loss import FlashGPTLMLoss
 from internlm.model.metrics import AccPerplex
-from internlm.monitor import initialize_monitor_manager, send_alert_message
+from internlm.monitor import (
+    initialize_light_monitor,
+    initialize_monitor_manager,
+    send_alert_message,
+)
 from internlm.monitor.monitor import monitor_manager as mm
 from internlm.train import (
     get_train_data_loader,
@@ -299,6 +303,13 @@ if __name__ == "__main__":
     # initialize distributed environment
     initialize_distributed_env(config=args.config, launcher=args.launcher, master_port=args.port, seed=args.seed)
     assert hasattr(gpc, "config") and gpc.config is not None
+
+    # init light monitor client
+    light_monitor_address = gpc.config.get("light_monitor_address", None)
+    if light_monitor_address is None and gpc.is_rank_for_log():
+        logger.warning("monitor address is none, monitor could not be used!")
+    else:
+        initialize_light_monitor(light_monitor_address)
 
     # initialize monitor manager context
     with initialize_monitor_manager(job_name=gpc.config.JOB_NAME, alert_address=gpc.config.alert_address):

@@ -1,7 +1,58 @@
+import copy
 import json
+import math
+import os
 import time
+from typing import Dict
 
 import requests
+
+from internlm.utils.logger import get_logger
+
+logger = get_logger(__file__)
+
+
+def initialize_light_monitor(monitor_address: str = None):
+    try:
+        from uniscale_monitoring import init_monitor
+
+        init_monitor(monitor_address)
+    except Exception as e:
+        logger.warning(f"init monitor meet error: {e}")
+
+
+def send_heartbeat(msg_type: str, msg: Dict):
+    def nan2none(v):
+        if isinstance(v, float) and math.isnan(v):
+            return None
+        return v
+
+    try:
+        from uniscale_monitoring import send_meta
+
+        data = copy.deepcopy(msg)
+        if "tgs (tokens/gpu/second)" in data:
+            data["tgs"] = data["tgs (tokens/gpu/second)"]
+            del data["tgs (tokens/gpu/second)"]
+
+        for k, v in msg.items():
+            data[k] = nan2none(v)
+            if isinstance(v, Dict):
+                for k1, v1 in v.items():
+                    data[f"{k}_{k1}"] = nan2none(v1)
+                del data[k]
+
+        if os.getenv("CLUSTER_NAME"):
+            data.update({"cluster": os.getenv("CLUSTER_NAME")})
+        if msg_type == "train_metrics":
+            data.update({"msg_type": "train_metrics"})
+        elif msg_type == "init_time":
+            data.update({"msg_type": "init_time"})
+        elif msg_type == "stage_time":
+            data.update({"msg_type": "stage_time"})
+        send_meta(data, timeout=0.1)
+    except Exception:
+        logger.warning("failed to send heartbeat to monitor server")
 
 
 def send_feishu_msg_with_webhook(webhook: str, title: str, message: str):
