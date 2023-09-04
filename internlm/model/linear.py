@@ -195,12 +195,6 @@ class FeedForward(nn.Module):
             device=device,
             dtype=dtype,
         )
-        # need to assign tp attribute so that colossalai know it is tensor parallel module
-
-        if gpc.get_world_size(ParallelMode.TENSOR) > 1:
-            for name in ["w1", "w2", "w3"]:
-                for param in getattr(self, name).parameters():
-                    setattr(param, IS_TENSOR_PARALLEL, True)
 
     def forward(self, x):
         out = self.w3(F.silu(self.w1(x)) * self.w2(x))
