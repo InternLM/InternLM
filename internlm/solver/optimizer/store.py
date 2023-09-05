@@ -8,16 +8,7 @@ from torch import Tensor
 
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
-
-try:
-    import apex_C
-
-    flatten_impl = apex_C.flatten
-    unflatten_impl = apex_C.unflatten
-except ImportError:
-    print("Warning:  apex was installed without --cpp_ext.  Falling back to Python flatten and unflatten.")
-    flatten_impl = torch._utils._flatten_dense_tensors
-    unflatten_impl = torch._utils._unflatten_dense_tensors
+from torch._utils import _flatten_dense_tensors, _unflatten_dense_tensors
 
 
 class BaseStore:
@@ -341,11 +332,11 @@ class TensorBucket:
         self.commu_handle = None
 
     def flatten(self):
-        self._flat_tensor = flatten_impl(self._bucket)
+        self._flat_tensor = _flatten_dense_tensors(self._bucket)
         return self._flat_tensor
 
     def unflatten_and_copy(self):
         if self._unflatten_and_copy_flag:
-            unflattened_tensor_list = unflatten_impl(self._flat_tensor, self._bucket)
+            unflattened_tensor_list = _unflatten_dense_tensors(self._flat_tensor, self._bucket)
             for old, new in zip(self._bucket, unflattened_tensor_list):
                 old.copy_(new)
