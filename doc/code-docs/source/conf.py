@@ -31,6 +31,7 @@ extensions = [
     "sphinxcontrib.autodoc_pydantic",
     "sphinx.ext.autosectionlabel",
     "sphinx.ext.napoleon",
+    "myst_parser",
 ]
 
 pygments_style = "sphinx"
