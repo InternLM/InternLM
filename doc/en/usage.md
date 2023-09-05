@@ -1,4 +1,4 @@
-## Pre-training and Fine-tuning Tutorial for InternLM
+## Quickstart for Pre-training and Fine-tuning
 
 To start a demo model training, you need to prepare three things: **installation**, **dataset preparation**, and **model training configuration**. In this guide, we will first cover the steps for dataset preparation and then briefly describe the model training configuration.
 
