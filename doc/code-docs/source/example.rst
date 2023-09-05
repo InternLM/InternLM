@@ -10,6 +10,7 @@ Training Config
 7B demo config file example:
 
 .. code-block:: python
+
     JOB_NAME = "7b_train"
 
     SEQ_LEN = 2048
@@ -167,6 +168,7 @@ After completing the data preparation and relevant training configurations, you 
 The following example shows how to start distributed training in ``slurm`` environments with 8 GPUs.
 
 .. code-block:: bash
+
     srun -p internllm -N 1 -n 8 --ntasks-per-node=8 --gpus-per-task=1 python train.py --config ./configs/7B_sft.py
 
 Training Results
@@ -175,6 +177,7 @@ Training Results
 Taking the configuration of the demo training on a single machine with 8 GPUs on slurm as an example, the training result log is shown below:
 
 .. code-block:: bash
+
     2023-09-05 11:47:44,649 INFO parallel_context.py:508 in set_device -- process rank 4 is bound to host:SH-IDC1-10-140-1-110 device: 4
     2023-09-05 11:47:44,650 INFO parallel_context.py:508 in set_device -- process rank 3 is bound to host:SH-IDC1-10-140-1-110 device: 3
     2023-09-05 11:47:44,651 INFO parallel_context.py:508 in set_device -- process rank 6 is bound to host:SH-IDC1-10-140-1-110 device: 6
@@ -209,6 +212,7 @@ After completing the data preparation and relevant training configurations, you 
 The following example shows how to start distributed training in ``slurm`` environments with 8 GPUs.
 
 .. code-block:: bash
+
     srun -p internllm -N 1 -n 8 --ntasks-per-node=8 --gpus-per-task=1 python train.py --config ./configs/30B_sft.py
 
 Training Results
