@@ -42,6 +42,22 @@ autodoc_pydantic_model_summary_list_order = "bysource"
 autodoc_pydantic_model_member_order = "bysource"
 autodoc_pydantic_field_list_validators = False
 
+# Napoleon settings
+napoleon_google_docstring = True
+napoleon_numpy_docstring = True
+napoleon_include_init_with_doc = False
+napoleon_include_private_with_doc = False
+napoleon_include_special_with_doc = True
+napoleon_use_admonition_for_examples = False
+napoleon_use_admonition_for_notes = False
+napoleon_use_admonition_for_references = False
+napoleon_use_ivar = False
+napoleon_use_param = True
+napoleon_use_rtype = True
+napoleon_preprocess_types = False
+napoleon_type_aliases = None
+napoleon_attr_annotations = True
+
 templates_path = ["_templates"]
 
 exclude_patterns = []
@@ -52,11 +68,24 @@ exclude_patterns = []
 html_theme = "sphinx_rtd_theme"
 html_static_path = ["_static"]
 
+# GitHub integration
+html_context = {
+    "display_github": True,
+    "github_user": "pjlab",
+    "github_repo": "InternLM",
+    "github_version": "master",
+    "conf_py_path": "/doc/code-docs/source/",
+}
+
 sys.path.insert(0, os.path.abspath("../../../"))
 
 # Prepend module names to class descriptions
 add_module_names = True
 
-autoclass_content = "init"
+autoclass_content = "class"
 
-autodoc_mock_imports = ["apex", "torch"]
+autodoc_mock_imports = [
+    "apex",
+    "torch",
+    "numpy",
+]
