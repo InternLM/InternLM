@@ -10,6 +10,7 @@ import torch
 
 from internlm.core.context import Config
 from internlm.core.context import global_context as gpc
+from internlm.utils.common import get_master_node
 from internlm.utils.logger import get_logger
 from internlm.utils.storage_manager import init_storage_manager
 
@@ -108,67 +109,100 @@ def args_sanity_check():
         logger.info(f"valid_every: {data.valid_every}")
 
     # processing the checkpoint config
-    if "enable_save_ckpt" not in gpc.config.ckpt:
-        gpc.config.ckpt._add_item("enable_save_ckpt", False)
+    ckpt = gpc.config.ckpt
+    if "enable_save_ckpt" not in ckpt:
+        ckpt._add_item("enable_save_ckpt", False)
 
-    if "checkpoint_every" not in gpc.config.ckpt or gpc.config.ckpt.checkpoint_every <= 0:
-        gpc.config.ckpt._add_item("checkpoint_every", float("inf"))
+    # Saving checkpoint args.
+    if ckpt.enable_save_ckpt:
+        assert "checkpoint_every" in ckpt, "If enable save checkpoint, must give checkpoint_every in config.data!"
+        assert ckpt.checkpoint_every > 0
+        assert "save_ckpt_folder" in ckpt, "If enable save checkpoint, must give save_ckpt_folder in config.data!"
 
-    if "load_optimizer" not in gpc.config.ckpt:
-        gpc.config.ckpt._add_item("load_optimizer", True)
+        if "async_upload" not in ckpt:
+            ckpt._add_item("async_upload", False)  # async defalut is False.
+        else:
+            if ckpt.async_upload:
+                assert "save_ckpt_folder" in ckpt
+                if "boto3:" not in ckpt.save_ckpt_folder:
+                    if gpc.is_rank_for_log():
+                        logger.warning(
+                            "Storing ckpt on file system does not support asynchronous storage, will use sync save!"
+                        )
+                    ckpt.async_upload = False
+                else:
+                    if "async_upload_tmp_folder" not in ckpt:
+                        ckpt._add_item("async_upload_tmp_folder", "/dev/shm/internlm_tmp_ckpt/")
 
-    if "save_ckpt_folder" not in gpc.config.ckpt:
-        gpc.config.ckpt._add_item("save_ckpt_folder", None)
+        if not ckpt.async_upload:
+            ckpt._add_item("async_upload_tmp_folder", None)
 
-    if "load_ckpt_folder" not in gpc.config.ckpt:
-        gpc.config.ckpt._add_item("load_ckpt_folder", None)
+        if "snapshot_ckpt_folder" not in ckpt:
+            ckpt._add_item("snapshot_ckpt_folder", os.path.join(ckpt.save_ckpt_folder, "snapshot"))
 
-    if "load_model_only_folder" not in gpc.config.ckpt:
-        gpc.config.ckpt._add_item("load_model_only_folder", None)
+        if "oss_snapshot_freq" not in ckpt:
+            ckpt._add_item("oss_snapshot_freq", float("inf"))  # if oss_snapshot_freq not given, we disable.
+    else:
+        ckpt._add_item("checkpoint_every", float("inf"))
+        ckpt._add_item("oss_snapshot_freq", float("inf"))
+        ckpt._add_item("save_ckpt_folder", None)
+        ckpt._add_item("async_upload", False)
+        ckpt._add_item("async_upload_tmp_folder", None)
+        ckpt._add_item("snapshot_ckpt_folder", None)
+        ckpt._add_item("snapshot_ckpt_folder", None)
 
-    if "async_upload" not in gpc.config.ckpt:
-        gpc.config.ckpt._add_item("async_upload", False)
+    # Loading checkpoint args.
+    if "load_model_only_folder" not in ckpt:
+        ckpt._add_item("load_model_only_folder", None)
 
-    if "async_upload_tmp_folder" not in gpc.config.ckpt:
-        gpc.config.ckpt._add_item("async_upload_tmp_folder", "/dev/shm/internlm_tmp_ckpt/")
+    if "load_ckpt_folder" not in ckpt:
+        ckpt._add_item("load_ckpt_folder", None)
 
-    if gpc.config.ckpt.async_upload:
-        assert "save_ckpt_folder" in gpc.config.ckpt
-        if "boto3:" not in gpc.config.ckpt.save_ckpt_folder:
-            if gpc.is_rank_for_log():
-                logger.warning("Storing ckpt on file system does not support asynchronous storage, will use sync save!")
-            gpc.config.ckpt.async_upload = False
+    if "load_optimizer" not in ckpt:
+        ckpt._add_item("load_optimizer", True)
 
-    if "snapshot_ckpt_folder" not in gpc.config.ckpt:
-        gpc.config.ckpt._add_item("snapshot_ckpt_folder", os.path.join(gpc.config.ckpt.save_ckpt_folder, "snapshot"))
+    if "stop_file_path" not in ckpt:
+        ckpt._add_item("stop_file_path", None)
 
-    if "oss_snapshot_freq" not in gpc.config.ckpt and gpc.config.ckpt.checkpoint_every != float("inf"):
-        gpc.config.ckpt._add_item("oss_snapshot_freq", gpc.config.ckpt.checkpoint_every / 2)
-        assert gpc.config.ckpt.oss_snapshot_freq > 0
+    if "load_given_ckpt" not in ckpt:
+        # If 'load_given_ckpt' is not given, we set it to False, so internlm can have opportunity
+        # to auto-load latest checkpoint.
+        ckpt._add_item("load_given_ckpt", False)
 
-    assert not (
-        gpc.config.ckpt.load_ckpt_folder is not None and gpc.config.ckpt.load_model_only_folder is not None
-    ), "'load_ckpt_folder' and 'load_model_only_folder' cannot be set at the same time."
+    if ckpt.load_given_ckpt:
+        # Priority: load_given_ckpt(True) > latest_checkpoint > load_model_only_folder
+        if ckpt.load_ckpt_folder and ckpt.load_model_only_folder:
+            logger.warning(
+                "Detect 'load_ckpt_folder' and 'load_model_only_folder' set at the same time, \
+and 'load_given_ckpt' is True, so internlm will load from 'load_ckpt_folder'"
+            )
+            ckpt.load_model_only_folder = None
 
     if gpc.is_rank_for_log():
         logger.info("+" * 15 + " Ckpt Info " + "+" * 15)  # pylint: disable=W1201
-        logger.info(f"is enable save ckpt: {gpc.config.ckpt.enable_save_ckpt}")
-        logger.info(f"save_ckpt_folder: {gpc.config.ckpt.save_ckpt_folder}")
-        logger.info(f"checkpoint_every: {gpc.config.ckpt.checkpoint_every}")
-        logger.info(f"async_upload: {gpc.config.ckpt.async_upload}")
-        if gpc.config.ckpt.async_upload:
-            logger.info(f"async_upload_tmp_folder: {gpc.config.ckpt.async_upload_tmp_folder}")
+        logger.info(f"is enable save ckpt: {ckpt.enable_save_ckpt}")
+        logger.info(f"save_ckpt_folder: {ckpt.save_ckpt_folder}")
+        logger.info(f"checkpoint_every: {ckpt.checkpoint_every}")
+        logger.info(f"load_given_ckpt: {ckpt.load_given_ckpt}")
 
     # initialization storage manager
-    init_storage_manager(gpc.config.ckpt)
+    init_storage_manager(ckpt)
 
     # tensorboard writer config
     if "enable_tb" not in gpc.config:
         gpc.config._add_item("enable_tb", True)
     if "tensorboard_folder" not in gpc.config:
-        gpc.config._add_item("tensorboard_folder", None)
+        gpc.config._add_item(
+            "tensorboard_folder", os.environ["tensorboard_folder"] if "tensorboard_folder" in os.environ else None
+        )
     if "resume_tb_folder" not in gpc.config:
-        gpc.config._add_item("resume_tb_folder", None)
+        gpc.config._add_item(
+            "resume_tb_folder", os.environ["resume_tb_folder"] if "resume_tb_folder" in os.environ else None
+        )
+
+    if gpc.is_rank_for_log():
+        logger.info(f"tensorboard_folder: {gpc.config.tensorboard_folder}")
+        logger.info(f"resume_tb_folder: {gpc.config.resume_tb_folder}")
 
     # cudnn
     torch.backends.cudnn.benchmark = gpc.config.get("cudnn_benchmark", False)
@@ -191,10 +225,8 @@ def args_sanity_check():
         elif gpc.config.model.dtype in ("torch.float16", "torch.half"):
             gpc.config.model.dtype = torch.float16
         elif gpc.config.model.dtype == "torch.float32":
-            assert gpc.config.model.use_flash_attn is False, "when using float32, the use_flash_attn must be False"
             gpc.config.model.dtype = torch.float32
         elif gpc.config.model.dtype == "torch.tf32":
-            assert gpc.config.model.use_flash_attn is False, "when using tf32, the use_flash_attn must be False"
             torch.backends.cudnn.allow_tf32 = True
             torch.backends.cuda.matmul.allow_tf32 = True
             gpc.config.model.dtype = torch.float32
@@ -236,16 +268,31 @@ def args_sanity_check():
     # process the model config
     if "use_flash_attn" not in gpc.config.model:
         gpc.config.model._add_item("use_flash_attn", True)
-    if "sequence_parallel" not in gpc.config.model:
-        gpc.config.model._add_item("sequence_parallel", False)
+
+    # process the parallel config
+    if "sequence_parallel" not in gpc.config.parallel:
+        gpc.config.parallel._add_item("sequence_parallel", False)
     else:
         assert not (
-            gpc.config.model.sequence_parallel is True and gpc.config.model.use_flash_attn is False
+            gpc.config.parallel.sequence_parallel is True and gpc.config.model.use_flash_attn is False
         ), "sequence parallel does not support use_flash_attn=False"
 
     # feishu webhook address for alerting
     if "alert_address" not in gpc.config:
         gpc.config._add_item("alert_address", None)
+
+    optim_ckpt = gpc.config.hybrid_zero_optimizer
+    if "zero_overlap_communication" in optim_ckpt:
+        # Compatible with the old interfaces.
+        optim_ckpt._add_item("overlap_sync_grad", optim_ckpt.zero_overlap_communication)
+    if "overlap_sync_grad" not in optim_ckpt:
+        optim_ckpt._add_item("overlap_sync_grad", False)
+    if "overlap_sync_param" not in optim_ckpt:
+        optim_ckpt._add_item("overlap_sync_param", False)
+    if gpc.is_rank_for_log():
+        logger.info(
+            f"overlap_sync_grad:{optim_ckpt.overlap_sync_grad}, overlap_sync_param:{optim_ckpt.overlap_sync_param}"
+        )
 
 
 def launch(
@@ -292,8 +339,6 @@ def launch(
 
     # init process groups for different parallel modes from config
     gpc.init_parallel_groups()
-
-    args_sanity_check()
 
     # set cuda device
     if torch.cuda.is_available():
@@ -347,7 +392,11 @@ def launch_from_slurm(
     )
 
 
-def launch_from_torch(config: Union[str, Path, Config, Dict], backend: str = "nccl", seed: int = 1024):
+def launch_from_torch(
+    config: Union[str, Path, Config, Dict],
+    backend: str = "nccl",
+    seed: int = 1024,
+):
     """A wrapper for internlm.launch for torchrun or torch.distributed.launch by reading rank and world size
     from the environment variables set by PyTorch
 
@@ -375,3 +424,38 @@ def launch_from_torch(config: Union[str, Path, Config, Dict], backend: str = "nc
         backend=backend,
         seed=seed,
     )
+
+
+def initialize_distributed_env(
+    config: str,
+    launcher: str = "slurm",
+    master_port: int = 8888,
+    seed: int = 1024,
+    args_check=True,
+):
+    """
+    Initialize distributed environment for distributed training.
+
+    Args:
+        config (str): Config file path.
+        launcher (str): Launcher for launching distributed environment, can be slurm or torch. "slurm" by default.
+        master_port (str): The master port for distributed training. 8888 by default.
+        seed (int, optional): Specified random seed for every process. 1024 by default.
+    """
+
+    torch.cuda.empty_cache()
+
+    if launcher == "torch":
+        launch_from_torch(config=config, seed=seed)
+    elif launcher == "slurm":
+        launch_from_slurm(
+            config=config,
+            host=get_master_node(),
+            port=master_port,
+            seed=seed,
+        )
+    else:
+        assert launcher in ["slurm", "torch"], "launcher only support slurm or torch"
+
+    if args_check:
+        args_sanity_check()

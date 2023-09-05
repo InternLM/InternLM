@@ -7,6 +7,7 @@ import rotary_emb
 import torch
 import torch.nn.functional as F
 from einops import rearrange
+from flash_attn.layers.rotary import ApplyRotaryEmb as LegacyApplyRotaryEmb
 from flash_attn.layers.rotary import ApplyRotaryEmbQKV_ as LegacyApplyRotaryEmbQKV_
 from torch import Tensor, nn
 
@@ -56,7 +57,7 @@ class Embedding1D(nn.Module):
 
         output = gather_forward_split_backward(output_parallel, ParallelMode.TENSOR, dim=-1)
 
-        if gpc.config.model.sequence_parallel:
+        if gpc.config.parallel.sequence_parallel:
             output = split_forward_gather_backward(output, ParallelMode.TENSOR, dim=1)
 
         return output
@@ -111,6 +112,7 @@ class ApplyRotaryEmbQKV_(torch.autograd.Function):
 
 apply_rotary_emb_qkv_ = ApplyRotaryEmbQKV_.apply
 legacy_apply_rotary_embed_qkv = LegacyApplyRotaryEmbQKV_.apply
+legacy_apply_rotary_embed = LegacyApplyRotaryEmb.apply
 
 
 class RotaryEmbedding(torch.nn.Module):
@@ -135,15 +137,13 @@ class RotaryEmbedding(torch.nn.Module):
         """ """
         super().__init__()
         # Generate and save the inverse frequency buffer (non trainable)
-        inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2, device=device, dtype=torch.float32) / dim))
-        self.register_buffer("inv_freq", inv_freq)
+        self.inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2, device=device, dtype=torch.float32) / dim))
         self.scale_base = scale_base
-        scale = (
+        self.scale = (
             (torch.arange(0, dim, 2, device=device, dtype=torch.float32) + 0.4 * dim) / (1.4 * dim)
             if scale_base > 0
             else None
         )
-        self.register_buffer("scale", scale)
 
         self._seq_len_cached = 0
         self._cos_cached = None
@@ -218,3 +218,15 @@ class RotaryEmbedding(torch.nn.Module):
                 self._cos_k_cached[seqlen_offset:],
                 self._sin_k_cached[seqlen_offset:],
             )
+
+    def _single_forward(self, x, indexes=0):
+        assert self.scale is None
+        self._update_cos_sin_cache(x, indexes)
+        x = x[None, ...]
+        ret = legacy_apply_rotary_embed(x, self._cos_cached[indexes], self._sin_cached[indexes]).squeeze(0)
+        return ret
+
+    def _single_eval_forward(self, x, seqlen_offset=0):
+        assert self.scale is None
+        self._update_cos_sin_cache(x, seqlen_offset + x.shape[1])
+        return legacy_apply_rotary_embed(x, self._cos_cached[seqlen_offset:], self._sin_cached[seqlen_offset:])

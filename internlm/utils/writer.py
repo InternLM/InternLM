@@ -11,10 +11,6 @@ from torch.utils.tensorboard import SummaryWriter
 from internlm.core.context import global_context as gpc
 
 
-def copy_ignore_folder(source_path, target_path):
-    os.system(f"cp -r {source_path}/* {target_path}/")
-
-
 def tb_save_run_info(writer, config_lines, global_step=0):
     writer.add_text(tag="cmd", text_string=" ".join(sys.argv[:]), global_step=global_step)
     lines = []
@@ -42,9 +38,21 @@ def init_tb_writer(
         tb_folder = tensorboard_folder
 
     if gpc.get_global_rank() == 0:
+        # If we don't load ckpt, 'resume_tb_folder' is set as the tensorboard
+        # dir of the last task by 'make_launch_script.sh'.
+        # If we load ckpt, 'resume_tb_folder' will be overwritten as the
+        # reloaded 'train_state.resume_tb_folder'.s
         if resume_tb_folder is not None:
-            logger.info(f"Try mv tensorboard logs: {resume_tb_folder} to {tb_folder}...")
-            copy_ignore_folder(resume_tb_folder, tb_folder)
+            assert len(resume_tb_folder) > 0 and resume_tb_folder != "/"
+            if not os.path.exists(resume_tb_folder):
+                logger.error(
+                    f"Can't found resume_tb_folder{resume_tb_folder}, \
+please make sure this folder is located at local file system."
+                )
+            else:
+                logger.info(f"Try mv tensorboard logs: {resume_tb_folder} to {tb_folder}... ")
+                os.system(f"cp -r {resume_tb_folder}/* {tb_folder}/")
+                os.system(f"chmod -R +w {tb_folder}/")
         else:
             logger.info(f"Login tensorboard logs to: {tb_folder}")
 
@@ -123,6 +131,14 @@ class Writer:
         try:
             if self.enable_tb and self.tb_writer is not None:
                 self.tb_writer.add_scalar(tag=key, scalar_value=value, global_step=step)
+        except Exception:
+            traceback.print_exc()
+
+    def add_scalars(self, key, value, step):
+        try:
+            assert isinstance(value, dict)
+            if self.enable_tb and self.tb_writer is not None:
+                self.tb_writer.add_scalars(main_tag=key, tag_scalar_dict=value, global_step=step)
         except Exception:
             traceback.print_exc()
 

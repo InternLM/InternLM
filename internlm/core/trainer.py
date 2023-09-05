@@ -38,6 +38,11 @@ class TrainState:
         # Total step count
         self.total_steps: int = config.data.total_steps
 
+        # resume tensorboard folder, need load from checkpoint or set manually.
+        self.resume_tb_folder = config.resume_tb_folder
+
+        self.tensorboard_folder = config.tensorboard_folder
+
     def init_batch_sampler(self, train_dl):
         # Copy of the batch sampler from the DataLoader
         self.batch_sampler = train_dl.batch_sampler.copy()
@@ -73,8 +78,12 @@ class TrainState:
         self.step_count = other_stuffs.get("step_count", other_stuffs["batch_count"]) + 1
 
         # track the actual updates of sampler when using weighted sampling
-        self.batch_sampler = train_dl.batch_sampler.copy()
-        self.batch_sampler_iter = iter(self.batch_sampler)
+        if hasattr(self, "batch_sampler"):
+            self.batch_sampler = train_dl.batch_sampler.copy()
+            self.batch_sampler_iter = iter(self.batch_sampler)
+
+        # resume tensorboard from older tensorboard_folder
+        self.resume_tb_folder = other_stuffs.get("tensorboard_folder", None)
 
     def state_dict(self):
         return {
@@ -83,6 +92,7 @@ class TrainState:
             "num_consumed_tokens": self.num_consumed_tokens,
             "inf_nan_skip_batches": self.inf_nan_skip_batches,
             "step_count": self.step_count,
+            "tensorboard_folder": self.tensorboard_folder,
         }
 
 

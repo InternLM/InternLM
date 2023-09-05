@@ -5,7 +5,7 @@ set -x
 readonly CKPTS_PATH="$GITHUB_WORKSPACE/llm_ckpts"
 readonly CKPTS20_PATH="$GITHUB_WORKSPACE/llm_ckpts/20"
 readonly CKPTS_OUTPUT="${CKPTS20_PATH}/*.pt"
-expected_num=21
+expected_num=22
 exit_code=0
 
 source ./ci_scripts/common/basic_func.sh
@@ -25,7 +25,7 @@ srun -p ${SLURM_PARTITION} --exclusive --job-name=$1 -N 1 torchrun --nnodes=1 --
 num=$(num_files "${CKPTS_OUTPUT}")
 if [[ ${num} -ne ${expected_num} ]]; then
     echo "expect: ${expected_num} files, actual: ${num} files."
-    exit_code=$(($exit_code + 1)) 
+    exit_code=$(($exit_code + 1))
 fi
 
 # clean the test files.

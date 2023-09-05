@@ -40,7 +40,7 @@ num=$(num_files "${CKPTS_OUTPUT}")
 
 if [[ ${num} -ne ${expected_num} ]]; then
     echo "expect: ${expected_num} files, actual: ${num} files."
-    exit_code=$(($exit_code + 1)) 
+    exit_code=$(($exit_code + 1))
 fi
 
 # NOTICE: should not remove the cached files, because the cached files will be used in the next test case.
