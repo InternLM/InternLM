@@ -61,6 +61,7 @@ can be defined as follows:
 3. Through registry class ``internlm.util.registry.Registry``, user can register custom model's initialization function by decorater ``@MODEL_INITIALIZER.register_module``, the example is shown as follows.
 
 .. code-block:: python
+
     MODEL_TYPE = "INTERNLM"
 
     @MODEL_INITIALIZER.register_module(module_name=MODEL_TYPE)

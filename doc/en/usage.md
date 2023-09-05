@@ -93,10 +93,7 @@ data = dict(
 )
 ```
 
-<div align="left">
-    <img src="../imgs/pack_into_one.png" width="550"/>
-</div>
-
+![pack_into_one](../imgs/pack_into_one.png)
 
 Currently, it supports passing the dataset file path `train_folder`, and the file format is required to be as follows:
 
