@@ -73,11 +73,17 @@ scheduler for interleaved 1F1B strategy
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 To use interleaved pipeline scheduler, you need to set ``model.num_chunks > 1`` in the config file.
 
+.. autoclass:: internlm.core.scheduler.pipeline_scheduler.InterleavedPipelineScheduler
+    :members:
+
 Also, to enable communication overlap when using interleaved pipeline scheduler, you need to set ``parallel.pipeline.interleaved_overlap = True`` 
 in the config file.
 
-.. autoclass:: internlm.core.scheduler.pipeline_scheduler.InterleavedPipelineScheduler
-    :members:
+When ``parallel.pipeline.interleaved_overlap = True``, function ``InterleavedPipelineScheduler._run_1f1b_loop_with_overlap`` will be called and 
+``internlm.core.communication.AsynCommunicator`` will be created for managing async communication. Asynchronous communication will be enabled to make full 
+use of uplink/downlink bandwidth and achieve communication overlap.
+
+.. autofunction:: internlm.core.scheduler.InterleavedPipelineScheduler._run_1f1b_loop_with_overlap
 
 Sequence Parallel
 -----------------
@@ -91,7 +97,7 @@ To enable sequence parallel, you need to set ``parallel.sequence_parallel = True
   :scale: 50%
   :class: with-border
 
-  Sequence parallel, adopted from `flash-attention <https://arxiv.org/pdf/2205.14135.pdf>`_
+  Sequence parallel, adopted from flash-attention
 
 Data Parallel
 -----------------
