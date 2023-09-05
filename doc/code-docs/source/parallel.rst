@@ -33,7 +33,7 @@ The parallel setting of InternLM is fully config-driven, and you can change the 
 
 - sequence_parallel: whether to enable sequence parallelism, the default value is False
 
-Note: `Total number of GPUs = tensor parallel size * pipeline parallel size * data parallel size`
+Note: `Data parallel size = Total number of GPUs / Pipeline parallel size / Tensor parallel size`
 
 Tensor Parallel
 -----------------
@@ -126,5 +126,5 @@ Furthermore, you can enable communication-computation overlap, bucket reduce ope
 .. autoclass:: internlm.solver.optimizer.hybrid_zero_optim.HybridZeroOptimizer
     :members:
 
-.. [#f1] FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness
-.. [#f2] Efficient Large-Scale Language Model Training on GPU Clusters Using Megatron-LM
+.. [#f1] [FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness](https://arxiv.org/pdf/2205.14135.pdf)
+.. [#f2] [Efficient Large-Scale Language Model Training on GPU Clusters Using Megatron-LM](https://arxiv.org/pdf/2104.04473.pdf)
