@@ -74,7 +74,7 @@ class Timers:
                 value = self.timers[name].elapsed(reset=reset) / normalizer
                 writer.add_scalar(f"time/{name}-time", value, iteration)
 
-    def log(self, names, logger, normalizer=1.0, reset=True):
+    def log(self, names, logger, normalizer=1.0, reset=False):
         """Log a group of timers."""
         assert normalizer > 0.0
         string = ""
@@ -89,7 +89,7 @@ class Timers:
         logger.info(string)
         return string
 
-    def debug(self, names, logger, normalizer=1.0, reset=True):
+    def debug(self, names, logger, normalizer=1.0, reset=False):
         """Log a group of timers."""
         assert normalizer > 0.0
         string = ""
@@ -107,6 +107,13 @@ class Timers:
     def reset(self):
         for _, t in self.timers.items():
             t.reset()
+
+    def get_all_timer_results(self, normalizer=1.0, reset=False):
+        assert normalizer > 0.0
+        metric_time_dict = {}
+        for name, tt in self.timers.items():
+            metric_time_dict.update({name: tt.elapsed(reset=reset) * 1000.0 / normalizer})
+        return sorted(metric_time_dict.items(), key=lambda x: x[0])  # sort base on value.
 
 
 megatron_timer = Timers()
