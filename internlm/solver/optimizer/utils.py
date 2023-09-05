@@ -105,20 +105,22 @@ def reduce_tensor(tensor, dtype=None, dst_rank=None, parallel_mode=ParallelMode.
     # else:
     #     tensor_to_reduce = tensor
 
-    world_size = gpc.get_world_size(parallel_mode)
+    # world_size = gpc.get_world_size(parallel_mode)
+    # tensor.div_(world_size)
     group = gpc.get_group(parallel_mode)
-    tensor.div_(world_size)
 
     # if rank is None, all reduce will be used
     # else, reduce is used
     use_all_reduce = dst_rank is None
 
     if use_all_reduce:
-        handle = dist.all_reduce(tensor=tensor, group=group, async_op=True)
+        handle = dist.all_reduce(tensor=tensor, group=group, op=torch.distributed.ReduceOp.AVG, async_op=True)
     else:
         ranks_in_group = gpc.get_ranks_in_group(parallel_mode)
         global_rank = ranks_in_group[dst_rank]
-        handle = dist.reduce(tensor=tensor, dst=global_rank, group=group, async_op=True)
+        handle = dist.reduce(
+            tensor=tensor, dst=global_rank, group=group, op=torch.distributed.ReduceOp.AVG, async_op=True
+        )
 
     return handle
 
