@@ -77,7 +77,7 @@ html_static_path = ["_static"]
 # GitHub integration
 html_context = {
     "display_github": True,
-    "github_user": "pjlab",
+    "github_user": "InternLM",
     "github_repo": "InternLM",
     "github_version": "master",
     "conf_py_path": "/doc/code-docs/source/",
