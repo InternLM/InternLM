@@ -277,6 +277,9 @@ class TensorBucket:
         self._max_size = size
         self._current_size = 0
         self._bucket = []
+        self._flat_tensor = None
+        self._unflatten_and_copy_flag = False
+        self.commu_handle = None
 
     @property
     def max_size(self):
@@ -291,6 +294,12 @@ class TensorBucket:
 
     def is_empty(self):
         return len(self._bucket) == 0
+
+    def set_unflatten_and_copy_flag(self, flag):
+        self._unflatten_and_copy_flag = flag
+
+    def get_unflatten_and_copy_flag(self):
+        return self._unflatten_and_copy_flag
 
     def add_to_bucket(self, tensor, allow_oversize=False):
         tensor_size = tensor.numel()
@@ -314,9 +323,11 @@ class TensorBucket:
         self._size = 0
 
     def flatten(self):
-        return _flatten_dense_tensors(self._bucket)
+        self._flat_tensor = _flatten_dense_tensors(self._bucket)
+        return self._flat_tensor
 
-    def unflatten_and_copy(self, flat_tensor):
-        unflattened_tensor_list = _unflatten_dense_tensors(flat_tensor, self._bucket)
-        for old, new in zip(self._bucket, unflattened_tensor_list):
-            old.copy_(new)
+    def unflatten_and_copy(self):
+        if self._unflatten_and_copy_flag:
+            unflattened_tensor_list = _unflatten_dense_tensors(self._flat_tensor, self._bucket)
+            for old, new in zip(self._bucket, unflattened_tensor_list):
+                old.copy_(new)

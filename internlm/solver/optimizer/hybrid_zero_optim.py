@@ -124,6 +124,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         self._param_store = ParameterStore(ParallelMode.ZERO1)
         self._grad_store = GradientStore(ParallelMode.DATA)
         self._bucket_store = BucketStore(ParallelMode.DATA)
+        self._bucket_in_progress = None
 
         # fp16 and fp32 params for mixed precision training
         self._fp16_param_groups = dict()
@@ -230,13 +231,6 @@ class HybridZeroOptimizer(BaseOptimizer):
         self.has_params = sum(self.param_group_has_params) != 0
         # flag used to skip unnecessary gradient reduce operation when gradient accumulation is enabled.
         self.skip_grad_reduce = False
-
-        # initialize communication stream for
-        # communication-computation overlapping
-        if self._overlap_sync_grad:
-            self._comm_stream = torch.cuda.Stream()
-        else:
-            self._comm_stream = torch.cuda.current_stream()
 
         # reduction hook is only used if overlapping communication
         # if it is stage 1 without overlapping, no hook will be attached
@@ -395,22 +389,27 @@ class HybridZeroOptimizer(BaseOptimizer):
                 self._reduce_and_copy(bucket=param_bucket, reduce_rank=reduce_rank)
 
     def _reduce_and_copy(self, bucket: TensorBucket, reduce_rank):
-        if self._overlap_sync_grad:
-            self._comm_stream.synchronize()
-            self._param_store.clear_grads_of_previous_reduced_params()
+        if self._bucket_in_progress is not None:
+            self._bucket_in_progress.commu_handle.wait()
+            self._bucket_in_progress.unflatten_and_copy()
 
-        with torch.cuda.stream(self._comm_stream):
-            flat = bucket.flatten()
-            reduced_flat = reduce_tensor(
-                tensor=flat,
-                dtype=self.dtype,
-                dst_rank=reduce_rank,
-                parallel_mode=ParallelMode.DATA,
-            )
+        self._bucket_in_progress = None
+        self._param_store.clear_grads_of_previous_reduced_params()
 
-            # update the reduced tensor
-            if reduce_rank is None or reduce_rank == self._zero_local_rank:
-                bucket.unflatten_and_copy(reduced_flat)
+        flat = bucket.flatten()
+        bucket.commu_handle = reduce_tensor(
+            tensor=flat,
+            dtype=None,
+            dst_rank=reduce_rank,
+            parallel_mode=ParallelMode.DATA,
+        )
+
+        # update the reduced tensor
+        if reduce_rank is None or reduce_rank == self._zero_local_rank:
+            bucket.set_unflatten_and_copy_flag(flag=True)
+        else:
+            bucket.set_unflatten_and_copy_flag(flag=False)
+        self._bucket_in_progress = bucket
 
     def _has_inf_or_nan(self, tensor):
         try:
@@ -534,10 +533,12 @@ class HybridZeroOptimizer(BaseOptimizer):
             groups_norms.append(self._compute_norm_with_stage(group_id=group_id))
 
         # clear reduced grads
-        if self._overlap_sync_grad:
-            # grads in the last bucket is reduced
-            self._comm_stream.synchronize()
-            self._param_store.clear_grads_of_previous_reduced_params()
+        # grads in the last bucket is reduced
+        if self._bucket_in_progress is not None:
+            self._bucket_in_progress.commu_handle.wait()
+            self._bucket_in_progress.unflatten_and_copy()
+        self._bucket_in_progress = None
+        self._param_store.clear_grads_of_previous_reduced_params()
 
         # compute norm for gradients in the last bucket
         total_norms = {}
