@@ -24,6 +24,14 @@ class TrainState:
     """
 
     def __init__(self, config, batch_sampler) -> None:
+        """
+        Args:
+            config (Config): internlm config
+            batch_sampler (torch.utils.data.Sampler): Because the dataloader loading is
+            asynchronous and prefetched, the batch_sampler state maintained inside the
+            dataloader are faster then the actual training progress, so we copy the
+            batch_sampler as the anchor point of ckpt reload.
+        """
         # The number of batches produced by the data iterator
         self.batch_count: int = 0
         # Used to store the number of samples consumed in the current epoch
@@ -51,10 +59,11 @@ class TrainState:
             self.init_batch_sampler(batch_sampler)
 
     def init_batch_sampler(self, batch_sampler):
-        # Because the dataloader loading is asynchronous and prefetched,
-        # the batch_sampler state maintained inside the dataloader are faster then the actual
-        # training progress, so we clone the batch_sampler as the anchor point of ckpt reload.
-
+        """
+        Args:
+            batch_sampler (torch.utils.data.Sampler): sampler.
+        """
+        # make a copy of batch_sampler.
         self.batch_sampler = batch_sampler.copy()
         # Iterator for the batch sampler
         self.batch_sampler_iter = iter(self.batch_sampler)

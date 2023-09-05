@@ -5,17 +5,14 @@ from subprocess import PIPE, STDOUT, Popen
 import pytest
 import torch
 
-from internlm.utils.common import SingletonMeta
 from internlm.core.context import global_context as gpc
 from internlm.core.context.parallel_context import Config
 from internlm.core.trainer import TrainState
 from internlm.solver.optimizer.hybrid_zero_optim import HybridZeroOptimizer
+from internlm.utils.common import SingletonMeta
 from internlm.utils.model_checkpoint import CheckpointManager
-from internlm.utils.storage_manager import (
-    init_storage_manager,
-    wait_async_upload_finish,
-)
-from internlm.utils.tests.common_fixture import (  # noqa # pylint: disable=unused-import
+from internlm.utils.storage_manager import wait_async_upload_finish
+from tests.test_utils.common_fixture import (  # noqa # pylint: disable=unused-import
     init_dist_and_model,
     reset_singletons,
 )
@@ -102,7 +99,7 @@ ckpt_config_list = [
         oss_snapshot_freq=SNPASHOT_EVERY,
         stop_file_path=None,
         is_old_api=False,
-        auto_resume_latest_ckpt=True,
+        auto_resume=True,
     ),
     dict(
         enable_save_ckpt=True,
@@ -114,7 +111,7 @@ ckpt_config_list = [
         stop_file_path=None,
         load_ckpt_folder=None,
         is_old_api=False,
-        auto_resume_latest_ckpt=True,
+        auto_resume=True,
     ),
 ]
 
@@ -197,7 +194,7 @@ def del_tmp():
 @pytest.mark.usefixtures("reset_singletons")
 @pytest.mark.parametrize("ckpt_config", ckpt_config_list)
 def test_ckpt_mm(ckpt_config, init_dist_and_model):  # noqa # pylint: disable=unused-import
-    from internlm.utils.model_checkpoint import CheckpointLoadType, CheckpointLoadMask
+    from internlm.utils.model_checkpoint import CheckpointLoadMask, CheckpointLoadType
 
     ckpt_config = Config(ckpt_config)
     assert ckpt_config.checkpoint_every < TOTAL_STEP
@@ -219,7 +216,8 @@ def test_ckpt_mm(ckpt_config, init_dist_and_model):  # noqa # pylint: disable=un
         train_state.batch_count = i
         train_state.step_count += 1
 
-        if ckpt_mm.is_now_to_save_ckpt(train_state):
+        save_ckpts, _, _ = ckpt_mm.is_now_to_save_ckpt(train_state)
+        if save_ckpts:
             latest_ckpt_step = i
 
         ckpt_mm.try_save_checkpoint(train_state)
@@ -237,19 +235,23 @@ def test_ckpt_mm(ckpt_config, init_dist_and_model):  # noqa # pylint: disable=un
     SingletonMeta._instances = {}
     ckpt_mm = CheckpointManager(ckpt_config, model=model, optimizer=opim)
     ckpt_mm.try_resume_training(train_state)
-    assert latest_ckpt_step == 6
+    assert latest_ckpt_step == 5
     assert train_state.step_count == 6
     assert train_state.batch_count == 6
-    assert compare_optim_value(ckpt_mm.optimizer, latest_ckpt_step - 1), ckpt_mm.optimizer.param_groups[0]["params"][0]
-    assert compare_model_value(ckpt_mm.model, latest_ckpt_step - 1), list(ckpt_mm.model.parameters())[0][0]
+    assert compare_optim_value(ckpt_mm.optimizer, latest_ckpt_step), ckpt_mm.optimizer.param_groups[0]["params"][0]
+    assert compare_model_value(ckpt_mm.model, latest_ckpt_step), list(ckpt_mm.model.parameters())[0][0]
 
     if ckpt_mm.save_ckpt_folder.startswith("local:"):
         ckpt_mm.load_ckpt_info = dict(
-            path=os.path.join(LOCAL_SAVE_PATH, "4"), content=CheckpointLoadMask.LOAD_ALL, ckpt_type=CheckpointLoadType.INTERNLM
+            path=os.path.join(LOCAL_SAVE_PATH, "4"),
+            content=CheckpointLoadMask(("all",)),
+            ckpt_type=CheckpointLoadType.INTERNLM,
         )
     else:
         ckpt_mm.load_ckpt_info = dict(
-            path=os.path.join(BOTO_SAVE_PATH, "4"), content=CheckpointLoadMask.LOAD_ALL, ckpt_type=CheckpointLoadType.INTERNLM
+            path=os.path.join(BOTO_SAVE_PATH, "4"),
+            content=CheckpointLoadMask(("all",)),
+            ckpt_type=CheckpointLoadType.INTERNLM,
         )
 
     ckpt_mm.try_resume_training(train_state)

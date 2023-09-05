@@ -152,10 +152,10 @@ def args_sanity_check():
     if "stop_file_path" not in ckpt:
         ckpt._add_item("stop_file_path", None)
 
-    if "auto_resume_latest_ckpt" not in ckpt:
-        # If 'auto_resume_latest_ckpt' is not given, we set it to True, so internlm can have opportunity
+    if "auto_resume" not in ckpt:
+        # If 'auto_resume' is not given, we set it to True, so internlm can have opportunity
         # to auto-load latest checkpoint.
-        ckpt._add_item("auto_resume_latest_ckpt", True)
+        ckpt._add_item("auto_resume", True)
 
     if gpc.is_rank_for_log():
         logger.info("+" * 15 + " Ckpt Info " + "+" * 15)  # pylint: disable=W1201
@@ -434,3 +434,11 @@ def initialize_distributed_env(
 
     if args_check:
         args_sanity_check()
+
+
+def get_config_value(config, key, defalut):
+    try:
+        value = config[key]
+    except KeyError:
+        value = defalut
+    return value
