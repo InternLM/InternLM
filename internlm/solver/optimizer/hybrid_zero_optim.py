@@ -648,8 +648,8 @@ class HybridZeroOptimizer(BaseOptimizer):
                     fp32_param = self._fp32_flat_param_groups_of_current_rank[group_id]
                     fp16_param.data.copy_(fp32_param)
 
-        with torch.cuda.stream(self._broadcast_comm_stream):
-            self.broadcast_params()
+        # with torch.cuda.stream(self._broadcast_comm_stream):
+        self.broadcast_params()
 
         timer("step").stop()
 
