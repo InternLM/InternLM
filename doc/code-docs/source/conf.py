@@ -24,7 +24,6 @@ autodoc_member_order = 'bysource'
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
-    "recommonmark",
     "sphinx_rtd_theme",
     "sphinx.ext.viewcode",
     "sphinx.ext.autodoc",
