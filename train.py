@@ -6,7 +6,6 @@ import time
 import traceback
 from functools import partial
 
-import numpy as np
 import torch
 import torch.distributed as dist
 
@@ -73,7 +72,6 @@ def main(args):
     total_steps = gpc.config.data.total_steps
     valid_every = gpc.config.data.valid_every
     label_smoothing = gpc.config.loss.label_smoothing
-    lr = gpc.config.adam.lr
 
     get_tflops_func = partial(
         get_megatron_flops,
@@ -96,21 +94,11 @@ def main(args):
     # initialize customed llm logger
     uniscale_logger = initialize_llm_logger(start_time=current_time)
 
-    # initialize and resume train state
-    train_state = TrainState(gpc.config)
-
     # initialize model
     model = initialize_model()
 
     with open(args.config, "r") as f:
         config_lines = f.readlines()
-    ckpt_manager = CheckpointManager(
-        ckpt_config=gpc.config.ckpt,
-        model=model,
-        model_config=gpc.config.model,
-        model_config_file="".join(config_lines),
-        feishu_address=gpc.config.alert_address,
-    )
 
     # initialize loss function
     criterion = FlashGPTLMLoss(parallel_output=True, label_smoothing=label_smoothing)
@@ -118,15 +106,25 @@ def main(args):
     # initialize the train and validation data loader
     train_dl, dataset_types = get_train_data_loader(num_worker=4)
     val_dls = get_validation_data_loader()
-    train_state.init_batch_sampler(train_dl)
 
-    # Loading model weights must be done before zero is initialized.
-    ckpt_manager.try_load_model(current_time)
+    # initialize and resume train state
+    train_state = TrainState(gpc.config, train_dl.batch_sampler)
 
     optimizer, beta2_scheduler, lr_scheduler = initialize_optimizer(model=model)
 
+    ckpt_manager = CheckpointManager(
+        ckpt_config=gpc.config.ckpt,
+        model=model,
+        optimizer=optimizer,
+        lr_scheduler=lr_scheduler,
+        train_dl=train_dl,
+        model_config=gpc.config.model,
+        model_config_file="".join(config_lines),
+        feishu_address=gpc.config.alert_address,
+    )
+
     # Loading other persistent training states.
-    ckpt_manager.try_resume_training(lr_scheduler, optimizer, lr, train_state, train_dl)
+    ckpt_manager.try_resume_training(train_state, current_time)
 
     # initialize customed llm writer
     writer = Writer(
@@ -236,7 +234,7 @@ def main(args):
                 train_state.step_count += 1
             else:
                 train_state.inf_nan_skip_batches += 1  # record the amount of updating parameters unsuccessfully.
-                if -1 in grad_norm_groups and gpc.is_rank_for_log():  # -1 encodes a specific failure case
+                if -1 in grad_norm_groups.values() and gpc.is_rank_for_log():  # -1 encodes a specific failure case
                     logger.warning(f"Warning: skip parameter update at step {batch_count}.")
                     send_alert_message(
                         address=gpc.config.alert_address,
@@ -257,7 +255,11 @@ def main(args):
                 trainer=trainer,
                 start_time=start_time,
                 loss=loss,
+<<<<<<< HEAD
                 grad_norm=np.linalg.norm(grad_norm_groups),
+=======
+                grad_norm=grad_norm_groups,
+>>>>>>> develop
                 metric=metric,
                 update_panel=uniscale_logger is not None,
             )

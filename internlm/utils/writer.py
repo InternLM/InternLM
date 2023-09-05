@@ -134,6 +134,14 @@ class Writer:
         except Exception:
             traceback.print_exc()
 
+    def add_scalars(self, key, value, step):
+        try:
+            assert isinstance(value, dict)
+            if self.enable_tb and self.tb_writer is not None:
+                self.tb_writer.add_scalars(main_tag=key, tag_scalar_dict=value, global_step=step)
+        except Exception:
+            traceback.print_exc()
+
     def add_text(self, key, value, step):
         try:
             if self.enable_tb and self.tb_writer is not None:

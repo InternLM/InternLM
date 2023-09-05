@@ -24,7 +24,7 @@ from internlm.data.packed_dataset import (
     get_packed_dataset_without_short_length,
 )
 from internlm.data.utils import DATASET_TYPE_IDS_MAP, unpack_data
-from internlm.monitor import set_env_var
+from internlm.monitor import send_heartbeat, set_env_var
 from internlm.monitor.monitor import monitor_manager as mm
 from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
@@ -392,23 +392,34 @@ def record_current_batch_training_metrics(
         line = ""
         for key, value in infos.items():
             line += f"{key}={value} "
-            writer.add_scalar(key=key, value=value, step=train_state.step_count)
+            if isinstance(value, dict):
+                writer.add_scalars(key=key, value=value, step=train_state.step_count)
+            else:
+                writer.add_scalar(key=key, value=value, step=train_state.step_count)
+
+        if gpc.config.get("light_monitor_address", None) and batch_count % 50 == 0:
+            send_heartbeat("train_metrics", infos)
 
         if update_panel:
+            # metrics shown with dashboard panels
+            panel_metrics = {
+                "step": batch_count,
+                "lr": lr,
+                "num_consumed_tokens": train_state.num_consumed_tokens,
+                "loss": loss.item(),
+                "flops": tflops,
+                "tgs": tk_per_gpu,
+                "acc": acc_perplex["acc"],
+                "perplexity": acc_perplex["perplexity"],
+                "fwd_bwd_time": fwd_bwd_time,
+            }
+            for norm_key, norm_value in grad_norm.items():
+                panel_metrics[norm_key] = norm_value
+
             logger.info(
-                line,
-                extra={
-                    "step": batch_count,
-                    "lr": lr,
-                    "num_consumed_tokens": train_state.num_consumed_tokens,
-                    "grad_norm": grad_norm,
-                    "loss": loss.item(),
-                    "flops": tflops,
-                    "tgs": tk_per_gpu,
-                    "acc": acc_perplex["acc"],
-                    "perplexity": acc_perplex["perplexity"],
-                    "fwd_bwd_time": fwd_bwd_time,
-                },
+                "{line}",
+                line=line,
+                extra=panel_metrics,
             )
         else:
             logger.info(line)
