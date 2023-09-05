@@ -1,6 +1,4 @@
 import os
-import shutil
-from subprocess import PIPE, STDOUT, Popen
 
 import pytest
 import torch
@@ -13,6 +11,10 @@ from internlm.utils.common import SingletonMeta
 from internlm.utils.model_checkpoint import CheckpointManager
 from internlm.utils.storage_manager import wait_async_upload_finish
 from tests.test_utils.common_fixture import (  # noqa # pylint: disable=unused-import
+    ASYNC_TMP_FOLDER,
+    BOTO_SAVE_PATH,
+    LOCAL_SAVE_PATH,
+    del_tmp_file,
     init_dist_and_model,
     reset_singletons,
 )
@@ -21,39 +23,6 @@ TOTAL_STEP = 6
 
 CKPT_EVERY = 4
 SNPASHOT_EVERY = 2
-OSS_NAME = os.environ["OSS_BUCKET_NAME"]
-OSS_IP = os.environ["OSS_IP"]
-USER = os.environ["USER"]
-JOB_NAME = "CI_TEST"
-LOCAL_SAVE_PATH = "local:local_ckpt"
-
-BOTO_SAVE_PATH = f"boto3:s3://{OSS_NAME}.{OSS_IP}/{USER}/{JOB_NAME}"
-BOTO_SAVE_PATH_NO_PRFIX = f"s3://{OSS_NAME}.{OSS_IP}/{USER}/{JOB_NAME}/"
-
-ASYNC_TMP_FOLDER = "./async_tmp_folder"
-
-
-def del_tmp_file():
-    try:
-        shutil.rmtree(ASYNC_TMP_FOLDER, ignore_errors=True)
-    except FileNotFoundError:
-        pass
-
-    try:
-        shutil.rmtree(LOCAL_SAVE_PATH.split(":")[1], ignore_errors=True)
-    except FileNotFoundError:
-        pass
-
-    try:
-        cmd = r"/mnt/petrelfs/share/sensesync --dryrun --deleteSrc cp " + BOTO_SAVE_PATH_NO_PRFIX + " / "
-        with Popen(cmd, stdout=PIPE, stderr=STDOUT, shell=True) as output:
-            results, presults = "", ""
-            for line in iter(output.stdout.readline, b""):
-                results += str(line.rstrip())
-                presults += line.rstrip().decode() + "\n"
-        print(presults, flush=True)
-    except FileNotFoundError:
-        pass
 
 
 ckpt_config_list = [
