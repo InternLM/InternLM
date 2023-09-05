@@ -10,6 +10,7 @@ import torch
 
 from internlm.core.context import Config
 from internlm.core.context import global_context as gpc
+from internlm.monitor import initialize_light_monitor
 from internlm.utils.common import get_master_node
 from internlm.utils.logger import get_logger
 
@@ -331,6 +332,14 @@ def launch(
             f"data parallel size: {gpc.data_parallel_size}, pipeline parallel size: {gpc.pipeline_parallel_size}, "
             f"tensor parallel size: {gpc.tensor_parallel_size}",
         )
+
+    # init light monitor client
+    light_monitor_address = gpc.config.get("light_monitor_address", None)
+    if light_monitor_address is None:
+        if gpc.is_rank_for_log():
+            logger.warning("monitor address is none, monitor could not be used!")
+    else:
+        initialize_light_monitor(light_monitor_address)
 
 
 def launch_from_slurm(
