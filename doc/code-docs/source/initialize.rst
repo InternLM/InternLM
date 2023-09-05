@@ -58,10 +58,10 @@ can be defined as follows:
 
 1. The field ``model_type`` defines the model type has been registered and to be initialized.
 2. The parameters in field ``model`` define the configuration settings during model initialization.
-3. Through registry class ``internlm.util.registry.Registry``, user can register custom model's initialization function
-    by decorater ``@MODEL_INITIALIZER.register_module``, the example is shown as follows.
+3. Through registry class ``internlm.util.registry.Registry``, user can register custom model's initialization function by decorater ``@MODEL_INITIALIZER.register_module``, the example is shown as follows.
 
 .. code-block:: python
+    MODEL_TYPE = "INTERNLM"
 
     @MODEL_INITIALIZER.register_module(module_name=MODEL_TYPE)
     def build_model_with_cfg(*args, **kwargs):

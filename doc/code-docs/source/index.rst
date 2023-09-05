@@ -77,7 +77,7 @@ Example
 .. toctree::
    :maxdepth: 2
 
-   example
+   example/index
 
 Q&A
 -------------------
