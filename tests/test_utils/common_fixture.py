@@ -1,4 +1,6 @@
 import os
+import shutil
+from subprocess import PIPE, STDOUT, Popen
 
 import pytest
 import torch
@@ -7,6 +9,18 @@ from internlm.core.context import global_context as gpc
 from internlm.core.context.parallel_context import Config
 from internlm.solver.optimizer.hybrid_zero_optim import HybridZeroOptimizer
 from internlm.utils.common import SingletonMeta
+
+OSS_NAME = os.environ["OSS_BUCKET_NAME"]
+OSS_IP = os.environ["OSS_IP"]
+USER = os.environ["USER"]
+JOB_NAME = "CI_TEST"
+LOCAL_SAVE_PATH = "local:local_ckpt"
+
+BOTO_SAVE_PATH = f"boto3:s3://{OSS_NAME}.{OSS_IP}/{USER}/{JOB_NAME}"
+BOTO_SAVE_PATH_NO_PRFIX = f"s3://{OSS_NAME}.{OSS_IP}/{USER}/{JOB_NAME}/"
+
+ASYNC_TMP_FOLDER = "./async_tmp_folder"
+
 
 # 1B
 init_config = Config(
@@ -108,7 +122,9 @@ def reset_singletons():
 
 def reset_seed():
     from internlm.core.context.random import _SEED_MANAGER
+
     _SEED_MANAGER.reset()
+
 
 @pytest.fixture(scope="module")
 def init_dist_and_model():
@@ -136,8 +152,30 @@ def init_dist_and_model():
     reset_seed()
 
 
-
 def enter_flag(text):
     print(f"{text} begin!", flush=True)
     yield
     print(f"{text} end!", flush=True)
+
+
+def del_tmp_file():
+    try:
+        shutil.rmtree(ASYNC_TMP_FOLDER, ignore_errors=True)
+    except FileNotFoundError:
+        pass
+
+    try:
+        shutil.rmtree(LOCAL_SAVE_PATH.split(":")[1], ignore_errors=True)
+    except FileNotFoundError:
+        pass
+
+    try:
+        cmd = r"/mnt/petrelfs/share/sensesync --dryrun --deleteSrc cp " + BOTO_SAVE_PATH_NO_PRFIX + " / "
+        with Popen(cmd, stdout=PIPE, stderr=STDOUT, shell=True) as output:
+            results, presults = "", ""
+            for line in iter(output.stdout.readline, b""):
+                results += str(line.rstrip())
+                presults += line.rstrip().decode() + "\n"
+        print(presults, flush=True)
+    except FileNotFoundError:
+        pass
