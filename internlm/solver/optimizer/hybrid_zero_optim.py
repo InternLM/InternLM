@@ -784,4 +784,4 @@ def reload_zero_fp32_buff(optimizer):
                     optimizer._zero_local_rank, group_id
                 )
                 # param_group["params"] is fp32 flatten optimizer states of this zero rank.
-                param_group["params"][0].copy_(fp16_flat_current_rank.float())
+                param_group["params"][0].data.copy_(fp16_flat_current_rank.float())

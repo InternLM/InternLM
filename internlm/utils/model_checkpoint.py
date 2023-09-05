@@ -123,7 +123,7 @@ class CheckpointLoadMask:
         return content in self.load_set and len(self.load_set) > 1
 
     def only_load(self, content: CheckpointLoadContent):
-        return set(content) == self.load_set
+        return set((content,)) == self.load_set
 
     def __str__(self) -> str:
         return f"{self.load_set}."
