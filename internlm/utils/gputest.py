@@ -114,12 +114,6 @@ def bench_net():
     allreduce_time_avg = float(allreduce_time_avg.item())
 
     if allreduce_time_this >= allreduce_time_avg * 1.05:
-        # logger.warning(
-        #     f"Rank {gpc.get_local_rank(ParallelMode.GLOBAL)} NCCL test is slower than avg, "
-        #     f"Hostname {socket.gethostname()}, "
-        #     f"allreduce_time {allreduce_time_this:.2f}, avg {allreduce_time_avg:.2f}, "
-        #     f"CPU temp {get_cpu_temperature()}, GPU temp { get_gpu_temperature()}"
-        # )
         print(
             f"Rank {gpc.get_local_rank(ParallelMode.GLOBAL)} NCCL test is slower than avg, "
             f"Hostname {socket.gethostname()}, "
@@ -161,12 +155,6 @@ def bench_gpu(use_flash_attn=True):
     speed_avg = float(speed_avg.item())
 
     if speed_this <= speed_avg * 0.95:
-        # logger.warning(
-        #     f"Rank {gpc.get_local_rank(ParallelMode.GLOBAL)} GPU is slower than avg, "
-        #     f"Hostname {socket.gethostname()}, "
-        #     f"tflops {speed_this:.2f}, avg {speed_avg:.2f}, "
-        #     f"CPU temp {get_cpu_temperature()}, GPU temp { get_gpu_temperature()}"
-        # )
         print(
             f"Rank {gpc.get_local_rank(ParallelMode.GLOBAL)} GPU is slower than avg, "
             f"Hostname {socket.gethostname()}, "

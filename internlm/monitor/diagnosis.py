@@ -21,38 +21,19 @@ import torch.distributed as dist
 
 logger = get_logger(__file__)
 
-# def initialize_llm_logger(start_time: str, do_diagnosis=False):
-#     """
-#     Initialize customed uniscale logger.
-
-#     Args:
-#         start_time (str): The launch time of current training job.
-
-#     Returns: The instance of uniscale logger.
-#     """
-#     print('do_diagnosis', do_diagnosis, flush=True)
-#     uniscale_logger = initialize_uniscale_logger(
-#         job_name=gpc.config.JOB_NAME, launch_time=start_time, file_name=get_parallel_log_file_name(), do_diagnosis=do_diagnosis
-#     )
-#     # if uniscale_logger is not None:
-#     #     global logger
-#     #     logger = uniscale_logger
-
-#     return uniscale_logger
-
 class LLMProfiler:
     def __init__(
         self,
         timer: megatron_timer,
         train_state,
+        profiler_config,
         log_time_step: int = 1,
         launch_time: str = None,
-        active_count: int = 1,
         do_trace_profiling: bool = False,
         trace_profiling_range: Callable = None,
-        do_diagnosis: bool = False,
         writer: Writer = None,
         current_time = None,
+        memory_profiler = None,
     ) -> None:
         """
         TODO: support PP diagnosis mode.
@@ -73,17 +54,26 @@ class LLMProfiler:
 
         self.trace_profiling = do_trace_profiling
         self.train_state = train_state
-        self.active_count = active_count
-        self.in_diagnosis = do_diagnosis
         self.diagnosis_path = None
         self.log_time_step = log_time_step
         self.writer = writer
         self.timer: megatron_timer = timer
         self.current_time = current_time
-        # self.uniscale_logger = initialize_llm_logger(start_time=current_time, do_diagnosis=do_diagnosis)
         self.torch_profile = DummyProfile()
-        # self.avg_vals_dict = defaultdict(lambda: (0, 0))
         self.rank_avg_time = defaultdict(int)
+        self.slower_last = 0
+        self.memory_profiler = memory_profiler
+        self.torch_active_count = None
+        self.memory_active_count = None
+        self.diagnosis_active_count = None
+        
+        if 'torch_active_count' in profiler_config:
+            self.torch_active_count = profiler_config['torch_active_count']
+        if 'memory_active_count' in profiler_config:
+            self.memory_active_count = profiler_config['memory_active_count']
+        if 'diagnosis_active_count' in profiler_config:
+            self.diagnosis_active_count = profiler_config['diagnosis_active_count']
+        
         # runtime time metrics.
         self.time_ckpts = [
             "batch-gen",
@@ -123,12 +113,11 @@ class LLMProfiler:
         else:
             self.torch_profile = DummyProfile()
         
-        if self.in_diagnosis:
+        if self.diagnosis_active_count:
             log_file_name = 'diagnosis.log'
             log_folder = os.path.join(gpc.config.JOB_NAME, self.current_time, "logs")
             log_dir = os.path.join(log_folder, log_file_name)
-            file_path = log_dir
-            self.diagnosis_path = file_path
+            self.diagnosis_path = log_dir
             
     def get_rank_uid(self):
         return (
@@ -187,9 +176,15 @@ class LLMProfiler:
         print()
         
     def step(self):
+        batch_count = self.train_state.batch_count
+        
+        if self.memory_active_count and self.memory_profiler is not None:
+            if batch_count % self.memory_active_count == 0:
+                self.memory_profiler.step()
         # Try increase torch trace profiler counter
-        if self.train_state.step_count % self.active_count == 0:
-            self.torch_profile.step()
+        if self.torch_active_count:
+            if batch_count % self.torch_active_count == 0:
+                self.torch_profile.step()
 
         # Try dump timer to rb or log.
         if (self.train_state.step_count + 1) % self.log_time_step == 0:
@@ -207,21 +202,17 @@ class LLMProfiler:
                 )
                  
         # If we are in diagnosis mode, rank 0 will gahter all rank runtime time info.
-        if self.in_diagnosis:
-            global_rank_uid = self.get_rank_uid()
-            time_info = self.timer.get_all_timer_results(reset=False)
-            batch_count = self.train_state.batch_count
+        if self.diagnosis_active_count:
             if batch_count > 10:
+                global_rank_uid = self.get_rank_uid()
+                time_info = self.timer.get_all_timer_results(reset=False)
                 with open(self.diagnosis_path, 'a') as f:
                     with contextlib.redirect_stdout(f):
-                        if batch_count % 2 == 0:
+                        if batch_count % self.diagnosis_active_count == 0:
                             time_list = (global_rank_uid, time_info)
-                            if gpc.get_global_rank() == 0:
-                                all_rank_time_list = [None for _ in range(gpc.get_world_size(ParallelMode.GLOBAL))]
-                            else:
-                                all_rank_time_list = None
-                            dist.gather_object(time_list, all_rank_time_list, dst=0, group=gpc.get_group(ParallelMode.GLOBAL))
-                            if gpc.get_global_rank() == 0:
+                            all_rank_time_list = [None for _ in range(gpc.get_world_size(ParallelMode.GLOBAL))]
+                            dist.all_gather_object(all_rank_time_list, time_list, group=gpc.get_group(ParallelMode.GLOBAL))
+                            if gpc.is_rank_for_log():
                                 all_times = {}
                                 for rank_time_info in all_rank_time_list:
                                     ruid, info = rank_time_info
@@ -234,19 +225,25 @@ class LLMProfiler:
                                                                         
                                 self._print_table(all_times)
                                             
-                        if gpc.get_global_rank() == 0: 
+                        if gpc.is_rank_for_log(): 
                             slow_list = []        
                             for time_tuple in time_info:
-                                name, value = time_tuple
-                                if batch_count % 2 == 0:        
-                                    avg_val = self.rank_avg_time[name]
-                                    if value >= avg_val * 1:
-                                        slow_list.append((name, value, avg_val))
+                                name, value = time_tuple      
+                                avg_val = self.rank_avg_time[name]
+                                if value >= avg_val * 1.05:
+                                    slow_list.append((name, value, avg_val))
                                 sum_val = self.rank_avg_time[name] * (batch_count - 10) + value
                                 self.rank_avg_time[name] = round(sum_val / (batch_count - 9), 2)
+                                
+                            if slow_list != []:
+                                self.slower_last += 1
+                                if self.slower_last == 50:
+                                    self.slower_last = 0
+                                    print(f"Warning: step:{batch_count}, The delay has continued to increase for 50 steps")
+                            else:
+                                self.slower_last = 0
                                              
-                            
-                            if batch_count % 2 == 0 and slow_list != []:
+                            if batch_count % self.diagnosis_active_count == 0 and slow_list != []:
                                 print('Cross step dia:')
                                 print('This step is slower than average')
                                 for tuple in slow_list:
@@ -254,7 +251,7 @@ class LLMProfiler:
                                     print(f'{name} = {value} > avg ({avg_val})')
                                 print()
                         
-                        if batch_count % 2 == 0:
+                        if batch_count % self.diagnosis_active_count == 0:
                             torch.cuda.empty_cache()
                             bench_gpu()
                             bench_net()   
