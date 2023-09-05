@@ -124,7 +124,9 @@ class HybridZeroOptimizer(BaseOptimizer):
         self._param_store = ParameterStore(ParallelMode.ZERO1)
         self._grad_store = GradientStore(ParallelMode.DATA)
         self._bucket_store = BucketStore(ParallelMode.DATA)
-        self._bucket_in_progress = None
+        self._bucket_in_progress = []
+
+        self._d2d_stream = torch.cuda.Stream()
 
         # fp16 and fp32 params for mixed precision training
         self._fp16_param_groups = dict()
@@ -376,26 +378,24 @@ class HybridZeroOptimizer(BaseOptimizer):
         self._bucket_store.reset_by_rank(reduce_rank)
 
     def _reduce_grads_by_rank(self, reduce_rank, grads, bucket_size):
+        for bucket in self._bucket_in_progress:
+            bucket.commu_handle.wait()
+            bucket.unflatten_and_copy()
+            bucket.empty()
+        self._bucket_in_progress = []
+        self._param_store.clear_grads_of_previous_reduced_params()
+
         grad_buckets_by_dtype = split_half_float_double(grads)
 
         for tensor_list in grad_buckets_by_dtype:
             param_bucket = TensorBucket(size=bucket_size)
             for tensor in tensor_list:
                 param_bucket.add_to_bucket(tensor, allow_oversize=True)
-                if param_bucket.is_full_or_oversized():
-                    self._reduce_and_copy(bucket=param_bucket, reduce_rank=reduce_rank)
-                    param_bucket.empty()
             if not param_bucket.is_empty():
                 self._reduce_and_copy(bucket=param_bucket, reduce_rank=reduce_rank)
+            self._bucket_in_progress.append(param_bucket)
 
     def _reduce_and_copy(self, bucket: TensorBucket, reduce_rank):
-        if self._bucket_in_progress is not None:
-            self._bucket_in_progress.commu_handle.wait()
-            self._bucket_in_progress.unflatten_and_copy()
-
-        self._bucket_in_progress = None
-        self._param_store.clear_grads_of_previous_reduced_params()
-
         flat = bucket.flatten()
         bucket.commu_handle = reduce_tensor(
             tensor=flat,
@@ -407,9 +407,6 @@ class HybridZeroOptimizer(BaseOptimizer):
         # update the reduced tensor
         if reduce_rank is None or reduce_rank == self._zero_local_rank:
             bucket.set_unflatten_and_copy_flag(flag=True)
-        else:
-            bucket.set_unflatten_and_copy_flag(flag=False)
-        self._bucket_in_progress = bucket
 
     def _has_inf_or_nan(self, tensor):
         try:
@@ -534,10 +531,11 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         # clear reduced grads
         # grads in the last bucket is reduced
-        if self._bucket_in_progress is not None:
-            self._bucket_in_progress.commu_handle.wait()
-            self._bucket_in_progress.unflatten_and_copy()
-        self._bucket_in_progress = None
+        for bucket in self._bucket_in_progress:
+            bucket.commu_handle.wait()
+            bucket.unflatten_and_copy()
+            bucket.empty()
+        self._bucket_in_progress = []
         self._param_store.clear_grads_of_previous_reduced_params()
 
         # compute norm for gradients in the last bucket
@@ -625,7 +623,9 @@ class HybridZeroOptimizer(BaseOptimizer):
         if gpc.config.model.dtype is not torch.float32:
             if len(single_grad_partition_groups) != 0 and self._clip_grad_norm > 0:
                 self._unscale_and_clip_grads(
-                    single_grad_partition_groups, list(global_norm_groups.values()), loss_scale
+                    single_grad_partition_groups,
+                    list(global_norm_groups.values()),
+                    loss_scale,
                 )
 
         # update the parameters
