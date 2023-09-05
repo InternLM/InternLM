@@ -1,7 +1,7 @@
-import copy
 import json
 import math
 import os
+import re
 import time
 from typing import Dict
 
@@ -30,17 +30,17 @@ def send_heartbeat(msg_type: str, msg: Dict):
     try:
         from uniscale_monitoring import send_meta
 
-        data = copy.deepcopy(msg)
-        if "tgs (tokens/gpu/second)" in data:
-            data["tgs"] = data["tgs (tokens/gpu/second)"]
-            del data["tgs (tokens/gpu/second)"]
-
+        data = {}
         for k, v in msg.items():
-            data[k] = nan2none(v)
             if isinstance(v, Dict):
                 for k1, v1 in v.items():
-                    data[f"{k}_{k1}"] = nan2none(v1)
-                del data[k]
+                    new_k = f"{k}_{k1}".split(" ")[0]
+                    new_k = re.sub(r"[^a-zA-Z0-9_]", "_", new_k)
+                    data[new_k] = nan2none(v1)
+            else:
+                new_k = k.split(" ")[0]
+                new_k = re.sub(r"[^a-zA-Z0-9_]", "_", new_k)
+                data[new_k] = nan2none(v)
 
         if os.getenv("CLUSTER_NAME"):
             data.update({"cluster": os.getenv("CLUSTER_NAME")})
