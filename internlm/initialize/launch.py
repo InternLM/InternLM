@@ -10,6 +10,7 @@ import torch
 
 from internlm.core.context import Config
 from internlm.core.context import global_context as gpc
+from internlm.monitor import initialize_light_monitor
 from internlm.utils.common import get_master_node
 from internlm.utils.logger import get_logger
 from internlm.utils.storage_manager import init_storage_manager
@@ -459,3 +460,11 @@ def initialize_distributed_env(
 
     if args_check:
         args_sanity_check()
+
+    # init light monitor client
+    light_monitor_address = gpc.config.get("light_monitor_address", None)
+    if light_monitor_address is None:
+        if gpc.is_rank_for_log():
+            logger.warning("monitor address is none, monitor could not be used!")
+    else:
+        initialize_light_monitor(light_monitor_address)
