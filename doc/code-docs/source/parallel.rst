@@ -48,7 +48,7 @@ To use tensor parallel, you need to set the value of tensor parallel size ``para
   :scale: 50%
   :class: with-border
 
-  Tensor parallel, adopted from flash-attention original paper [#f1]_
+  Tensor parallel, adopted from `flash-attention <https://arxiv.org/pdf/2205.14135.pdf>`_
 
 Pipeline Parallel
 -----------------
@@ -60,7 +60,7 @@ InternLM uses `1F1B <https://arxiv.org/pdf/2104.04473.pdf>`_ (one forward pass f
   :scale: 45%
   :class: with-border
 
-  Non-interleaved and interleaved scheduler for 1F1B pipeline parallelism, adopted from Megatron-LM original paper [#f2]_
+  Non-interleaved and interleaved scheduler for 1F1B pipeline parallelism, adopted from `Megatron-LM <https://arxiv.org/pdf/2104.04473.pdf>`_
 
 scheduler for non-interleaved 1F1B strategy
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -91,7 +91,7 @@ To enable sequence parallel, you need to set ``parallel.sequence_parallel = True
   :scale: 50%
   :class: with-border
 
-  Sequence parallel, adopted from flash-attention original paper [#f1]_
+  Sequence parallel, adopted from `flash-attention <https://arxiv.org/pdf/2205.14135.pdf>`_
 
 Data Parallel
 -----------------
@@ -125,6 +125,3 @@ Furthermore, you can enable communication-computation overlap, bucket reduce ope
 
 .. autoclass:: internlm.solver.optimizer.hybrid_zero_optim.HybridZeroOptimizer
     :members:
-
-.. [#f1] [FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness](https://arxiv.org/pdf/2205.14135.pdf)
-.. [#f2] [Efficient Large-Scale Language Model Training on GPU Clusters Using Megatron-LM](https://arxiv.org/pdf/2104.04473.pdf)
