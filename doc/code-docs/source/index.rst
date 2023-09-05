@@ -71,6 +71,22 @@ Monitor
 
    monitor
 
+Example
+-------------------
+
+.. toctree::
+   :maxdepth: 2
+
+   example
+
+Q&A
+-------------------
+
+.. toctree::
+   :maxdepth: 2
+
+   qa
+
 Indices and tables
 ==================
 

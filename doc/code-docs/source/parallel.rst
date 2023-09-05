@@ -96,10 +96,9 @@ To enable sequence parallel, you need to set ``parallel.sequence_parallel = True
 Data Parallel
 -----------------
 
-InternLM supports both data parallel and ZeRO1.5 (an optimized implementation of ZeRO). For data parallel, model parameters will not been sharded across 
-the process group.
+InternLM supports data parallel. For data parallel:
 
-To enable data parallel, you need to set ``parallel.zero1 = 1`` in the config file.
+`Data parallel size = Total number of GPUs / Pipeline parallel size / Tensor parallel size`
 
 ZeRO1.5
 -----------------
