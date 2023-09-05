@@ -255,11 +255,7 @@ def main(args):
                 trainer=trainer,
                 start_time=start_time,
                 loss=loss,
-<<<<<<< HEAD
-                grad_norm=np.linalg.norm(grad_norm_groups),
-=======
                 grad_norm=grad_norm_groups,
->>>>>>> develop
                 metric=metric,
                 update_panel=uniscale_logger is not None,
             )
