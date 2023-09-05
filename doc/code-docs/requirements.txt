@@ -9,3 +9,4 @@ numpy
 torch
 tqdm
 pyecharts
+myst-parser
