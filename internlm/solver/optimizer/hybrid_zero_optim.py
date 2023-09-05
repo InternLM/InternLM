@@ -126,8 +126,6 @@ class HybridZeroOptimizer(BaseOptimizer):
         self._bucket_store = BucketStore(ParallelMode.DATA)
         self._bucket_in_progress = []
 
-        self._d2d_stream = torch.cuda.Stream()
-
         # fp16 and fp32 params for mixed precision training
         self._fp16_param_groups = dict()
         self._fp32_flat_param_groups_of_current_rank = dict()
