@@ -21,7 +21,7 @@
 [🛠️Installation](./doc/en/install.md) |
 [📊Train Performance](./doc/en/train_performance.md) |
 [👀Model](#model-zoo) |
-[🤗HuggingFace](https://huggingface.co/spaces/internlm/InternLM-Chat-7B) |
+[🤗HuggingFace](https://huggingface.co/internlm/internlm-7b) |
 [🆕Update News](./CHANGE_LOG.md) |
 [🤔Reporting Issues](https://github.com/InternLM/InternLM/issues/new)
 
