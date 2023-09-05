@@ -204,6 +204,8 @@ Training Config
 
 30B demo config file example:
 
+.. code-block:: python
+    
 
 Start Training
 ~~~~~~~~~~~~~~~~
