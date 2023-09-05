@@ -306,8 +306,9 @@ if __name__ == "__main__":
 
     # init light monitor client
     light_monitor_address = gpc.config.get("light_monitor_address", None)
-    if light_monitor_address is None and gpc.is_rank_for_log():
-        logger.warning("monitor address is none, monitor could not be used!")
+    if light_monitor_address is None:
+        if gpc.is_rank_for_log():
+            logger.warning("monitor address is none, monitor could not be used!")
     else:
         initialize_light_monitor(light_monitor_address)
 

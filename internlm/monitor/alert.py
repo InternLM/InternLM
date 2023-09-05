@@ -51,8 +51,8 @@ def send_heartbeat(msg_type: str, msg: Dict):
         elif msg_type == "stage_time":
             data.update({"msg_type": "stage_time"})
         send_meta(data, timeout=0.1)
-    except Exception:
-        logger.warning("failed to send heartbeat to monitor server")
+    except Exception as e:
+        logger.warning(f"send heartbeat meet error: {e}")
 
 
 def send_feishu_msg_with_webhook(webhook: str, title: str, message: str):
