@@ -399,7 +399,7 @@ def record_current_batch_training_metrics(
             else:
                 writer.add_scalar(key=key, value=value, step=train_state.step_count)
 
-        if gpc.config.get("light_monitor_address", None) and batch_count % 50 == 0:
+        if gpc.config.monitor.alert.get("light_monitor_address", None) and batch_count % 50 == 0:
             send_heartbeat("train_metrics", infos)
 
         if update_panel:
