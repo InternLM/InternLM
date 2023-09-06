@@ -94,10 +94,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         param_bcast_sync_handler: ParamBcastSyncHandler = None,
     ):
         # DynamicGradScaler related args
-        if gpc.config.model.dtype is torch.float32:
-            initial_scale = 1
-        else:
-            initial_scale = grad_scal_cfg.fp16.initial_scale
+        initial_scale = grad_scal_cfg.fp16.initial_scale
         min_scale = grad_scal_cfg.fp16.min_scale
         growth_interval = grad_scal_cfg.fp16.growth_interval
         growth_factor = grad_scal_cfg.growth_factor
@@ -571,8 +568,7 @@ class HybridZeroOptimizer(BaseOptimizer):
             found_inf = True
 
         loss_scale = float(self.loss_scale.item())  # backup
-        if gpc.config.model.dtype is not torch.float32:
-            self.grad_scaler.update(found_inf)
+        self.grad_scaler.update(found_inf)
         # update loss scale if overflow occurs
         if found_inf:
             if gpc.is_rank_for_log():
@@ -621,11 +617,10 @@ class HybridZeroOptimizer(BaseOptimizer):
                 global_norm_groups[group_name] = norm**0.5
 
         # the following operations are performed only on the rank to which parameters are assigned.
-        if gpc.config.model.dtype is not torch.float32:
-            if len(single_grad_partition_groups) != 0 and self._clip_grad_norm > 0:
-                self._unscale_and_clip_grads(
-                    single_grad_partition_groups, list(global_norm_groups.values()), loss_scale
-                )
+        if len(single_grad_partition_groups) != 0 and self._clip_grad_norm > 0:
+            self._unscale_and_clip_grads(
+                single_grad_partition_groups, list(global_norm_groups.values()), loss_scale
+            )
 
         # update the parameters
         timer("step").start()
