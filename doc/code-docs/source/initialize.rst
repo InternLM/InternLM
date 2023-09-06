@@ -56,8 +56,8 @@ can be defined as follows:
         num_chunks=1,  # if num_chunks > 1, interleaved pipeline scheduler is used.
     )
 
-- The field ``model_type`` specfics the model type has been registered and to be initialized.
-- The parameters in field ``model`` specfic the configuration settings during model initialization.
+- The field ``model_type`` specifics the model type has been registered and to be initialized.
+- The parameters in field ``model`` specific the configuration settings during model initialization.
 
 It is worth noting that, users can define new model type, and register model's initialization function by decorater ``@MODEL_INITIALIZER.register_module``, which ``MODEL_INITIALIZER`` is an instantiated object of class ``internlm.util.registry.Registry``, the example is shown as follows.
 
