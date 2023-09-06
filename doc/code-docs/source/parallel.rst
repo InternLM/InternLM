@@ -80,12 +80,24 @@ Also, to enable communication overlap when using interleaved pipeline scheduler,
 in the config file.
 
 When ``parallel.pipeline.interleaved_overlap = True``, function ``InterleavedPipelineScheduler._run_1f1b_loop_with_overlap`` will be called and 
-``internlm.core.communication.AsynCommunicator`` will be created for managing async communication. Asynchronous communication will be enabled to make full 
-use of uplink/downlink bandwidth and achieve communication overlap. The difference between ``InterleavedPipelineScheduler._run_1f1b_loop_with_overlap`` and ``InterleavedPipelineScheduler._run_1f1b_loop_without_overlap`` is shown as follows:
+``internlm.core.communication.AsynCommunicator`` will be created for managing async communication. Asynchronous communication will be enabled in 1F1B stage to make full 
+use of uplink/downlink bandwidth and achieve communication overlap. 
 
-.. autofunction:: internlm.core.scheduler.InterleavedPipelineScheduler._run_1f1b_loop_without_overlap
+The difference between 1F1B stage without overlap and 1F1B stage with overlap is shown as follows:
 
-.. autofunction:: internlm.core.scheduler.InterleavedPipelineScheduler._run_1f1b_loop_with_overlap
+The 1F1B stage without overlap consists of the following steps:
+1. Perform the forward pass.
+2. Perform the backward pass.
+3. Send the forward output of this iteration to the next stage, and send the backward output of this iteration to the previous stage, and receive the forward and backward inputs for the next iteration.
+
+The 1F1B stage with overlap consists of the following steps:
+1. Perform the forward pass.
+2. Check if the backward input is ready.
+3. Send the forward output and receive the forward input for the next iteration.
+4. Perform the backward pass.
+5. Check if the forward input is ready.
+6. Send the backward output and receive the backward input for the next iteration.
+
 
 Sequence Parallel
 -----------------
