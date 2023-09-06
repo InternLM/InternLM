@@ -121,7 +121,7 @@ Training Config
     )
 
     model = dict(
-        checkpoint=True,  # The proportion of layers for activation aheckpointing, the optional value are True/False/[0-1]
+        checkpoint=False,  # The proportion of layers for activation aheckpointing, the optional value are True/False/[0-1]
         num_attention_heads=NUM_ATTENTION_HEAD,
         embed_split_hidden=True,
         vocab_size=VOCAB_SIZE,
@@ -151,13 +151,14 @@ Training Config
     """
     parallel = dict(
         zero1=-1,
-        tensor=8,
-        pipeline=dict(size=2, interleaved_overlap=True),
-        sequence_parallel=True,
+        tensor=4,
+        pipeline=dict(size=1, interleaved_overlap=True),
+        sequence_parallel=False,
     )
 
     cudnn_deterministic = False
     cudnn_benchmark = False
+
 
 Start Training
 ----------------
@@ -176,27 +177,27 @@ Taking the configuration of the demo training on two nodes with 16 GPUs on slurm
 
 .. code-block:: bash
 
-    2023-09-05 12:50:09,682 INFO parallel_context.py:508 in set_device -- process rank 3 is bound to host:SH-IDC1-10-140-1-110 device: 3
-    2023-09-05 12:50:09,685 INFO parallel_context.py:508 in set_device -- process rank 7 is bound to host:SH-IDC1-10-140-1-110 device: 7
-    2023-09-05 12:50:09,686 INFO parallel_context.py:508 in set_device -- process rank 6 is bound to host:SH-IDC1-10-140-1-110 device: 6
-    2023-09-05 12:50:09,688 INFO parallel_context.py:508 in set_device -- process rank 5 is bound to host:SH-IDC1-10-140-1-110 device: 5
-    2023-09-05 12:50:09,689 INFO parallel_context.py:508 in set_device -- process rank 1 is bound to host:SH-IDC1-10-140-1-110 device: 1
-    2023-09-05 12:50:09,689 INFO parallel_context.py:508 in set_device -- process rank 4 is bound to host:SH-IDC1-10-140-1-110 device: 4
-    2023-09-05 12:50:09,689 INFO parallel_context.py:508 in set_device -- process rank 0 is bound to host:SH-IDC1-10-140-1-110 device: 0
-    2023-09-05 12:50:09,689 INFO parallel_context.py:508 in set_device -- process rank 2 is bound to host:SH-IDC1-10-140-1-110 device: 2
-    2023-09-05 12:50:09,696 INFO parallel_context.py:508 in set_device -- process rank 13 is bound to host:SH-IDC1-10-140-1-138 device: 5
-    2023-09-05 12:50:09,699 INFO parallel_context.py:508 in set_device -- process rank 9 is bound to host:SH-IDC1-10-140-1-138 device: 1
-    2023-09-05 12:50:09,700 INFO parallel_context.py:508 in set_device -- process rank 14 is bound to host:SH-IDC1-10-140-1-138 device: 6
-    2023-09-05 12:50:09,701 INFO parallel_context.py:508 in set_device -- process rank 15 is bound to host:SH-IDC1-10-140-1-138 device: 7
-    2023-09-05 12:50:09,702 INFO parallel_context.py:508 in set_device -- process rank 12 is bound to host:SH-IDC1-10-140-1-138 device: 4
-    2023-09-05 12:50:09,703 INFO parallel_context.py:508 in set_device -- process rank 8 is bound to host:SH-IDC1-10-140-1-138 device: 0
-    2023-09-05 12:50:09,704 INFO parallel_context.py:508 in set_device -- process rank 10 is bound to host:SH-IDC1-10-140-1-138 device: 2
-    2023-09-05 12:50:09,704 INFO parallel_context.py:508 in set_device -- process rank 11 is bound to host:SH-IDC1-10-140-1-138 device: 3
-    2023-09-05 12:50:16,744 INFO launch.py:354 in launch -- Distributed environment is initialized, data parallel size: 1, pipeline parallel size: 2, tensor parallel size: 8
-    2023-09-05 12:51:35,106 INFO hybrid_zero_optim.py:294 in _partition_param_list -- Number of elements on ranks: [1778554368], rank:8
-    2023-09-05T12:52:09.502+08:00 INFO [training_internlm.py, line 413, in record_current_batch_training_metrics] - pid=187985 : tflops=20.13930514195207 step=0 loss=11.515681266784668 tgs (tokens/gpu/second)=86.32 lr=4.0000000000000003e-07 loss_scale=65536.0 grad_norm={'0_default': 44.66850557859531} micro_num=4 num_consumed_tokens=16384 inf_nan_skip_batches=0 num_samples_in_batch=15 largest_length=2048 largest_batch=4 smallest_batch=3 adam_beta2=0.95 fwd_bwd_time=7.77 acc=0.0 perplexity=100246.0391 acc/en=0.0 acc/cn=0.0 acc/code=0.0 tokens/en=15092 tokens/cn=0 tokens/code=0 loss_from_metric=11.5154 loss/en=11.5154 loss/cn=nan loss/code=nan 
-    2023-09-05T12:52:12.267+08:00 INFO [training_internlm.py, line 413, in record_current_batch_training_metrics] - pid=187985 : tflops=87.4814514237506 step=1 loss=11.463700294494629 tgs (tokens/gpu/second)=374.95 lr=6.000000000000001e-07 loss_scale=65536.0 grad_norm={'0_default': 37.74545806441071} micro_num=4 num_consumed_tokens=32768 inf_nan_skip_batches=0 num_samples_in_batch=17 largest_length=2048 largest_batch=5 smallest_batch=3 adam_beta2=0.95 fwd_bwd_time=2.2 acc=0.0 perplexity=95221.6484 acc/en=0.0 acc/cn=0.0 acc/code=0.0 tokens/en=15317 tokens/cn=0 tokens/code=0 loss_from_metric=11.464 loss/en=11.464 loss/cn=nan loss/code=nan 
-    2023-09-05T12:52:15.044+08:00 INFO [training_internlm.py, line 413, in record_current_batch_training_metrics] - pid=187985 : tflops=89.13317930104051 step=2 loss=10.821619033813477 tgs (tokens/gpu/second)=382.03 lr=8.000000000000001e-07 loss_scale=65536.0 grad_norm={'0_default': 43.673985302322706} micro_num=4 num_consumed_tokens=49152 inf_nan_skip_batches=0 num_samples_in_batch=22 largest_length=2048 largest_batch=7 smallest_batch=3 adam_beta2=0.95 fwd_bwd_time=2.15 acc=0.0446 perplexity=50201.3984 acc/en=0.0446 acc/cn=0.0 acc/code=0.0 tokens/en=14783 tokens/cn=0 tokens/code=0 loss_from_metric=10.8238 loss/en=10.8238 loss/cn=nan loss/code=nan 
-    2023-09-05T12:52:17.716+08:00 INFO [training_internlm.py, line 413, in record_current_batch_training_metrics] - pid=187985 : tflops=91.82722820664878 step=3 loss=10.437983512878418 tgs (tokens/gpu/second)=393.58 lr=1.0000000000000002e-06 loss_scale=65536.0 grad_norm={'0_default': 35.13228697210907} micro_num=4 num_consumed_tokens=65536 inf_nan_skip_batches=0 num_samples_in_batch=15 largest_length=2048 largest_batch=6 smallest_batch=3 adam_beta2=0.95 fwd_bwd_time=2.08 acc=0.0608 perplexity=34208.2695 acc/en=0.0608 acc/cn=0.0 acc/code=0.0 tokens/en=15379 tokens/cn=0 tokens/code=0 loss_from_metric=10.4402 loss/en=10.4403 loss/cn=nan loss/code=nan 
-    2023-09-05T12:52:20.400+08:00 INFO [training_internlm.py, line 413, in record_current_batch_training_metrics] - pid=187985 : tflops=91.19641511880559 step=4 loss=9.160537719726562 tgs (tokens/gpu/second)=390.87 lr=1.2000000000000002e-06 loss_scale=65536.0 grad_norm={'0_default': 36.88318235490262} micro_num=4 num_consumed_tokens=81920 inf_nan_skip_batches=0 num_samples_in_batch=16 largest_length=2048 largest_batch=5 smallest_batch=3 adam_beta2=0.95 fwd_bwd_time=2.1 acc=0.0889 perplexity=9540.1846 acc/en=0.0889 acc/cn=0.0 acc/code=0.0 tokens/en=14903 tokens/cn=0 tokens/code=0 loss_from_metric=9.1633 loss/en=9.1633 loss/cn=nan loss/code=nan 
-    2023-09-05T12:52:23.088+08:00 INFO [training_internlm.py, line 413, in record_current_batch_training_metrics] - pid=187985 : tflops=90.62865083014503 step=5 loss=8.400506019592285 tgs (tokens/gpu/second)=388.44 lr=1.4000000000000001e-06 loss_scale=65536.0 grad_norm={'0_default': 30.51502295553065} micro_num=4 num_consumed_tokens=98304 inf_nan_skip_batches=0 num_samples_in_batch=20 largest_length=2048 largest_batch=6 smallest_batch=4 adam_beta2=0.95 fwd_bwd_time=2.12 acc=0.0884 perplexity=4532.5967 acc/en=0.0884 acc/cn=0.0 acc/code=0.0 tokens/en=14972 tokens/cn=0 tokens/code=0 loss_from_metric=8.4191 loss/en=8.419 loss/cn=nan loss/code=nan
+    2023-09-06 10:29:26,629 INFO parallel_context.py:508 in set_device -- process rank 10 is bound to host:HOST-10-140-66-20 device: 2
+    2023-09-06 10:29:26,632 INFO parallel_context.py:508 in set_device -- process rank 11 is bound to host:HOST-10-140-66-20 device: 3
+    2023-09-06 10:29:26,634 INFO parallel_context.py:508 in set_device -- process rank 12 is bound to host:HOST-10-140-66-20 device: 4
+    2023-09-06 10:29:26,636 INFO parallel_context.py:508 in set_device -- process rank 9 is bound to host:HOST-10-140-66-20 device: 1
+    2023-09-06 10:29:26,640 INFO parallel_context.py:508 in set_device -- process rank 15 is bound to host:HOST-10-140-66-20 device: 7
+    2023-09-06 10:29:26,639 INFO parallel_context.py:508 in set_device -- process rank 0 is bound to host:HOST-10-140-66-9 device: 0
+    2023-09-06 10:29:26,641 INFO parallel_context.py:508 in set_device -- process rank 2 is bound to host:HOST-10-140-66-9 device: 2
+    2023-09-06 10:29:26,643 INFO parallel_context.py:508 in set_device -- process rank 5 is bound to host:HOST-10-140-66-9 device: 5
+    2023-09-06 10:29:26,645 INFO parallel_context.py:508 in set_device -- process rank 6 is bound to host:HOST-10-140-66-9 device: 6
+    2023-09-06 10:29:26,661 INFO parallel_context.py:508 in set_device -- process rank 13 is bound to host:HOST-10-140-66-20 device: 5
+    2023-09-06 10:29:26,707 INFO parallel_context.py:508 in set_device -- process rank 1 is bound to host:HOST-10-140-66-9 device: 1
+    2023-09-06 10:29:26,826 INFO parallel_context.py:508 in set_device -- process rank 4 is bound to host:HOST-10-140-66-9 device: 4
+    2023-09-06 10:29:26,871 INFO parallel_context.py:508 in set_device -- process rank 7 is bound to host:HOST-10-140-66-9 device: 7
+    2023-09-06 10:29:26,932 INFO parallel_context.py:508 in set_device -- process rank 3 is bound to host:HOST-10-140-66-9 device: 3
+    2023-09-06 10:29:27,156 INFO parallel_context.py:508 in set_device -- process rank 14 is bound to host:HOST-10-140-66-20 device: 6
+    2023-09-06 10:29:27,271 INFO parallel_context.py:508 in set_device -- process rank 8 is bound to host:HOST-10-140-66-20 device: 0
+    2023-09-06 10:29:32,060 INFO launch.py:329 in launch -- Distributed environment is initialized, data parallel size: 4, pipeline parallel size: 1, tensor parallel size: 4
+    2023-09-06 10:30:06,141 INFO hybrid_zero_optim.py:291 in _partition_param_list -- Number of elements on ranks: [1782007296, 1812307968, 1812307968, 1706469888], rank:0
+    2023-09-06T10:30:38.216+08:00 INFO [training_internlm.py, line 413, in record_current_batch_training_metrics] - pid=15224 : tflops=40.00268401421643 step=0 loss=11.548227310180664 tgs (tokens/gpu/second)=227.37 lr=9.779754323328192e-05 loss_scale=65536.0 grad_norm={'0_default': 61.5836932112004} micro_num=4 num_consumed_tokens=65536 inf_nan_skip_batches=0 num_samples_in_batch=18 largest_length=2048 largest_batch=6 smallest_batch=3 adam_beta2=0.95 fwd_bwd_time=12.51 acc=0.0 perplexity=104121.5547 acc/en=0.0 acc/cn=0.0 acc/code=0.0 tokens/en=60571 tokens/cn=0 tokens/code=0 loss_from_metric=11.5533 loss/en=11.5533 loss/cn=nan loss/code=nan 
+    2023-09-06T10:30:46.343+08:00 INFO [training_internlm.py, line 413, in record_current_batch_training_metrics] - pid=15224 : tflops=89.00005814543725 step=1 loss=6.05580997467041 tgs (tokens/gpu/second)=505.86 lr=9.140576474687264e-05 loss_scale=65536.0 grad_norm={'0_default': 27.397946290506887} micro_num=4 num_consumed_tokens=131072 inf_nan_skip_batches=0 num_samples_in_batch=19 largest_length=2048 largest_batch=6 smallest_batch=3 adam_beta2=0.95 fwd_bwd_time=7.91 acc=0.0885 perplexity=405.4076 acc/en=0.0885 acc/cn=0.0 acc/code=0.0 tokens/en=60265 tokens/cn=0 tokens/code=0 loss_from_metric=6.0049 loss/en=6.0049 loss/cn=nan loss/code=nan 
+    2023-09-06T10:30:51.443+08:00 INFO [training_internlm.py, line 413, in record_current_batch_training_metrics] - pid=15224 : tflops=142.5138940898651 step=2 loss=5.054169654846191 tgs (tokens/gpu/second)=810.03 lr=8.14503363531613e-05 loss_scale=65536.0 grad_norm={'0_default': 10.438111430093606} micro_num=4 num_consumed_tokens=196608 inf_nan_skip_batches=0 num_samples_in_batch=17 largest_length=2048 largest_batch=5 smallest_batch=3 adam_beta2=0.95 fwd_bwd_time=4.87 acc=0.0715 perplexity=184.2986 acc/en=0.0715 acc/cn=0.0 acc/code=0.0 tokens/en=60244 tokens/cn=0 tokens/code=0 loss_from_metric=5.2166 loss/en=5.2166 loss/cn=nan loss/code=nan 
+    2023-09-06T10:30:56.509+08:00 INFO [training_internlm.py, line 413, in record_current_batch_training_metrics] - pid=15224 : tflops=143.56131674769466 step=3 loss=4.662276268005371 tgs (tokens/gpu/second)=815.98 lr=6.890576474687264e-05 loss_scale=65536.0 grad_norm={'0_default': 9.15959986316653} micro_num=4 num_consumed_tokens=262144 inf_nan_skip_batches=0 num_samples_in_batch=17 largest_length=2048 largest_batch=5 smallest_batch=3 adam_beta2=0.95 fwd_bwd_time=4.83 acc=0.0775 perplexity=102.6568 acc/en=0.0775 acc/cn=0.0 acc/code=0.0 tokens/en=60328 tokens/cn=0 tokens/code=0 loss_from_metric=4.6314 loss/en=4.6314 loss/cn=nan loss/code=nan 
+    2023-09-06T10:31:01.552+08:00 INFO [training_internlm.py, line 413, in record_current_batch_training_metrics] - pid=15224 : tflops=143.85087291011183 step=4 loss=4.020431041717529 tgs (tokens/gpu/second)=817.63 lr=5.500000000000001e-05 loss_scale=65536.0 grad_norm={'0_default': 6.873464794412589} micro_num=4 num_consumed_tokens=327680 inf_nan_skip_batches=0 num_samples_in_batch=22 largest_length=1893 largest_batch=8 smallest_batch=4 adam_beta2=0.95 fwd_bwd_time=4.82 acc=0.0701 perplexity=69.1167 acc/en=0.0701 acc/cn=0.0 acc/code=0.0 tokens/en=61028 tokens/cn=0 tokens/code=0 loss_from_metric=4.2358 loss/en=4.2358 loss/cn=nan loss/code=nan 
+    2023-09-06T10:31:06.830+08:00 INFO [training_internlm.py, line 413, in record_current_batch_training_metrics] - pid=15224 : tflops=142.8966468353613 step=5 loss=3.733311891555786 tgs (tokens/gpu/second)=812.2 lr=4.109423525312737e-05 loss_scale=65536.0 grad_norm={'0_default': 5.811005102730085} micro_num=4 num_consumed_tokens=393216 inf_nan_skip_batches=0 num_samples_in_batch=13 largest_length=2048 largest_batch=4 smallest_batch=3 adam_beta2=0.95 fwd_bwd_time=4.85 acc=0.0688 perplexity=46.298 acc/en=0.0688 acc/cn=0.0 acc/code=0.0 tokens/en=61004 tokens/cn=0 tokens/code=0 loss_from_metric=3.8351 loss/en=3.8351 loss/cn=nan loss/code=nan
