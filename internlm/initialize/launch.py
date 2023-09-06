@@ -220,7 +220,7 @@ def args_sanity_check():
     else:
         if gpc.config.model.dtype is torch.float32:
             gpc.config.model.norm_fp32 = False
-        
+
     if "checkpoint" in model:
         if model.checkpoint is True:
             model.checkpoint = 1
