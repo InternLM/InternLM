@@ -81,7 +81,9 @@ in the config file.
 
 When ``parallel.pipeline.interleaved_overlap = True``, function ``InterleavedPipelineScheduler._run_1f1b_loop_with_overlap`` will be called and 
 ``internlm.core.communication.AsynCommunicator`` will be created for managing async communication. Asynchronous communication will be enabled to make full 
-use of uplink/downlink bandwidth and achieve communication overlap.
+use of uplink/downlink bandwidth and achieve communication overlap. The difference between ``InterleavedPipelineScheduler._run_1f1b_loop_with_overlap`` and ``InterleavedPipelineScheduler._run_1f1b_loop_without_overlap`` is shown as follows:
+
+.. autofunction:: internlm.core.scheduler.InterleavedPipelineScheduler._run_1f1b_loop_without_overlap
 
 .. autofunction:: internlm.core.scheduler.InterleavedPipelineScheduler._run_1f1b_loop_with_overlap
 
@@ -121,7 +123,7 @@ Furthermore, you can enable communication-computation overlap, bucket reduce ope
 
     hybrid_zero_optimizer = dict(
         # Enable low_level_optimzer overlap_communication
-        overlap_sync_grad=True,
+        overlap_sync_grad=True,  
         overlap_sync_param=True,
         # bucket size for nccl communication params
         reduce_bucket_size=512 * 1024 * 1024,
