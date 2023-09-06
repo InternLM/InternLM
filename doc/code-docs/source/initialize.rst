@@ -56,16 +56,17 @@ can be defined as follows:
         num_chunks=1,  # if num_chunks > 1, interleaved pipeline scheduler is used.
     )
 
-1. The field ``model_type`` defines the model type has been registered and to be initialized.
-2. The parameters in field ``model`` define the configuration settings during model initialization.
-3. Through registry class ``internlm.util.registry.Registry``, user can register custom model's initialization function by decorater ``@MODEL_INITIALIZER.register_module``, the example is shown as follows.
+- The field ``model_type`` specfics the model type has been registered and to be initialized.
+- The parameters in field ``model`` specfic the configuration settings during model initialization.
+
+It is worth noting that, users can define new model type, and register model's initialization function by decorater ``@MODEL_INITIALIZER.register_module``, which ``MODEL_INITIALIZER`` is an instantiated object of class ``internlm.util.registry.Registry``, the example is shown as follows.
 
 .. code-block:: python
 
-    MODEL_TYPE = "INTERNLM"
+    MODEL_TYPE = "NEW_MODEL"
 
     @MODEL_INITIALIZER.register_module(module_name=MODEL_TYPE)
-    def build_model_with_cfg(*args, **kwargs):
+    def build_new_model_with_cfg(*args, **kwargs):
 
 .. _InternLM-optim-init:
 

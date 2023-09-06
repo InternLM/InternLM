@@ -151,8 +151,8 @@ Furthermore, you can enable communication-computation overlap, set bucket reduce
 
 There are two communication optimizations worth paying attention to here:
 
-- ``overlap_sync_grad``: If set True, overlapping training backward pass with gradients' all-reduce communication
-- ``overlap_sync_param``: If set True, overlapping parameters' broadcast communication with next step's forward pass
+- overlap_sync_grad: If set True, overlapping training backward pass with gradients' all-reduce communication
+- overlap_sync_param: If set True, overlapping parameters' broadcast communication with next step's forward pass
 
 .. autoclass:: internlm.solver.optimizer.hybrid_zero_optim.HybridZeroOptimizer
     :members:
