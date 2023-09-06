@@ -1,0 +1,341 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, InternLM Team
+# This file is distributed under the same license as the InternLM package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: InternLM \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-09-06 15:58+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.12.1\n"
+
+#: ../../../en/usage.md:2 08f744b910544b1ea838e631ca7d0703
+msgid "Quickstart Guide for Pre-training and Fine-tuning"
+msgstr ""
+
+#: ../../../en/usage.md:4 d8dc1c782240472d9947fef457ff1e1b
+msgid ""
+"To start a demo model training, you need to prepare three things: "
+"**installation**, **dataset preparation**, and **model training "
+"configuration**. In this guide, we will first cover the steps for dataset"
+" preparation and then briefly describe the model training configuration."
+msgstr ""
+
+#: ../../../en/usage.md:6 7365ed42240d48e589a1258f3a58567d
+msgid "Installation"
+msgstr ""
+
+#: ../../../en/usage.md:8 cb106cdea8d44a339b217f0e4909ec55
+msgid ""
+"Please refer to the [installation guide](./install.md) for instructions "
+"on how to install the necessary dependencies."
+msgstr ""
+
+#: ../../../en/usage.md:10 f143f41ea13d446a828bad4fdbe4cc85
+msgid "Dataset Preparation (Pre-training)"
+msgstr ""
+
+#: ../../../en/usage.md:12 31dcb5f6db9f4f8d8d080f501fcc8d52
+msgid ""
+"The dataset for the InternLM training task includes a series of `bin` and"
+" `meta` files. A `tokenizer` is used to generate the training dataset "
+"from the original text files. The tokenizer model is imported by "
+"specifying the model parameter path in `tools/tokenizer.py`. Currently, "
+"`V7_sft.model` is provided to generate tokens. If you want to use a "
+"different model, you can directly modify the model parameter path in "
+"`tokenizer.py`."
+msgstr ""
+
+#: ../../../en/usage.md:14 a47999b015cd4987a62aa4730ef23da9
+msgid ""
+"You can run the following command to generate `bin` and `meta` files "
+"corresponding to the original data. The parameter `text_input_path` "
+"represents the path of the original text data, currently supporting "
+"`txt`, `json`, and `jsonl` formats, while `bin_output_path` represents "
+"the save path of the generated `bin` files."
+msgstr ""
+
+#: ../../../en/usage.md:21 3bd64a5856974dbb9bae248dc9d62c23
+msgid "Here is an example of data processing:"
+msgstr ""
+
+#: ../../../en/usage.md:23 3dc64e82cae74df6ac9163296aa84039
+msgid ""
+"Given a file `raw_data.txt` containing the raw dataset, the raw dataset "
+"is shown below:"
+msgstr ""
+
+#: ../../../en/usage.md:31 95901e60f30d4f38ad80cbadb6ba7b66
+msgid ""
+"You can generate the `bin` and `meta` files by running the following "
+"command:"
+msgstr ""
+
+#: ../../../en/usage.md:37 37e842131b5e42c48dac3dd0dfd1e8ba
+msgid ""
+"It should be noted that the generated `bin` files need to be saved in one"
+" of the following directories: `cn`, `en`, `code`, `ja`, `ar`, or "
+"`kaoshi`, depending on the type of dataset."
+msgstr ""
+
+#: ../../../en/usage.md:39 00d647ccff97470ca9e6ced8fd95458b
+msgid ""
+"Here, `cn` represents the Chinese dataset, `en` represents the English "
+"dataset, `code` represents the code dataset, `ja` represents the Japanese"
+" dataset, `ar` represents the Arabic dataset, and `kaoshi` represents the"
+" exam dataset."
+msgstr ""
+
+#: ../../../en/usage.md:41 5a90a0ef9a2f44afba1dec37966540a4
+msgid "The format of the generated `bin` files is as follows:"
+msgstr ""
+
+#: ../../../en/usage.md:48 ae1cedc5ba794018915e33e2120fd870
+msgid ""
+"Each line in the `bin` file corresponds to each sentence in the original "
+"dataset, representing the tokens of each sentence (referred to as "
+"sequence below)."
+msgstr ""
+
+#: ../../../en/usage.md:50 e246409c9c534e5d8d761b8bfdc3b11c
+msgid "The format of the generated `meta` file is as follows:"
+msgstr ""
+
+#: ../../../en/usage.md:56 39cbc482279148d189d5d300494f60b3
+msgid ""
+"Each tuple in the `meta` file represents the meta information of each "
+"`sequence`, where the first element in the tuple indicates the `starting "
+"index` of each `sequence` among all `sequences`, and the second element "
+"indicates the number of `tokens` for each `sequence`."
+msgstr ""
+
+#: ../../../en/usage.md:58 c49050dacce54186b6ddb7bfed3f64df
+msgid ""
+"For example, the first `sequence` starts at index 0 and has 16 `tokens`. "
+"The second `sequence` starts at index 110 and has 24 `tokens`."
+msgstr ""
+
+#: ../../../en/usage.md:60 92f330b8065f489e8b3b16b421471749
+msgid ""
+"The `bin` and `meta` file formats for `json` and `jsonl` type files are "
+"the same as for `txt`, so we won't go over them here."
+msgstr ""
+
+#: ../../../en/usage.md:62 69ea30bd3d074d02924be82f28d50a23
+msgid "Data Preparation (Fine-tuning)"
+msgstr ""
+
+#: ../../../en/usage.md:64 3c10fd1822df46cd9380ec0cd28dfb9d
+msgid ""
+"The data format for fine-tuning tasks is the same as for pre-training "
+"tasks, which consists of a series of `bin` and `meta` files. Let's take "
+"the Alpaca dataset as an example to explain the data preparation process "
+"for fine-tuning."
+msgstr ""
+
+#: ../../../en/usage.md:66 ceec147ad0934e3eaf44229310d17ab4
+msgid ""
+"Download the [Alpaca dataset](https://github.com/tatsu-"
+"lab/stanford_alpaca/blob/main/alpaca_data.json)."
+msgstr ""
+
+#: ../../../en/usage.md:68 4623445431c249c7aa9cd88a70bf19ea
+msgid "Tokenize the Alpaca dataset using the following command:"
+msgstr ""
+
+#: ../../../en/usage.md:74 bbdb59e56dc947f6845979f7d209464e
+msgid ""
+"It is recommended that users refer to alpaca_tokenizer.py to write new "
+"scripts to tokenize their own datasets"
+msgstr ""
+
+#: ../../../en/usage.md:76 a9c53bc57c5a4913a5893fb8af1a9b94
+msgid "Training Configuration"
+msgstr ""
+
+#: ../../../en/usage.md:78 3aaccdfe25ad404a9b931492cbd17596
+msgid ""
+"Taking the configuration file `configs/7B_sft.py` for the 7B demo as an "
+"example, let's discuss the data, model, and parallel configurations "
+"required to start a model training."
+msgstr ""
+
+#: ../../../en/usage.md:80 20fe7c9d16e14ac88d3caaa59e537375
+msgid "Data Configuration"
+msgstr ""
+
+#: ../../../en/usage.md:81 99d3a7e38c1a44a4abe3f2a00be7fec4
+msgid "Here are the key parameters and their explanations for data configuration:"
+msgstr ""
+
+#: ../../../en/usage.md:97 46f1a5ee7ec0473fb33d0b6312aeb2e3
+msgid "![pack_into_one](../imgs/pack_into_one.png)"
+msgstr ""
+
+#: ../../../en/usage.md:97 cfb0812032f345f1ba4f0554225d26d5
+msgid "pack_into_one"
+msgstr ""
+
+#: ../../../en/usage.md:99 28ab6f36d31945b99465cfde77f49b5c
+msgid ""
+"Currently, it supports passing the dataset file path `train_folder`, and "
+"the file format is required to be as follows:"
+msgstr ""
+
+#: ../../../en/usage.md:108 081245bd9d3c4cb58deb83de7a3cc3d6
+msgid ""
+"For detailed information about the dataset, please refer to the \"Data "
+"Preparation\" section."
+msgstr ""
+
+#: ../../../en/usage.md:110 b58e04d6a4cd44988caf0efeeedbc2c6
+msgid "Model Configuration"
+msgstr ""
+
+#: ../../../en/usage.md:112 18f3ae7376924d57bba136559e0bfbee
+msgid ""
+"If you want to load a model checkpoint when starting the training, you "
+"can configure it as follows:"
+msgstr ""
+
+#: ../../../en/usage.md:127 4550c087e5d04fdabefb68a6dab9f837
+msgid "Note:"
+msgstr ""
+
+#: ../../../en/usage.md:128 bb395cdc1a074540adab434534da8838
+msgid ""
+"`load_model_only_folder` and `load_ckpt_folder` cannot be set at the same"
+" time."
+msgstr ""
+
+#: ../../../en/usage.md:129 113579dbcddb4a1ab239c4643ccf6666
+msgid ""
+"If the path starts with `local:`, it means the file is stored in the "
+"local file system. If it starts with `boto3:`, it means the file is "
+"stored in the remote OSS."
+msgstr ""
+
+#: ../../../en/usage.md:131 425c1a3b1b5243938a409cd656289e09
+msgid "The configuration for the model is as follows:"
+msgstr ""
+
+#: ../../../en/usage.md:157 3b7df684947a4c20a9c5a6342bd8cc3c
+msgid ""
+"Note: Users can customize the model type name and model structure, and "
+"configure the corresponding model parameters. The model initialization "
+"function interface can be registered through the `MODEL_INITIALIZER` "
+"object in `utils/registry.py`. When initializing the model in the "
+"training main function `train.py`, the specified model initialization "
+"interface function can be obtained through the `model_type` "
+"configuration."
+msgstr ""
+
+#: ../../../en/usage.md:159 679c9967f1c846f1b754e69cf67bf99e
+msgid "Parallel Configuration"
+msgstr ""
+
+#: ../../../en/usage.md:161 b048801a49be48cdb48c7db5d2976554
+msgid "Training parallel configuration example:"
+msgstr ""
+
+#: ../../../en/usage.md:172 c16372620b2c4421a5df6d4902495ca0
+msgid ""
+"zero1: zero parallel strategy, divided into the following three cases, "
+"default value is -1"
+msgstr ""
+
+#: ../../../en/usage.md:173 edf1b7845ea34504b96bcb54426dbec7
+msgid ""
+"When `size <= 0`, the size of the zero1 process group is equal to the "
+"size of the data parallel process group, so the optimizer state "
+"parameters will be split within the data parallel range."
+msgstr ""
+
+#: ../../../en/usage.md:174 9d2b4c08a85b4b68b215dd24fb7a2b14
+msgid ""
+"When `size == 1`, zero1 is not used, and all data parallel groups retain "
+"the complete optimizer state parameters."
+msgstr ""
+
+#: ../../../en/usage.md:175 d0e39fdd1aea4ceb8f215e3fb8448c93
+msgid ""
+"When `size > 1` and `size <= data_parallel_world_size`, the zero1 process"
+" group is a subset of the data parallel process group."
+msgstr ""
+
+#: ../../../en/usage.md:176 ce7143f8a4ff4f6481f7e9a72570d2d2
+msgid ""
+"tensor: tensor parallel size, usually the number of GPUs per node, "
+"default is 1"
+msgstr ""
+
+#: ../../../en/usage.md:177 a2e624e5f55645bd9a8d607fdb274162
+msgid "pipeline: pipeline parallel strategy"
+msgstr ""
+
+#: ../../../en/usage.md:178 e5c6e50c12734cd5bbf354837b90070b
+msgid "size: pipeline parallel size, the default value is 1"
+msgstr ""
+
+#: ../../../en/usage.md:179 86348c6d42de463abcd3e9803555b3af
+msgid ""
+"interleaved_overlap: bool type, when interleaved scheduling, enable or "
+"disable communication optimization, the default value is False"
+msgstr ""
+
+#: ../../../en/usage.md:180 cf99661124c246d49cd4bafdd81d12cf
+msgid ""
+"sequence_parallel: Whether to enable sequence parallelism, the default "
+"value is False"
+msgstr ""
+
+#: ../../../en/usage.md:182 d5e069003c684aa6abe7b844f43e65da
+msgid ""
+"Note: `Data parallel size = Total number of GPUs / Pipeline parallel size"
+" / Tensor parallel size`"
+msgstr ""
+
+#: ../../../en/usage.md:184 e2ec6a687f984dc79e0105786e3dbd39
+msgid "Start Training"
+msgstr ""
+
+#: ../../../en/usage.md:186 9490f14f017e4fa38de3628b67bc31e6
+msgid ""
+"After completing the data preparation and relevant training "
+"configurations mentioned above, you can start the demo training. The "
+"following examples demonstrate how to start the training in both slurm "
+"and torch environments."
+msgstr ""
+
+#: ../../../en/usage.md:188 6e059b73ad3f4765877c3a26fc81de09
+msgid ""
+"If you want to start distributed training on slurm with 16 GPUs across "
+"multiple nodes, use the following command:"
+msgstr ""
+
+#: ../../../en/usage.md:194 0a4d62661eee4ee694f47ba4e3123e05
+msgid ""
+"If you want to start distributed training on torch with 8 GPUs on a "
+"single node, use the following command:"
+msgstr ""
+
+#: ../../../en/usage.md:200 5da815c4510c4c4ba28dc1363bdf6a76
+msgid "Training Results"
+msgstr ""
+
+#: ../../../en/usage.md:202 319c6246217a49389790665ec9776ec9
+msgid ""
+"Taking the configuration of the demo training on a single machine with 8 "
+"GPUs on slurm as an example, the training result log is shown below:"
+msgstr ""
+

@@ -1,0 +1,159 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, InternLM Team
+# This file is distributed under the same license as the InternLM package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: InternLM \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-09-06 15:58+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.12.1\n"
+
+#: ../../../en/install.md:2 bc362110e5c34e92bfb885bdb371cca7
+msgid "Installation"
+msgstr ""
+
+#: ../../../en/install.md:4 c3c70da3fd50458a91a6d344cb67f6c8
+msgid "Environment Preparation"
+msgstr ""
+
+#: ../../../en/install.md:5 b90b1a9cac6a447cbc26377120fe41c1
+msgid "The required packages and corresponding version are shown as follows:"
+msgstr ""
+
+#: ../../../en/install.md:6 6c9a5af4a6694a348b4cc6b5cec2a2d4
+msgid "Python == 3.10"
+msgstr ""
+
+#: ../../../en/install.md:7 f5143ed6bb9a47fc92d1b2e62667bff4
+msgid "GCC == 10.2.0"
+msgstr ""
+
+#: ../../../en/install.md:8 cf9235d379ba423c848dadc3bab8e3b5
+msgid "MPFR == 4.1.0"
+msgstr ""
+
+#: ../../../en/install.md:9 b8c8be350ca24c81a247cc2a169a5fb0
+msgid "CUDA >= 11.7"
+msgstr ""
+
+#: ../../../en/install.md:10 35136f306d3840329ab9f4812528a243
+msgid "Pytorch >= 1.13.1"
+msgstr ""
+
+#: ../../../en/install.md:11 aeac15edfc9c46a78ce0ad0166d3bff7
+msgid "Transformers >= 4.28.0"
+msgstr ""
+
+#: ../../../en/install.md:12 fa283a95f55a48c5a8faf7fa92c952ca
+msgid "Flash-Attention >= v1.0.5"
+msgstr ""
+
+#: ../../../en/install.md:13 e6c0cdeb9d3148b58b6ad5ca46bd0117
+msgid "Apex == 23.05"
+msgstr ""
+
+#: ../../../en/install.md:14 36275525d2e142faaaff872f47694d9f
+msgid "GPU with Ampere or Hopper architecture (such as H100, A100)"
+msgstr ""
+
+#: ../../../en/install.md:15 770f713789454cc18d711cca4154a634
+msgid "Linux OS"
+msgstr ""
+
+#: ../../../en/install.md:17 cdb902c2e793425e940d9365aa667dd8
+msgid ""
+"After installing the above dependencies, some system environment "
+"variables need to be updated:"
+msgstr ""
+
+#: ../../../en/install.md:28 a034e3841a9a4188bb7902c9d8bee943
+msgid "Environment Installation"
+msgstr ""
+
+#: ../../../en/install.md:29 f8e372f309f54d80a4d3e575310a7890
+msgid ""
+"Clone the project `internlm` and its dependent submodules from the github"
+" repository, as follows:"
+msgstr ""
+
+#: ../../../en/install.md:34 0597e9af1b014db095cb2c7e714212c3
+msgid ""
+"It is recommended to build a Python-3.10 virtual environment using conda "
+"and install the required dependencies based on the `requirements/` files:"
+msgstr ""
+
+#: ../../../en/install.md:43 7cca20fe69bc4d03809dda873e13bb41
+msgid "Install flash-attention (version v1.0.5):"
+msgstr ""
+
+#: ../../../en/install.md:55 700441b6002946049846978ac14a5ff2
+msgid "Install Apex (version 23.05):"
+msgstr ""
+
+#: ../../../en/install.md:62 c5aea07e44a54679a4eeac3ceb344b9c
+msgid "Environment Image"
+msgstr ""
+
+#: ../../../en/install.md:63 7d4eae1d585d4763bf7b5872ff1286cc
+msgid ""
+"Users can use the provided dockerfile combined with docker.Makefile to "
+"build their own images, or obtain images with InternLM runtime "
+"environment installed from https://hub.docker.com/r/internlm/internlm."
+msgstr ""
+
+#: ../../../en/install.md:65 16dda3feb2aa4b8fa2d5fd8a3113e161
+msgid "Image Configuration and Build"
+msgstr ""
+
+#: ../../../en/install.md:66 5a37bb4d15cd43cb8de811107d2ffe74
+msgid ""
+"The configuration and build of the Dockerfile are implemented through the"
+" docker.Makefile. To build the image, execute the following command in "
+"the root directory of InternLM:"
+msgstr ""
+
+#: ../../../en/install.md:70 3f083bda8d3d4f0e84409caebea7546f
+msgid ""
+"In docker.Makefile, you can customize the basic image, environment "
+"version, etc., and the corresponding parameters can be passed directly "
+"through the command line. For BASE_OS, ubuntu20.04 and centos7 are "
+"respectively supported."
+msgstr ""
+
+#: ../../../en/install.md:72 44811021ea0240ed90e3609afaca3587
+msgid "Pull Standard Image"
+msgstr ""
+
+#: ../../../en/install.md:73 3cc065a08566426b9c3cf5e9af256dc4
+msgid ""
+"The standard image based on ubuntu and centos has been built and can be "
+"directly pulled:"
+msgstr ""
+
+#: ../../../en/install.md:82 b5d6814cd06c4df286452945e742a987
+msgid "Run Container"
+msgstr ""
+
+#: ../../../en/install.md:83 919cdca99cb04450bf0a6b19a54af97d
+msgid ""
+"For the local standard image built with dockerfile or pulled, use the "
+"following command to run and enter the container:"
+msgstr ""
+
+#: ../../../en/install.md:87 12e074d515994373b1bbb97d466516bb
+msgid ""
+"The default directory in the container is `/InternLM`, please start "
+"training according to the [Usage](./usage.md)."
+msgstr ""
+

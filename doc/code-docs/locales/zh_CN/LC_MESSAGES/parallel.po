@@ -1,0 +1,492 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, InternLM Team
+# This file is distributed under the same license as the InternLM package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: InternLM \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-09-06 15:58+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.12.1\n"
+
+#: ../../source/parallel.rst:2 bf559f8896d048ea92c7e162fe8406cd
+msgid "Parallel Training"
+msgstr ""
+
+#: ../../source/parallel.rst:6 34b8d2fcfa6547039a2b46d8a22ced44
+msgid ""
+"InternLM supports tensor parallel, pipeline parallel, sequence parallel, "
+"data parallel, and ZeRO1.5 to parallelize the training pipeline. When "
+"initializing the distributed environment, we need to specify tensor "
+"parallel size, pipeline parallel size, data parallel size, and ZeRO1.5 "
+"strategy."
+msgstr ""
+
+#: ../../source/parallel.rst:10 4db9b54e0a19477196ef119a1d8fc0e7
+msgid ""
+"The parallel setting of InternLM is fully config-driven, and you can "
+"change the parallelism by modifying `config file "
+"<https://github.com/InternLM/InternLM/blob/main/configs/7B_sft.py>`_. An "
+"exmaple parallel training configuration can be defined as follows:"
+msgstr ""
+
+#: ../../source/parallel.rst:22 9277ccccb24445e9b08949a0887177e4
+msgid ""
+"zero1: zero parallel strategy, divided into the following three cases, "
+"the default value is -1"
+msgstr ""
+
+#: ../../source/parallel.rst:24 3f7cd69ebd9a460dbbfadf525ac00628
+msgid ""
+"When ``size <= 0``, the size of the zero1 process group is equal to the "
+"size of the data parallel process group, so the optimizer state "
+"parameters will be split within the data parallel range."
+msgstr ""
+
+#: ../../source/parallel.rst:25 162fcbbdce40494eb90bda195014dc26
+msgid ""
+"When ``size == 1``, zero1 is not used, and all data parallel groups "
+"retain the complete optimizer state parameters."
+msgstr ""
+
+#: ../../source/parallel.rst:26 b21f03a6d2a5490a92e0466f01978a4c
+msgid ""
+"When ``size > 1`` and ``size <= data_parallel_world_size``, the zero1 "
+"process group is a subset of the data parallel process group."
+msgstr ""
+
+#: ../../source/parallel.rst:28 03a40fa51a004a1393a908be00a97118
+msgid ""
+"tensor: tensor parallel size, usually the number of GPUs per node, the "
+"default value is 1"
+msgstr ""
+
+#: ../../source/parallel.rst:29 391759e57ac44fecaaa8666b4b6fd44d
+msgid "pipeline: pipeline parallel strategy"
+msgstr ""
+
+#: ../../source/parallel.rst:31 aecb374589b548beb93be12561631bbd
+msgid "size: pipeline parallel size, the default value is 1"
+msgstr ""
+
+#: ../../source/parallel.rst:32 e1ab870ec1a3433dad7fe655b5d41b37
+msgid ""
+"interleaved_overlap: bool type, when interleaved scheduling, enable or "
+"disable communication optimization, the default value is False"
+msgstr ""
+
+#: ../../source/parallel.rst:34 a7c3eef544674210a0d90029d9a03cdb
+msgid ""
+"sequence_parallel: whether to enable sequence parallelism, the default "
+"value is False"
+msgstr ""
+
+#: ../../source/parallel.rst:36 f04db98a0f5e4d7cb4e22aeaa203d946
+msgid ""
+"Note: `Data parallel size = Total number of GPUs / Pipeline parallel size"
+" / Tensor parallel size`"
+msgstr ""
+
+#: ../../source/parallel.rst:39 bbe7f8ae8fe14993ba5233a1d7076e60
+msgid "Tensor Parallel"
+msgstr ""
+
+#: ../../source/parallel.rst:41 b94ced956685436a9483697bf0847e63
+msgid ""
+"The implementation of tensor parallel for InternLM is based on `flash "
+"attention <https://github.com/Dao-AILab/flash-attention>`_, which has "
+"tensor parallel extensions to parallelize `attention "
+"<https://github.com/InternLM/InternLM/blob/main/internlm/model/multi_head_attention.py>`_"
+" and `linear "
+"<https://github.com/InternLM/InternLM/blob/main/internlm/model/linear.py>`_"
+" blocks in InternLM model."
+msgstr ""
+
+#: ../../source/parallel.rst:45 2a9ff204092b4765bb33479e21aed872
+msgid ""
+"To use tensor parallel, you need to set the value of tensor parallel size"
+" ``parallel.tensor`` in the config file, which is usually the number of "
+"GPUs per node."
+msgstr ""
+
+#: ../../source/parallel.rst:51 f7835851bc3049f5a912df23be9d53df
+msgid ""
+"Tensor parallel, adopted from `flash-attention "
+"<https://arxiv.org/pdf/2205.14135.pdf>`_"
+msgstr ""
+
+#: ../../source/parallel.rst:54 fdb205c2f6a2498b8ad7ee0625d8946d
+msgid "Pipeline Parallel"
+msgstr ""
+
+#: ../../source/parallel.rst:56 a6287fb29456432485b62b685ba041d3
+msgid ""
+"InternLM uses `1F1B <https://arxiv.org/pdf/2104.04473.pdf>`_ (one forward"
+" pass followed by one backward pass) for pipeline parallel. For 1F1B "
+"strategy, there are two implementations: (1) non-interleaved scheduler, "
+"which is memory-efficient (2) interleaved scheduler, which is both "
+"memory-efficient and time-efficient."
+msgstr ""
+
+#: ../../source/parallel.rst:63 a6616c7161114d4fae296a8736714f1c
+msgid ""
+"Non-interleaved and interleaved scheduler for 1F1B pipeline parallelism, "
+"adopted from `Megatron-LM <https://arxiv.org/pdf/2104.04473.pdf>`_"
+msgstr ""
+
+#: ../../source/parallel.rst:66 f96b1e24c04041a68991d00b6c47f9a4
+msgid "scheduler for non-interleaved 1F1B strategy"
+msgstr ""
+
+#: ../../source/parallel.rst:67 132a5971658f4b8599b4ee0eb2043b5c
+msgid ""
+"To use non-interleaved pipeline scheduler, you need to set "
+"``model.num_chunks = 1`` in the config file."
+msgstr ""
+
+#: 172f354e4dd44d7e89995af75b6b340d
+#: internlm.core.scheduler.pipeline_scheduler.PipelineScheduler:1 of
+msgid ""
+"A helper schedule class for pipeline parallelism running environment. It "
+"uses non-interleaved 1F1B strategy. Other properties are similar as "
+":class:`NonPipelineSchedule`."
+msgstr ""
+
+#: 004f5eaa9fe849cb8a54f4a7692cbba9 429affa1afd9474d89d1191c8cd146e4
+#: 5721d2862e724e10a5d4c0933cc7e03d 8794b54c8f904997b6f6f77302f31e63
+#: b8016690f1924a40a394065a286b1558 e043becc313c4d8c84c8aa812868e06e
+#: internlm.core.scheduler.pipeline_scheduler.InterleavedPipelineScheduler.forward_backward_step
+#: internlm.core.scheduler.pipeline_scheduler.PipelineScheduler
+#: internlm.core.scheduler.pipeline_scheduler.PipelineScheduler.forward_backward_step
+#: internlm.core.scheduler.pipeline_scheduler.PipelineScheduler.pre_processing
+#: internlm.solver.optimizer.hybrid_zero_optim.HybridZeroOptimizer.step
+#: internlm.solver.optimizer.hybrid_zero_optim.HybridZeroOptimizer.zero_grad of
+msgid "Parameters"
+msgstr ""
+
+#: 770c9d11ddf54de58d946428972c0b35
+#: internlm.core.scheduler.pipeline_scheduler.PipelineScheduler:5 of
+msgid "The number of microbatches."
+msgstr ""
+
+#: 32f84e9e04974927a508550ec558055c
+#: internlm.core.scheduler.pipeline_scheduler.PipelineScheduler:7 of
+msgid "Type of data. torch.float by default."
+msgstr ""
+
+#: 95de22f5e4d44c8aa068bca77f0065db
+#: internlm.core.scheduler.pipeline_scheduler.PipelineScheduler:9 of
+msgid ""
+"The post processing function which receives a micro batch of data, and it"
+" will be executed in `load_micro_batch`."
+msgstr ""
+
+#: 09cfc743dcd04358962aedf169d73f26
+#: internlm.core.scheduler.pipeline_scheduler.PipelineScheduler:12 of
+msgid "Specified shape in pipeline communication."
+msgstr ""
+
+#: 81639f6b59d04f7991757c47dca1bde3
+#: internlm.core.scheduler.pipeline_scheduler.PipelineScheduler:14 of
+msgid ""
+"If set to `True`, communication will be reduced over pipeline when using "
+"1D tensor parallelization."
+msgstr ""
+
+#: f39e6c44a6d44a448f80ad57324447bc
+#: internlm.core.scheduler.pipeline_scheduler.PipelineScheduler:16 of
+msgid "List of scheduler hooks."
+msgstr ""
+
+#: 3f42e8deaa2447a8aeca8bb0a36863e1
+#: internlm.core.scheduler.pipeline_scheduler.PipelineScheduler.pre_processing:1
+#: of
+msgid "To perform actions before running the schedule."
+msgstr ""
+
+#: 69ada4330db34182947c9c7b64f48a15
+#: internlm.core.scheduler.pipeline_scheduler.PipelineScheduler.pre_processing:3
+#: of
+msgid "InternLM engine for training and inference."
+msgstr ""
+
+#: 28e6cebd12464e8eb31049e4da5c0b40
+#: internlm.core.scheduler.pipeline_scheduler.PipelineScheduler.forward_backward_step:1
+#: of
+msgid ""
+"Runs non-interleaved 1F1B schedule, with communication between pipeline "
+"stages. Returns a tuple with losses if the last stage, an empty tuple "
+"otherwise."
+msgstr ""
+
+#: 67e9bd58648e491db053551ecee7b32f e7b8e0af36bf43189b428b0e9146553f
+#: internlm.core.scheduler.pipeline_scheduler.InterleavedPipelineScheduler.forward_backward_step:4
+#: internlm.core.scheduler.pipeline_scheduler.PipelineScheduler.forward_backward_step:4
+#: of
+msgid "Colossalai engine for training and inference."
+msgstr ""
+
+#: e71cd55bffee46bc99bbc283988379a0 f2d1a71d58f14b2a97eeeb4b06830663
+#: internlm.core.scheduler.pipeline_scheduler.InterleavedPipelineScheduler.forward_backward_step:6
+#: internlm.core.scheduler.pipeline_scheduler.PipelineScheduler.forward_backward_step:6
+#: of
+msgid ""
+"Dataloader as the form of an iterator, obtained by calling "
+"iter(dataloader)."
+msgstr ""
+
+#: 479b03ac7691440c83a2481e887edd25 50e187f509b14358a4b9d2bda74217f8
+#: internlm.core.scheduler.pipeline_scheduler.InterleavedPipelineScheduler.forward_backward_step:8
+#: internlm.core.scheduler.pipeline_scheduler.PipelineScheduler.forward_backward_step:8
+#: of
+msgid ""
+"Whether run forward step only. Default is false. If true, no backward "
+"will be run."
+msgstr ""
+
+#: 5caf175c78864cb09a1e14945ea0f529 c5f351e1c0aa4261ab34237254dadfc0
+#: internlm.core.scheduler.pipeline_scheduler.InterleavedPipelineScheduler.forward_backward_step:10
+#: internlm.core.scheduler.pipeline_scheduler.PipelineScheduler.forward_backward_step:10
+#: of
+msgid "Whether returns the loss value. Default is true."
+msgstr ""
+
+#: 8566d81965f84d378400c68e560381bb 867527f9184a4148b1584ba9bff8354a
+#: internlm.core.scheduler.pipeline_scheduler.InterleavedPipelineScheduler.forward_backward_step:12
+#: internlm.core.scheduler.pipeline_scheduler.PipelineScheduler.forward_backward_step:12
+#: of
+msgid "If False, the output and label won't be returned."
+msgstr ""
+
+#: 36336a0fec7749b78115187864e8735d 9b32ba88ebfb4f00a7135581c6a494b2
+#: ec8dee7477bb46c1ab0bbd8c71f87dff
+#: internlm.core.scheduler.pipeline_scheduler.InterleavedPipelineScheduler.forward_backward_step
+#: internlm.core.scheduler.pipeline_scheduler.PipelineScheduler.forward_backward_step
+#: internlm.solver.optimizer.hybrid_zero_optim.HybridZeroOptimizer.step of
+msgid "Returns"
+msgstr ""
+
+#: 86aa4766c41a4240b7e642bc10add364 c7096eb6d75348919fd1f8f473384527
+#: internlm.core.scheduler.pipeline_scheduler.InterleavedPipelineScheduler.forward_backward_step:17
+#: internlm.core.scheduler.pipeline_scheduler.PipelineScheduler.forward_backward_step:15
+#: of
+msgid "A tuple of (output, label, loss), loss and label could be None."
+msgstr ""
+
+#: 22bc81751e714426a5aab5e6809bae3f e7f6943470b24f9d948d14bfc4999a4d
+#: fe1f43ccadb4462d86fa448b52363a18
+#: internlm.core.scheduler.pipeline_scheduler.InterleavedPipelineScheduler.forward_backward_step
+#: internlm.core.scheduler.pipeline_scheduler.PipelineScheduler.forward_backward_step
+#: internlm.solver.optimizer.hybrid_zero_optim.HybridZeroOptimizer.step of
+msgid "Return type"
+msgstr ""
+
+#: 91343bc086ee46f7a00ddb441e98ea5e d7cb0f64b0d74fe79b740127b8847c0e
+#: internlm.core.scheduler.pipeline_scheduler.InterleavedPipelineScheduler.forward_backward_step:19
+#: internlm.core.scheduler.pipeline_scheduler.PipelineScheduler.forward_backward_step:16
+#: of
+msgid "Tuple[:class:`torch.Tensor`]"
+msgstr ""
+
+#: ../../source/parallel.rst:73 877989774064458d8ee93a743d690bbc
+msgid "scheduler for interleaved 1F1B strategy"
+msgstr ""
+
+#: ../../source/parallel.rst:74 c7f6ed55bf614f28aa2fcfd196cd7cf9
+msgid ""
+"To use interleaved pipeline scheduler, you need to set ``model.num_chunks"
+" > 1`` in the config file."
+msgstr ""
+
+#: fd07ed8f6d064b09bea00fb4aa9ce588
+#: internlm.core.scheduler.pipeline_scheduler.InterleavedPipelineScheduler:1 of
+msgid "Interleaved Pipeline Scheduler."
+msgstr ""
+
+#: 599087365f574152ac54f1604dde5315
+#: internlm.core.scheduler.pipeline_scheduler.InterleavedPipelineScheduler.forward_backward_step:1
+#: of
+msgid ""
+"Run interleaved 1F1B schedule (model split into model chunks), with "
+"communication between pipeline stages as needed."
+msgstr ""
+
+#: 1f18539730c24c7896665d2df6aaddf9
+#: internlm.core.scheduler.pipeline_scheduler.InterleavedPipelineScheduler.forward_backward_step:15
+#: of
+msgid ""
+"A tuple of (output, label, loss), loss and label could be None.     The "
+"loss would be returned only in the last stage."
+msgstr ""
+
+#: a7e9d226a4514003bd94c6ed9a9fea6a
+#: internlm.core.scheduler.pipeline_scheduler.InterleavedPipelineScheduler.forward_backward_step:18
+#: of
+msgid "The loss would be returned only in the last stage."
+msgstr ""
+
+#: ../../source/parallel.rst:79 ecd229a691c54a5ab08058bbecddc44e
+msgid ""
+"Also, to enable communication overlap when using interleaved pipeline "
+"scheduler, you need to set ``parallel.pipeline.interleaved_overlap = "
+"True`` in the config file."
+msgstr ""
+
+#: ../../source/parallel.rst:82 34b88269e7544eef823da16699858943
+msgid ""
+"When ``parallel.pipeline.interleaved_overlap = True``, function "
+"``InterleavedPipelineScheduler._run_1f1b_loop_with_overlap`` will be "
+"called and ``internlm.core.communication.AsynCommunicator`` will be "
+"created for managing async communication. Asynchronous communication will"
+" be enabled in 1F1B stage to make full use of uplink/downlink bandwidth "
+"and achieve communication overlap."
+msgstr ""
+
+#: ../../source/parallel.rst:86 f783ad7316d34e8182652ffc4ae60a44
+msgid ""
+"The difference between 1F1B stage without overlap and 1F1B stage with "
+"overlap is shown as follows:"
+msgstr ""
+
+#: ../../source/parallel.rst:88 c04c91c0407b424dab089a63922dc553
+msgid "The 1F1B stage without overlap consists of the following steps:"
+msgstr ""
+
+#: ../../source/parallel.rst:96 5321d5bb2e7d4ef8934e08c97b56d349
+msgid "The 1F1B stage with overlap consists of the following steps:"
+msgstr ""
+
+#: ../../source/parallel.rst:109 dee4b36cdc4446468c933e301e250dc3
+msgid "Sequence Parallel"
+msgstr ""
+
+#: ../../source/parallel.rst:111 f42e815379eb4bb0b3612c65417b06a7
+msgid ""
+"Sequence parallel is a technique to reduce activation memory in layer "
+"norm and dropout without additional computation, communication or memory "
+"overhead. The implementation of sequence parallel for InternLM is based "
+"on `flash attention <https://github.com/Dao-AILab/flash-attention>`_."
+msgstr ""
+
+#: ../../source/parallel.rst:114 f083c1a7c0ee45d19360894f8347b53b
+msgid ""
+"To enable sequence parallel, you need to set ``parallel.sequence_parallel"
+" = True`` in the config file."
+msgstr ""
+
+#: ../../source/parallel.rst:120 b4ae3415081d4a88a224fb335baca91b
+msgid "Sequence parallel, adopted from flash-attention"
+msgstr ""
+
+#: ../../source/parallel.rst:123 541bcd27242c4fbfab133813fd637c23
+msgid "Data Parallel"
+msgstr ""
+
+#: ../../source/parallel.rst:125 1f3b7db7b9924226bf6247fa7d37bb1d
+msgid "InternLM supports data parallel. For data parallel:"
+msgstr ""
+
+#: ../../source/parallel.rst:127 6cb5ff1058814f4a8255e13c875f405c
+msgid ""
+"`Data parallel size = Total number of GPUs / Pipeline parallel size / "
+"Tensor parallel size`"
+msgstr ""
+
+#: ../../source/parallel.rst:130 ae9962924651412fa6e123c10524f939
+msgid "ZeRO1.5"
+msgstr ""
+
+#: ../../source/parallel.rst:132 76d82d979d9e4d7bb525005fbf614daf
+msgid ""
+"The implementation of ZeRO1.5 uses the concept of hierarchical sharding "
+"via config value ``parallel.zero1``, which enables sharding within local "
+"nodes."
+msgstr ""
+
+#: ../../source/parallel.rst:134 9b5617c85b1f4562a42989f0afb3a0c6
+msgid ""
+"If ``parallel.zero1 <= 0``, the size of the zero process group is equal "
+"to the size of the dp process group, so parameters will be divided within"
+" the range of dp."
+msgstr ""
+
+#: ../../source/parallel.rst:135 c2a57c73586e4bb0beaaf780d74c3d6b
+msgid ""
+"If ``parallel.zero1 == 1``, zero is not used, and all dp groups retain "
+"the full amount of model parameters."
+msgstr ""
+
+#: ../../source/parallel.rst:136 0314a21f199349ec964511dd1b468b24
+msgid ""
+"If ``parallel.zero1 > 1`` and ``parallel.zero1 <= dp world size``, the "
+"world size of zero is a subset of dp world size. For smaller models, it "
+"is usually a better choice to split the parameters within nodes with a "
+"setting ``parallel.zero1 <= 8``."
+msgstr ""
+
+#: ../../source/parallel.rst:138 656ce5ed7d994a48a4f2c424777035bd
+msgid ""
+"Furthermore, you can enable communication-computation overlap, set bucket"
+" reduce size, gradient clipping parameters in the config file."
+msgstr ""
+
+#: ../../source/parallel.rst:152 3c1f5bd42e5a4a95b0727d1c2905d3e1
+msgid "There are two communication optimizations worth paying attention to here:"
+msgstr ""
+
+#: ../../source/parallel.rst:154 b23c396cda7346d693e6a1753962e126
+msgid ""
+"overlap_sync_grad: If set True, overlapping training backward pass with "
+"gradients' all-reduce communication"
+msgstr ""
+
+#: ../../source/parallel.rst:155 04dccd808a3f47e89330fa3fbeb7f5b0
+msgid ""
+"overlap_sync_param: If set True, overlapping parameters' broadcast "
+"communication with next step's forward pass"
+msgstr ""
+
+#: 2d57a7ff6fca437ba19f262fe42e25cd
+#: internlm.solver.optimizer.hybrid_zero_optim.HybridZeroOptimizer:1 of
+msgid "Hybrid Zero Optimizer."
+msgstr ""
+
+#: 06f0a8afeaed4ec88a3cb4bb6640d059
+#: internlm.solver.optimizer.hybrid_zero_optim.HybridZeroOptimizer.zero_grad:1
+#: of
+msgid ""
+"Set parameter gradients to zero. If set_to_none = True, gradient will be "
+"set to None to save memory."
+msgstr ""
+
+#: 0087ab834257420fa33ccd9426aa08ef
+#: internlm.solver.optimizer.hybrid_zero_optim.HybridZeroOptimizer.zero_grad:4
+#: of
+msgid "Whether set the gradient to None. Default value is True."
+msgstr ""
+
+#: 38bc0eba378b4b2281c6272f5f4a5a15
+#: internlm.solver.optimizer.hybrid_zero_optim.HybridZeroOptimizer.step:1 of
+msgid "Performs a single optimization step."
+msgstr ""
+
+#: bfe304c75dad4453be1bcd47963b183d
+#: internlm.solver.optimizer.hybrid_zero_optim.HybridZeroOptimizer.step:3 of
+msgid "A closure that reevaluates the model and returns the loss."
+msgstr ""
+
+#: 14560345466545b0a589232c77c5981f
+#: internlm.solver.optimizer.hybrid_zero_optim.HybridZeroOptimizer.step:7 of
+msgid "Whether the gradient is success updated, and the gradient."
+msgstr ""
+

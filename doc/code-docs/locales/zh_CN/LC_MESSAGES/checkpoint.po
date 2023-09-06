@@ -1,0 +1,122 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, InternLM Team
+# This file is distributed under the same license as the InternLM package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: InternLM \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-09-06 15:58+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.12.1\n"
+
+#: ../../source/checkpoint.rst:2 66d5f2a968a74d0b92022a3c7738172d
+msgid "Model Checkpointing"
+msgstr ""
+
+#: ../../source/checkpoint.rst:4 052b763dc8f24425bcd128a96b51b02c
+msgid ""
+"InternLM uses ``internlm.utils.model_checkpoint.CheckpointManager`` to "
+"manage model checkpointing. In the implementation, we use "
+"``CheckpointManager.try_save_checkpoint(train_state)`` to checkpoint "
+"training states at specific steps. InternLM supports automatic loading of"
+" latest ckpt at startup and automatic model checkpointing at signal quit."
+msgstr ""
+
+#: ../../source/checkpoint.rst:9 88ed183e74c1438da7cea68a63f4d85b
+msgid "Checkpointing"
+msgstr ""
+
+#: 9600e50621304f57bf855611360bf6b6
+#: internlm.utils.model_checkpoint.CheckpointManager:1 of
+msgid "StorageManagerContext"
+msgstr ""
+
+#: f303b234dbf14a05bd06e970d001041b
+#: internlm.utils.model_checkpoint.CheckpointManager.quit_signal_handler:1 of
+msgid ""
+"Exit signal detection function, if we write the exit step in the "
+"'QUIT_FILE_PATH' file, all ranks will save ckpt and exit. Negative "
+"integer step means save ckpt. Positive integer step means save ckpt and "
+"quit."
+msgstr ""
+
+#: ae146e019bb8468e8ce24d1fc0eb52cd ffa495f8eb2240e182d73b7ec1a09683
+#: internlm.utils.model_checkpoint.CheckpointManager.quit_signal_handler
+#: internlm.utils.model_checkpoint.CheckpointManager.try_resume_training of
+msgid "Parameters"
+msgstr ""
+
+#: fc0426d8336b49188eda3c49bbea2c45
+#: internlm.utils.model_checkpoint.CheckpointManager.quit_signal_handler of
+msgid "Returns"
+msgstr ""
+
+#: 0fb2628fc5744c829774335d976aad58
+#: internlm.utils.model_checkpoint.CheckpointManager.quit_signal_handler:9 of
+msgid "whether to quit."
+msgstr ""
+
+#: b723a40b47e44c9b9fe7b73ff857a0c9
+#: internlm.utils.model_checkpoint.CheckpointManager.quit_signal_handler of
+msgid "Return type"
+msgstr ""
+
+#: aea42d6f6ec9496f981c4b2ed2958530
+#: internlm.utils.model_checkpoint.CheckpointManager.wait_async_upload_finish:1
+#: of
+msgid "wait for all checkpoint uploads to be completed"
+msgstr ""
+
+#: a5bc4d4126934781bd1d47ec2131b5e5
+#: internlm.utils.model_checkpoint.CheckpointManager.query_latest_snapshot_step_boto3:1
+#: of
+msgid ""
+"Returns: Tuple(str, int): path of latest ckpt and ckpt step, if not "
+"found, None will return."
+msgstr ""
+
+#: 21b8d4b41dd24556b8f8ff329cf2d5e4
+#: internlm.utils.model_checkpoint.CheckpointManager.try_resume_training:1 of
+msgid "Attempt to restore the training state of the last ckpt."
+msgstr ""
+
+#: 3dfbe097c5bd4c3fac2d37916316c600
+#: internlm.utils.model_checkpoint.CheckpointManager.try_resume_training:3 of
+msgid "lr_scheduler object."
+msgstr ""
+
+#: 34e185f7c00d4f9789120113557e0f58
+#: internlm.utils.model_checkpoint.CheckpointManager.try_resume_training:5 of
+msgid "optimizer object."
+msgstr ""
+
+#: 323e4bf2d70b48f38f20c15df051e124
+#: internlm.utils.model_checkpoint.CheckpointManager.try_resume_training:7 of
+msgid "learning rate."
+msgstr ""
+
+#: 05ba0bc0d5bb46ba8aff5bb0c9142a97
+#: internlm.utils.model_checkpoint.CheckpointManager.try_resume_training:9 of
+msgid "traing states."
+msgstr ""
+
+#: f5a86d6e71004af7aa5557df81459477
+#: internlm.utils.model_checkpoint.CheckpointManager.try_resume_training:11 of
+msgid "traning dataloader object"
+msgstr ""
+
+#: c41c5054408841aa88806fff0e2b4ade
+#: internlm.utils.model_checkpoint.CheckpointManager.save_checkpoint:1 of
+msgid "Save checkpoint to the given folder path."
+msgstr ""
+
