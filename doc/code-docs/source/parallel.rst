@@ -135,7 +135,7 @@ The implementation of ZeRO1.5 uses the concept of hierarchical sharding via conf
 2. If ``parallel.zero1 == 1``, zero is not used, and all dp groups retain the full amount of model parameters.
 3. If ``parallel.zero1 > 1`` and ``parallel.zero1 <= dp world size``, the world size of zero is a subset of dp world size. For smaller models, it is usually a better choice to split the parameters within nodes with a setting ``parallel.zero1 <= 8``.
 
-Furthermore, you can enable communication-computation overlap, bucket reduce operation, gradient clipping in the config file.
+Furthermore, you can enable communication-computation overlap, set bucket reduce size, gradient clipping parameters in the config file.
 
 .. code-block:: python
 
@@ -148,6 +148,11 @@ Furthermore, you can enable communication-computation overlap, bucket reduce ope
         # grad clipping
         clip_grad_norm=1.0,
     )
+
+There are two communication optimizations worth paying attention to here:
+
+- ``overlap_sync_grad``: If set True, overlapping training backward pass with gradients' all-reduce communication
+- ``overlap_sync_param``: If set True, overlapping parameters' broadcast communication with next step's forward pass
 
 .. autoclass:: internlm.solver.optimizer.hybrid_zero_optim.HybridZeroOptimizer
     :members:
