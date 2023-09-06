@@ -3,6 +3,7 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
+
 InternLM
 ========
 
@@ -13,6 +14,14 @@ Environment Setup
    :maxdepth: 2
 
    install
+
+Quickstart Guide
+-------------------
+
+.. toctree::
+   :maxdepth: 2
+
+   usage
 
 Model Setup
 -------------------
@@ -39,7 +48,7 @@ Parallel Training
    parallel
 
 Model Checkpointing
--------------------
+--------------------
 
 .. toctree::
    :maxdepth: 2
@@ -61,6 +70,22 @@ Monitor
    :maxdepth: 2
 
    monitor
+
+Example
+-------------------
+
+.. toctree::
+   :maxdepth: 2
+
+   example/index
+
+Q&A
+-------------------
+
+.. toctree::
+   :maxdepth: 2
+
+   qa
 
 Indices and tables
 ==================

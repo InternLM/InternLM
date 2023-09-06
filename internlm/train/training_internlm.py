@@ -45,9 +45,11 @@ logger = get_logger(__file__)
 
 def initialize_model():
     """
-    Initialize model.
+    Initialize model with Automatic Mixed Precision.
 
-    Returns: The neural network model to be trained or evaluated.
+    Returns:
+        torch.nn.Module:
+            The neural network model to be trained or evaluated.
     """
 
     model = MODEL_INITIALIZER.get_module(module_name=gpc.config.model_type)(**(gpc.config.model))
@@ -88,9 +90,10 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
     Initialize optimizer.
 
     Args:
-        model (torch.nn.Module): Your model instance to be trained or evaluated.
+        model (:class:`torch.nn.Module`): Your model instance to be trained or evaluated.
 
-    Returns: A tuple of (optimizer, beta2_scheduler, lr_scheduler).
+    Returns:
+        A tuple of (optimizer, beta2_scheduler, lr_scheduler).
     """
     if gpc.config.hybrid_zero_optimizer.overlap_sync_param:
         param_bcast_sync_handler = ParamBcastSyncHandler(model)
@@ -125,7 +128,14 @@ def get_train_data_loader(
     """
     Generate and return the training data loader.
 
-    Returns: A tuple of (train_dl, dataset_types).
+    Args:
+        num_worker (:class:`int`): number of subprocesses used for dataloader.
+        dataset_generate_func (:class:`Callable`, optional): generate function for dataset.
+        train_sampler (:class:`torch.utils.data.sampler`, optional): dataset sampler for training dataloader.
+        train_collate_fn (:class:`Callable`, optional): collate function for training dataloader.
+
+    Returns:
+        A tuple of (train_dl, dataset_types).
     """
 
     # Get the dataset types
