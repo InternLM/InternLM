@@ -75,7 +75,7 @@ msgstr ""
 msgid ""
 "After installing the above dependencies, some system environment "
 "variables need to be updated:"
-msgstr ""
+msgstr "以上依赖包安装完成后，需要更新配置系统环境变量："
 
 #: ../../../en/install.md:28 a034e3841a9a4188bb7902c9d8bee943
 msgid "Environment Installation"
