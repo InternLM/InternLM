@@ -265,6 +265,7 @@ def args_sanity_check():
         alert._add_item("feishu_alert_address", None)
     if alert.enable_feishu_alert:
         if not alert.feishu_alert_address and gpc.is_rank_for_log():
+            alert.feishu_alert_address = None
             logger.warning("alert is enable but alert_address is not set")
     else:
         alert.feishu_alert_address = None
