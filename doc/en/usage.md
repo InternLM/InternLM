@@ -1,4 +1,4 @@
-## Pre-training and Fine-tuning Tutorial for InternLM
+## Quickstart Guide for Pre-training and Fine-tuning
 
 To start a demo model training, you need to prepare three things: **installation**, **dataset preparation**, and **model training configuration**. In this guide, we will first cover the steps for dataset preparation and then briefly describe the model training configuration.
 
@@ -93,10 +93,7 @@ data = dict(
 )
 ```
 
-<div align="left">
-    <img src="../imgs/pack_into_one.png" width="550"/>
-</div>
-
+![pack_into_one](../imgs/pack_into_one.png)
 
 Currently, it supports passing the dataset file path `train_folder`, and the file format is required to be as follows:
 
