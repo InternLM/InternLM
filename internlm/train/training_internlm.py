@@ -101,12 +101,12 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
 
     adam_cfg = gpc.config.adam
     if gpc.config.model.get("norm_fp32"):
-        params=[
+        params = [
             {"params": model.not_norm, "weight_decay": adam_cfg.weight_decay, "name": "default"},
             {"params": model.norm, "weight_decay": adam_cfg.weight_decay, "name": "norm"},
         ]
     else:
-        params=[{"params": model.parameters(), "weight_decay": adam_cfg.weight_decay}]
+        params = [{"params": model.parameters(), "weight_decay": adam_cfg.weight_decay}]
     naive_optimizer = torch.optim.AdamW(
         params=params,
         lr=adam_cfg.lr,

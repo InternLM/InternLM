@@ -195,7 +195,7 @@ class PackedFlashBaseLayer1D(nn.Module):
 
         if self.residual_in_fp32:
             residual1 = residual1.to(torch.float32)
-        
+
         if self.norm_fp32:
             hidden_states = hidden_states.to(self.dtype)
 

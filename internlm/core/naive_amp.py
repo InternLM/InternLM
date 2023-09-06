@@ -53,7 +53,7 @@ class NaiveAMPModel(nn.Module):
             self._world_size = 1
             self._sync_buf = False
         self._first_eval_run = False
-        
+
         # not-norm parameters
         self.not_norm = []
         # norm parameters
