@@ -9,6 +9,8 @@ from enum import Enum
 
 import torch.distributed as dist
 
+from internlm.utils.timeout import LLM_NCCL_TIMEOUT
+
 
 # parallel modes
 class ParallelMode(Enum):
@@ -109,9 +111,13 @@ class Initializer_Data(ProcessGroupInitializer):
 
         for i in range(self.rank_num_per_dp_group):
             ranks = [i + j * self.rank_num_per_dp_group for j in range(self.data_parallel_size)]
-            group = dist.new_group(ranks)
+            group = dist.new_group(ranks, timeout=LLM_NCCL_TIMEOUT)
             if use_cpu:
-                group_cpu = dist.new_group(ranks, backend="gloo") if dist.get_backend() != "gloo" else group
+                group_cpu = (
+                    dist.new_group(ranks, backend="gloo", timeout=LLM_NCCL_TIMEOUT)
+                    if dist.get_backend() != "gloo"
+                    else group
+                )
             else:
                 group_cpu = None
 
@@ -161,9 +167,13 @@ class Initializer_Model(ProcessGroupInitializer):
 
         for i in range(self.num_group):
             ranks = [i * self.rank_num_per_group + j for j in range(self.rank_num_per_group)]
-            group = dist.new_group(ranks)
+            group = dist.new_group(ranks, timeout=LLM_NCCL_TIMEOUT)
             if use_cpu:
-                group_cpu = dist.new_group(ranks, backend="gloo") if dist.get_backend() != "gloo" else group
+                group_cpu = (
+                    dist.new_group(ranks, backend="gloo", timeout=LLM_NCCL_TIMEOUT)
+                    if dist.get_backend() != "gloo"
+                    else group
+                )
             else:
                 group_cpu = None
 
@@ -221,9 +231,13 @@ class Initializer_Pipeline(ProcessGroupInitializer):
                     )
                 )
                 pipe_group_size = len(ranks)
-                pipe_group = dist.new_group(ranks)
+                pipe_group = dist.new_group(ranks, timeout=LLM_NCCL_TIMEOUT)
                 if use_cpu:
-                    group_cpu = dist.new_group(ranks, backend="gloo") if dist.get_backend() != "gloo" else pipe_group
+                    group_cpu = (
+                        dist.new_group(ranks, backend="gloo", timeout=LLM_NCCL_TIMEOUT)
+                        if dist.get_backend() != "gloo"
+                        else pipe_group
+                    )
                 else:
                     group_cpu = None
 
@@ -271,9 +285,13 @@ class Initializer_Tensor(ProcessGroupInitializer):
 
         for i in range(self.num_tensor_parallel_group):
             ranks = [i * self.tensor_parallel_size + j for j in range(self.tensor_parallel_size)]
-            group = dist.new_group(ranks)
+            group = dist.new_group(ranks, timeout=LLM_NCCL_TIMEOUT)
             if use_cpu:
-                group_cpu = dist.new_group(ranks, backend="gloo") if dist.get_backend() != "gloo" else group
+                group_cpu = (
+                    dist.new_group(ranks, backend="gloo", timeout=LLM_NCCL_TIMEOUT)
+                    if dist.get_backend() != "gloo"
+                    else group
+                )
             else:
                 group_cpu = None
 
@@ -327,9 +345,13 @@ class Initializer_Zero1(ProcessGroupInitializer):
                     i + (j * self.zero1_parallel_size + k) * self.rank_num_per_dp_group
                     for k in range(self.zero1_parallel_size)
                 ]
-                group = dist.new_group(ranks)
+                group = dist.new_group(ranks, timeout=LLM_NCCL_TIMEOUT)
                 if use_cpu:
-                    group_cpu = dist.new_group(ranks, backend="gloo") if dist.get_backend() != "gloo" else group
+                    group_cpu = (
+                        dist.new_group(ranks, backend="gloo", timeout=LLM_NCCL_TIMEOUT)
+                        if dist.get_backend() != "gloo"
+                        else group
+                    )
                 else:
                     group_cpu = None
 
@@ -376,9 +398,13 @@ class Initializer_Nettest(ProcessGroupInitializer):
                 rank = i * self.nettest_parallel_size + j
                 if rank < self.world_size:
                     ranks.append(rank)
-            group = dist.new_group(ranks)
+            group = dist.new_group(ranks, timeout=LLM_NCCL_TIMEOUT)
             if use_cpu:
-                group_cpu = dist.new_group(ranks, backend="gloo") if dist.get_backend() != "gloo" else group
+                group_cpu = (
+                    dist.new_group(ranks, backend="gloo", timeout=LLM_NCCL_TIMEOUT)
+                    if dist.get_backend() != "gloo"
+                    else group
+                )
             else:
                 group_cpu = None
 

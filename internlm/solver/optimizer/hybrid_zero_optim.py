@@ -32,6 +32,7 @@ from internlm.solver.optimizer.utils import (
 from internlm.utils.common import get_current_device
 from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
+from internlm.utils.timeout import llm_timeout
 
 from .utils import compute_norm
 
@@ -506,6 +507,7 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         return norm
 
+    @llm_timeout(func_name="optim_step")
     def step(self, closure=None):
         """Performs a single optimization step.
 

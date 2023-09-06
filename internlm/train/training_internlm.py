@@ -40,10 +40,12 @@ from internlm.utils.parallel import (
     sync_model_param_within_tp,
 )
 from internlm.utils.registry import MODEL_INITIALIZER
+from internlm.utils.timeout import llm_timeout
 
 logger = get_logger(__file__)
 
 
+@llm_timeout(func_name="initialize_model")
 def initialize_model():
     """
     Initialize model.
@@ -88,6 +90,7 @@ def initialize_model():
     return model
 
 
+@llm_timeout(func_name="initialize_optimizer")
 def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
     """
     Initialize optimizer.
@@ -124,6 +127,7 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
     return optimizer, beta2_scheduler, lr_scheduler
 
 
+@llm_timeout(func_name="get_train_data_loader")
 def get_train_data_loader(
     num_worker: int = 0, dataset_generate_func: Callable = None, train_sampler=None, train_collate_fn=None
 ):
@@ -196,6 +200,7 @@ def get_train_data_loader(
     return train_dl, dataset_types
 
 
+@llm_timeout(func_name="get_validation_data_loader")
 def get_validation_data_loader(
     num_worker: int = 0, dataset_generate_func: Callable = None, val_collate_fn=None, dataloader_func=None
 ):
@@ -257,6 +262,7 @@ def get_validation_data_loader(
     return val_dls
 
 
+@llm_timeout(func_name="load_new_batch")
 def load_new_batch(train_dl: DataLoader, train_iter: Iterable, train_state: TrainState):
     """
     Load and return the new batch data based on training data loader.
@@ -314,6 +320,7 @@ def initialize_llm_profile(profiling: bool = False, start_time: str = None):
     )
 
 
+@llm_timeout(func_name="record_current_batch_training_metrics")
 def record_current_batch_training_metrics(
     get_tflops_func,
     logger,

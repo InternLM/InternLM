@@ -13,6 +13,7 @@ from internlm.core.context import global_context as gpc
 from internlm.monitor import initialize_light_monitor
 from internlm.utils.common import get_master_node
 from internlm.utils.logger import get_logger
+from internlm.utils.timeout import llm_timeout
 
 logger = get_logger(__file__)
 
@@ -410,6 +411,7 @@ def launch_from_torch(
     )
 
 
+@llm_timeout(func_name="initialize_distributed_env")
 def initialize_distributed_env(
     config: str,
     launcher: str = "slurm",
