@@ -1,13 +1,12 @@
-Training Setup
+训练构建
 ==============
 
 .. _InternLM-args:
 
-Argument Parsing
+命令行参数解析
 ----------------
-InternLM uses the `argparse <https://docs.python.org/3/library/argparse.html>`_ library to supply commandline
-configuration to the InternLM runtime. Use ``internlm.initialize.get_default_parser()`` to get InternLM's default
-parser with some builtin arguments, users can add custom parameters to this parser.
+InternLM 使用 `argparse <https://docs.python.org/3/library/argparse.html>`_ 库来向InternLM运行时提供命令行参数配置。用户可
+使用 ``internlm.initialize.get_default_parser()`` 来获取 InternLM 的默认解析器，其中包含一些内置参数，用户可以向此解析器添加自定义参数。
 
 .. code-block:: python
 
@@ -22,13 +21,12 @@ parser with some builtin arguments, users can add custom parameters to this pars
 
 .. _InternLM-model-init:
 
-Model Initialization
+模型初始化
 -------------------------
 
 .. autofunction:: internlm.train.initialize_model
 
-InternLM uses the field ``model_type`` and ``model`` in the config file to control model initialization process. An example model initialization configuration 
-can be defined as follows:
+InternLM 在配置文件中使用字段 ``model_type`` 和 ``model`` 来控制模型初始化过程。示例模型初始化配置定义如下：
 
 .. code-block:: python
 
@@ -56,10 +54,10 @@ can be defined as follows:
         num_chunks=1,  # if num_chunks > 1, interleaved pipeline scheduler is used.
     )
 
-- The field ``model_type`` specifics the model type has been registered and to be initialized.
-- The parameters in field ``model`` specific the configuration settings during model initialization.
+- 字段 ``model_type`` 指明了要初始化的模型类型
+- 字段 ``model`` 中的参数指定了在模型初始化过程中的参数设置
 
-It is worth noting that, users can define new model type, and register model's initialization function by decorater ``@MODEL_INITIALIZER.register_module``, which ``MODEL_INITIALIZER`` is an instantiated object of class ``internlm.util.registry.Registry``, the example is shown as follows.
+值得注意的是，用户可以定义新的模型类型，并使用装饰器 ``@MODEL_INITIALIZER.register_module`` 注册模型的初始化函数，其中 ``MODEL_INITIALIZER`` 是类 ``internlm.util.registry.Registry`` 的一个实例化对象，示例如下所示：
 
 .. code-block:: python
 
@@ -70,21 +68,21 @@ It is worth noting that, users can define new model type, and register model's i
 
 .. _InternLM-optim-init:
 
-Optimizer Initialization
+优化器初始化
 -------------------------
 
 .. autofunction:: internlm.train.initialize_optimizer
 
 .. _InternLM-dl-init:
 
-Dataloader Initialization
+数据集初始化
 -------------------------
 
 .. autofunction:: internlm.train.get_train_data_loader
 
 .. _InternLM-trainer-init:
 
-Trainer Initialization
+Trainer 初始化
 -------------------------
 
 .. autofunction:: internlm.initialize.initialize_trainer

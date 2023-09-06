@@ -1,10 +1,9 @@
-Training API
+训练 API
 ============
 
-InternLM training API is managed in ``internlm.core.trainer.Trainer``. After defining the training engine and runtime scheduler, 
-we can call training API to perform training, evaluation, zero gradients and parameter update steps.
+InternLM 的训练 API 由 ``internlm.core.trainer.Trainer`` 管理。在定义了训练引擎和调度器之后，我们可以调用 Trainer API 来执行模型训练、评估、梯度清零和参数更新等。
 
-For detailed usage, please refer to Trainer API documentation and examples.
+有关详细用法，请参阅 Trainer API 文档和示例。
 
 .. autoclass:: internlm.core.trainer.Trainer
     :members:

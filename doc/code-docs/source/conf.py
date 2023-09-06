@@ -97,7 +97,7 @@ autodoc_mock_imports = [
 ]
 
 # support multi-language docs
-language = "en"
+language = "zh_CN"
 locale_dirs = ["../locales/"]  # path is example but recommended.
 gettext_compact = False  # optional.
 gettext_uuid = True  # optional.

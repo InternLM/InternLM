@@ -1,2 +1,2 @@
-```{include} ../../en/install.md
+```{include} ../../install.md
 ```
