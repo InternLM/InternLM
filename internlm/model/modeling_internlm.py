@@ -77,6 +77,8 @@ class PackedFlashBaseLayer1D(nn.Module):
         self.dropout_selective_checkpoint = dropout_selective_checkpoint is True and checkpoint is False
         self.layer_idx = layer_idx
         self.use_flash_attn = use_flash_attn
+        self.dtype = dtype
+        self.norm_fp32 = gpc.config.model.get("norm_fp32")
 
         head_dim = hidden_size // num_attention_heads
         self.mixer = MHA(
@@ -187,36 +189,17 @@ class PackedFlashBaseLayer1D(nn.Module):
             "inference_params": inference_params,
         }
 
-        # def _dropout_and_norm_attn(_hidden_states):
-        #     _dropped = self.dropout1(_hidden_states)
-        #     _residual = _dropped
-        #     _hidden_states = self.norm1(_residual.float())
-        #     return _residual, _hidden_states
-
-        # if self.dropout_selective_checkpoint:
-        #     residual, hidden_states = activation_checkpoint(_dropout_and_norm_attn, False, hidden_states)
-        # else:
-        #     residual, hidden_states = _dropout_and_norm_attn(hidden_states)
-
         dropped1 = self.dropout1(hidden_states)
         residual1 = dropped1
         hidden_states = self.norm1(residual1.float())
 
         if self.residual_in_fp32:
             residual1 = residual1.to(torch.float32)
+        
+        if self.norm_fp32:
+            hidden_states = hidden_states.to(self.dtype)
 
-        hidden_states = self.mixer(hidden_states.half(), **mixer_kwargs)
-
-        # def _dropout_and_norm_ffn(_residual, _hidden_states):
-        #     _dropped = self.dropout2(_hidden_states)
-        #     _residual = (_dropped + _residual) if _residual is not None else _dropped
-        #     _hidden_states = self.norm2(_residual.float())
-        #     return _residual, _hidden_states
-
-        # if self.dropout_selective_checkpoint:
-        #     residual, hidden_states = activation_checkpoint(_dropout_and_norm_ffn, False, residual, hidden_states)
-        # else:
-        #     residual, hidden_states = _dropout_and_norm_ffn(residual, hidden_states)
+        hidden_states = self.mixer(hidden_states, **mixer_kwargs)
 
         dropped2 = self.dropout2(hidden_states)
         residual2 = (dropped2 + residual1) if residual1 is not None else dropped2
@@ -225,7 +208,10 @@ class PackedFlashBaseLayer1D(nn.Module):
         if self.residual_in_fp32:
             residual2 = residual2.to(torch.float32)
 
-        hidden_states = self.mlp(hidden_states.half())
+        if self.norm_fp32:
+            hidden_states = hidden_states.to(self.dtype)
+
+        hidden_states = self.mlp(hidden_states)
 
         return hidden_states + residual2
 
@@ -356,6 +342,8 @@ class PackedFlashInternLm1D(nn.Module):
                 if gpc.get_world_size(ParallelMode.TENSOR) > 1:
                     setattr(param, IS_TENSOR_PARALLEL, True)
         self.parallel_output = parallel_output
+        self.dtype = dtype
+        self.norm_fp32 = gpc.config.model.get("norm_fp32")
 
     def forward(self, hidden_states=None, cu_seqlens=None, input_ids=None, indexes=None, inference_params=None):
         # attention_mask: compute attention on the places where the value is 1
@@ -392,7 +380,9 @@ class PackedFlashInternLm1D(nn.Module):
         if hasattr(self, "norm"):
             hidden_states = self.norm(hidden_states.float())
         if hasattr(self, "head"):
-            hidden_states = self.head(hidden_states.half())
+            if self.norm_fp32:
+                hidden_states = hidden_states.to(self.dtype)
+            hidden_states = self.head(hidden_states)
 
         if not self.parallel_output:
             hidden_states = gather_forward_split_backward(hidden_states, ParallelMode.TENSOR, dim=-1)

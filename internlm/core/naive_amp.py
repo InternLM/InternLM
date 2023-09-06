@@ -36,17 +36,14 @@ class NaiveAMPModel(nn.Module):
         parallel_mode: ParallelMode = ParallelMode.DATA,
         sync_buffer: bool = True,
         dtype=torch.float16,
+        norm_fp32: bool = False,
     ):
         super().__init__()
         self.model = model.to(dtype)
         self._output_to_fp32 = output_to_fp32
         self._sync_buf = sync_buffer
         self.dtype = dtype
-
-        # not-norm parameters
-        self.not_norm = []
-        # norm parameters
-        self.norm = []
+        self.norm_fp32 = norm_fp32
 
         if gpc.is_initialized(parallel_mode) and gpc.get_world_size(parallel_mode) > 1:
             self._process_group = gpc.get_group(parallel_mode)
@@ -57,9 +54,14 @@ class NaiveAMPModel(nn.Module):
             self._sync_buf = False
         self._first_eval_run = False
 
-        if self.dtype in [torch.float16, torch.bfloat16]:
-            # set the norm weight dtype to fp32
-            self.set_norm_fp32(self.model)
+        if self.norm_fp32:
+            # not-norm parameters
+            self.not_norm = []
+            # norm parameters
+            self.norm = []
+            if self.dtype in [torch.float16, torch.bfloat16]:
+                # set the norm weight dtype to fp32
+                self.set_norm_fp32(self.model)
 
     def set_norm_fp32(self, module):
         if len(list(module.children())) == 0:

@@ -214,7 +214,13 @@ def args_sanity_check():
                 "torch.float32",
                 "torch.tf32",
             ]
-
+    if "norm_fp32" not in model:
+        logger.warning("norm_fp32 is not set, use False by defalut!")
+        model._add_item("norm_fp32", False)
+    else:
+        if gpc.config.model.dtype is torch.float32:
+            gpc.config.model.norm_fp32 = False
+        
     if "checkpoint" in model:
         if model.checkpoint is True:
             model.checkpoint = 1

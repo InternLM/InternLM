@@ -59,6 +59,7 @@ def initialize_model():
                     output_to_fp32=False,  # manually controlled by interleaved pipleline scheduler
                     dtype=gpc.config.model.get("dtype", torch.half),
                     sync_buffer=False,
+                    norm_fp32=False,
                 )
                 for _m in model
             ]
@@ -69,6 +70,7 @@ def initialize_model():
             output_to_fp32=is_no_pp_or_last_stage(),
             dtype=gpc.config.model.get("dtype", torch.half),
             sync_buffer=False,
+            norm_fp32=False,
         )
 
     # This sync is very important, cause the model weights kept in optimizer are copied
@@ -98,11 +100,15 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
         param_bcast_sync_handler = None
 
     adam_cfg = gpc.config.adam
-    naive_optimizer = torch.optim.AdamW(
+    if gpc.config.model.get("norm_fp32"):
         params=[
             {"params": model.not_norm, "weight_decay": adam_cfg.weight_decay, "name": "default"},
             {"params": model.norm, "weight_decay": adam_cfg.weight_decay, "name": "norm"},
-        ],
+        ]
+    else:
+        params=[{"params": model.parameters(), "weight_decay": adam_cfg.weight_decay}]
+    naive_optimizer = torch.optim.AdamW(
+        params=params,
         lr=adam_cfg.lr,
         betas=(adam_cfg.adam_beta1, adam_cfg.adam_beta2),
         eps=adam_cfg.adam_eps,
