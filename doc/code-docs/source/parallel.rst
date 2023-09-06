@@ -86,17 +86,21 @@ use of uplink/downlink bandwidth and achieve communication overlap.
 The difference between 1F1B stage without overlap and 1F1B stage with overlap is shown as follows:
 
 The 1F1B stage without overlap consists of the following steps:
-1. Perform the forward pass.
-2. Perform the backward pass.
-3. Send the forward output of this iteration to the next stage, and send the backward output of this iteration to the previous stage, and receive the forward and backward inputs for the next iteration.
+
+.. code-block:: bash
+    1. Perform the forward pass.
+    2. Perform the backward pass.
+    3. Send the forward output of this iteration to the next stage, and send the backward output of this iteration to the previous stage, and receive the forward and backward inputs for the next iteration.
 
 The 1F1B stage with overlap consists of the following steps:
-1. Perform the forward pass.
-2. Check if the backward input is ready.
-3. Send the forward output and receive the forward input for the next iteration.
-4. Perform the backward pass.
-5. Check if the forward input is ready.
-6. Send the backward output and receive the backward input for the next iteration.
+
+.. code-block:: bash
+    1. Perform the forward pass.
+    2. Check if the backward input is ready.
+    3. Send the forward output and receive the forward input for the next iteration.
+    4. Perform the backward pass.
+    5. Check if the forward input is ready.
+    6. Send the backward output and receive the backward input for the next iteration.
 
 
 Sequence Parallel
