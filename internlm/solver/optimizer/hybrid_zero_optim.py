@@ -618,9 +618,7 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         # the following operations are performed only on the rank to which parameters are assigned.
         if len(single_grad_partition_groups) != 0 and self._clip_grad_norm > 0:
-            self._unscale_and_clip_grads(
-                single_grad_partition_groups, list(global_norm_groups.values()), loss_scale
-            )
+            self._unscale_and_clip_grads(single_grad_partition_groups, list(global_norm_groups.values()), loss_scale)
 
         # update the parameters
         timer("step").start()
