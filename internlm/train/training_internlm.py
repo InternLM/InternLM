@@ -427,4 +427,8 @@ def record_current_batch_training_metrics(
             logger.info(line)
 
         # if loss spike occurs, send alert info to feishu
-        mm.monitor_loss_spike(alert_address=gpc.config.alert_address, step_count=batch_count, cur_step_loss=loss.item())
+        mm.monitor_loss_spike(
+            alert_address=gpc.config.monitor.alert.feishu_alert_address,
+            step_count=batch_count,
+            cur_step_loss=loss.item(),
+        )

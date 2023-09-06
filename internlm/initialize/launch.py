@@ -254,8 +254,20 @@ def args_sanity_check():
         ), "sequence parallel does not support use_flash_attn=False"
 
     # feishu webhook address for alerting
-    if "alert_address" not in gpc.config:
-        gpc.config._add_item("alert_address", None)
+    if "monitor" not in gpc.config:
+        gpc.config._add_item("monitor", {})
+    if "alert" not in gpc.config.monitor:
+        gpc.config.monitor._add_item("alert", {})
+    alert = gpc.config.monitor.alert
+    if "enable_feishu_alert" not in alert:
+        alert._add_item("enable_feishu_alert", False)
+    if "feishu_alert_address" not in alert:
+        alert._add_item("feishu_alert_address", None)
+    if alert.enable_feishu_alert:
+        if not alert.feishu_alert_address and gpc.is_rank_for_log():
+            logger.warning("alert is enable but alert_address is not set")
+    else:
+        alert.feishu_alert_address = None
 
     optim_ckpt = gpc.config.hybrid_zero_optimizer
     if "zero_overlap_communication" in optim_ckpt:
@@ -332,14 +344,6 @@ def launch(
             f"data parallel size: {gpc.data_parallel_size}, pipeline parallel size: {gpc.pipeline_parallel_size}, "
             f"tensor parallel size: {gpc.tensor_parallel_size}",
         )
-
-    # init light monitor client
-    light_monitor_address = gpc.config.get("light_monitor_address", None)
-    if light_monitor_address is None:
-        if gpc.is_rank_for_log():
-            logger.warning("monitor address is none, monitor could not be used!")
-    else:
-        initialize_light_monitor(light_monitor_address)
 
 
 def launch_from_slurm(
@@ -443,6 +447,14 @@ def initialize_distributed_env(
 
     if args_check:
         args_sanity_check()
+
+    # init light monitor client
+    light_monitor_address = gpc.config.monitor.alert.get("light_monitor_address", None)
+    if light_monitor_address is None:
+        if gpc.is_rank_for_log():
+            logger.warning("monitor address is none, monitor could not be used!")
+    else:
+        initialize_light_monitor(light_monitor_address)
 
 
 def get_config_value(config, key, defalut):

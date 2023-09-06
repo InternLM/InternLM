@@ -1,4 +1,5 @@
 JOB_NAME = "7b_train"
+DO_FEISHU_ALERT = False
 
 SEQ_LEN = 2048
 HIDDEN_SIZE = 4096
@@ -150,3 +151,11 @@ parallel = dict(
 
 cudnn_deterministic = False
 cudnn_benchmark = False
+
+monitor = dict(
+    # feishu alert configs
+    alert=dict(
+        enable_feishu_alert=DO_FEISHU_ALERT,
+        feishu_alert_address="",  # feishu webhook to send alert message
+    ),
+)
