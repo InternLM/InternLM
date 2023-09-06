@@ -88,6 +88,7 @@ The difference between 1F1B stage without overlap and 1F1B stage with overlap is
 The 1F1B stage without overlap consists of the following steps:
 
 .. code-block:: bash
+
     1. Perform the forward pass.
     2. Perform the backward pass.
     3. Send the forward output of this iteration to the next stage, and send the backward output of this iteration to the previous stage, and receive the forward and backward inputs for the next iteration.
@@ -95,6 +96,7 @@ The 1F1B stage without overlap consists of the following steps:
 The 1F1B stage with overlap consists of the following steps:
 
 .. code-block:: bash
+
     1. Perform the forward pass.
     2. Check if the backward input is ready.
     3. Send the forward output and receive the forward input for the next iteration.
