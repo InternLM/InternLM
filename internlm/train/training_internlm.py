@@ -59,7 +59,7 @@ def initialize_model():
                     output_to_fp32=False,  # manually controlled by interleaved pipleline scheduler
                     dtype=gpc.config.model.get("dtype", torch.half),
                     sync_buffer=False,
-                    norm_fp32=False,
+                    norm_fp32=gpc.config.model.norm_fp32,
                 )
                 for _m in model
             ]
@@ -70,7 +70,7 @@ def initialize_model():
             output_to_fp32=is_no_pp_or_last_stage(),
             dtype=gpc.config.model.get("dtype", torch.half),
             sync_buffer=False,
-            norm_fp32=False,
+            norm_fp32=gpc.config.model.norm_fp32,
         )
 
     # This sync is very important, cause the model weights kept in optimizer are copied

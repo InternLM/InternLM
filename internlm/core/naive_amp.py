@@ -53,12 +53,13 @@ class NaiveAMPModel(nn.Module):
             self._world_size = 1
             self._sync_buf = False
         self._first_eval_run = False
+        
+        # not-norm parameters
+        self.not_norm = []
+        # norm parameters
+        self.norm = []
 
         if self.norm_fp32:
-            # not-norm parameters
-            self.not_norm = []
-            # norm parameters
-            self.norm = []
             if self.dtype in [torch.float16, torch.bfloat16]:
                 # set the norm weight dtype to fp32
                 self.set_norm_fp32(self.model)

@@ -453,6 +453,7 @@ def build_model_with_cfg(
     use_swiglu: bool = True,
     use_flash_attn: bool = True,
     sequence_parallel: bool = False,  # pylint: disable=W0613
+    norm_fp32: bool = False,  # pylint: disable=W0613
 ):
     """
     Builde model with config
