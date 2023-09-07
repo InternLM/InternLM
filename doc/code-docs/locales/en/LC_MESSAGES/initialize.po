@@ -145,7 +145,6 @@ msgid "A tuple of (optimizer, beta2_scheduler, lr_scheduler)."
 msgstr ""
 
 #: ../../source/initialize.rst:79 0b46b890048f4758a9d56e0540759d9f
-#, fuzzy
 msgid "数据加载器初始化"
 msgstr "Dataloader Initialization"
 
