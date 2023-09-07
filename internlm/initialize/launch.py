@@ -450,10 +450,10 @@ def initialize_distributed_env(
         args_sanity_check()
 
     # init light monitor client
-    if gpc.config.monitor.alert.enable_feishu_alert:
+    if gpc.config.monitor.alert.enable_feishu_alert and gpc.is_rank_for_log():
         if gpc.config.monitor.alert.get("light_monitor_address", None):
             initialize_light_monitor(gpc.config.monitor.alert.light_monitor_address)
-        elif gpc.is_rank_for_log():
+        else:
             logger.warning("monitor address is none, monitor could not be used!")
 
 
