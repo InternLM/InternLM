@@ -4,12 +4,14 @@
 import socket
 import time
 import traceback
+import collections
 from functools import partial
 
 import torch
 import torch.distributed as dist
 
 import internlm
+from internlm.monitor.diagnosis import LLMManager
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.core.scheduler import SchedulerMetricHook
@@ -190,8 +192,13 @@ def main(args):
     # transfer the train data loader into train data iterator
     train_iter = iter(train_dl)
 
-    with LLMProfiler(
-        timer=timer, train_state=train_state, launch_time=launch_time, do_diagnosis=True, writer=writer, current_time=current_time
+    with LLMManager(
+        timer=timer,
+        train_state=train_state,
+        writer=writer,
+        current_time=current_time,
+        memory_profiler=memory_profiler,
+        do_trace_profiling=args.profiling,
     ) as prof:
         # start iterating the train data and begin training
         for batch_count in range(train_state.batch_count, total_steps):
@@ -282,8 +289,6 @@ def main(args):
             if now_break:
                 break
 
-            if memory_profiler is not None:
-                memory_profiler.step()
             prof.step()
 
                 

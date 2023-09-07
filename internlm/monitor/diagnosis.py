@@ -17,18 +17,17 @@ from internlm.utils.gputest import bench_gpu, bench_net
 from beautifultable import BeautifulTable
 from collections import defaultdict
 import torch.distributed as dist
+import configs.profiler as prof_config
 
 
 logger = get_logger(__file__)
 
-class LLMProfiler:
+class LLMManager:
     def __init__(
         self,
         timer: megatron_timer,
         train_state,
-        profiler_config,
         log_time_step: int = 1,
-        launch_time: str = None,
         do_trace_profiling: bool = False,
         trace_profiling_range: Callable = None,
         writer: Writer = None,
@@ -54,7 +53,6 @@ class LLMProfiler:
 
         self.trace_profiling = do_trace_profiling
         self.train_state = train_state
-        self.diagnosis_path = None
         self.log_time_step = log_time_step
         self.writer = writer
         self.timer: megatron_timer = timer
@@ -66,13 +64,21 @@ class LLMProfiler:
         self.torch_active_count = None
         self.memory_active_count = None
         self.diagnosis_active_count = None
+        self.diagnosis_start = 10
+        self.diagnosis_slower_check = 50
         
-        if 'torch_active_count' in profiler_config:
-            self.torch_active_count = profiler_config['torch_active_count']
-        if 'memory_active_count' in profiler_config:
-            self.memory_active_count = profiler_config['memory_active_count']
-        if 'diagnosis_active_count' in profiler_config:
-            self.diagnosis_active_count = profiler_config['diagnosis_active_count']
+        if 'torch_active_count' in prof_config.profiler:
+            self.torch_active_count = prof_config.profiler['torch_active_count']
+        if 'memory_active_count' in prof_config.profiler:
+            self.memory_active_count = prof_config.profiler['memory_active_count']
+        if 'bench_active_count' in prof_config.profiler:
+            self.bench_active_count = prof_config.profiler['bench_active_count']
+        if 'diagnosis_active_count' in prof_config.profiler:
+            self.diagnosis_active_count = prof_config.profiler['diagnosis_active_count']
+        if 'diagnosis_start' in prof_config.profiler:
+            self.diagnosis_start = prof_config.profiler['diagnosis_start']
+        if 'diagnosis_slower_check' in prof_config.profiler:
+            self.diagnosis_slower_check = prof_config.profiler['diagnosis_slower_check']
         
         # runtime time metrics.
         self.time_ckpts = [
@@ -94,16 +100,13 @@ class LLMProfiler:
                 lambda: gpc.get_local_rank(ParallelMode.DATA) == 0 and gpc.get_local_rank(ParallelMode.TENSOR) == 0
             )
 
-        if launch_time is None:
-            launch_time = datetime.now().strftime("%H:%M:%S")
-
         if self.trace_profiling:
             if trace_profiling_range():
                 self.torch_profile = torch.profiler.profile(
                     activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
-                    schedule=torch.profiler.schedule(skip_first=30, wait=1, warmup=1, active=1, repeat=1),
+                    schedule=torch.profiler.schedule(skip_first=1, wait=1, warmup=1, active=1, repeat=1),
                     on_trace_ready=torch.profiler.tensorboard_trace_handler(
-                        f"{gpc.config.JOB_NAME}/{launch_time}/traces/",
+                        f"{gpc.config.JOB_NAME}/{current_time}/traces/",
                     ),
                     with_stack=True,
                     with_modules=True,
@@ -128,6 +131,7 @@ class LLMProfiler:
         )
 
     def __enter__(self):
+        # self.torch_profile.__enter__()
         return self
     
     def _print_table(self, all_times):
@@ -135,7 +139,7 @@ class LLMProfiler:
         avg_vals_dict = defaultdict(int)
         for key, values in all_times.items():
             all_times[key] = sorted(values, key=lambda x: x[0], reverse=True)
-            avg_value = round(sum(x[0] for x in all_times[key]) / len(all_times[key]), 2)
+            avg_value = round(sum(x[0] for x in all_times[key][1:-1]) / (len(all_times[key]) - 2), 2)
             avg_vals_dict[key] = avg_value
             
             subtable_order = BeautifulTable()
@@ -144,7 +148,7 @@ class LLMProfiler:
             
             order = 1
             for value, ruid in all_times[key]:
-                if value >= avg_value * 1.05:
+                if value > avg_value * 1.05:
                     subtable_order.rows.append([order])
                     subtable_ruid.rows.append([ruid])
                     subtable_value.rows.append([value])
@@ -202,68 +206,78 @@ class LLMProfiler:
                 )
                  
         # If we are in diagnosis mode, rank 0 will gahter all rank runtime time info.
-        if self.diagnosis_active_count:
-            if batch_count > 10:
-                global_rank_uid = self.get_rank_uid()
-                time_info = self.timer.get_all_timer_results(reset=False)
-                with open(self.diagnosis_path, 'a') as f:
-                    with contextlib.redirect_stdout(f):
-                        if batch_count % self.diagnosis_active_count == 0:
-                            time_list = (global_rank_uid, time_info)
-                            all_rank_time_list = [None for _ in range(gpc.get_world_size(ParallelMode.GLOBAL))]
-                            dist.all_gather_object(all_rank_time_list, time_list, group=gpc.get_group(ParallelMode.GLOBAL))
-                            if gpc.is_rank_for_log():
-                                all_times = {}
-                                for rank_time_info in all_rank_time_list:
-                                    ruid, info = rank_time_info
-                                    for time_tuple in info:
-                                        name, value = time_tuple
-                                        if name not in all_times:
-                                            all_times[name] = [(value, ruid)]
-                                        else:
-                                            all_times[name].append((value, ruid))
-                                                                        
-                                self._print_table(all_times)
-                                            
-                        if gpc.is_rank_for_log(): 
-                            slow_list = []        
-                            for time_tuple in time_info:
-                                name, value = time_tuple      
-                                avg_val = self.rank_avg_time[name]
-                                if value >= avg_val * 1.05:
-                                    slow_list.append((name, value, avg_val))
-                                sum_val = self.rank_avg_time[name] * (batch_count - 10) + value
-                                self.rank_avg_time[name] = round(sum_val / (batch_count - 9), 2)
-                                
-                            if slow_list != []:
-                                self.slower_last += 1
-                                if self.slower_last == 50:
-                                    self.slower_last = 0
-                                    print(f"Warning: step:{batch_count}, The delay has continued to increase for 50 steps")
-                            else:
-                                self.slower_last = 0
-                                             
-                            if batch_count % self.diagnosis_active_count == 0 and slow_list != []:
-                                print('Cross step dia:')
-                                print('This step is slower than average')
-                                for tuple in slow_list:
-                                    name, value, avg_val = tuple
-                                    print(f'{name} = {value} > avg ({avg_val})')
-                                print()
+        if self.diagnosis_active_count and batch_count > self.diagnosis_start:
+            global_rank_uid = self.get_rank_uid()
+            time_info = self.timer.get_all_timer_results(reset=False)
+            with open(self.diagnosis_path, 'a') as f:
+                with contextlib.redirect_stdout(f):
+                    if batch_count % self.diagnosis_active_count == 0:
+                        time_list = (global_rank_uid, time_info)
+                        all_rank_time_list = [None for _ in range(gpc.get_world_size(ParallelMode.GLOBAL))]
+                        dist.all_gather_object(all_rank_time_list, time_list, group=gpc.get_group(ParallelMode.GLOBAL))
+
+                        # max_time = torch.tensor(time_list)
+                        # min_time = torch.tensor(time_list)
+                        # sum_time = torch.tensor(time_list)
+                        # dist.all_reduce(max_time, dist.ReduceOp.MAX, group=gpc.get_group(ParallelMode.GLOBAL))
+                        # dist.all_reduce(min_time, dist.ReduceOp.MIN, group=gpc.get_group(ParallelMode.GLOBAL))
+                        # dist.all_reduce(sum_time, dist.ReduceOp.SUM, group=gpc.get_group(ParallelMode.GLOBAL))
+                        # avg_time = (sum_time - min_time - max_time) / gpc.get_world_size(ParallelMode.GLOBAL)
+                        # print('testttt', global_rank_uid, max_time, min_time, sum_time, avg_time)
                         
-                        if batch_count % self.diagnosis_active_count == 0:
-                            torch.cuda.empty_cache()
-                            bench_gpu()
-                            bench_net()   
-                                     
-                               
+                        
+                        if gpc.is_rank_for_log():
+                            all_times = {}
+                            for rank_time_info in all_rank_time_list:
+                                ruid, info = rank_time_info
+                                for time_tuple in info:
+                                    name, value = time_tuple
+                                    if name not in all_times:
+                                        all_times[name] = [(value, ruid)]
+                                    else:
+                                        all_times[name].append((value, ruid))
+                                                                    
+                            self._print_table(all_times)
+                                        
+                    if gpc.is_rank_for_log(): 
+                        slow_list = []        
+                        for time_tuple in time_info:
+                            name, value = time_tuple      
+                            avg_val = self.rank_avg_time[name]
+                            if batch_count > (self.diagnosis_start + 1) and value > avg_val * 1.05:
+                                slow_list.append((name, value, avg_val))
+                            sum_num = batch_count - self.diagnosis_start - 1
+                            sum_val = self.rank_avg_time[name] * (sum_num) + value
+                            self.rank_avg_time[name] = round(sum_val / (sum_num + 1), 2)
+                            
+                        if slow_list != []:
+                            self.slower_last += 1
+                            if self.slower_last == self.diagnosis_slower_check:
+                                self.slower_last = 0
+                                print(f"Warning: step:{batch_count}, The delay has continued to increase for {self.diagnosis_slower_check} steps")
+                        else:
+                            self.slower_last = 0
+                                            
+                        if batch_count % self.diagnosis_active_count == 0 and slow_list != []:
+                            print('Cross step dia:')
+                            print('This step is slower than average')
+                            for tuple in slow_list:
+                                name, value, avg_val = tuple
+                                print(f'{name} = {value} > avg ({avg_val})')
+                            print()
+                            
         self.timer.reset()
 
         # Do cuda burn test
 
 
         # Do nccl-test benchmark
+        if batch_count % self.bench_active_count == 0:
+            bench_gpu()
+            bench_net()
 
 
     def __exit__(self, a, b, c):
+        # self.torch_profile.__exit__(a, b, c)
+        # return self
         pass
