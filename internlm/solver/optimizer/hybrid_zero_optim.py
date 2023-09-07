@@ -125,6 +125,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         self._param_store = ParameterStore(ParallelMode.ZERO1)
         self._grad_store = GradientStore(ParallelMode.DATA)
         self._bucket_store = BucketStore(ParallelMode.DATA)
+        self._bucket_in_progress = []
 
         # fp16 and fp32 params for mixed precision training
         self._fp16_param_groups = dict()
@@ -231,13 +232,6 @@ class HybridZeroOptimizer(BaseOptimizer):
         self.has_params = sum(self.param_group_has_params) != 0
         # flag used to skip unnecessary gradient reduce operation when gradient accumulation is enabled.
         self.skip_grad_reduce = False
-
-        # initialize communication stream for
-        # communication-computation overlapping
-        if self._overlap_sync_grad:
-            self._comm_stream = torch.cuda.Stream()
-        else:
-            self._comm_stream = torch.cuda.current_stream()
 
         # reduction hook is only used if overlapping communication
         # if it is stage 1 without overlapping, no hook will be attached
@@ -384,34 +378,41 @@ class HybridZeroOptimizer(BaseOptimizer):
 
     def _reduce_grads_by_rank(self, reduce_rank, grads, bucket_size):
         grad_buckets_by_dtype = split_half_float_double(grads)
-
+        next_bucket_list = []
+        # add parameters into bucket for reduction
         for tensor_list in grad_buckets_by_dtype:
             param_bucket = TensorBucket(size=bucket_size)
             for tensor in tensor_list:
                 param_bucket.add_to_bucket(tensor, allow_oversize=True)
-                if param_bucket.is_full_or_oversized():
-                    self._reduce_and_copy(bucket=param_bucket, reduce_rank=reduce_rank)
-                    param_bucket.empty()
             if not param_bucket.is_empty():
                 self._reduce_and_copy(bucket=param_bucket, reduce_rank=reduce_rank)
+            next_bucket_list.append(param_bucket)
+
+        # wait for the completion of previouce bucket list reduction, and do unflatten_and_copy()
+        # here we can also overlap the communication with some memcpy operation caused by bucket.flatten()
+        for bucket in self._bucket_in_progress:
+            bucket.commu_handle.wait()
+            bucket.unflatten_and_copy()
+            bucket.empty()
+        self._bucket_in_progress = []
+        self._param_store.clear_grads_of_previous_reduced_params()
+
+        # after the completion of bucket list reduction, add new buckets into _bucket_in_progress
+        self._bucket_in_progress = next_bucket_list.copy()
 
     def _reduce_and_copy(self, bucket: TensorBucket, reduce_rank):
-        if self._overlap_sync_grad:
-            self._comm_stream.synchronize()
-            self._param_store.clear_grads_of_previous_reduced_params()
+        # flatten the tensors and do allreduce
+        bucket.flatten()
+        bucket.commu_handle = reduce_tensor(
+            tensor=bucket.get_flat_tensor(),
+            dtype=None,
+            dst_rank=reduce_rank,
+            parallel_mode=ParallelMode.DATA,
+        )
 
-        with torch.cuda.stream(self._comm_stream):
-            flat = bucket.flatten()
-            reduced_flat = reduce_tensor(
-                tensor=flat,
-                dtype=self.dtype,
-                dst_rank=reduce_rank,
-                parallel_mode=ParallelMode.DATA,
-            )
-
-            # update the reduced tensor
-            if reduce_rank is None or reduce_rank == self._zero_local_rank:
-                bucket.unflatten_and_copy(reduced_flat)
+        # update the reduced tensor
+        if reduce_rank is None or reduce_rank == self._zero_local_rank:
+            bucket.set_unflatten_and_copy_flag(flag=True)
 
     def _has_inf_or_nan(self, tensor):
         try:
@@ -536,10 +537,13 @@ class HybridZeroOptimizer(BaseOptimizer):
             groups_norms.append(self._compute_norm_with_stage(group_id=group_id))
 
         # clear reduced grads
-        if self._overlap_sync_grad:
-            # grads in the last bucket is reduced
-            self._comm_stream.synchronize()
-            self._param_store.clear_grads_of_previous_reduced_params()
+        # grads in the last bucket is reduced
+        for bucket in self._bucket_in_progress:
+            bucket.commu_handle.wait()
+            bucket.unflatten_and_copy()
+            bucket.empty()
+        self._bucket_in_progress = []
+        self._param_store.clear_grads_of_previous_reduced_params()
 
         # compute norm for gradients in the last bucket
         total_norms = {}
@@ -626,7 +630,9 @@ class HybridZeroOptimizer(BaseOptimizer):
         if gpc.config.model.dtype is not torch.float32:
             if len(single_grad_partition_groups) != 0 and self._clip_grad_norm > 0:
                 self._unscale_and_clip_grads(
-                    single_grad_partition_groups, list(global_norm_groups.values()), loss_scale
+                    single_grad_partition_groups,
+                    list(global_norm_groups.values()),
+                    loss_scale,
                 )
 
         # update the parameters
