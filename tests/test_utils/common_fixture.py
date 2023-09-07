@@ -127,12 +127,12 @@ def reset_seed():
 
 
 @pytest.fixture(scope="module")
-def init_dist_and_model():
+def init_dist_and_model(rank=0, world_size=1):
     from internlm.initialize import initialize_distributed_env
 
-    os.environ["RANK"] = "0"
-    os.environ["LOCAL_RANK"] = "0"
-    os.environ["WORLD_SIZE"] = "1"
+    os.environ["RANK"] = str(rank)
+    os.environ["LOCAL_RANK"] = str(rank)
+    os.environ["WORLD_SIZE"] = str(world_size)
     os.environ["MASTER_ADDR"] = "127.0.0.1"
     os.environ["MASTER_PORT"] = "12377"
     initialize_distributed_env(config=init_config, launcher="torch", master_port=12377, args_check=False)

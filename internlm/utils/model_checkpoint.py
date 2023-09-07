@@ -33,6 +33,7 @@ from internlm.utils.storage_manager import (
     llm_save,
     try_get_storage_backend,
 )
+from internlm.utils.timeout import llm_timeout
 
 logger = get_logger(__file__)
 
@@ -727,6 +728,7 @@ now step_count is {train_state.step_count}",
                 if load_content_str:
                     logger.info(f"===========Load contents are: {load_content_str}")
 
+    @llm_timeout(func_name="save_checkpoint")
     def save_checkpoint(
         self,
         folder,
