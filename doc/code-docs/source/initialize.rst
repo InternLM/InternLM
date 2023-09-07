@@ -75,7 +75,7 @@ InternLM 在配置文件中使用字段 ``model_type`` 和 ``model`` 来控制�
 
 .. _InternLM-dl-init:
 
-数据集初始化
+数据加载器初始化
 -------------------------
 
 .. autofunction:: internlm.train.get_train_data_loader
