@@ -21,122 +21,122 @@ msgstr ""
 
 #: ../../../usage.md:2 a64aaaa1525e4e01b0ddcebc42c24bbd
 msgid "使用教程"
-msgstr ""
+msgstr "Quickstart Guide"
 
 #: ../../../usage.md:4 f1b40737fb584d889b82c7f55b652977
 msgid ""
 "启动一个 Demo "
 "模型训练，需要进行三项准备，**安装**，**数据集准备**和**模型训练配置**。接下来，首先会介绍数据准备相关的操作，再简要描述模型训练配置相关的内容。"
-msgstr ""
+msgstr "To start a demo model training, you need to prepare three things: **installation**, **dataset preparation**, and **model training configuration**. In this guide, we will first cover the steps for dataset preparation and then briefly describe the model training configuration."
 
 #: ../../../usage.md:6 b35abe307c2f4d23866fff828308ebf2
 msgid "安装"
-msgstr ""
+msgstr "Installation"
 
 #: ../../../usage.md:7 64a8c1f5f71c45519e636aa7edba10bc
 msgid "请参考[安装文档](./install.md)进行安装。"
-msgstr ""
+msgstr "Please refer to the [installation guide](./install.md) for instructions on how to install the necessary dependencies."
 
 #: ../../../usage.md:9 bd96714d12ee415794dea5a4578bd8cd
 msgid "数据准备 （预训练）"
-msgstr ""
+msgstr "Dataset Preparation (Pre-training)"
 
 #: ../../../usage.md:11 5a0b39fb9da94e96b87db40d1f231a0c
 msgid "InternLM训练任务的数据集包括一系列的`bin`和`meta`文件。使用`tokenizer`从原始文本文件生成训练用数据集。通过在`tools/tokenizer.py`中指定模型参数路径的方式来导入tokenizer模型。目前提供`V7_sft.model`来生成tokens。若想使用不同的模型，可直接修改`tokernizer.py`中的模型参数路径。"
-msgstr ""
+msgstr "The dataset for the InternLM training task includes a series of `bin` and `meta` files. A `tokenizer` is used to generate the training dataset from the original text files. The tokenizer model is imported by specifying the model parameter path in `tools/tokenizer.py`. Currently, `V7_sft.model` is provided to generate tokens. If you want to use a different model, you can directly modify the model parameter path in `tokenizer.py`."
 
 #: ../../../usage.md:13 3cef8126b8784af48d81cc140322909e
 msgid "可以运行以下命令生成原始数据对应的`bin`和`meta`文件，其中参数`text_input_path`表示原始文本数据路径，目前支持`txt`、`json`和`jsonl`三种输入格式，`bin_output_path`表示生成的`bin`文件的保存路径。"
-msgstr ""
+msgstr "You can run the following command to generate `bin` and `meta` files corresponding to the original data. The parameter `text_input_path` represents the path of the original text data, currently supporting `txt`, `json`, and `jsonl` formats, while `bin_output_path` represents the save path of the generated `bin` files."
 
 #: ../../../usage.md:18 107ff2280da14cb6a27f4e9857186333
 msgid "下面是一个数据处理的例子："
-msgstr ""
+msgstr "Here is an example of data processing:"
 
 #: ../../../usage.md:20 c11a9860263c4e2288a561f3435fa706
 msgid "给定一个包含原始数据集的文件`raw_data.txt`，原始数据集如下所示："
-msgstr ""
+msgstr "Given a file `raw_data.txt` containing the raw dataset, the raw dataset is shown below:"
 
 #: ../../../usage.md:27 4012599b42ab47bd979d2a0b79ca1147
 msgid "可以通过运行以下命令来生成`bin`和`meta`文件："
-msgstr ""
+msgstr "You can generate the `bin` and `meta` files by running the following command:"
 
 #: ../../../usage.md:32 cca91b6cf53a4082932dd34ea4b7f954
 msgid "需要注意的是，生成的`bin`文件需要保存在`cn`或者`en`或者`code`或者`ja`或者`ar`或者`kaoshi`这六个目录下，以区分数据集的类型。"
-msgstr ""
+msgstr "It should be noted that the generated `bin` files need to be saved in one of the following directories: `cn`, `en`, `code`, `ja`, `ar`, or `kaoshi`, depending on the type of dataset."
 
 #: ../../../usage.md:34 417312ca1e35479e811953f777e3565a
 msgid "其中，`cn`表示中文数据集；`en`表示英文数据集；`code`表示代码数据集；`ja`表示日语数据集；`ar`表示阿拉伯语数据集；`kaoshi`表示考试数据集。"
-msgstr ""
+msgstr "Here, `cn` represents the Chinese dataset, `en` represents the English dataset, `code` represents the code dataset, `ja` represents the Japanese dataset, `ar` represents the Arabic dataset, and `kaoshi` represents the exam dataset."
 
 #: ../../../usage.md:36 79c21f8e89b34499ba4e25e20593ec28
 msgid "生成的bin文件的格式如下："
-msgstr ""
+msgstr "The format of the generated `bin` files is as follows:"
 
 #: ../../../usage.md:42 26388d996c4e4116bc216be9bc007f62
 msgid "`bin`文件中的每一行均对应原始数据集中的每一个句子，表示每个句子的`token`（下文将用sequence指定）。"
-msgstr ""
+msgstr "Each line in the `bin` file corresponds to each sentence in the original dataset, representing the tokens of each sentence (referred to as sequence below)."
 
 #: ../../../usage.md:44 b39148a85ee64a349975d26282fbe59b
 msgid "生成的`meta`文件的格式如下："
-msgstr ""
+msgstr "The format of the generated `meta` file is as follows:"
 
 #: ../../../usage.md:48 175a6007197a40568535f945672e5df2
 msgid ""
 "在`meta`文件中，每个元组对应着`bin`文件中每一个`sequence`的元信息。其中，元组的第一个元素表示每个`sequence`在所有`sequence`中的`starting"
 " index`，第二个元素表示每个`sequence`中有多少个`tokens`。"
-msgstr ""
+msgstr "Each tuple in the `meta` file represents the meta information of each `sequence`, where the first element in the tuple indicates the `starting index` of each `sequence` among all `sequences`, and the second element indicates the number of `tokens` for each `sequence`."
 
 #: ../../../usage.md:50 46874a3de3924837979f9949f1237e39
 msgid ""
 "例如，对于第一个`sequence`，`starting index`为 0，有 11 "
 "个`tokens`；对于第二个`sequence`，由于第一个`sequence`转换为`string`后的长度为`89`，因此它的`starting"
 " index`为 90，有 15 个`tokens`。"
-msgstr ""
+msgstr "For example, the first `sequence` starts at index 0 and has 16 `tokens`. The second `sequence` starts at index 110 and has 24 `tokens`."
 
 #: ../../../usage.md:52 25ea049fa411408b8856e7aa657835ab
 msgid "`json`和`jsonl`类型的文件的`bin`和`meta`文件格式和`txt`一致，此处不再赘叙。"
-msgstr ""
+msgstr "The `bin` and `meta` file formats for `json` and `jsonl` type files are the same as for `txt`, so we won't go over them here."
 
 #: ../../../usage.md:54 bc52f959cb57494483a181e843014ed1
 msgid "数据准备 （微调）"
-msgstr ""
+msgstr "Data Preparation (Fine-tuning)"
 
 #: ../../../usage.md:56 73c74620c2994486acc747ba0c7f0b46
 msgid ""
 "微调任务的数据集格式与预训练任务保持一致，生成的数据格式为一系列的`bin`和`meta`文件。以下以 Alpaca "
 "数据集为例，介绍微调的数据准备流程。"
-msgstr ""
+msgstr "The data format for fine-tuning tasks is the same as for pre-training tasks, which consists of a series of `bin` and `meta` files. Let's take the Alpaca dataset as an example to explain the data preparation process for fine-tuning."
 
 #: ../../../usage.md:58 75f0e22d10ca413389ec8b947ae6141f
 msgid ""
 "下载 [Alpaca 数据集](https://github.com/tatsu-"
 "lab/stanford_alpaca/blob/main/alpaca_data.json)"
-msgstr ""
+msgstr "Download the [Alpaca dataset](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)."
 
 #: ../../../usage.md:60 667606fcea454af48353a5b40f82fc46
 msgid "对 Alpaca 数据进行 tokenize，使用以下命令"
-msgstr ""
+msgstr "Tokenize the Alpaca dataset using the following command:"
 
 #: ../../../usage.md:66 60283b9237c8462ea37288b8ece79081
 msgid "建议用户参考 alpaca_tokenizer.py 编写新的脚本对自己的数据集进行 tokenize"
-msgstr ""
+msgstr "It is recommended that users refer to alpaca_tokenizer.py to write new scripts to tokenize their own datasets"
 
 #: ../../../usage.md:68 cdf45a4de9874e9fb65f7104dcee3c61
 msgid "训练配置"
-msgstr ""
+msgstr "Training Configuration"
 
 #: ../../../usage.md:70 7c42ebc23246450cbc1270e1461b16f6
 msgid "以 7B Demo 的配置文件`configs/7B_sft.py`为例，介绍启动一个模型训练所需要进行的数据、模型和并行等相关的配置。"
-msgstr ""
+msgstr "Taking the configuration file `configs/7B_sft.py` for the 7B demo as an example, let's discuss the data, model, and parallel configurations required to start a model training."
 
 #: ../../../usage.md:72 247cfe98a7f44c2293aa2e2351f1ea69
 msgid "数据配置"
-msgstr ""
+msgstr "Data Configuration"
 
 #: ../../../usage.md:73 31327e7dce5848778db5361b3fbded1c
 msgid "数据相关的关键参数配置及释义如下所示："
-msgstr ""
+msgstr "Here are the key parameters and their explanations for data configuration:"
 
 #: ../../../usage.md:88 4d2608136fef4141bd6e47f78b8591b2
 msgid "![pack_into_one](./imgs/pack_into_one.png)"
@@ -148,39 +148,39 @@ msgstr ""
 
 #: ../../../usage.md:91 db6b9ce8e8294952845893dd7aad098f
 msgid "目前支持传入数据集文件路径`train_folder`，且要求文件格式如下："
-msgstr ""
+msgstr "Currently, it supports passing the dataset file path `train_folder`, and the file format is required to be as follows:"
 
 #: ../../../usage.md:98 f22536fc3dfa4552a103a7cb57a20f92
 msgid "数据集的详细内容可参考``数据准备``模块相关的介绍。"
-msgstr ""
+msgstr "For detailed information about the dataset, please refer to the "Data Preparation" section."
 
 #: ../../../usage.md:100 bc4f0b06e9c24730a7a831b7aca417e2
 msgid "模型配置"
-msgstr ""
+msgstr "Model Configuration"
 
 #: ../../../usage.md:102 ecf278a0a851496fae2e49c436e59368
 msgid "如果在启动训练时要加载模型 `checkpoint`，可进行如下相关配置："
-msgstr ""
+msgstr "If you want to load a model checkpoint when starting the training, you can configure it as follows:"
 
 #: ../../../usage.md:115 38244aba74294067a4019d0777621746
 msgid "注意："
-msgstr ""
+msgstr "Note:"
 
 #: ../../../usage.md:116 19d1eb0a797f4bd9a702a00e525d7753
 msgid "`load_model_only_folder`与`load_ckpt_folder`不能同时设置"
-msgstr ""
+msgstr "`load_model_only_folder` and `load_ckpt_folder` cannot be set at the same time."
 
 #: ../../../usage.md:117 3ea27a1f6be044a3959890be69311b24
 msgid "路径若以 `local:` 为前缀，则存储在本地文件系统；若以 `boto3:` 为前缀，则存储在远程 oss 上"
-msgstr ""
+msgstr "If the path starts with `local:`, it means the file is stored in the local file system. If it starts with `boto3:`, it means the file is stored in the remote OSS."
 
 #: ../../../usage.md:119 1d6381b4cfff41d8bdd5347e8a135869
 msgid "模型相关关键参数配置如下所示："
-msgstr ""
+msgstr "The configuration for the model is as follows:"
 
 #: ../../../usage.md:143 1026791c9f054576857ef1930db6b167
 msgid "注意：用户可自定义模型类型名和模型结构，并配置相对应的模型参数。通过`utils/registry.py`下的`MODEL_INITIALIZER`对象进行模型初始化函数接口注册，在训练主函数`train.py`中初始化模型时，可通过`model_type`配置获取指定的模型初始化接口函数。"
-msgstr ""
+msgstr "Note: Users can customize the model type name and model structure, and configure the corresponding model parameters. The model initialization function interface can be registered through the `MODEL_INITIALIZER` object in `utils/registry.py`. When initializing the model in the training main function `train.py`, the specified model initialization interface function can be obtained through the `model_type` configuration."
 
 #: ../../../usage.md:145 34823bcbe7754190bc9747758c1aad0c
 msgid ""
@@ -191,73 +191,73 @@ msgstr ""
 
 #: ../../../usage.md:147 4cabc928f8884cd38a6bb683b3bfade3
 msgid "并行配置"
-msgstr ""
+msgstr "Parallel Configuration"
 
 #: ../../../usage.md:149 f97ade07340340959345e73567bae793
 msgid "训练并行配置样例如下："
-msgstr ""
+msgstr "Training parallel configuration example:"
 
 #: ../../../usage.md:158 87fb5a4e4a4047ee8a9b8bb43915636d
 msgid "zero1：zero 并行策略，分如下三种情况，默认值为 -1"
-msgstr ""
+msgstr "zero1: zero parallel strategy, divided into the following three cases, default value is -1"
 
 #: ../../../usage.md:159 58dc08e2c52e4aaba99b4fbb6cf2e8b4
 msgid "当`size <= 0`，则 zero1 进程组的大小等于数据并行进程组的大小，因此优化器状态参数将在数据并行范围内分配"
-msgstr ""
+msgstr "When `size <= 0`, the size of the zero1 process group is equal to the size of the data parallel process group, so the optimizer state parameters will be split within the data parallel range."
 
 #: ../../../usage.md:160 67e2ebd795d840b29fd1d684a068e90d
 msgid "当`size == 1`，则不使用 zero1 ，所有数据并行组保留完整的优化器状态参数"
-msgstr ""
+msgstr "When `size == 1`, zero1 is not used, and all data parallel groups retain the complete optimizer state parameters."
 
 #: ../../../usage.md:161 7caedfc943514b9b83090b858ef6d163
 msgid "当`size > 1`且`size <= data_parallel_world_size`，则 zero1 进程组是数据并行进程组的子集"
-msgstr ""
+msgstr "When `size > 1` and `size <= data_parallel_world_size`, the zero1 process group is a subset of the data parallel process group."
 
 #: ../../../usage.md:162 b38d3a1f72d543c6a44728fb6babea6b
 msgid "tensor：张量并行大小，通常是每个节点的 GPU 数量，默认值为 1"
-msgstr ""
+msgstr "tensor: tensor parallel size, usually the number of GPUs per node, default is 1"
 
 #: ../../../usage.md:163 237ac76df68f4a999396dad37c5495c3
 msgid "pipeline：流水线并行策略"
-msgstr ""
+msgstr "pipeline: pipeline parallel strategy"
 
 #: ../../../usage.md:164 c8c38f6ab2ea432eb9ebbb62618ca33e
 msgid "size：流水线并行大小，默认值为 1"
-msgstr ""
+msgstr "size: pipeline parallel size, the default value is 1"
 
 #: ../../../usage.md:165 b9158818e72e49acbdd52ad317cb80df
 msgid "interleaved_overlap：bool 类型，交错式调度时，开启或关闭通信优化，默认值为关闭"
-msgstr ""
+msgstr "interleaved_overlap: bool type, when interleaved scheduling, enable or disable communication optimization, the default value is False"
 
 #: ../../../usage.md:166 28e4d48661ff4f80aff788fdda604433
 msgid "sequence_parallel：是否开启序列化并行，默认值为 False"
-msgstr ""
+msgstr "sequence_parallel: Whether to enable sequence parallelism, the default value is False"
 
 #: ../../../usage.md:168 27528ab826824d2280506460e1f2f7bd
 msgid "注意：`数据并行大小 = 总的 GPU 数目 / 流水线并行大小 / 张量并行大小`"
-msgstr ""
+msgstr "Note: `Data parallel size = Total number of GPUs / Pipeline parallel size / Tensor parallel size`"
 
 #: ../../../usage.md:170 5a7af23cec604f1d9096a5ab81993c87
 msgid "启动训练"
-msgstr ""
+msgstr "Start Training"
 
 #: ../../../usage.md:172 795e51542ed84cea83b63c5233bb88bc
 msgid "完成了以上数据集准备和相关训练配置后，可启动 Demo 训练。接下来分别以 slurm 和 torch 环境为例，介绍训练启动方式。"
-msgstr ""
+msgstr "After completing the data preparation and relevant training configurations mentioned above, you can start the demo training. The following examples demonstrate how to start the training in both slurm and torch environments."
 
 #: ../../../usage.md:174 96402cbe443044c0a0a1695c9847140b
 msgid "若在 slurm 上启动分布式运行环境，多节点 16 卡的运行命令如下所示："
-msgstr ""
+msgstr "If you want to start distributed training on slurm with 16 GPUs across multiple nodes, use the following command:"
 
 #: ../../../usage.md:179 c569e60401a6471eb9af2473acc4d5a6
 msgid "若在 torch 上启动分布式运行环境，单节点 8 卡的运行命令如下所示："
-msgstr ""
+msgstr "If you want to start distributed training on torch with 8 GPUs on a single node, use the following command:"
 
 #: ../../../usage.md:184 a045a060d0734aab9d894aed553cef34
 msgid "运行结果"
-msgstr ""
+msgstr "Training Results"
 
 #: ../../../usage.md:186 c68e8dfa259647c7a6e6e0c0446b0b18
 msgid "以 slurm 上单机 8 卡的 Demo 训练配置为例，训练结果日志展示如下："
-msgstr ""
+msgstr "Taking the configuration of the demo training on a single machine with 8 GPUs on slurm as an example, the training result log is shown below:"
 
