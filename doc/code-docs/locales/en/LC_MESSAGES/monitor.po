@@ -21,11 +21,11 @@ msgstr ""
 
 #: ../../source/monitor.rst:2 f95ef3bff8574c77a28ca2f6212cc4b8
 msgid "监控和告警"
-msgstr ""
+msgstr "Monitor and Alert"
 
 #: ../../source/monitor.rst:5 959bd4a6061f4483875c7950ab4546cf
 msgid "监控"
-msgstr ""
+msgstr "Monitoring"
 
 #: ../../source/monitor.rst:7 6071bc878d894865b73380cb887847c1
 msgid ""
@@ -33,6 +33,9 @@ msgid ""
 "来初始化上下文监控管理。其中，一个实例化的单例对象 ``internlm.monitor.monitor.MonitorManager`` "
 "将管理监控线程并使用 ``internlm.monitor.monitor.MonitorTracker`` 来跟踪模型训练生命周期和训练状态。"
 msgstr ""
+"InternLM uses ``internlm.monitor.monitor.initialize_monitor_manager()`` to initialize context monitor. During this time, "
+"a singleton ``internlm.monitor.monitor.MonitorManager`` will manage monitoring thread and track training status "
+"with ``internlm.monitor.monitor.MonitorTracker``."
 
 #: 9256a063b6dd449786f29e03ce085176
 #: internlm.monitor.monitor.initialize_monitor_manager:1 of
@@ -149,6 +152,9 @@ msgid ""
 "``internlm.monitor.alert.send_feishu_msg_with_webhook()`` 向飞书的 Webhook "
 "地址发送报警消息。"
 msgstr ""
+"InternLM monitor thread periodically tracks loss spike, potential stuck condition, runtime exception, and SIGTERM signal. "
+"When above situation occurs, an alert will be triggered and a message will be sent to the Feishu webhook address by calling "
+"``internlm.monitor.alert.send_feishu_msg_with_webhook()``."
 
 #: 15980526c2fa4ed8befa1604f271a3f1
 #: internlm.monitor.alert.send_feishu_msg_with_webhook:1 of
