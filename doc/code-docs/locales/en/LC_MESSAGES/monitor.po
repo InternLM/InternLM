@@ -32,10 +32,16 @@ msgid ""
 "InternLM 使用 ``internlm.monitor.monitor.initialize_monitor_manager()`` "
 "来初始化上下文监控管理。其中，一个实例化的单例对象 ``internlm.monitor.monitor.MonitorManager`` "
 "将管理监控线程并使用 ``internlm.monitor.monitor.MonitorTracker`` 来跟踪模型训练生命周期和训练状态。"
+<<<<<<< Updated upstream
 msgstr ""
 "InternLM uses ``internlm.monitor.monitor.initialize_monitor_manager()`` to initialize context monitor. During this time, "
 "a singleton ``internlm.monitor.monitor.MonitorManager`` will manage monitoring thread and track training status "
 "with ``internlm.monitor.monitor.MonitorTracker``."
+=======
+msgstr "InternLM uses ``internlm.monitor.monitor.initialize_monitor_manager()`` to initialize context monitor. During this time, 
+a singleton ``internlm.monitor.monitor.MonitorManager`` will manage monitoring thread and track training status 
+with ``internlm.monitor.monitor.MonitorTracker``. "
+>>>>>>> Stashed changes
 
 #: 9256a063b6dd449786f29e03ce085176
 #: internlm.monitor.monitor.initialize_monitor_manager:1 of

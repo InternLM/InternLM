@@ -21,7 +21,7 @@ msgstr ""
 
 #: ../../source/parallel.rst:2 28d82a05db464e35aa3ec83e36597214
 msgid "并行训练"
-msgstr ""
+msgstr "Parallel Training"
 
 #: ../../source/parallel.rst:6 f5c2eef4812640fca0aeaef62a2d85d4
 msgid ""
@@ -415,7 +415,7 @@ msgstr "overlap_sync_param: If set True, overlapping parameters' broadcast commu
 
 #: ../../source/parallel.rst:149 3ba64e4762084e93ba62a70c909e7d82
 msgid "这些优化可以加速训练过程，提高训练效率。"
-msgstr ""
+msgstr "These optimizations can speed up the training process and improve training efficiency."
 
 #: 757dad6b9916403c83042b49eaa35ae5
 #: internlm.solver.optimizer.hybrid_zero_optim.HybridZeroOptimizer:1 of
