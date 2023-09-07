@@ -74,7 +74,9 @@ InternLM 在流水线并行中使用 `1F1B <https://arxiv.org/pdf/2104.04473.pdf
 .. autoclass:: internlm.core.scheduler.pipeline_scheduler.InterleavedPipelineScheduler
     :members:
 
-值得注意的是，在使用交错式流水线调度器时可启用通信优化功能，即在 1F1B 阶段启用异步通信，以充分利用上行/下行带宽并实现通信与计算重叠。用户需要在配置文件中设置 ``parallel.pipeline.interleaved_overlap = True``。该功能启用后，将调用函数 ``InterleavedPipelineScheduler._run_1f1b_loop_with_overlap``，并创建 ``internlm.core.communication.AsynCommunicator``以管理异步通信。
+值得注意的是，在使用交错式流水线调度器时可启用通信优化功能，即在 1F1B 阶段启用异步通信，以充分利用上行/下行带宽并实现通信与计算重叠。
+
+用户需要在配置文件中设置 ``parallel.pipeline.interleaved_overlap = True``。该功能启用后，将调用函数 ``InterleavedPipelineScheduler._run_1f1b_loop_with_overlap``，并创建 ``internlm.core.communication.AsynCommunicator`` 以管理异步通信。
 
 ``1F1B-without-overlap`` 和 ``1F1B-with-overlap`` 的区别如下所示：
 
@@ -140,6 +142,7 @@ ZeRO1.5 的实现使用了分层分片的概念，通过配置值 ``parallel.zer
     )
 
 这里有两个值得关注的通信优化点：
+
 - overlap_sync_grad: 如果设置为 ``True``，则将训练的 ``backward pass`` 与梯度的 ``all-reduce`` 通信重叠
 - overlap_sync_param: 如果设置为 ``True``，则将参数的 ``broadcast`` 通信与下一步的 ``forward pass`` 进行重叠
 
