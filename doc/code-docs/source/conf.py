@@ -100,4 +100,4 @@ autodoc_mock_imports = [
 language = "zh_CN"
 locale_dirs = ["../locales/"]  # path is example but recommended.
 gettext_compact = False  # optional.
-gettext_uuid = True  # optional.
+gettext_uuid = False  # optional.
