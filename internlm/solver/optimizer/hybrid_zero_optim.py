@@ -376,6 +376,19 @@ class HybridZeroOptimizer(BaseOptimizer):
         self._bucket_store.reset_by_rank(reduce_rank)
 
     def _reduce_grads_by_rank(self, reduce_rank, grads, bucket_size):
+        grad_buckets_by_dtype = split_half_float_double(grads)
+        next_bucket_list = []
+        # add parameters into bucket for reduction
+        for tensor_list in grad_buckets_by_dtype:
+            param_bucket = TensorBucket(size=bucket_size)
+            for tensor in tensor_list:
+                param_bucket.add_to_bucket(tensor, allow_oversize=True)
+            if not param_bucket.is_empty():
+                self._reduce_and_copy(bucket=param_bucket, reduce_rank=reduce_rank)
+            next_bucket_list.append(param_bucket)
+
+        # wait for the completion of previouce bucket list reduction, and do unflatten_and_copy()
+        # here we can also overlap the communication with some memcpy operation caused by bucket.flatten()
         for bucket in self._bucket_in_progress:
             bucket.commu_handle.wait()
             bucket.unflatten_and_copy()
@@ -383,20 +396,14 @@ class HybridZeroOptimizer(BaseOptimizer):
         self._bucket_in_progress = []
         self._param_store.clear_grads_of_previous_reduced_params()
 
-        grad_buckets_by_dtype = split_half_float_double(grads)
-
-        for tensor_list in grad_buckets_by_dtype:
-            param_bucket = TensorBucket(size=bucket_size)
-            for tensor in tensor_list:
-                param_bucket.add_to_bucket(tensor, allow_oversize=True)
-            if not param_bucket.is_empty():
-                self._reduce_and_copy(bucket=param_bucket, reduce_rank=reduce_rank)
-            self._bucket_in_progress.append(param_bucket)
+        # after the completion of bucket list reduction, add new buckets into _bucket_in_progress
+        self._bucket_in_progress = next_bucket_list.copy()
 
     def _reduce_and_copy(self, bucket: TensorBucket, reduce_rank):
-        flat = bucket.flatten()
+        # flatten the tensors and do allreduce
+        bucket.flatten()
         bucket.commu_handle = reduce_tensor(
-            tensor=flat,
+            tensor=bucket.get_flat_tensor(),
             dtype=None,
             dst_rank=reduce_rank,
             parallel_mode=ParallelMode.DATA,

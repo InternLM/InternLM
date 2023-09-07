@@ -307,6 +307,9 @@ class TensorBucket:
     def get_unflatten_and_copy_flag(self):
         return self._unflatten_and_copy_flag
 
+    def get_flat_tensor(self):
+        return self._flat_tensor
+
     def add_to_bucket(self, tensor, allow_oversize=False):
         tensor_size = tensor.numel()
 
@@ -332,7 +335,6 @@ class TensorBucket:
 
     def flatten(self):
         self._flat_tensor = _flatten_dense_tensors(self._bucket)
-        return self._flat_tensor
 
     def unflatten_and_copy(self):
         if self._unflatten_and_copy_flag:
