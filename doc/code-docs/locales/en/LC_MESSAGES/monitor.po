@@ -149,7 +149,7 @@ msgstr ""
 
 #: ../../source/monitor.rst:18 2202bc091aab417097a1b0268dfe6785
 msgid "告警"
-msgstr ""
+msgstr "Alert"
 
 #: ../../source/monitor.rst:20 69334f83e644455aa619dde70b8ed1f2
 msgid ""

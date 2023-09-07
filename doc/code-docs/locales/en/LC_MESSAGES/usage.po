@@ -187,7 +187,7 @@ msgid ""
 "*如果基于 InternLM 7B继续训练，可以参考 "
 "[ModelZoo](https://github.com/InternLM/InternLM/tree/main#model-zoo) 中 "
 "OpenXLab 链接下载权重*"
-msgstr ""
+msgstr "If you start training based on InternLM 7B, you can refer to OpenXLab [ModelZoo](https://github.com/InternLM/InternLM/tree/main#model-zoo) to download weights*"
 
 #: ../../../usage.md:147 4cabc928f8884cd38a6bb683b3bfade3
 msgid "并行配置"
