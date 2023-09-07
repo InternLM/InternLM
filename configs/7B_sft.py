@@ -1,5 +1,5 @@
 JOB_NAME = "7b_train"
-DO_FEISHU_ALERT = False
+DO_ALERT = False
 
 SEQ_LEN = 2048
 HIDDEN_SIZE = 4096
@@ -155,7 +155,8 @@ cudnn_benchmark = False
 monitor = dict(
     # feishu alert configs
     alert=dict(
-        enable_feishu_alert=DO_FEISHU_ALERT,
-        feishu_alert_address="",  # feishu webhook to send alert message
+        enable_feishu_alert=DO_ALERT,
+        feishu_alert_address=None,  # feishu webhook to send alert message
+        light_monitor_address=None,  # light_monitor address to send heartbeat
     ),
 )

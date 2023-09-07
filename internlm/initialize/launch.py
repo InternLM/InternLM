@@ -253,29 +253,22 @@ def args_sanity_check():
             gpc.config.parallel.sequence_parallel is True and gpc.config.model.use_flash_attn is False
         ), "sequence parallel does not support use_flash_attn=False"
 
-    # monitoring config
-    # compatible with old alert config
-    if "alert_address" not in gpc.config:
-        gpc.config._add_item("alert_address", None)
-    # set default values for the new monitoring config
-    if "monitor" not in gpc.config:
-        gpc.config._add_item("monitor", {})
-    if "alert" not in gpc.config.monitor:
-        gpc.config.monitor._add_item("alert", {})
+    # monitoring default config
+    monitor_default_config = {
+        "alert_address": None,  # compatible with old alert config
+        "monitor": {  # new monitoring config
+            "alert": {"enable_feishu_alert": False, "feishu_alert_address": None, "light_monitor_address": None}
+        },
+    }
+
+    for key, value in monitor_default_config.items():
+        if key not in gpc.config:
+            gpc.config._add_item(key, value)
+
     alert = gpc.config.monitor.alert
-    # the alert switch is set to False by default
-    if "enable_feishu_alert" not in alert:
-        alert._add_item("enable_feishu_alert", False)
-    # the feishu alert address is set to None by default
-    if "feishu_alert_address" not in alert:
-        alert._add_item("feishu_alert_address", None)
-    # check the monitoring config
-    if alert.enable_feishu_alert:
-        if not alert.feishu_alert_address and gpc.is_rank_for_log():
-            alert.feishu_alert_address = None
-            logger.warning("alert is enable but alert_address is not set")
-    else:
-        alert.feishu_alert_address = None
+
+    if alert.enable_feishu_alert and not alert.feishu_alert_address and gpc.is_rank_for_log():
+        logger.warning("alert is enable but alert_address is not set")
 
     optim_ckpt = gpc.config.hybrid_zero_optimizer
     if "zero_overlap_communication" in optim_ckpt:
@@ -457,9 +450,11 @@ def initialize_distributed_env(
         args_sanity_check()
 
     # init light monitor client
-    if gpc.config.monitor.alert.enable_feishu_alert and gpc.is_rank_for_log():
-        if gpc.config.monitor.alert.get("light_monitor_address", None):
-            initialize_light_monitor(gpc.config.monitor.alert.light_monitor_address)
+    alert_config = gpc.config.monitor.alert
+    if alert_config.enable_feishu_alert and gpc.is_rank_for_log():
+        light_monitor_address = alert_config.light_monitor_address
+        if light_monitor_address:
+            initialize_light_monitor(light_monitor_address)
         else:
             logger.warning("monitor address is none, monitor could not be used!")
 
