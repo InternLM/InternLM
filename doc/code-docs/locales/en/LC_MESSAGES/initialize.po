@@ -33,9 +33,9 @@ msgid ""
 " 库来向InternLM运行时提供命令行参数配置。用户可 使用 "
 "``internlm.initialize.get_default_parser()`` 来获取 InternLM "
 "的默认解析器，其中包含一些内置参数，用户可以向此解析器添加自定义参数。"
-msgstr "InternLM uses the `argparse <https://docs.python.org/3/library/argparse.html>`_ library to supply commandline
-configuration to the InternLM runtime. Use ``internlm.initialize.get_default_parser()`` to get InternLM's default
-parser with some builtin arguments, users can add custom parameters to this parser."
+msgstr "InternLM uses the `argparse <https://docs.python.org/3/library/argparse.html>`_ library to supply
+commandline configuration to the InternLM runtime. Use ``internlm.initialize.get_default_parser()`` to get
+InternLM's default parser with some builtin arguments, users can add custom parameters to this parser."
 
 #: 9930855b85bf41ed8712fc40e1e034f7
 #: internlm.initialize.launch.get_default_parser:1 of
@@ -73,12 +73,12 @@ msgstr ""
 
 #: ../../source/initialize.rst:25 db2bf9d3ff81483dbf218e63dd4bbbe4
 msgid "模型初始化"
-msgstr ""
+msgstr "Model Initialization"
 
 #: 5c2e33e254d4495fbc4b0226aac1fddb
 #: internlm.train.training_internlm.initialize_model:1 of
 msgid "Initialize model with Automatic Mixed Precision."
-msgstr "Model Initialization"
+msgstr ""
 
 #: c1254615508542b680daf73374844f9e
 #: internlm.train.training_internlm.initialize_model:3 of
@@ -87,8 +87,8 @@ msgstr ""
 
 #: ../../source/initialize.rst:29 b9867771b9da40cd8f3a55ee5ab95f65
 msgid "InternLM 在配置文件中使用字段 ``model_type`` 和 ``model`` 来控制模型初始化过程。示例模型初始化配置定义如下："
-msgstr "InternLM uses the field ``model_type`` and ``model`` in the config file to control model initialization process. An example model initialization configuration 
-can be defined as follows:"
+msgstr "InternLM uses the field ``model_type`` and ``model`` in the config file to control model initialization
+process. An example model initialization configuration can be defined as follows:"
 
 #: ../../source/initialize.rst:57 984a38d7f63949ecbb0d8b2ef3459d57
 msgid "字段 ``model_type`` 指明了要初始化的模型类型"

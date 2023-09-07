@@ -25,7 +25,7 @@ msgstr ""
 
 #: ../../source/example/7B_demo.rst:5 5429ceea12424825991744bece744f60
 msgid "训练配置"
-msgstr ""
+msgstr "Training Config"
 
 #: ../../source/example/7B_demo.rst:7 c9a47faf5deb40b68ad2bc950fdf2b14
 msgid "7B demo 的训练配置文件样例如下:"
