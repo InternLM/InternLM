@@ -12,6 +12,7 @@ from torch.utils.data import ConcatDataset, DataLoader
 
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
+from internlm.core.context.random import set_mode
 from internlm.core.naive_amp import NaiveAMPModel
 from internlm.core.trainer import TrainState
 from internlm.data.batch_sampler import StaticBatchSampler, get_dpsampler_dataloader
@@ -24,7 +25,7 @@ from internlm.data.packed_dataset import (
     get_packed_dataset_without_short_length,
 )
 from internlm.data.utils import DATASET_TYPE_IDS_MAP, unpack_data
-from internlm.monitor import set_env_var
+from internlm.monitor import send_heartbeat, set_env_var
 from internlm.monitor.monitor import monitor_manager as mm
 from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
@@ -39,10 +40,12 @@ from internlm.utils.parallel import (
     sync_model_param_within_tp,
 )
 from internlm.utils.registry import MODEL_INITIALIZER
+from internlm.utils.timeout import llm_timeout
 
 logger = get_logger(__file__)
 
 
+@llm_timeout(func_name="initialize_model")
 def initialize_model():
     """
     Initialize model.
@@ -80,9 +83,14 @@ def initialize_model():
     # the same across tensor parallelism.
     sync_model_param_within_tp(model)
 
+    # Change random state mode to ParallelMode.DATA after model is built, guaranteeing the random
+    # state in the same dp group are all the same.
+    set_mode(ParallelMode.DATA)
+
     return model
 
 
+@llm_timeout(func_name="initialize_optimizer")
 def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
     """
     Initialize optimizer.
@@ -119,6 +127,7 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
     return optimizer, beta2_scheduler, lr_scheduler
 
 
+@llm_timeout(func_name="get_train_data_loader")
 def get_train_data_loader(
     num_worker: int = 0, dataset_generate_func: Callable = None, train_sampler=None, train_collate_fn=None
 ):
@@ -191,6 +200,7 @@ def get_train_data_loader(
     return train_dl, dataset_types
 
 
+@llm_timeout(func_name="get_validation_data_loader")
 def get_validation_data_loader(
     num_worker: int = 0, dataset_generate_func: Callable = None, val_collate_fn=None, dataloader_func=None
 ):
@@ -252,6 +262,7 @@ def get_validation_data_loader(
     return val_dls
 
 
+@llm_timeout(func_name="load_new_batch")
 def load_new_batch(train_dl: DataLoader, train_iter: Iterable, train_state: TrainState):
     """
     Load and return the new batch data based on training data loader.
@@ -309,6 +320,7 @@ def initialize_llm_profile(profiling: bool = False, start_time: str = None):
     )
 
 
+@llm_timeout(func_name="record_current_batch_training_metrics")
 def record_current_batch_training_metrics(
     get_tflops_func,
     logger,
@@ -393,6 +405,9 @@ def record_current_batch_training_metrics(
                 writer.add_scalars(key=key, value=value, step=train_state.step_count)
             else:
                 writer.add_scalar(key=key, value=value, step=train_state.step_count)
+
+        if gpc.config.get("light_monitor_address", None) and batch_count % 50 == 0:
+            send_heartbeat("train_metrics", infos)
 
         if update_panel:
             # metrics shown with dashboard panels

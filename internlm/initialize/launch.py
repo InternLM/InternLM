@@ -10,9 +10,10 @@ import torch
 
 from internlm.core.context import Config
 from internlm.core.context import global_context as gpc
+from internlm.monitor import initialize_light_monitor
 from internlm.utils.common import get_master_node
 from internlm.utils.logger import get_logger
-from internlm.utils.storage_manager import init_storage_manager
+from internlm.utils.timeout import llm_timeout
 
 logger = get_logger(__file__)
 
@@ -111,7 +112,7 @@ def args_sanity_check():
     # processing the checkpoint config
     ckpt = gpc.config.ckpt
     if "enable_save_ckpt" not in ckpt:
-        ckpt._add_item("enable_save_ckpt", False)
+        ckpt._add_item("enable_save_ckpt", True)
 
     # Saving checkpoint args.
     if ckpt.enable_save_ckpt:
@@ -137,9 +138,6 @@ def args_sanity_check():
         if not ckpt.async_upload:
             ckpt._add_item("async_upload_tmp_folder", None)
 
-        if "snapshot_ckpt_folder" not in ckpt:
-            ckpt._add_item("snapshot_ckpt_folder", os.path.join(ckpt.save_ckpt_folder, "snapshot"))
-
         if "oss_snapshot_freq" not in ckpt:
             ckpt._add_item("oss_snapshot_freq", float("inf"))  # if oss_snapshot_freq not given, we disable.
     else:
@@ -149,44 +147,23 @@ def args_sanity_check():
         ckpt._add_item("async_upload", False)
         ckpt._add_item("async_upload_tmp_folder", None)
         ckpt._add_item("snapshot_ckpt_folder", None)
-        ckpt._add_item("snapshot_ckpt_folder", None)
-
-    # Loading checkpoint args.
-    if "load_model_only_folder" not in ckpt:
-        ckpt._add_item("load_model_only_folder", None)
 
     if "load_ckpt_folder" not in ckpt:
         ckpt._add_item("load_ckpt_folder", None)
 
-    if "load_optimizer" not in ckpt:
-        ckpt._add_item("load_optimizer", True)
-
     if "stop_file_path" not in ckpt:
         ckpt._add_item("stop_file_path", None)
 
-    if "load_given_ckpt" not in ckpt:
-        # If 'load_given_ckpt' is not given, we set it to False, so internlm can have opportunity
+    if "auto_resume" not in ckpt:
+        # If 'auto_resume' is not given, we set it to True, so internlm can have opportunity
         # to auto-load latest checkpoint.
-        ckpt._add_item("load_given_ckpt", False)
-
-    if ckpt.load_given_ckpt:
-        # Priority: load_given_ckpt(True) > latest_checkpoint > load_model_only_folder
-        if ckpt.load_ckpt_folder and ckpt.load_model_only_folder:
-            logger.warning(
-                "Detect 'load_ckpt_folder' and 'load_model_only_folder' set at the same time, \
-and 'load_given_ckpt' is True, so internlm will load from 'load_ckpt_folder'"
-            )
-            ckpt.load_model_only_folder = None
+        ckpt._add_item("auto_resume", True)
 
     if gpc.is_rank_for_log():
         logger.info("+" * 15 + " Ckpt Info " + "+" * 15)  # pylint: disable=W1201
         logger.info(f"is enable save ckpt: {ckpt.enable_save_ckpt}")
         logger.info(f"save_ckpt_folder: {ckpt.save_ckpt_folder}")
         logger.info(f"checkpoint_every: {ckpt.checkpoint_every}")
-        logger.info(f"load_given_ckpt: {ckpt.load_given_ckpt}")
-
-    # initialization storage manager
-    init_storage_manager(ckpt)
 
     # tensorboard writer config
     if "enable_tb" not in gpc.config:
@@ -357,6 +334,14 @@ def launch(
             f"tensor parallel size: {gpc.tensor_parallel_size}",
         )
 
+    # init light monitor client
+    light_monitor_address = gpc.config.get("light_monitor_address", None)
+    if light_monitor_address is None:
+        if gpc.is_rank_for_log():
+            logger.warning("monitor address is none, monitor could not be used!")
+    else:
+        initialize_light_monitor(light_monitor_address)
+
 
 def launch_from_slurm(
     config: Union[str, Path, Config, Dict],
@@ -426,6 +411,7 @@ def launch_from_torch(
     )
 
 
+@llm_timeout(func_name="initialize_distributed_env")
 def initialize_distributed_env(
     config: str,
     launcher: str = "slurm",
@@ -459,3 +445,11 @@ def initialize_distributed_env(
 
     if args_check:
         args_sanity_check()
+
+
+def get_config_value(config, key, defalut):
+    try:
+        value = config[key]
+    except KeyError:
+        value = defalut
+    return value

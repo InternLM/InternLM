@@ -103,18 +103,17 @@ data = dict(
 如果在启动训练时要加载模型 `checkpoint`，可进行如下相关配置：
 ```python
 SAVE_CKPT_FOLDER = "local:/path/to/save/ckpt"
-MODEL_ONLY_FOLDER = "local:/path/to/load/init/model/ckpt"
 LOAD_CKPT_FOLDER = "local:/path/to/load/resume/ckpt"
 ckpt = dict(
     save_ckpt_folder=SAVE_CKPT_FOLDER,  # 存储模型和优化器 checkpoint 的路径
     checkpoint_every=float("inf"),  # 每多少个 step 存储一次 checkpoint，默认值为 inf
-    load_model_only_folder=MODEL_ONLY_FOLDER,  # 加载模型初始权重的路径，只加载模型权重，不加载优化器权重，训练将从第一个 step 开始
-    load_ckpt_folder=LOAD_CKPT_FOLDER,  # 断点续训时，加载模型和优化器等权重的路径，将从指定的 step 恢复训练
-    load_optimizer=True,  # 断点续训时，是否需要加载优化器权重，默认值为 True
+    # 断点续训时，加载模型和优化器等权重的路径，将从指定的 step 恢复训练
+    # content 表示哪些状态会被加载，支持： "model", "sampler", "optimizer", "scheduler", "all"
+    # ckpt_type 表示加载的模型类型，目前支持: "internlm"
+    load_ckpt_info=dict(path=MODEL_ONLY_FOLDER, content=("model",), ckpt_type="internlm"),
 )
 ```
 注意：
-- `load_model_only_folder`与`load_ckpt_folder`不能同时设置
 - 路径若以 `local:` 为前缀，则存储在本地文件系统；若以 `boto3:` 为前缀，则存储在远程 oss 上
 
 模型相关关键参数配置如下所示：

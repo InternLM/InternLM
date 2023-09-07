@@ -32,6 +32,7 @@ from internlm.solver.optimizer.utils import (
 from internlm.utils.common import get_current_device
 from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
+from internlm.utils.timeout import llm_timeout
 
 from .utils import compute_norm
 
@@ -164,9 +165,6 @@ class HybridZeroOptimizer(BaseOptimizer):
         self._param_bcast_sync_handler = param_bcast_sync_handler
         if self._overlap_sync_param:
             assert self._param_bcast_sync_handler is not None
-            self._broadcast_comm_stream = torch.cuda.Stream()
-        else:
-            self._broadcast_comm_stream = torch.cuda.current_stream()
 
         # iterate over the param group in the optimizer
         # partition these param groups for data parallel training
@@ -509,6 +507,7 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         return norm
 
+    @llm_timeout(func_name="optim_step")
     def step(self, closure=None):
         """Performs a single optimization step.
 
@@ -648,8 +647,7 @@ class HybridZeroOptimizer(BaseOptimizer):
                     fp32_param = self._fp32_flat_param_groups_of_current_rank[group_id]
                     fp16_param.data.copy_(fp32_param)
 
-        with torch.cuda.stream(self._broadcast_comm_stream):
-            self.broadcast_params()
+        self.broadcast_params()
 
         timer("step").stop()
 
@@ -775,3 +773,17 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         if "zero_devide_optim_plan" in states:
             self.params_per_rank_id_dict = states["zero_devide_optim_plan"]
+
+
+def reload_zero_fp32_buff(optimizer):
+    # If we use AMP optimizer, we need to update its fp32 buffer as newly loaded weights value.
+    # Or we must ensure that loading model weights must be done before zero is initialized.
+    if isinstance(optimizer, HybridZeroOptimizer):
+        for group_id, param_group in enumerate(optimizer.optim.param_groups):
+            if optimizer.param_group_has_params[group_id]:
+                # flatten fp16 params have already been updated by 'load_model_checkpoint'
+                fp16_flat_current_rank = optimizer._param_store.get_flat_fp16_param_by_rank_group(
+                    optimizer._zero_local_rank, group_id
+                )
+                # param_group["params"] is fp32 flatten optimizer states of this zero rank.
+                param_group["params"][0].data.copy_(fp16_flat_current_rank.float())
