@@ -1,4 +1,4 @@
-```{include} ../../en/usage.md
+```{include} ../../usage.md
 :relative-docs: docs/
 :relative-images:
 ```

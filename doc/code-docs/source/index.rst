@@ -7,7 +7,7 @@
 InternLM
 ========
 
-Environment Setup
+环境构建
 -------------------
 
 .. toctree::
@@ -15,7 +15,7 @@ Environment Setup
 
    install
 
-Quickstart Guide
+快速上手
 -------------------
 
 .. toctree::
@@ -23,7 +23,7 @@ Quickstart Guide
 
    usage
 
-Model Setup
+训练构建
 -------------------
 
 .. toctree::
@@ -31,7 +31,7 @@ Model Setup
 
    initialize
 
-Training API
+训练 API
 -------------------
 
 .. toctree::
@@ -39,7 +39,7 @@ Training API
 
    training
 
-Parallel Training
+并行训练
 -------------------
 
 .. toctree::
@@ -47,7 +47,7 @@ Parallel Training
 
    parallel
 
-Model Checkpointing
+模型备份
 --------------------
 
 .. toctree::
@@ -55,7 +55,7 @@ Model Checkpointing
 
    checkpoint
 
-Profiler
+性能分析
 -------------------
 
 .. toctree::
@@ -63,7 +63,7 @@ Profiler
 
    profiler
 
-Monitor
+训练监控
 -------------------
 
 .. toctree::
@@ -71,7 +71,7 @@ Monitor
 
    monitor
 
-Example
+训练样例
 -------------------
 
 .. toctree::
@@ -79,7 +79,7 @@ Example
 
    example/index
 
-Q&A
+常见问题
 -------------------
 
 .. toctree::
@@ -87,7 +87,7 @@ Q&A
 
    qa
 
-Indices and tables
+索引和表格
 ==================
 
 * :ref:`genindex`

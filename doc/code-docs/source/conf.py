@@ -16,9 +16,9 @@ author = "InternLM Team"
 with open("../../../version.txt", "r") as f:
     release = f.readline().rstrip()
 
-master_doc = 'index'
+master_doc = "index"
 
-autodoc_member_order = 'bysource'
+autodoc_member_order = "bysource"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -95,3 +95,9 @@ autodoc_mock_imports = [
     "torch",
     "numpy",
 ]
+
+# support multi-language docs
+language = "zh_CN"
+locale_dirs = ["../locales/"]  # path is example but recommended.
+gettext_compact = False  # optional.
+gettext_uuid = False  # optional.

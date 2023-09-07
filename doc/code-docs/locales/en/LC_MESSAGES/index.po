@@ -1,0 +1,81 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, InternLM Team
+# This file is distributed under the same license as the InternLM package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: InternLM \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-09-07 10:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: en\n"
+"Language-Team: en <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.12.1\n"
+
+#: ../../source/index.rst:8 11e029810acf410180311a3c63eb01f4
+msgid "InternLM"
+msgstr "InternLM"
+
+#: ../../source/index.rst:11 e6fd7d058e4b43bb81157ac79867e3d3
+msgid "环境构建"
+msgstr "Environment Setup"
+
+#: ../../source/index.rst:19 f323ede90c0f434d8b627eded1d8fc10
+msgid "快速上手"
+msgstr "Quickstart Guide"
+
+#: ../../source/index.rst:27 3c504b4b92264e9182abb0fa81fe80c3
+msgid "训练构建"
+msgstr "Model Setup"
+
+#: ../../source/index.rst:35 5cc5c831399a40b089d27b777a776b16
+msgid "训练 API"
+msgstr "Training API"
+
+#: ../../source/index.rst:43 21a7473eabb441f8bfe28d2a0e306889
+msgid "并行训练"
+msgstr "Parallel Training"
+
+#: ../../source/index.rst:51 9234725f3c464731993d73607608c874
+msgid "模型备份"
+msgstr "Model Checkpointing"
+
+#: ../../source/index.rst:59 8e4ce037017f4510b2892a66003877fa
+msgid "性能分析"
+msgstr "Profiler"
+
+#: ../../source/index.rst:67 a36e02819ecd4b448a8cb4ebbecb6600
+msgid "训练监控"
+msgstr "Monitor"
+
+#: ../../source/index.rst:75 b912e292486f455c8b5cdd75962e8ac2
+msgid "训练样例"
+msgstr "Example"
+
+#: ../../source/index.rst:83 ea9e9281720941a1830e5df7a2badf7a
+msgid "常见问题"
+msgstr "Q&A"
+
+#: ../../source/index.rst:91 e08edc5aa1c74965b10084b393b88fae
+msgid "索引和表格"
+msgstr "Indices and tables"
+
+#: ../../source/index.rst:93 f3fdca059caa49dcad09aa44be7f02d6
+msgid ":ref:`genindex`"
+msgstr ""
+
+#: ../../source/index.rst:94 b3791e811315435097bb507edc3f4b9b
+msgid ":ref:`modindex`"
+msgstr ""
+
+#: ../../source/index.rst:95 a164b772960f4ab8b18c7e8820f69f55
+msgid ":ref:`search`"
+msgstr ""
+
