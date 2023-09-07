@@ -20,7 +20,6 @@ LOAD_CKPT_FOLDER = "local:llm_ckpts/49"
 # LOAD_CKPT_FOLDER = f"boto3:s3://model_weights.{BOTO3_IP}/internlm/snapshot/1/"
 CHECKPOINT_EVERY = 50
 ckpt = dict(
-<<<<<<< Updated upstream
     enable_save_ckpt=False,  # enable ckpt save.
     save_ckpt_folder=SAVE_CKPT_FOLDER,  # Path to save training ckpt.
     # load_ckpt_folder= dict(path=MODEL_ONLY_FOLDER, content=["model"], ckpt_type="normal"),
@@ -34,18 +33,6 @@ ckpt = dict(
     async_upload=True,  # async ckpt upload. (only work for boto3 ckpt)
     async_upload_tmp_folder="/dev/shm/internlm_tmp_ckpt/",  # path for temporarily files during asynchronous upload.
     oss_snapshot_freq=int(CHECKPOINT_EVERY / 2),  # snapshot ckpt save frequency.
-=======
-    # enable_save_ckpt=False,  # enable ckpt save.
-    # save_ckpt_folder=SAVE_CKPT_FOLDER,  # Path to save training ckpt.
-    # # load_ckpt_folder=LOAD_CKPT_FOLDER, # Ckpt path to resume training(load weights and scheduler/context states).
-    # # load_model_only_folder=MODEL_ONLY_FOLDER, # Path to initialize with given model weights.
-    # load_optimizer=True,  # Wheter to load optimizer states when continuing training.
-    # checkpoint_every=CHECKPOINT_EVERY,
-    # async_upload=True,  # async ckpt upload. (only work for boto3 ckpt)
-    # async_upload_tmp_folder="/dev/shm/internlm_tmp_ckpt/",  # path for temporarily files during asynchronous upload.
-    # snapshot_ckpt_folder="/".join([SAVE_CKPT_FOLDER, "snapshot"]),  # directory for snapshot ckpt storage path.
-    # oss_snapshot_freq=int(CHECKPOINT_EVERY / 2),  # snapshot ckpt save frequency.
->>>>>>> Stashed changes
 )
 
 TRAIN_FOLDER = "/path/to/dataset"
