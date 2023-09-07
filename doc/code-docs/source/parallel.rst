@@ -5,7 +5,7 @@
 
 InternLM 支持张量并行、流水线并行、序列并行、数据并行和 ZeRO1.5 等并行化训练策略。在初始化分布式环境时，我们需要指定张量并行大小、流水线并行大小、数据并行大小以及 ZeRO1.5 策略。
 
-InternLM 的并行设置由配置文件中的 ``parallel`` 字段指定，用户可以通过修改配置文件 `<https://github.com/InternLM/InternLM/blob/main/configs/7B_sft.py>`_ 来更改并行配置。以下是一个并行训练配置示例：
+InternLM 的并行设置由配置文件中的 ``parallel`` 字段指定，用户可以通过修改配置文件 `config file <https://github.com/InternLM/InternLM/blob/main/configs/7B_sft.py>`_ 来更改并行配置。以下是一个并行训练配置示例：
 
 .. code-block:: python
 
@@ -26,7 +26,7 @@ InternLM 的并行设置由配置文件中的 ``parallel`` 字段指定，用户
 - pipeline：流水线并行策略
 
     - size：流水线并行大小，默认值为 1
-    - interleaved_overlap：bool 类型，交错式调度时，开启或关闭通信优化，默认值为关闭
+    - interleaved_overlap：bool 类型，交错式调度时，开启或关闭通信优化，默认值为 False
 
 - sequence_parallel：是否开启序列化并行，默认值为 False
 
@@ -49,7 +49,7 @@ InternLM 的张量并行实现方案基于 `flash attention <https://github.com/
 流水线并行
 -----------------
 
-InternLM 在流水线并行中使用 `1F1B <https://arxiv.org/pdf/2104.04473.pdf>`_（1F1B，一次前向传递后跟一次反向传递）策略。对于 1F1B 策略，有两种实现方式：
+InternLM 在流水线并行中使用 `1F1B <https://arxiv.org/pdf/2104.04473.pdf>`_ （1F1B，一次前向传递后跟一次反向传递）策略。对于 1F1B 策略，有两种实现方式：
 
 1. 非交错调度器，内存高效。
 2. 交错调度器，内存高效且时间高效（GPU空泡较少）。
@@ -74,7 +74,7 @@ InternLM 在流水线并行中使用 `1F1B <https://arxiv.org/pdf/2104.04473.pdf
 .. autoclass:: internlm.core.scheduler.pipeline_scheduler.InterleavedPipelineScheduler
     :members:
 
-值得注意的是，在使用交错式流水线调度器时可启用通信优化功能，用户需要在配置文件中设置 ``parallel.pipeline.interleaved_overlap = True``。该功能启用后，将调用函数 ``InterleavedPipelineScheduler._run_1f1b_loop_with_overlap``，并创建 ``internlm.core.communication.AsynCommunicator``以管理异步通信。在 1F1B 阶段启用异步通信，以充分利用上行/下行带宽并实现通信与计算重叠。
+值得注意的是，在使用交错式流水线调度器时可启用通信优化功能，即在 1F1B 阶段启用异步通信，以充分利用上行/下行带宽并实现通信与计算重叠。用户需要在配置文件中设置 ``parallel.pipeline.interleaved_overlap = True``。该功能启用后，将调用函数 ``InterleavedPipelineScheduler._run_1f1b_loop_with_overlap``，并创建 ``internlm.core.communication.AsynCommunicator``以管理异步通信。
 
 ``1F1B-without-overlap`` 和 ``1F1B-with-overlap`` 的区别如下所示：
 
@@ -140,7 +140,6 @@ ZeRO1.5 的实现使用了分层分片的概念，通过配置值 ``parallel.zer
     )
 
 这里有两个值得关注的通信优化点：
-
 - overlap_sync_grad: 如果设置为 ``True``，则将训练的 ``backward pass`` 与梯度的 ``all-reduce`` 通信重叠
 - overlap_sync_param: 如果设置为 ``True``，则将参数的 ``broadcast`` 通信与下一步的 ``forward pass`` 进行重叠
 

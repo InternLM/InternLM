@@ -1,4 +1,4 @@
-Training Example
+训练样例
 ================
 
 7B Demo

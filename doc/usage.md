@@ -1,4 +1,4 @@
-## 基于InternLM的预训练与微调使用教程
+## 使用教程
 
 启动一个 Demo 模型训练，需要进行三项准备，**安装**，**数据集准备**和**模型训练配置**。接下来，首先会介绍数据准备相关的操作，再简要描述模型训练配置相关的内容。
 
@@ -84,9 +84,7 @@ data = dict(
 )
 ```
 
-<div align="left">
-    <img src="./imgs/pack_into_one.png" width="550"/>
-</div>
+![pack_into_one](./imgs/pack_into_one.png)
 
 
 目前支持传入数据集文件路径`train_folder`，且要求文件格式如下：

@@ -1,10 +1,10 @@
 7B Demo
 ================
 
-Training Config
+训练配置
 ----------------
 
-7B demo config file example:
+7B demo 的训练配置文件样例如下:
 
 .. code-block:: python
 
@@ -158,20 +158,19 @@ Training Config
     cudnn_deterministic = False
     cudnn_benchmark = False
 
-Start Training
+启动训练
 ----------------
 
-After completing the data preparation and relevant training configurations, you can start the demo training.
-The following example shows how to start distributed training in ``slurm`` environments with 8 GPUs.
+完成以上训练配置后，可启动模型训练，以在 ``slurm`` 平台上为例，启动单节点 8GPU 的训练命令如下所示：
 
 .. code-block:: bash
 
     srun -p internllm -N 1 -n 8 --ntasks-per-node=8 --gpus-per-task=1 python train.py --config ./configs/7B_sft.py
 
-Training Results
+训练结果
 ----------------
 
-Taking the configuration of the demo training on a single machine with 8 GPUs on slurm as an example, the training result log is shown below:
+基于以上训练配置和启动命令，单节点 8GPU 下的模型训练部分日志展示如下：
 
 .. code-block:: bash
 
