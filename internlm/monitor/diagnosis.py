@@ -63,6 +63,7 @@ class LLMManager:
         self.memory_profiler = memory_profiler
         self.torch_active_count = None
         self.memory_active_count = None
+        self.bench_active_count = None
         self.diagnosis_active_count = None
         self.diagnosis_start = 10
         self.diagnosis_slower_check = 50
@@ -215,17 +216,7 @@ class LLMManager:
                         time_list = (global_rank_uid, time_info)
                         all_rank_time_list = [None for _ in range(gpc.get_world_size(ParallelMode.GLOBAL))]
                         dist.all_gather_object(all_rank_time_list, time_list, group=gpc.get_group(ParallelMode.GLOBAL))
-
-                        # max_time = torch.tensor(time_list)
-                        # min_time = torch.tensor(time_list)
-                        # sum_time = torch.tensor(time_list)
-                        # dist.all_reduce(max_time, dist.ReduceOp.MAX, group=gpc.get_group(ParallelMode.GLOBAL))
-                        # dist.all_reduce(min_time, dist.ReduceOp.MIN, group=gpc.get_group(ParallelMode.GLOBAL))
-                        # dist.all_reduce(sum_time, dist.ReduceOp.SUM, group=gpc.get_group(ParallelMode.GLOBAL))
-                        # avg_time = (sum_time - min_time - max_time) / gpc.get_world_size(ParallelMode.GLOBAL)
-                        # print('testttt', global_rank_uid, max_time, min_time, sum_time, avg_time)
-                        
-                        
+                    
                         if gpc.is_rank_for_log():
                             all_times = {}
                             for rank_time_info in all_rank_time_list:
@@ -272,7 +263,7 @@ class LLMManager:
 
 
         # Do nccl-test benchmark
-        if batch_count % self.bench_active_count == 0:
+        if self.bench_active_count and batch_count % self.bench_active_count == 0:
             bench_gpu()
             bench_net()
 
