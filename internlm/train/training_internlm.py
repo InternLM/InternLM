@@ -406,7 +406,7 @@ def record_current_batch_training_metrics(
             else:
                 writer.add_scalar(key=key, value=value, step=train_state.step_count)
 
-        if gpc.config.get("light_monitor_address", None) and batch_count % 50 == 0:
+        if gpc.config.monitor.alert.get("light_monitor_address", None) and batch_count % 50 == 0:
             send_heartbeat("train_metrics", infos)
 
         if update_panel:
@@ -434,4 +434,8 @@ def record_current_batch_training_metrics(
             logger.info(line)
 
         # if loss spike occurs, send alert info to feishu
-        mm.monitor_loss_spike(alert_address=gpc.config.alert_address, step_count=batch_count, cur_step_loss=loss.item())
+        mm.monitor_loss_spike(
+            alert_address=gpc.config.monitor.alert.feishu_alert_address,
+            step_count=batch_count,
+            cur_step_loss=loss.item(),
+        )
