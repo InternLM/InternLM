@@ -393,8 +393,7 @@ msgstr "If ``parallel.zero1 == 1``, zero is not used, and all dp groups retain t
 msgid ""
 "当 ``parallel.zero1 > 1`` 且 ``parallel.zero1 <= "
 "data_parallel_world_size``，则 zero1 进程组是数据并行进程组的子集"
-msgstr "If ``parallel.zero1 > 1`` and ``parallel.zero1 <= dp world size``, the world size of zero is a subset of dp world size. For smaller models, it is usually a better choice to split the parameters within nodes with a setting ``parallel.zero1 <= 8``.
-"
+msgstr "If ``parallel.zero1 > 1`` and ``parallel.zero1 <= dp world size``, the world size of zero is a subset of dp world size. For smaller models, it is usually a better choice to split the parameters within nodes with a setting ``parallel.zero1 <= 8``."
 
 #: ../../source/parallel.rst:130 47f03cea956a4477854591363359cdb3
 msgid ""
@@ -410,13 +409,13 @@ msgstr "There are two communication optimizations worth paying attention to here
 msgid ""
 "overlap_sync_grad: 如果设置为 ``True``，则将训练的 ``backward pass`` 与梯度的 ``all-"
 "reduce`` 通信重叠"
-msgstr "overlap_sync_grad: If set True, overlapping training backward pass with gradients' all-reduce communication"
+msgstr "overlap_sync_grad: If set True, overlapping training backward pass with gradients' all-reduce communication."
 
 #: ../../source/parallel.rst:147 bcb1aedd8a89441488b211cd81d4f80c
 msgid ""
 "overlap_sync_param: 如果设置为 ``True``，则将参数的 ``broadcast`` 通信与下一步的 ``forward "
 "pass`` 进行重叠"
-msgstr "overlap_sync_param: If set True, overlapping parameters' broadcast communication with next step's forward pass"
+msgstr "overlap_sync_param: If set True, overlapping parameters' broadcast communication with next step's forward pass."
 
 #: ../../source/parallel.rst:149 3ba64e4762084e93ba62a70c909e7d82
 msgid "这些优化可以加速训练过程，提高训练效率。"
