@@ -130,7 +130,6 @@ model = dict(
     use_flash_attn=True,
     num_chunks=1,  # if num_chunks > 1, interleaved pipeline scheduler is used.
 )
-
 """
 zero1 parallel:
     1. if zero1 <= 0, The size of the zero process group is equal to the size of the dp process group,
