@@ -29,21 +29,22 @@ msgstr ""
 
 #: ../../source/example/7B_demo.rst:7 c9a47faf5deb40b68ad2bc950fdf2b14
 msgid "7B demo 的训练配置文件样例如下:"
-msgstr ""
+msgstr "7B demo config file example:"
 
 #: ../../source/example/7B_demo.rst:162 eb93a6ca05c8421eb87a2470f9f31fc2
 msgid "启动训练"
-msgstr ""
+msgstr "Start Training"
 
 #: ../../source/example/7B_demo.rst:164 9e7a864ae2e14d05b0681f16792e5278
 msgid "完成以上训练配置后，可启动模型训练，以在 ``slurm`` 平台上为例，启动单节点 8GPU 的训练命令如下所示："
-msgstr ""
+msgstr "After completing the data preparation and relevant training configurations, you can start the demo training.
+The following example shows how to start distributed training in ``slurm`` environments with 8 GPUs."
 
 #: ../../source/example/7B_demo.rst:171 fdd053efb1854d46aabf6c0f279fe7fc
 msgid "训练结果"
-msgstr ""
+msgstr "Training Results"
 
 #: ../../source/example/7B_demo.rst:173 33ec81f34e3c4340beacdb5254069d08
 msgid "基于以上训练配置和启动命令，单节点 8GPU 下的模型训练部分日志展示如下："
-msgstr ""
+msgstr "Taking the configuration of the demo training on a single machine with 8 GPUs on slurm as an example, the training result log is shown below:"
 
