@@ -90,13 +90,13 @@ class FSDPadaptOptimizer(BaseOptimizer):
     '''
 
     def __init__(
-            self, 
-            optimizer: Optimizer,
-            grad_scal_cfg: Config = None,   
-            zero_cfg: Config = None, 
-        ):
+        self,
+        optimizer: Optimizer,
+        grad_scal_cfg: Config = None,
+        zero_cfg: Config = None,
+    ):
         super().__init__(optim=optimizer)
-        
+
         # gradient scaler
         self.grad_scaler = DynamicGradScaler(
             initial_scale=grad_scal_cfg.fp16.initial_scale,
@@ -113,7 +113,7 @@ class FSDPadaptOptimizer(BaseOptimizer):
         self.use_fsdp = gpc.config.parallel.use_fsdp
 
         # mark whether a module is part of TP or not
-        is_tensor_parallel_dict = dict()
+        # TODO: is_tensor_parallel_dict = dict()
 
         # fp16 and fp32 params
         # fp16 share mem space with model.FlatParam, fp32 share mem space with optim.param_group
@@ -150,7 +150,7 @@ class FSDPadaptOptimizer(BaseOptimizer):
             parameters=params,
             last_stage=True
         )
-        
+
         return norm_group
 
     def zero_grad(self):
@@ -187,12 +187,12 @@ class FSDPadaptOptimizer(BaseOptimizer):
                 logger.warning("Overflow occurs, please check it.")
             self.zero_grad()
             return False, None
-        
+
         # get the global norm
         global_norm_groups = {}
         if self._clip_grad_norm > 0:
             for group_name, norm in norm_groups.items():
-                global_norm_groups[group_name] = norm**0.5 
+                global_norm_groups[group_name] = norm**0.5
 
         # create gradient for fp32 params
         for group_idx in range(len(self.param_groups)):
@@ -207,7 +207,7 @@ class FSDPadaptOptimizer(BaseOptimizer):
         # unscale
         self._unscale_and_clip_grads(list(global_norm_groups.values()), loss_scale)
 
-        self.optim.step() 
+        self.optim.step()
         self.zero_grad()
 
         # update fp16 param
@@ -220,7 +220,6 @@ class FSDPadaptOptimizer(BaseOptimizer):
         for group_name, global_norm in global_norm_groups.items():
             global_norm_groups[group_name] = global_norm / loss_scale
         return True, global_norm_groups
-
 
     def clip_grad_norm(self, model, max_norm):
         # will conduct in the step()

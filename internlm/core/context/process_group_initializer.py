@@ -392,7 +392,7 @@ class Initializer_Nettest(ProcessGroupInitializer):
                 ranks_in_group = ranks
 
         return local_rank, group_world_size, process_group, cpu_group, ranks_in_group, mode
-    
+
 
 class Initializer_Zero3_dp(ProcessGroupInitializer):
     """A ProcessGroupInitializer for data parallelism.
@@ -420,7 +420,6 @@ class Initializer_Zero3_dp(ProcessGroupInitializer):
         self.rank_num_per_dp_group = self.world_size // self.data_parallel_size
 
         assert self.world_size % self.data_parallel_size == 0
-
 
     def init_dist_group(self, use_cpu: bool = False):
         """Initialize data parallel groups, and assign local_ranks and groups to each gpu.

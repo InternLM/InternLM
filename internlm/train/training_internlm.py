@@ -42,18 +42,11 @@ from internlm.utils.registry import MODEL_INITIALIZER
 
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.fully_sharded_data_parallel import (
-    CPUOffload,
-    BackwardPrefetch,
     ShardingStrategy,
     MixedPrecision,
     BackwardPrefetch,
 )
-from torch.distributed.fsdp.wrap import (
-    size_based_auto_wrap_policy,
-    transformer_auto_wrap_policy,
-    enable_wrap,
-    wrap,
-)
+from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 import functools
 from internlm.model.modeling_internlm import PackedFlashBaseLayer1D, PackedFlashInternLm1D
 
@@ -107,23 +100,17 @@ def warp_FSDP_model(model: Union[nn.Module, nn.ModuleList]):
     if gpc.config.parallel.use_fsdp:
         transformer_wrap_policy = functools.partial(
             transformer_auto_wrap_policy,
-            transformer_layer_cls = {PackedFlashBaseLayer1D, PackedFlashInternLm1D}
+            transformer_layer_cls={PackedFlashBaseLayer1D, PackedFlashInternLm1D}
         )
-        mx = MixedPrecision(
-            param_dtype=gpc.config.model.dtype, reduce_dtype=gpc.config.model.dtype, 
-            buffer_dtype=gpc.config.model.dtype, keep_low_precision_grads=True)
         grp = gpc.get_group(ParallelMode.ZERO1)
-        model = FSDP(module=model, 
+        model = FSDP(module=model,
                      process_group=grp,
                      sharding_strategy=ShardingStrategy.FULL_SHARD,
                      auto_wrap_policy=transformer_wrap_policy,
                      forward_prefetch=True,
                      backward_prefetch=BackwardPrefetch.BACKWARD_PRE,
-                     #cpu_offload=CPUOfload(offload_params=True)
-                     #mixed_precision=mx, 
-                     #device_id=torch.cuda.current_device()
-                     )
-        
+        )
+
     return model
 
 
@@ -159,9 +146,9 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
         )
     else:
         optimizer = FSDPadaptOptimizer(
-            naive_optimizer, 
-            grad_scal_cfg=gpc.config.grad_scaler, 
-            zero_cfg=gpc.config.hybrid_zero_optimizer, 
+            naive_optimizer,
+            grad_scal_cfg=gpc.config.grad_scaler,
+            zero_cfg=gpc.config.hybrid_zero_optimizer,
         )
 
     beta2_scheduler = Beta2Scheduler(optimizer=naive_optimizer, **gpc.config.beta2_scheduler)
