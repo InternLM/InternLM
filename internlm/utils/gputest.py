@@ -31,11 +31,16 @@ def empty_cache_and_diag(batch_count, interval=50):
     if interval <= 0:
         interval = 50
     if batch_count % int(interval) == 0:
-        torch.cuda.empty_cache()
+        # there is no need to do diag on the first batch
         if batch_count > 0:
-            timer_diagnosis()
-            bench_gpu()
-            bench_net()
+            if gpc.is_rank_for_log():
+                logger.info("Empty Cache and Diagnosis GPU/NCCL/Timer ...")
+            with torch.no_grad():
+                timer_diagnosis()
+                bench_gpu()
+                bench_net()
+        # do empty_cache after the bench
+        torch.cuda.empty_cache()
 
 
 def benchmark_forward(
@@ -105,9 +110,10 @@ def timer_diagnosis():
     if world_size < 2:
         return
 
-    if gpc.is_rank_for_log():
-        logger.info("Diagnosis running timers ...")
+    # if gpc.is_rank_for_log():
+    #     logger.info("Diagnosis running timers ...")
 
+    # detect slow rank compared to other ranks in the same DP group
     running_time = torch.Tensor(timer.times).to(device=get_current_device())
     avg_time = running_time.detach().clone()
     if world_size <= 4:
@@ -120,7 +126,7 @@ def timer_diagnosis():
         dist.all_reduce(avg_time, op=torch.distributed.ReduceOp.SUM, group=gpc.get_group(ParallelMode.DATA))
         avg_time = (avg_time - running_time_max - running_time_min) / (world_size - 2)
 
-    diag_result = running_time > avg_time * 1.1
+    diag_result = running_time > avg_time * gpc.config.data.diag_outlier_ratio
     diag_result = diag_result.tolist()
     avg_time = avg_time.tolist()
 
@@ -139,13 +145,12 @@ def timer_diagnosis():
             message=msg,
         )
 
+    # detect slow rank compared to historical timer data
     for name, time in zip(timer.names, timer.times):
         if name not in timer.hist or len(timer.hist[name]) < 5:
             continue
         hist_avg = sum(timer.hist[name]) / len(timer.hist[name])
-        if time > hist_avg * 1.1 and time > 0.5:
-            if gpc.is_rank_for_log():
-                print(name, timer.hist[name], flush=True)
+        if time > hist_avg * gpc.config.data.diag_outlier_ratio and time > 0.5:
             msg = (
                 f"Rank {gpc.get_local_rank(ParallelMode.GLOBAL)} is slower than hist avg on {name}, "
                 f"Hostname {socket.gethostname()}, "
@@ -165,8 +170,8 @@ def bench_net():
     if gpc.get_world_size(ParallelMode.GLOBAL) <= 1:
         return
 
-    if gpc.is_rank_for_log():
-        logger.info("benchmarking network speed ...")
+    # if gpc.is_rank_for_log():
+    #     logger.info("benchmarking network speed ...")
 
     repeats = 100
     input_data = torch.randn(
@@ -191,7 +196,7 @@ def bench_net():
     allreduce_time_avg = allreduce_time / gpc.get_world_size(ParallelMode.GLOBAL)
     allreduce_time_avg = float(allreduce_time_avg.item())
 
-    if allreduce_time_this >= allreduce_time_avg * 1.1:
+    if allreduce_time_this >= allreduce_time_avg * gpc.config.data.diag_outlier_ratio:
         msg = (
             f"Rank {gpc.get_local_rank(ParallelMode.GLOBAL)} NCCL test is slower than avg, "
             f"Hostname {socket.gethostname()}, "
@@ -208,8 +213,8 @@ def bench_net():
 def bench_gpu(use_flash_attn=True):
     """Benchmark single GPU performance for slow node detection."""
 
-    if gpc.is_rank_for_log():
-        logger.info("benchmarking gpu speed ...")
+    # if gpc.is_rank_for_log():
+    #     logger.info("benchmarking gpu speed ...")
 
     headdim = 64
     dim = 2048
@@ -237,7 +242,7 @@ def bench_gpu(use_flash_attn=True):
     speed_avg = speed / gpc.get_world_size(ParallelMode.GLOBAL)
     speed_avg = float(speed_avg.item())
 
-    if speed_this <= speed_avg * 0.9:
+    if speed_this <= speed_avg / gpc.config.data.diag_outlier_ratio:
         msg = (
             f"Rank {gpc.get_local_rank(ParallelMode.GLOBAL)} GPU is slower than avg, "
             f"Hostname {socket.gethostname()}, "

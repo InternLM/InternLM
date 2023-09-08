@@ -56,7 +56,8 @@ data = dict(
     min_length=50,
     # train_folder=TRAIN_FOLDER,
     # valid_folder=VALID_FOLDER,
-    empty_cache_and_diag_interval=50,
+    empty_cache_and_diag_interval=10,
+    diag_outlier_ratio=1.1,
 )
 
 grad_scaler = dict(
