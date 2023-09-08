@@ -26,7 +26,11 @@ InternLM 使用 ``internlm.train.initialize_llm_profile()`` 来收集和分析�
     # visualize traces with tensorboard and custom port
     tensorboard --logdir rank0_dp0_tp0_pp0 --port 10088
 
+在打开的 ``TensorBoard -> PyTorch Profiler -> Views -> Trace`` 页面可以看到Operator和GPU Kernel的性能分析时间线如下，更多的功能请参考 `torch profiler with tensorboard <https://pytorch.org/tutorials/intermediate/tensorboard_profiler_tutorial.html#pytorch-profiler-with-tensorboard>`_
 
+.. figure:: ../../imgs/torch_profiler_trace.png
+  :scale: 50%
+  :class: with-border
 
 .. autofunction:: internlm.train.initialize_llm_profile
 
