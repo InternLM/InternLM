@@ -3,10 +3,11 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
+
 InternLM
 ========
 
-Environment Setup
+环境构建
 -------------------
 
 .. toctree::
@@ -14,7 +15,15 @@ Environment Setup
 
    install
 
-Model Setup
+快速上手
+-------------------
+
+.. toctree::
+   :maxdepth: 2
+
+   usage
+
+训练构建
 -------------------
 
 .. toctree::
@@ -22,7 +31,7 @@ Model Setup
 
    initialize
 
-Training API
+训练 API
 -------------------
 
 .. toctree::
@@ -30,7 +39,7 @@ Training API
 
    training
 
-Parallel Training
+并行训练
 -------------------
 
 .. toctree::
@@ -38,15 +47,15 @@ Parallel Training
 
    parallel
 
-Model Checkpointing
--------------------
+模型备份
+--------------------
 
 .. toctree::
    :maxdepth: 2
 
    checkpoint
 
-Profiler
+性能分析
 -------------------
 
 .. toctree::
@@ -54,7 +63,7 @@ Profiler
 
    profiler
 
-Monitor
+训练监控
 -------------------
 
 .. toctree::
@@ -62,7 +71,23 @@ Monitor
 
    monitor
 
-Indices and tables
+训练样例
+-------------------
+
+.. toctree::
+   :maxdepth: 2
+
+   example/index
+
+常见问题
+-------------------
+
+.. toctree::
+   :maxdepth: 2
+
+   qa
+
+索引和表格
 ==================
 
 * :ref:`genindex`

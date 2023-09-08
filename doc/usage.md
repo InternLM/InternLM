@@ -1,4 +1,4 @@
-## 基于InternLM的预训练与微调使用教程
+## 使用教程
 
 启动一个 Demo 模型训练，需要进行三项准备，**安装**，**数据集准备**和**模型训练配置**。接下来，首先会介绍数据准备相关的操作，再简要描述模型训练配置相关的内容。
 
@@ -84,9 +84,7 @@ data = dict(
 )
 ```
 
-<div align="left">
-    <img src="./imgs/pack_into_one.png" width="550"/>
-</div>
+![pack_into_one](./imgs/pack_into_one.png)
 
 
 目前支持传入数据集文件路径`train_folder`，且要求文件格式如下：
@@ -157,9 +155,9 @@ parallel = dict(
 )
 ```
 - zero1：zero 并行策略，分如下三种情况，默认值为 -1
-  - 当`size <= 0`，则 zero1 进程组的大小等于数据并行进程组的大小，因此优化器状态参数将在数据并行范围内分配
-  - 当`size == 1`，则不使用 zero1 ，所有数据并行组保留完整的优化器状态参数
-  - 当`size > 1`且`size <= data_parallel_world_size`，则 zero1 进程组是数据并行进程组的子集
+  - 当`zero1 <= 0`，则 zero1 进程组的大小等于数据并行进程组的大小，因此优化器状态参数将在数据并行范围内分配
+  - 当`zero1 == 1`，则不使用 zero1 ，所有数据并行组保留完整的优化器状态参数
+  - 当`zero1 > 1`且`zero1 <= data_parallel_world_size`，则 zero1 进程组是数据并行进程组的子集
 - tensor：张量并行大小，通常是每个节点的 GPU 数量，默认值为 1
 - pipeline：流水线并行策略
   - size：流水线并行大小，默认值为 1

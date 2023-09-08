@@ -22,7 +22,7 @@ def get_default_parser():
     Input arguments include configuration, host, port, world size, local rank, backend for torch.distributed.
 
     Returns:
-       Namespace: Returns the parser with the default arguments, the user may add customized arguments into this parser.
+       Parser: Returns the parser with the default arguments, the user may add customized arguments into this parser.
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, help="path to the config file")

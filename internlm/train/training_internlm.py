@@ -63,9 +63,11 @@ logger = get_logger(__file__)
 
 def initialize_model():
     """
-    Initialize model.
+    Initialize model with Automatic Mixed Precision.
 
-    Returns: The neural network model to be trained or evaluated.
+    Returns:
+        torch.nn.Module:
+            The neural network model to be trained or evaluated.
     """
 
     model = MODEL_INITIALIZER.get_module(module_name=gpc.config.model_type)(**(gpc.config.model))
@@ -130,9 +132,10 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
     Initialize optimizer.
 
     Args:
-        model (torch.nn.Module): Your model instance to be trained or evaluated.
+        model (:class:`torch.nn.Module`): Your model instance to be trained or evaluated.
 
-    Returns: A tuple of (optimizer, beta2_scheduler, lr_scheduler).
+    Returns:
+        A tuple of (optimizer, beta2_scheduler, lr_scheduler).
     """
     if gpc.config.hybrid_zero_optimizer.overlap_sync_param:
         param_bcast_sync_handler = ParamBcastSyncHandler(model)
@@ -174,7 +177,14 @@ def get_train_data_loader(
     """
     Generate and return the training data loader.
 
-    Returns: A tuple of (train_dl, dataset_types).
+    Args:
+        num_worker (:class:`int`): number of subprocesses used for dataloader.
+        dataset_generate_func (:class:`Callable`, optional): generate function for dataset.
+        train_sampler (:class:`torch.utils.data.sampler`, optional): dataset sampler for training dataloader.
+        train_collate_fn (:class:`Callable`, optional): collate function for training dataloader.
+
+    Returns:
+        A tuple of (train_dl, dataset_types).
     """
 
     # Get the dataset types
@@ -438,23 +448,31 @@ def record_current_batch_training_metrics(
         line = ""
         for key, value in infos.items():
             line += f"{key}={value} "
-            writer.add_scalar(key=key, value=value, step=train_state.step_count)
+            if isinstance(value, dict):
+                writer.add_scalars(key=key, value=value, step=train_state.step_count)
+            else:
+                writer.add_scalar(key=key, value=value, step=train_state.step_count)
 
         if update_panel:
+            # metrics shown with dashboard panels
+            panel_metrics = {
+                "step": batch_count,
+                "lr": lr,
+                "num_consumed_tokens": train_state.num_consumed_tokens,
+                "loss": loss.item(),
+                "flops": tflops,
+                "tgs": tk_per_gpu,
+                "acc": acc_perplex["acc"],
+                "perplexity": acc_perplex["perplexity"],
+                "fwd_bwd_time": fwd_bwd_time,
+            }
+            for norm_key, norm_value in grad_norm.items():
+                panel_metrics[norm_key] = norm_value
+
             logger.info(
-                line,
-                extra={
-                    "step": batch_count,
-                    "lr": lr,
-                    "num_consumed_tokens": train_state.num_consumed_tokens,
-                    "grad_norm": grad_norm,
-                    "loss": loss.item(),
-                    "flops": tflops,
-                    "tgs": tk_per_gpu,
-                    "acc": acc_perplex["acc"],
-                    "perplexity": acc_perplex["perplexity"],
-                    "fwd_bwd_time": fwd_bwd_time,
-                },
+                "{line}",
+                line=line,
+                extra=panel_metrics,
             )
         else:
             logger.info(line)
