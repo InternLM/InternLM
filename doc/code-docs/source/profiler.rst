@@ -14,7 +14,7 @@ InternLM 使用 ``internlm.train.initialize_llm_profile()`` 来收集和分析�
 
 .. code-block:: bash
 
-    # tree tree ./7b_train/Sep08_11-00-51/traces -L 2
+    # tree ./7b_train/Sep08_11-00-51/traces -L 2
     ./7b_train/Sep08_11-00-51/traces/
     └── rank0_dp0_tp0_pp0
         └── SH-IDC1-10-140-1-78_238619.1694142354680.pt.trace.json
