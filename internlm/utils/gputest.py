@@ -9,7 +9,9 @@ import torch.distributed as dist
 from flash_attn.modules.mha import FlashSelfAttention, SelfAttention
 from torch.utils import benchmark
 
+from internlm.monitor import send_alert_message
 from internlm.utils.logger import get_logger
+from internlm.utils.megatron_timers import megatron_timer as timer
 
 try:
     import GPUtil
@@ -22,6 +24,18 @@ from internlm.core.context import global_context as gpc
 from internlm.utils.common import get_current_device
 
 logger = get_logger(__file__)
+
+
+def empty_cache_and_diag(batch_count, interval=50):
+    """empty cuda cache and run diag bench or tests."""
+    if interval <= 0:
+        interval = 50
+    if batch_count % int(interval) == 0:
+        torch.cuda.empty_cache()
+        if batch_count > 0:
+            timer_diagnosis()
+            bench_gpu()
+            bench_net()
 
 
 def benchmark_forward(
@@ -81,6 +95,70 @@ def get_cpu_temperature():
     return cpu_temperature
 
 
+def timer_diagnosis():
+    """Diagnosis running time"""
+
+    if len(timer.names) == 0 or len(timer.times) == 0:
+        return
+
+    world_size = gpc.get_world_size(ParallelMode.DATA)
+    if world_size < 2:
+        return
+
+    if gpc.is_rank_for_log():
+        logger.info("Diagnosis running timers ...")
+
+    running_time = torch.Tensor(timer.times).to(device=get_current_device())
+    avg_time = running_time.detach().clone()
+    if world_size <= 4:
+        dist.all_reduce(avg_time, op=torch.distributed.ReduceOp.AVG, group=gpc.get_group(ParallelMode.DATA))
+    else:
+        running_time_max = avg_time.detach().clone()
+        running_time_min = avg_time.detach().clone()
+        dist.all_reduce(running_time_max, op=torch.distributed.ReduceOp.MAX, group=gpc.get_group(ParallelMode.DATA))
+        dist.all_reduce(running_time_min, op=torch.distributed.ReduceOp.MIN, group=gpc.get_group(ParallelMode.DATA))
+        dist.all_reduce(avg_time, op=torch.distributed.ReduceOp.SUM, group=gpc.get_group(ParallelMode.DATA))
+        avg_time = (avg_time - running_time_max - running_time_min) / (world_size - 2)
+
+    diag_result = running_time > avg_time * 1.1
+    diag_result = diag_result.tolist()
+    avg_time = avg_time.tolist()
+
+    for slow, name, time, avg in zip(diag_result, timer.names, timer.times, avg_time):
+        if slow is False or avg < 0.5:
+            continue
+        msg = (
+            f"Rank {gpc.get_local_rank(ParallelMode.GLOBAL)} is slower than avg on {name}, "
+            f"Hostname {socket.gethostname()}, "
+            f"its time {time:.2f}, avg {avg:.2f}, "
+            f"CPU temp {get_cpu_temperature()}, GPU temp { get_gpu_temperature()}"
+        )
+        logger.warning(msg)
+        send_alert_message(
+            address=gpc.config.monitor.alert.feishu_alert_address,
+            message=msg,
+        )
+
+    for name, time in zip(timer.names, timer.times):
+        if name not in timer.hist or len(timer.hist[name]) < 5:
+            continue
+        hist_avg = sum(timer.hist[name]) / len(timer.hist[name])
+        if time > hist_avg * 1.1 and time > 0.5:
+            if gpc.is_rank_for_log():
+                print(name, timer.hist[name], flush=True)
+            msg = (
+                f"Rank {gpc.get_local_rank(ParallelMode.GLOBAL)} is slower than hist avg on {name}, "
+                f"Hostname {socket.gethostname()}, "
+                f"its time {time:.2f}, hist_avg {hist_avg:.2f}, "
+                f"CPU temp {get_cpu_temperature()}, GPU temp { get_gpu_temperature()}"
+            )
+            logger.warning(msg)
+            send_alert_message(
+                address=gpc.config.monitor.alert.feishu_alert_address,
+                message=msg,
+            )
+
+
 def bench_net():
     """Benchmark nccl performance for slow node detection."""
 
@@ -113,12 +191,17 @@ def bench_net():
     allreduce_time_avg = allreduce_time / gpc.get_world_size(ParallelMode.GLOBAL)
     allreduce_time_avg = float(allreduce_time_avg.item())
 
-    if allreduce_time_this >= allreduce_time_avg * 1.05:
-        logger.warning(
+    if allreduce_time_this >= allreduce_time_avg * 1.1:
+        msg = (
             f"Rank {gpc.get_local_rank(ParallelMode.GLOBAL)} NCCL test is slower than avg, "
             f"Hostname {socket.gethostname()}, "
             f"allreduce_time {allreduce_time_this:.2f}, avg {allreduce_time_avg:.2f}, "
             f"CPU temp {get_cpu_temperature()}, GPU temp { get_gpu_temperature()}"
+        )
+        logger.warning(msg)
+        send_alert_message(
+            address=gpc.config.monitor.alert.feishu_alert_address,
+            message=msg,
         )
 
 
@@ -154,10 +237,15 @@ def bench_gpu(use_flash_attn=True):
     speed_avg = speed / gpc.get_world_size(ParallelMode.GLOBAL)
     speed_avg = float(speed_avg.item())
 
-    if speed_this <= speed_avg * 0.95:
-        logger.warning(
+    if speed_this <= speed_avg * 0.9:
+        msg = (
             f"Rank {gpc.get_local_rank(ParallelMode.GLOBAL)} GPU is slower than avg, "
             f"Hostname {socket.gethostname()}, "
             f"tflops {speed_this:.2f}, avg {speed_avg:.2f}, "
             f"CPU temp {get_cpu_temperature()}, GPU temp { get_gpu_temperature()}"
+        )
+        logger.warning(msg)
+        send_alert_message(
+            address=gpc.config.monitor.alert.feishu_alert_address,
+            message=msg,
         )

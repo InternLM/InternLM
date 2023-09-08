@@ -354,6 +354,7 @@ def record_current_batch_training_metrics(
 
     set_env_var(key="LAST_ACTIVE_TIMESTAMP", value=int(time.time()))
 
+    timer.store_last_timers()
     if success_update in (0, True):
         train_state.num_consumed_tokens += batch[1].nelement() * gpc.get_world_size(ParallelMode.DATA)
     if is_no_pp_or_last_stage():
