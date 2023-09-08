@@ -135,8 +135,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         # self._overlap_communication = overlap_communication
         self._reduce_bucket_size = reduce_bucket_size
 
-        if self._overlap_sync_param:
-            self._comm_bcast_stream = torch.cuda.Stream()
+        self._comm_bcast_stream = torch.cuda.Stream()
 
         # gradient scaler
         self.grad_scaler = DynamicGradScaler(
