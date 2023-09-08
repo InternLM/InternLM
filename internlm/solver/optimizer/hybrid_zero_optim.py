@@ -537,6 +537,7 @@ class HybridZeroOptimizer(BaseOptimizer):
             gradients=gradients,
             parameters=parameters,
             last_stage=True,
+            is_moe_group=True,
         )
 
         # Need to allreduce(avg) the norms across different ranks because moe params will not be synced during allreduce
