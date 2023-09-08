@@ -12,6 +12,7 @@ from torch.utils.data import ConcatDataset, DataLoader
 
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
+from internlm.core.context.random import set_mode
 from internlm.core.naive_amp import NaiveAMPModel
 from internlm.core.trainer import TrainState
 from internlm.data.batch_sampler import StaticBatchSampler, get_dpsampler_dataloader
@@ -80,6 +81,10 @@ def initialize_model():
     # This function is needed to make sure parameters that are not splitted by tensor parallelism are
     # the same across tensor parallelism.
     sync_model_param_within_tp(model)
+
+    # Change random state mode to ParallelMode.DATA after model is built, guaranteeing the random
+    # state in the same dp group are all the same.
+    set_mode(ParallelMode.DATA)
 
     return model
 
@@ -414,7 +419,7 @@ def record_current_batch_training_metrics(
                 "step": batch_count,
                 "lr": lr,
                 "num_consumed_tokens": train_state.num_consumed_tokens,
-                "loss": loss.item(),
+                "loss": loss.item() - moe_loss.item(),
                 "flops": tflops,
                 "tgs": tk_per_gpu,
                 "acc": acc_perplex["acc"],

@@ -37,6 +37,9 @@ class ParallelMode(Enum):
     # expert data parallel
     EXPERT_DATA = "expert_data"
 
+    # dummy mode, only used during mode construction
+    DUMMY = "dummy"
+
 
 class ProcessGroupInitializer(ABC):
     """An object, knowing the parallelism configuration, that initializes parallel groups.

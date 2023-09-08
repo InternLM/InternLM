@@ -36,7 +36,7 @@ class Config(dict):
         config (dict): The dict object to be wrapped.
     """
 
-    def __init__(self, config: dict = None):
+    def __init__(self, config: dict = None):  # pylint: disable=W0231
         if config is not None:
             for k, v in config.items():
                 self._add_item(k, v)
@@ -100,7 +100,7 @@ class Config(dict):
 
         module_name = filepath.stem
         source_file = SourceFileLoader(fullname=str(module_name), path=str(filepath))
-        module = source_file.load_module()  # pylint: disable=W4902,E1120
+        module = source_file.load_module()  # pylint: disable=W4902,E1120, W1505:
 
         # load into config
         config = Config()
@@ -527,6 +527,7 @@ class ParallelContext(metaclass=SingletonMeta):
         if dpseed_with_tpoffset:
             dp_seed = seed + pipeline_offset * 1024
         add_seed(ParallelMode.DATA, dp_seed)
+        add_seed(ParallelMode.DUMMY, dp_seed)
 
         # model parallel seeds are different across ranks
         if self.is_initialized(ParallelMode.TENSOR):
@@ -534,7 +535,11 @@ class ParallelContext(metaclass=SingletonMeta):
             tp_seed = seed + tp_rank + pipeline_offset * 1024
             add_seed(ParallelMode.TENSOR, tp_seed)
 
-        set_mode(ParallelMode.DATA)
+        # we do not set the random state mode to ParallelMode.DATA until model is built (instead, we use a dummy mode
+        # during model construction), this is because the random state will be different in different tensor parallel
+        # device of the same data parallel group. The underlying reason is that the device of tp_rank = 0 will perform
+        # additional random operations during the RowParallelLinear module building process.
+        set_mode(ParallelMode.DUMMY)
 
         seeds = get_seeds()
         seed_str = ", ".join([f"{k}: {v}" for k, v in seeds.items()])
