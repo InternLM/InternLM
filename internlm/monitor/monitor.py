@@ -226,9 +226,7 @@ def initialize_monitor_manager(job_name: str = None, alert_address: str = None):
             send_alert_message(address=alert_address, message=f"Training in {socket.gethostname()} is starting.")
             yield
         finally:
-            send_alert_message(
-                address=gpc.config.alert_address, message=f"Training in {socket.gethostname()} completed."
-            )
+            send_alert_message(address=alert_address, message=f"Training in {socket.gethostname()} completed.")
             monitor_manager.stop_monitor()
     else:
         yield

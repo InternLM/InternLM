@@ -9,6 +9,7 @@ import torch
 
 from internlm.core.engine import Engine
 from internlm.utils.common import conditional_context
+from internlm.utils.timeout import llm_timeout
 
 from .base_scheduler import BaseScheduler, SchedulerHook
 
@@ -126,6 +127,7 @@ class NonPipelineScheduler(BaseScheduler):
 
         return output, loss
 
+    @llm_timeout(func_name="nopp_forward_backward_step")
     def forward_backward_step(
         self,
         engine: Engine,

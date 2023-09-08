@@ -16,8 +16,12 @@ class _Timer:
         self.start_time = time.time()
         self.stream = torch.cuda.current_stream()
 
-    def start(self):
+    def start(self, reset_all=True):
         """Start the timer."""
+        # need to reset all timers in a new batch
+        if self.name_ == "one-batch" and reset_all is True:
+            megatron_timer.reset()
+
         assert not self.started_, "timer has already been started"
         self.stream.synchronize()
         self.start_time = time.time()
@@ -48,7 +52,7 @@ class _Timer:
             self.reset()
         # If timing was in progress, set it back.
         if started_:
-            self.start()
+            self.start(reset_all=False)
         return elapsed_
 
 
@@ -57,11 +61,28 @@ class Timers:
 
     def __init__(self):
         self.timers = {}
+        self.hist = {}
+        self.names = []
+        self.times = []
 
     def __call__(self, name):
         if name not in self.timers:
             self.timers[name] = _Timer(name)
         return self.timers[name]
+
+    def store_last_timers(self):
+        """Store timers to two list"""
+        self.names = []
+        self.times = []
+        for key, value in self.timers.items():
+            senconds = round(float(value.elapsed(reset=False)), 4)
+            self.names.append(key)
+            self.times.append(senconds)
+            if key not in self.hist:
+                self.hist[key] = []
+            self.hist[key].append(senconds)
+            if len(self.hist[key]) > 10:
+                self.hist[key].pop(0)
 
     def write(self, names, writer, iteration, normalizer=1.0, reset=False):
         """Write timers to a tensorboard writer"""
