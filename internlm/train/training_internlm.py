@@ -382,7 +382,7 @@ def record_current_batch_training_metrics(
         infos = {
             "tflops": tflops,
             "step": batch_count,
-            "loss": loss.item(),
+            "loss": loss.item() - moe_loss.item(),
             "moe_loss": moe_loss.item(),
             "tgs (tokens/gpu/second)": tk_per_gpu,
             "lr": lr,

@@ -37,7 +37,7 @@ class Experts(torch.nn.Module):
         for expert in self.experts:
             # TODO: Create param groups to handle expert + data case (e.g. param.group = moe_group)
             for _, param in expert.named_parameters():
-                param.belong_expert = True
+                param.is_expert = True
                 param.group_name = expert_group_name
 
     def forward(self, inputs):
