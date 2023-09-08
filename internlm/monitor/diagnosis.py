@@ -59,27 +59,23 @@ class LLMManager:
         self.current_time = current_time
         self.torch_profile = DummyProfile()
         self.rank_avg_time = defaultdict(int)
-        self.slower_last = 0
         self.memory_profiler = memory_profiler
-        self.torch_active_count = None
-        self.memory_active_count = None
-        self.bench_active_count = None
-        self.diagnosis_active_count = None
-        self.diagnosis_start = 10
-        self.diagnosis_slower_check = 50
+        self.slower_last = 0
         
-        if 'torch_active_count' in prof_config.profiler:
-            self.torch_active_count = prof_config.profiler['torch_active_count']
-        if 'memory_active_count' in prof_config.profiler:
-            self.memory_active_count = prof_config.profiler['memory_active_count']
-        if 'bench_active_count' in prof_config.profiler:
-            self.bench_active_count = prof_config.profiler['bench_active_count']
-        if 'diagnosis_active_count' in prof_config.profiler:
-            self.diagnosis_active_count = prof_config.profiler['diagnosis_active_count']
-        if 'diagnosis_start' in prof_config.profiler:
-            self.diagnosis_start = prof_config.profiler['diagnosis_start']
-        if 'diagnosis_slower_check' in prof_config.profiler:
-            self.diagnosis_slower_check = prof_config.profiler['diagnosis_slower_check']
+        default_configs = {
+            "torch_active_count": None,
+            "memory_active_count": None,
+            "bench_active_count": None, 
+            "diagnosis_active_count": None,
+            "diagnosis_start": 10,
+            "diagnosis_slower_check": 50
+        }
+        
+        for key in default_configs:
+            if key not in prof_config.profiler:
+                setattr(self, key, default_configs[key])
+            else:
+                setattr(self, key, prof_config.profiler[key])
         
         # runtime time metrics.
         self.time_ckpts = [
@@ -105,7 +101,7 @@ class LLMManager:
             if trace_profiling_range():
                 self.torch_profile = torch.profiler.profile(
                     activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
-                    schedule=torch.profiler.schedule(skip_first=1, wait=1, warmup=1, active=1, repeat=1),
+                    schedule=torch.profiler.schedule(skip_first=5, wait=1, warmup=1, active=2, repeat=1),
                     on_trace_ready=torch.profiler.tensorboard_trace_handler(
                         f"{gpc.config.JOB_NAME}/{current_time}/traces/",
                     ),
