@@ -84,7 +84,7 @@ def initialize_uniscale_logger(
             job_name and launch_time and file_name
         ), "If file_path is None, job_name, launch_time and file_name must be setted."
         log_file_name = file_name
-        log_folder = os.path.join(job_name, launch_time, "logs")
+        log_folder = os.path.join("RUN", job_name, launch_time, "logs")
         log_dir = os.path.join(log_folder, log_file_name)
         file_path = log_dir
 

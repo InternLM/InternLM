@@ -1,7 +1,8 @@
 JOB_NAME = "7b_train"
+DO_ALERT = False
 
-SEQ_LEN = 2048
-HIDDEN_SIZE = 4096
+SEQ_LEN = 256
+HIDDEN_SIZE = 512
 NUM_ATTENTION_HEAD = 32
 MLP_RATIO = 8 / 3
 NUM_LAYER = 32
@@ -22,14 +23,22 @@ CHECKPOINT_EVERY = 20
 ckpt = dict(
     enable_save_ckpt=False,  # enable ckpt save.
     save_ckpt_folder=SAVE_CKPT_FOLDER,  # Path to save training ckpt.
-    load_ckpt_folder=LOAD_CKPT_FOLDER, # Ckpt path to resume training(load weights and scheduler/context states).
+    # load_ckpt_folder=LOAD_CKPT_FOLDER, # Ckpt path to resume training(load weights and scheduler/context states).
     load_given_ckpt = False,
     # load_model_only_folder=MODEL_ONLY_FOLDER, # Path to initialize with given model weights.
     load_optimizer=True,  # Wheter to load optimizer states when continuing training.
+
+    # load_ckpt_folder= dict(path=MODEL_ONLY_FOLDER, content=["model"], ckpt_type="normal"),
+    load_ckpt_folder="local:llm_ckpts/",
+    # 'load_ckpt_info' setting guide:
+    # 1. the 'path' indicate ckpt path,
+    # 2. the 'content‘ means what states will be loaded, support: "model", "sampler", "optimizer", "scheduler", "all"
+    # 3. the ’ckpt_type‘ means the type of checkpoint to be loaded, now only 'normal' type is supported.
+    load_ckpt_info=dict(path=MODEL_ONLY_FOLDER, content=("model",), ckpt_type="internlm"),
+
     checkpoint_every=CHECKPOINT_EVERY,
     async_upload=True,  # async ckpt upload. (only work for boto3 ckpt)
     async_upload_tmp_folder="/dev/shm/internlm_tmp_ckpt/",  # path for temporarily files during asynchronous upload.
-    snapshot_ckpt_folder="/".join([SAVE_CKPT_FOLDER, "snapshot"]),  # directory for snapshot ckpt storage path.
     oss_snapshot_freq=int(CHECKPOINT_EVERY / 2),  # snapshot ckpt save frequency.
 )
 
@@ -46,7 +55,7 @@ data = dict(
     # defaults to 0, means disable evaluate
     valid_every=50,
     pack_sample_into_one=False,
-    total_steps=50000,
+    total_steps=30,
     skip_batches="",
     rampup_batch_size="",
     # Datasets with less than 50 rows will be discarded
@@ -145,8 +154,17 @@ parallel = dict(
     pipeline=dict(size=1, interleaved_overlap=True),
     tensor=1,
     sequence_parallel=False,
-    use_fsdp = True,
+    use_fsdp=True,
 )
 
 cudnn_deterministic = False
 cudnn_benchmark = False
+
+monitor = dict(
+    # feishu alert configs
+    alert=dict(
+        enable_feishu_alert=DO_ALERT,
+        feishu_alert_address=None,  # feishu webhook to send alert message
+        light_monitor_address=None,  # light_monitor address to send heartbeat
+    ),
+)
