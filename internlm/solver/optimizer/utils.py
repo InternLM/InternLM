@@ -311,6 +311,9 @@ def compute_norm(gradients, parameters, last_stage=False, previous_norm=None, no
     if total_norm == float("inf") or total_norm == -float("inf"):
         total_norm = -1
 
+    if math.isnan(total_norm):
+        total_norm = -2
+
     return total_norm
 
 

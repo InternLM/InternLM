@@ -35,6 +35,7 @@ from internlm.utils.common import (
     parse_args,
 )
 from internlm.utils.evaluation import evaluate_on_val_dls
+from internlm.utils.gputest import empty_cache_and_diag
 from internlm.utils.logger import get_logger, initialize_uniscale_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
 from internlm.utils.model_checkpoint import CheckpointManager
@@ -193,9 +194,7 @@ def main(args):
     with initialize_llm_profile(profiling=args.profiling, start_time=current_time) as prof:
         # start iterating the train data and begin training
         for batch_count in range(train_state.batch_count, total_steps):
-            if batch_count % 50 == 0:
-                torch.cuda.empty_cache()
-
+            empty_cache_and_diag(batch_count, interval=gpc.config.data.empty_cache_and_diag_interval)
             start_time = time.time()
             timer("one-batch").start()
 

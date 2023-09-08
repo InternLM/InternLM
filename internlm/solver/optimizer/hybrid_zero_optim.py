@@ -570,6 +570,7 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         # check for overflow
         found_inf = False
+        found_nan = False
         # if there is INF values in grades, compute_norm func would also returns -1
         # thus, we try to avoid call _check_overflow here
         # found_inf = self._check_overflow()
@@ -578,9 +579,13 @@ class HybridZeroOptimizer(BaseOptimizer):
         if -1 in norms.values():
             found_inf = True
 
+        if -2 in norms.values():
+            found_nan = True
+
         loss_scale = float(self.loss_scale.item())  # backup
         if gpc.config.model.dtype is not torch.float32:
             self.grad_scaler.update(found_inf)
+
         # update loss scale if overflow occurs
         if found_inf:
             if gpc.is_rank_for_log():
@@ -588,6 +593,17 @@ class HybridZeroOptimizer(BaseOptimizer):
                 send_alert_message(
                     address=gpc.config.monitor.alert.feishu_alert_address,
                     message="Overflow occurs, please check it.",
+                )
+            self._grad_store._averaged_gradients = dict()
+            self.zero_grad()
+            return False, norms
+
+        if found_nan:
+            if gpc.is_rank_for_log():
+                logger.warning("Nan grad norm occurs, please check it.")
+                send_alert_message(
+                    address=gpc.config.monitor.alert.feishu_alert_address,
+                    message="Nan grad norm  occurs, please check it.",
                 )
             self._grad_store._averaged_gradients = dict()
             self.zero_grad()

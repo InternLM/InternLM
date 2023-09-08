@@ -98,6 +98,13 @@ def args_sanity_check():
     if "valid_every" not in data:
         data._add_item("valid_every", 0)
 
+    if "empty_cache_and_diag_interval" not in data:
+        data._add_item("empty_cache_and_diag_interval", 50)
+
+    if "diag_outlier_ratio" not in data:
+        data._add_item("diag_outlier_ratio", 1.1)
+    data.diag_outlier_ratio = max(1, data.diag_outlier_ratio)
+
     if gpc.is_rank_for_log():
         logger.info("+" * 15 + " Data Info " + "+" * 15)  # pylint: disable=W1201
         logger.info(f"seq_len: {data.seq_len}")
