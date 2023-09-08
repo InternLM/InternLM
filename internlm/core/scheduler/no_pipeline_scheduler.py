@@ -26,13 +26,13 @@ class NonPipelineScheduler(BaseScheduler):
         gradient_accumulation_steps(int, optional): the steps of gradient accumulation, 1 for disable
             gradient accumulation.
 
-    Example:
-        # this shows an example of customized data_process_func
-        def data_process_func(dataloader_output):
-            item1, item2, item3 = dataloader_output
-            data = (item1, item2)
-            label = item3
-            return data, label
+    Examples:
+        >>> # this shows an example of customized data_process_func
+        >>> def data_process_func(dataloader_output):
+        >>>     item1, item2, item3 = dataloader_output
+        >>>     data = (item1, item2)
+        >>>     label = item3
+        >>>     return data, label
     """
 
     def __init__(

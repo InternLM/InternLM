@@ -1073,8 +1073,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         1. Perform the forward pass.
         2. Perform the backward pass.
         3. Send the forward output of this iteration to the next stage, and send the backward output of this iteration
-           to the previous stage,
-        and receive the forward and backward inputs for the next iteration.
+           to the previous stage, and receive the forward and backward inputs for the next iteration.
 
         Args:
             engine (Engine): The engine to use for computation.
