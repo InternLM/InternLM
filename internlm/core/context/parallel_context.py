@@ -18,6 +18,7 @@ import torch.distributed as dist
 
 from internlm.utils.common import SingletonMeta
 from internlm.utils.logger import get_logger
+from internlm.utils.timeout import LLM_NCCL_TIMEOUT
 
 from . import process_group_initializer as pgroup_initializer
 from .process_group_initializer import ParallelMode
@@ -100,7 +101,7 @@ class Config(dict):
 
         module_name = filepath.stem
         source_file = SourceFileLoader(fullname=str(module_name), path=str(filepath))
-        module = source_file.load_module()  # pylint: disable=W4902,E1120, W1505:
+        module = source_file.load_module()  # pylint: disable=W4902,E1120,W1505
 
         # load into config
         config = Config()
@@ -143,6 +144,7 @@ class ParallelContext(metaclass=SingletonMeta):
         self.pipeline_parallel_size = 1
         self.tensor_parallel_size = 1
         self.zero1_parallel_size = -1
+        self.nettest_parallel_size = 1
         self.expert_parallel_size = -1
         self.num_processes_on_current_node = -1
         self.virtual_pipeline_parallel_size = None
@@ -374,12 +376,22 @@ class ParallelContext(metaclass=SingletonMeta):
         """
         # initialize the default process group
         init_method = f"tcp://[{host}]:{port}"
-        dist.init_process_group(rank=rank, world_size=world_size, backend=backend, init_method=init_method)
+        dist.init_process_group(
+            rank=rank,
+            world_size=world_size,
+            backend=backend,
+            init_method=init_method,
+            timeout=LLM_NCCL_TIMEOUT,
+        )
 
         # None will give the default global process group for pytorch dist operations
         ranks = list(range(world_size))
         if use_cpu:
-            cpu_group = dist.new_group(ranks, backend="gloo") if dist.get_backend() != "gloo" else None
+            cpu_group = (
+                dist.new_group(ranks, backend="gloo", timeout=LLM_NCCL_TIMEOUT)
+                if dist.get_backend() != "gloo"
+                else None
+            )
         else:
             cpu_group = None
         self._register_dist(rank, world_size, dist.GroupMember.WORLD, cpu_group, ranks, ParallelMode.GLOBAL)
@@ -443,6 +455,9 @@ class ParallelContext(metaclass=SingletonMeta):
         # instead, it should be calculated based on other parallel config
         self.data_parallel_size = self.world_size // (self.pipeline_parallel_size * self.tensor_parallel_size)
 
+        # the recommended nettest_parallel_size is 32 GPUs
+        self.nettest_parallel_size = 32
+
         # TODO : data parallel size can be different with expert parallel size
         self.expert_parallel_size = self.data_parallel_size
 
@@ -458,6 +473,7 @@ class ParallelContext(metaclass=SingletonMeta):
             self.pipeline_parallel_size,
             self.tensor_parallel_size,
             self.zero1_parallel_size,
+            self.nettest_parallel_size,
             self.expert_parallel_size,
         ]
 
@@ -467,6 +483,7 @@ class ParallelContext(metaclass=SingletonMeta):
         initializers.append(pgroup_initializer.Initializer_Model(*initializer_args))
         initializers.append(pgroup_initializer.Initializer_Tensor(*initializer_args))
         initializers.append(pgroup_initializer.Initializer_Zero1(*initializer_args))
+        initializers.append(pgroup_initializer.Initializer_Nettest(*initializer_args))
         if self.pipeline_parallel_size > 1:
             initializers.append(pgroup_initializer.Initializer_Pipeline(*initializer_args))
         if self.config.model.num_experts > 1:

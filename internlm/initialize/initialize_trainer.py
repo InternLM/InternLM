@@ -43,8 +43,8 @@ def initialize_trainer(
     loaded into gpc.config.
 
     Args:
-        model (:class:`torch.nn.Module` or Callbale): Your model instance or a function to build the model.
-        optimizer (:class:`BaseOptimizer`.
+        model (:class:`torch.nn.Module` or `Callable`): Your model instance or a function to build the model.
+        optimizer (:class:`BaseOptimizer`): Your optimizer for training.
         criterion (:class:`torch.nn.modules.loss._Loss`, optional): Your criterion instance.
         train_dataloader (:class:`torch.utils.data.DataLoader`, optional): Dataloader for training.
         test_dataloader (:class:`torch.utils.data.DataLoader`, optional): Dataloader for testing.

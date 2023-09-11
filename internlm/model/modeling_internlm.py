@@ -159,6 +159,9 @@ class PackedFlashBaseLayer1D(nn.Module):
                     device=device,
                     dtype=dtype,
                 )
+            for _, param in self.mlp.named_parameters():
+                if gpc.get_world_size(ParallelMode.TENSOR) > 1:
+                    setattr(param, IS_TENSOR_PARALLEL, True)
         else:
             # replace mlp by MoE module. The expert in MoE is a FeedForward module.
             self.mlp = MoE(
@@ -176,6 +179,9 @@ class PackedFlashBaseLayer1D(nn.Module):
                 device=device,
                 dtype=dtype,
             )
+            for _, param in self.mlp.moe_layer.experts.named_parameters():
+                if gpc.get_world_size(ParallelMode.TENSOR) > 1:
+                    setattr(param, IS_TENSOR_PARALLEL, True)
 
         self.dropout2 = nn.Dropout(drop_rate)
         self.use_swiglu = use_swiglu
@@ -536,7 +542,6 @@ def build_model_with_cfg(
     use_scaled_init: bool = True,
     use_swiglu: bool = True,
     use_flash_attn: bool = True,
-    sequence_parallel: bool = False,  # pylint: disable=W0613
     num_experts: int = 1,
     moe_gate_k: int = 1,
     moe_capacity_factor: float = 1.0,
@@ -548,7 +553,7 @@ def build_model_with_cfg(
     moe_use_residual: bool = False,
 ):
     """
-    Builde model with config
+    Build model with config.
 
     Args:
         num_chunks (int): The number of partitions in pipeline parallel. 1 by default.

@@ -16,6 +16,7 @@ from internlm.core.engine import Engine
 from internlm.core.naive_amp import NaiveAMPModel
 from internlm.utils.common import get_current_device, move_to_device
 from internlm.utils.logger import get_logger
+from internlm.utils.timeout import llm_timeout
 
 from .base_scheduler import BaseScheduler, SchedulerHook
 
@@ -635,6 +636,7 @@ class PipelineScheduler(BaseScheduler):
 
         return output, label, accum_loss, accum_moe_loss
 
+    @llm_timeout(func_name="nointerleaved_forward_backward_step")
     def forward_backward_step(self, engine, data_iter, forward_only=False, return_loss=True, return_output_label=True):
         """Runs non-interleaved 1F1B schedule, with communication between pipeline stages.
         Returns a tuple with losses if the last stage, an empty tuple otherwise.
@@ -1127,8 +1129,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         1. Perform the forward pass.
         2. Perform the backward pass.
         3. Send the forward output of this iteration to the next stage, and send the backward output of this iteration
-           to the previous stage,
-        and receive the forward and backward inputs for the next iteration.
+           to the previous stage, and receive the forward and backward inputs for the next iteration.
 
         Args:
             engine (Engine): The engine to use for computation.
@@ -1304,6 +1305,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         # 3. Cooldown
         self._run_cooldown_loop(engine, num_microsteps, num_1f1b_micropairs=num_1f1b_micropairs)
 
+    @llm_timeout(func_name="interleaved_forward_backward_step")
     def forward_backward_step(self, engine, data_iter, forward_only=False, return_loss=True, return_output_label=True):
         """Run interleaved 1F1B schedule (model split into model chunks), with
         communication between pipeline stages as needed.

@@ -176,7 +176,7 @@ class AccPerplex:
             res.update(ds_acc)
             res.update(ds_tokens)
 
-        loss_res = self.loss_with_type_id.get_metric()
+        loss_res = self.loss_with_type_id.get_metric(reset)
         res.update(loss_res)
 
         return res
