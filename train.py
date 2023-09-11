@@ -35,6 +35,7 @@ from internlm.utils.common import (
     parse_args,
 )
 from internlm.utils.evaluation import evaluate_on_val_dls
+from internlm.utils.gputest import empty_cache_and_diag
 from internlm.utils.logger import get_logger, initialize_uniscale_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
 from internlm.utils.model_checkpoint import CheckpointManager
@@ -120,7 +121,7 @@ def main(args):
         train_dl=train_dl,
         model_config=gpc.config.model,
         model_config_file="".join(config_lines),
-        feishu_address=gpc.config.alert_address,
+        feishu_address=gpc.config.monitor.alert.feishu_alert_address,
     )
 
     # Loading other persistent training states.
@@ -193,9 +194,7 @@ def main(args):
     with initialize_llm_profile(profiling=args.profiling, start_time=current_time) as prof:
         # start iterating the train data and begin training
         for batch_count in range(train_state.batch_count, total_steps):
-            if batch_count % 50 == 0:
-                torch.cuda.empty_cache()
-
+            empty_cache_and_diag(batch_count, interval=gpc.config.data.empty_cache_and_diag_interval)
             start_time = time.time()
             timer("one-batch").start()
 
@@ -237,7 +236,7 @@ def main(args):
                 if -1 in grad_norm_groups.values() and gpc.is_rank_for_log():  # -1 encodes a specific failure case
                     logger.warning(f"Warning: skip parameter update at step {batch_count}.")
                     send_alert_message(
-                        address=gpc.config.alert_address,
+                        address=gpc.config.monitor.alert.feishu_alert_address,
                         message=f"Warning: skip parameter update at step {batch_count}.",
                     )
 
@@ -297,11 +296,15 @@ if __name__ == "__main__":
     assert hasattr(gpc, "config") and gpc.config is not None
 
     # initialize monitor manager context
-    with initialize_monitor_manager(job_name=gpc.config.JOB_NAME, alert_address=gpc.config.alert_address):
+    with initialize_monitor_manager(
+        job_name=gpc.config.JOB_NAME, alert_address=gpc.config.monitor.alert.feishu_alert_address
+    ):
         try:
             main(args)
         except Exception:
             logger.error(
                 f"Raise exception from {hostname} with rank id: {gpc.get_global_rank()}\n{traceback.format_exc()}",
             )
-            mm.monitor_exception(alert_address=gpc.config.alert_address, excp_info=traceback.format_exc())
+            mm.monitor_exception(
+                alert_address=gpc.config.monitor.alert.feishu_alert_address, excp_info=traceback.format_exc()
+            )

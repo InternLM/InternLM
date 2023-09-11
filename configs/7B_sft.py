@@ -1,4 +1,5 @@
 JOB_NAME = "7b_train"
+DO_ALERT = False
 
 SEQ_LEN = 2048
 HIDDEN_SIZE = 4096
@@ -55,6 +56,8 @@ data = dict(
     min_length=50,
     # train_folder=TRAIN_FOLDER,
     # valid_folder=VALID_FOLDER,
+    empty_cache_and_diag_interval=10,
+    diag_outlier_ratio=1.1,
 )
 
 grad_scaler = dict(
@@ -150,3 +153,12 @@ parallel = dict(
 
 cudnn_deterministic = False
 cudnn_benchmark = False
+
+monitor = dict(
+    # feishu alert configs
+    alert=dict(
+        enable_feishu_alert=DO_ALERT,
+        feishu_alert_address=None,  # feishu webhook to send alert message
+        light_monitor_address=None,  # light_monitor address to send heartbeat
+    ),
+)

@@ -48,9 +48,11 @@ logger = get_logger(__file__)
 @llm_timeout(func_name="initialize_model")
 def initialize_model():
     """
-    Initialize model.
+    Initialize model with Automatic Mixed Precision.
 
-    Returns: The neural network model to be trained or evaluated.
+    Returns:
+        torch.nn.Module:
+            The neural network model to be trained or evaluated.
     """
 
     model = MODEL_INITIALIZER.get_module(module_name=gpc.config.model_type)(**(gpc.config.model))
@@ -96,9 +98,10 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
     Initialize optimizer.
 
     Args:
-        model (torch.nn.Module): Your model instance to be trained or evaluated.
+        model (:class:`torch.nn.Module`): Your model instance to be trained or evaluated.
 
-    Returns: A tuple of (optimizer, beta2_scheduler, lr_scheduler).
+    Returns:
+        A tuple of (optimizer, beta2_scheduler, lr_scheduler).
     """
     if gpc.config.hybrid_zero_optimizer.overlap_sync_param:
         param_bcast_sync_handler = ParamBcastSyncHandler(model)
@@ -134,7 +137,14 @@ def get_train_data_loader(
     """
     Generate and return the training data loader.
 
-    Returns: A tuple of (train_dl, dataset_types).
+    Args:
+        num_worker (:class:`int`): number of subprocesses used for dataloader.
+        dataset_generate_func (:class:`Callable`, optional): generate function for dataset.
+        train_sampler (:class:`torch.utils.data.sampler`, optional): dataset sampler for training dataloader.
+        train_collate_fn (:class:`Callable`, optional): collate function for training dataloader.
+
+    Returns:
+        A tuple of (train_dl, dataset_types).
     """
 
     # Get the dataset types
@@ -344,6 +354,7 @@ def record_current_batch_training_metrics(
 
     set_env_var(key="LAST_ACTIVE_TIMESTAMP", value=int(time.time()))
 
+    timer.store_last_timers()
     if success_update in (0, True):
         train_state.num_consumed_tokens += batch[1].nelement() * gpc.get_world_size(ParallelMode.DATA)
     if is_no_pp_or_last_stage():
@@ -406,7 +417,7 @@ def record_current_batch_training_metrics(
             else:
                 writer.add_scalar(key=key, value=value, step=train_state.step_count)
 
-        if gpc.config.get("light_monitor_address", None) and batch_count % 50 == 0:
+        if gpc.config.monitor.alert.get("light_monitor_address", None) and batch_count % 50 == 0:
             send_heartbeat("train_metrics", infos)
 
         if update_panel:
@@ -434,4 +445,8 @@ def record_current_batch_training_metrics(
             logger.info(line)
 
         # if loss spike occurs, send alert info to feishu
-        mm.monitor_loss_spike(alert_address=gpc.config.alert_address, step_count=batch_count, cur_step_loss=loss.item())
+        mm.monitor_loss_spike(
+            alert_address=gpc.config.monitor.alert.feishu_alert_address,
+            step_count=batch_count,
+            cur_step_loss=loss.item(),
+        )

@@ -146,10 +146,12 @@ class Trainer:
 
     @property
     def engine(self):
+        """Returns the engine that responsible for managing the training and evaluation process."""
         return self._engine
 
     @property
     def schedule(self):
+        """Returns the runtime scheduler."""
         return self._schedule
 
     @property
@@ -158,15 +160,19 @@ class Trainer:
         return isinstance(self._schedule, (PipelineScheduler, InterleavedPipelineScheduler))
 
     def train(self):
+        """Sets the model to training mode."""
         self._engine.train()
 
     def eval(self):
+        """Sets the model to evaluation mode."""
         self._engine.eval()
 
     def zero_grad(self):
+        """Sets the gradient of all parameters in the model to zero."""
         self._engine.zero_grad()
 
     def step(self):
+        """Executes the parameter update step."""
         return self._engine.step()
 
     def execute_schedule(self, data_iter: Iterable, **kwargs):
