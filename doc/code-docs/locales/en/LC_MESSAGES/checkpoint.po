@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: InternLM \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-09-07 10:56+0800\n"
+"POT-Creation-Date: 2023-09-11 14:25+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -19,30 +19,30 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.12.1\n"
 
-#: ../../source/checkpoint.rst:2 09c8645fba264cdf9a80c4b62c2bb4d1
+#: ../../source/checkpoint.rst:2
 msgid "模型保存"
 msgstr "Model Checkpointing"
 
-#: ../../source/checkpoint.rst:4 8b158d34631045b1afdb4fb0169b3c71
+#: ../../source/checkpoint.rst:4
 msgid ""
 "InternLM 使用 ``internlm.utils.model_checkpoint.CheckpointManager`` "
 "来管理模型保存。 其中，可以 使用 ``CheckpointManager.try_save_checkpoint(train_state)`` "
 "来保存指定 step 的模型状态。InternLM支持启动时自动加载最新的模型备份，并在接收信号退出训练时自动进行模型备份。"
 msgstr ""
-"InternLM uses ``internlm.utils.model_checkpoint.CheckpointManager`` to manage model checkpointing. In the implementation, "
-"we use ``CheckpointManager.try_save_checkpoint(train_state)`` to checkpoint training states at specific steps. InternLM supports "
-"automatic loading of latest ckpt at startup and automatic model checkpointing at signal quit."
+"InternLM uses ``internlm.utils.model_checkpoint.CheckpointManager`` to "
+"manage model checkpointing. In the implementation, we use "
+"``CheckpointManager.try_save_checkpoint(train_state)`` to checkpoint "
+"training states at specific steps. InternLM supports automatic loading of"
+" latest ckpt at startup and automatic model checkpointing at signal quit."
 
-#: ../../source/checkpoint.rst:8 a023b5a6d15749bfaa51cf2da194bda1
+#: ../../source/checkpoint.rst:8
 msgid "Checkpointing"
 msgstr ""
 
-#: 938575c699d1426c87e0b3f589a85d50
 #: internlm.utils.model_checkpoint.CheckpointManager:1 of
 msgid "StorageManagerContext"
 msgstr ""
 
-#: 754d6881cd034c5ebaab0f3362dd14c2
 #: internlm.utils.model_checkpoint.CheckpointManager.quit_signal_handler:1 of
 msgid ""
 "Exit signal detection function, if we write the exit step in the "
@@ -51,34 +51,27 @@ msgid ""
 "quit."
 msgstr ""
 
-#: 2169f9fb4a8b40bc9bf6093894fc7a5e 6a55d2b2b24a44c8b78b40f19f4d950b
-#: internlm.utils.model_checkpoint.CheckpointManager.quit_signal_handler
-#: internlm.utils.model_checkpoint.CheckpointManager.try_resume_training of
+#: internlm.utils.model_checkpoint.CheckpointManager.quit_signal_handler of
 msgid "参数"
 msgstr ""
 
-#: 360a89b1591e4627ac432f4d75050354
 #: internlm.utils.model_checkpoint.CheckpointManager.quit_signal_handler of
 msgid "返回"
 msgstr ""
 
-#: 2426832f4a8a4c5481be1c940e0e7b50
 #: internlm.utils.model_checkpoint.CheckpointManager.quit_signal_handler:9 of
 msgid "whether to quit."
 msgstr ""
 
-#: 5f6842c261544a3c89f32d981b3ad755
 #: internlm.utils.model_checkpoint.CheckpointManager.quit_signal_handler of
 msgid "返回类型"
 msgstr ""
 
-#: 1392da84b6e645bcb8dab605e1231fdc
 #: internlm.utils.model_checkpoint.CheckpointManager.wait_async_upload_finish:1
 #: of
 msgid "wait for all checkpoint uploads to be completed"
 msgstr ""
 
-#: d1774593e9c94608b49b10504bfbc38b
 #: internlm.utils.model_checkpoint.CheckpointManager.query_latest_snapshot_step_boto3:1
 #: of
 msgid ""
@@ -86,38 +79,25 @@ msgid ""
 "found, None will return."
 msgstr ""
 
-#: a3abbbd2bd574872892d908ab248e804
-#: internlm.utils.model_checkpoint.CheckpointManager.try_resume_training:1 of
-msgid "Attempt to restore the training state of the last ckpt."
-msgstr ""
-
-#: de021d1eb6d54955a2850c11c0191710
-#: internlm.utils.model_checkpoint.CheckpointManager.try_resume_training:3 of
-msgid "lr_scheduler object."
-msgstr ""
-
-#: 20be15854f2e420a9d96c86b5869bfa6
-#: internlm.utils.model_checkpoint.CheckpointManager.try_resume_training:5 of
-msgid "optimizer object."
-msgstr ""
-
-#: 68f69086c5054acc8aca15c8a764acc5
-#: internlm.utils.model_checkpoint.CheckpointManager.try_resume_training:7 of
-msgid "learning rate."
-msgstr ""
-
-#: 5d34d34a972d4abeab4bda3e49ee157b
-#: internlm.utils.model_checkpoint.CheckpointManager.try_resume_training:9 of
-msgid "traing states."
-msgstr ""
-
-#: 82ebb67afaa748ecabc4cef598d7fc30
-#: internlm.utils.model_checkpoint.CheckpointManager.try_resume_training:11 of
-msgid "traning dataloader object"
-msgstr ""
-
-#: 0c95dfcd712749279daca78166bb4326
 #: internlm.utils.model_checkpoint.CheckpointManager.save_checkpoint:1 of
 msgid "Save checkpoint to the given folder path."
 msgstr ""
+
+#~ msgid "Attempt to restore the training state of the last ckpt."
+#~ msgstr ""
+
+#~ msgid "lr_scheduler object."
+#~ msgstr ""
+
+#~ msgid "optimizer object."
+#~ msgstr ""
+
+#~ msgid "learning rate."
+#~ msgstr ""
+
+#~ msgid "traing states."
+#~ msgstr ""
+
+#~ msgid "traning dataloader object"
+#~ msgstr ""
 
