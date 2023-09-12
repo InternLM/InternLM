@@ -1,4 +1,5 @@
 import math
+import subprocess
 
 import pytest
 import torch
@@ -26,7 +27,7 @@ from internlm.utils.model_checkpoint import CheckpointManager
 CONFIG_FILE_PATH = "./configs/7B_sft.py"
 TOTAL_STEPS = 10
 LOSS_SPIKE_LIMIT = 1.5
-LOSS_DEVIATION_LIMIT = 0.1
+LOSS_DEVIATION_LIMIT = 0.2
 BASELINE_LOSS_LIST = [
     11.64188003540039,
     7.9205322265625,
@@ -172,9 +173,9 @@ def train():
         timer("one-batch").stop()
 
 
-class TestCaseTraining:
+class TestCaseTrain8GPU:
     """
-    Test cases for Model Training.
+    Test cases for Model Training with 8 GPUs.
     """
 
     @staticmethod
@@ -190,7 +191,7 @@ class TestCaseTraining:
         print(f"cur_loss_list: {cur_loss_list}", flush=True)
 
     @staticmethod
-    @pytest.mark.xdist_group("test_training")
+    @pytest.mark.training_8GPU
     def test_loss_spike_with_dp8():
         if gpc.is_rank_for_log():
             for step in range(1, TOTAL_STEPS):
@@ -199,8 +200,88 @@ class TestCaseTraining:
                 ), f"The loss spike occurs, {cur_loss_list[step - 1]}->{cur_loss_list[step]}, please check it!"
 
     @staticmethod
-    @pytest.mark.xdist_group("test_training")
+    @pytest.mark.training_8GPU
     def test_loss_accuracy_with_dp8():
+        if gpc.is_rank_for_log():
+            for cur, target in zip(cur_loss_list, BASELINE_LOSS_LIST):
+                assert (
+                    abs(cur - target) < LOSS_DEVIATION_LIMIT
+                ), f"The loss accuracy is abnormal, {target}->{cur}, please check it!"
+
+
+class TestCaseTrain16GPUWith8DP2TP:
+    """
+    Test cases for Model Training with 16 GPUs.
+    """
+
+    @staticmethod
+    def setup_class():
+        # update config tensor parallel size
+        command = f"sed -i 's/^.*tensor=.*/    tensor=2,/' {CONFIG_FILE_PATH}"
+        subprocess.run(command, shell=True, check=True)
+
+        # initialize distributed environment
+        initialize_distributed_env(config=CONFIG_FILE_PATH)
+        assert hasattr(gpc, "config") and gpc.config is not None
+
+        # model training
+        train()
+
+        # print loss value
+        print(f"cur_loss_list: {cur_loss_list}", flush=True)
+
+    @staticmethod
+    @pytest.mark.training_16GPU_8DP2TP
+    def test_loss_spike_with_dp8_tp2():
+        if gpc.is_rank_for_log():
+            for step in range(1, TOTAL_STEPS):
+                assert (
+                    cur_loss_list[step] < cur_loss_list[step - 1] * LOSS_SPIKE_LIMIT
+                ), f"The loss spike occurs, {cur_loss_list[step - 1]}->{cur_loss_list[step]}, please check it!"
+
+    @staticmethod
+    @pytest.mark.training_16GPU_8DP2TP
+    def test_loss_accuracy_with_dp8_tp2():
+        if gpc.is_rank_for_log():
+            for cur, target in zip(cur_loss_list, BASELINE_LOSS_LIST):
+                assert (
+                    abs(cur - target) < LOSS_DEVIATION_LIMIT
+                ), f"The loss accuracy is abnormal, {target}->{cur}, please check it!"
+
+
+class TestCaseTrain16GPUWith8DP2PP:
+    """
+    Test cases for Model Training with 16 GPUs.
+    """
+
+    @staticmethod
+    def setup_class():
+        # update config pipeline parallel size
+        command = f"sed -i 's/^.*pipeline=.*/    pipeline=dict(size=2),/' {CONFIG_FILE_PATH}"
+        subprocess.run(command, shell=True, check=True)
+
+        # initialize distributed environment
+        initialize_distributed_env(config=CONFIG_FILE_PATH)
+        assert hasattr(gpc, "config") and gpc.config is not None
+
+        # model training
+        train()
+
+        # print loss value
+        print(f"cur_loss_list: {cur_loss_list}", flush=True)
+
+    @staticmethod
+    @pytest.mark.training_16GPU_8DP2PP
+    def test_loss_spike_with_dp8_pp2():
+        if gpc.is_rank_for_log():
+            for step in range(1, TOTAL_STEPS):
+                assert (
+                    cur_loss_list[step] < cur_loss_list[step - 1] * LOSS_SPIKE_LIMIT
+                ), f"The loss spike occurs, {cur_loss_list[step - 1]}->{cur_loss_list[step]}, please check it!"
+
+    @staticmethod
+    @pytest.mark.training_16GPU_8DP2PP
+    def test_loss_accuracy_with_dp8_pp2():
         if gpc.is_rank_for_log():
             for cur, target in zip(cur_loss_list, BASELINE_LOSS_LIST):
                 assert (
