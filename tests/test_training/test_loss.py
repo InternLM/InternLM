@@ -21,30 +21,23 @@ from internlm.train import (
 from internlm.utils.common import BatchSkipper, launch_time
 from internlm.utils.gputest import empty_cache_and_diag
 from internlm.utils.megatron_timers import megatron_timer as timer
+from internlm.utils.model_checkpoint import CheckpointManager
 
-TOTAL_STEPS = 20
-LOSS_DEVIATION_LIMIT = 0.5
+CONFIG_FILE_PATH = "./configs/7B_sft.py"
+TOTAL_STEPS = 10
+LOSS_SPIKE_LIMIT = 1.5
+LOSS_DEVIATION_LIMIT = 0.1
 BASELINE_LOSS_LIST = [
     11.64188003540039,
-    7.92056131362915,
-    6.936733245849609,
-    6.104186058044434,
-    5.954546928405762,
-    5.975135803222656,
-    5.03298807144165,
-    4.648955821990967,
-    4.212765693664551,
-    3.7354514598846436,
-    3.5600380897521973,
-    3.525212526321411,
-    3.2379345893859863,
-    3.070716142654419,
-    2.9927399158477783,
-    2.8968098163604736,
-    2.565525531768799,
-    2.9832329750061035,
-    2.8897438049316406,
-    2.67700457572937,
+    7.9205322265625,
+    6.944362163543701,
+    6.147305488586426,
+    6.060564994812012,
+    5.660439491271973,
+    5.19430685043335,
+    5.157323837280273,
+    4.769168376922607,
+    4.449280738830566,
 ]
 cur_loss_list = []
 
@@ -52,6 +45,7 @@ cur_loss_list = []
 def train():
     # init setting
     gpc.config.data.total_steps = TOTAL_STEPS
+    gpc.config.lr_scheduler.total_steps = TOTAL_STEPS
     total_steps = gpc.config.data.total_steps
     skip_batches = gpc.config.data.skip_batches
     label_smoothing = gpc.config.loss.label_smoothing
@@ -75,6 +69,22 @@ def train():
     train_state = TrainState(gpc.config, train_dl.batch_sampler)
 
     optimizer, beta2_scheduler, lr_scheduler = initialize_optimizer(model=model)
+
+    with open(CONFIG_FILE_PATH, "r") as f:
+        config_lines = f.readlines()
+    ckpt_manager = CheckpointManager(
+        ckpt_config=gpc.config.ckpt,
+        model=model,
+        optimizer=optimizer,
+        lr_scheduler=lr_scheduler,
+        train_dl=train_dl,
+        model_config=gpc.config.model,
+        model_config_file="".join(config_lines),
+        feishu_address=gpc.config.monitor.alert.feishu_alert_address,
+    )
+
+    # Loading other persistent training states.
+    ckpt_manager.try_resume_training(train_state, current_time)
 
     # initialize metric for calculating accuracy and perplexity
     metric = AccPerplex(
@@ -142,18 +152,18 @@ def train():
         timer("fwd-bwd").start()
 
         _, _, loss = trainer.execute_schedule(batch, forward_only=False, return_loss=True, return_output_label=False)
-        assert loss is not None and not math.isnan(loss.item())
-        global cur_loss_list
-        cur_loss_list.append(loss.item())
+        if gpc.is_rank_for_log():
+            assert loss is not None and not math.isnan(loss.item())
+            global cur_loss_list
+            cur_loss_list.append(loss.item())
         timer("fwd-bwd").stop()
 
         # update parameters, and returns (success_update, grad_norm)
         trainer_result = trainer.step()
         assert trainer_result is not None
 
-        success_update, grad_norm_groups = trainer_result
+        success_update, _ = trainer_result
         assert success_update, "Error: grad norm inf or nan occurs!"
-        print(f"grad_norm_groups: {grad_norm_groups}")
         if success_update:  # update parameters successfully
             train_state.step_count += 1
         else:
@@ -168,10 +178,9 @@ class TestCaseTraining:
     """
 
     @staticmethod
-    @pytest.mark.xdist_group("test_training")
-    def test_loss():
+    def setup_class():
         # initialize distributed environment
-        initialize_distributed_env(config="./configs/7B_sft.py")
+        initialize_distributed_env(config=CONFIG_FILE_PATH)
         assert hasattr(gpc, "config") and gpc.config is not None
 
         # model training
@@ -180,7 +189,20 @@ class TestCaseTraining:
         # print loss value
         print(f"cur_loss_list: {cur_loss_list}", flush=True)
 
-        for cur, target in zip(cur_loss_list, BASELINE_LOSS_LIST):
-            assert (
-                abs(cur - target) < LOSS_DEVIATION_LIMIT
-            ), f"The loss value is abnormal, {target}->{cur}, please check it!"
+    @staticmethod
+    @pytest.mark.xdist_group("test_training")
+    def test_loss_spike_with_dp8():
+        if gpc.is_rank_for_log():
+            for step in range(1, TOTAL_STEPS):
+                assert (
+                    cur_loss_list[step] < cur_loss_list[step - 1] * LOSS_SPIKE_LIMIT
+                ), f"The loss spike occurs, {cur_loss_list[step - 1]}->{cur_loss_list[step]}, please check it!"
+
+    @staticmethod
+    @pytest.mark.xdist_group("test_training")
+    def test_loss_accuracy_with_dp8():
+        if gpc.is_rank_for_log():
+            for cur, target in zip(cur_loss_list, BASELINE_LOSS_LIST):
+                assert (
+                    abs(cur - target) < LOSS_DEVIATION_LIMIT
+                ), f"The loss accuracy is abnormal, {target}->{cur}, please check it!"
