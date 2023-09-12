@@ -6,11 +6,14 @@ The system code file structure is shown below:
 ├── internlm                                 # Main directory of the system code
 │   ├── apis                                 # Interface module, containing some interface functions related to inference, etc.
 │   ├── core                                 # Core module, managing parallel context and training scheduling engine for training and inference
+│   │   ├── communication                    # Communication module, responsible for p2p communication in pipeline parallel scheduling
 │   │   ├── context                          # Context module, mainly responsible for initializing parallel process groups and managing parallel context
 │   │   │   ├── parallel_context.py
 │   │   │   └── process_group_initializer.py
+│   │   ├── scheduler                        # Scheduling module, which manages schedulers for parallel training, including non-pipeline and pipeline parallel schedulers
+│   │   │   ├── no_pipeline_scheduler.py
+│   │   │   └── pipeline_scheduler.py
 │   │   ├── engine.py                        # Responsible for managing the training and evaluation process of the model
-│   │   ├── no_pipeline_scheduler.py         # Scheduler for parallel training
 │   │   └── trainer.py                       # Responsible for managing the training engine and scheduler
 │   ├── data                                 # Data module, responsible for managing dataset generation and processing
 │   ├── initialize                           # Initialization module, responsible for managing distributed environment startup and trainer initialization

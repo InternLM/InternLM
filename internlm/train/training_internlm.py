@@ -26,7 +26,7 @@ from internlm.data.packed_dataset import (
 )
 from internlm.data.utils import DATASET_TYPE_IDS_MAP, unpack_data
 from internlm.model.moe import create_moe_param_groups
-from internlm.monitor import set_env_var
+from internlm.monitor import send_heartbeat, set_env_var
 from internlm.monitor.monitor import monitor_manager as mm
 from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
@@ -41,15 +41,19 @@ from internlm.utils.parallel import (
     sync_model_param_within_tp,
 )
 from internlm.utils.registry import MODEL_INITIALIZER
+from internlm.utils.timeout import llm_timeout
 
 logger = get_logger(__file__)
 
 
+@llm_timeout(func_name="initialize_model")
 def initialize_model():
     """
-    Initialize model.
+    Initialize model with Automatic Mixed Precision.
 
-    Returns: The neural network model to be trained or evaluated.
+    Returns:
+        torch.nn.Module:
+            The neural network model to be trained or evaluated.
     """
 
     model = MODEL_INITIALIZER.get_module(module_name=gpc.config.model_type)(**(gpc.config.model))
@@ -89,14 +93,16 @@ def initialize_model():
     return model
 
 
+@llm_timeout(func_name="initialize_optimizer")
 def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
     """
     Initialize optimizer.
 
     Args:
-        model (torch.nn.Module): Your model instance to be trained or evaluated.
+        model (:class:`torch.nn.Module`): Your model instance to be trained or evaluated.
 
-    Returns: A tuple of (optimizer, beta2_scheduler, lr_scheduler).
+    Returns:
+        A tuple of (optimizer, beta2_scheduler, lr_scheduler).
     """
     if gpc.config.hybrid_zero_optimizer.overlap_sync_param:
         param_bcast_sync_handler = ParamBcastSyncHandler(model)
@@ -130,13 +136,21 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
     return optimizer, beta2_scheduler, lr_scheduler
 
 
+@llm_timeout(func_name="get_train_data_loader")
 def get_train_data_loader(
     num_worker: int = 0, dataset_generate_func: Callable = None, train_sampler=None, train_collate_fn=None
 ):
     """
     Generate and return the training data loader.
 
-    Returns: A tuple of (train_dl, dataset_types).
+    Args:
+        num_worker (:class:`int`): number of subprocesses used for dataloader.
+        dataset_generate_func (:class:`Callable`, optional): generate function for dataset.
+        train_sampler (:class:`torch.utils.data.sampler`, optional): dataset sampler for training dataloader.
+        train_collate_fn (:class:`Callable`, optional): collate function for training dataloader.
+
+    Returns:
+        A tuple of (train_dl, dataset_types).
     """
 
     # Get the dataset types
@@ -202,6 +216,7 @@ def get_train_data_loader(
     return train_dl, dataset_types
 
 
+@llm_timeout(func_name="get_validation_data_loader")
 def get_validation_data_loader(
     num_worker: int = 0, dataset_generate_func: Callable = None, val_collate_fn=None, dataloader_func=None
 ):
@@ -263,6 +278,7 @@ def get_validation_data_loader(
     return val_dls
 
 
+@llm_timeout(func_name="load_new_batch")
 def load_new_batch(train_dl: DataLoader, train_iter: Iterable, train_state: TrainState):
     """
     Load and return the new batch data based on training data loader.
@@ -320,6 +336,7 @@ def initialize_llm_profile(profiling: bool = False, start_time: str = None):
     )
 
 
+@llm_timeout(func_name="record_current_batch_training_metrics")
 def record_current_batch_training_metrics(
     get_tflops_func,
     logger,
@@ -344,6 +361,7 @@ def record_current_batch_training_metrics(
 
     set_env_var(key="LAST_ACTIVE_TIMESTAMP", value=int(time.time()))
 
+    timer.store_last_timers()
     if success_update in (0, True):
         train_state.num_consumed_tokens += batch[1].nelement() * gpc.get_world_size(ParallelMode.DATA)
     if is_no_pp_or_last_stage():
@@ -373,12 +391,6 @@ def record_current_batch_training_metrics(
 
         tflops = get_tflops_func((time.time() - start_time))
 
-        # change grad_norm list to dict for calling writer's add_scalars
-        grad_norm_dict = {}
-        assert isinstance(grad_norm, list)
-        for inx, norm in enumerate(grad_norm):
-            grad_norm_dict[f"grad_norm_{inx}"] = norm
-
         infos = {
             "tflops": tflops,
             "step": batch_count,
@@ -387,7 +399,7 @@ def record_current_batch_training_metrics(
             "tgs (tokens/gpu/second)": tk_per_gpu,
             "lr": lr,
             "loss_scale": scaler,
-            "grad_norm": grad_norm_dict,
+            "grad_norm": grad_norm,
         }
 
         infos["micro_num"] = len(batch[1])
@@ -413,20 +425,23 @@ def record_current_batch_training_metrics(
             else:
                 writer.add_scalar(key=key, value=value, step=train_state.step_count)
 
+        if gpc.config.monitor.alert.get("light_monitor_address", None) and batch_count % 50 == 0:
+            send_heartbeat("train_metrics", infos)
+
         if update_panel:
             # metrics shown with dashboard panels
             panel_metrics = {
                 "step": batch_count,
                 "lr": lr,
                 "num_consumed_tokens": train_state.num_consumed_tokens,
-                "loss": loss.item() - moe_loss.item(),
+                "loss": loss.item() + moe_loss.item(),
                 "flops": tflops,
                 "tgs": tk_per_gpu,
                 "acc": acc_perplex["acc"],
                 "perplexity": acc_perplex["perplexity"],
                 "fwd_bwd_time": fwd_bwd_time,
             }
-            for norm_key, norm_value in grad_norm_dict.items():
+            for norm_key, norm_value in grad_norm.items():
                 panel_metrics[norm_key] = norm_value
 
             logger.info(
@@ -438,4 +453,8 @@ def record_current_batch_training_metrics(
             logger.info(line)
 
         # if loss spike occurs, send alert info to feishu
-        mm.monitor_loss_spike(alert_address=gpc.config.alert_address, step_count=batch_count, cur_step_loss=loss.item())
+        mm.monitor_loss_spike(
+            alert_address=gpc.config.monitor.alert.feishu_alert_address,
+            step_count=batch_count,
+            cur_step_loss=loss.item(),
+        )

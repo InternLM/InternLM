@@ -10,6 +10,7 @@ import torch
 from internlm.core.context import global_context as gpc
 from internlm.core.engine import Engine
 from internlm.utils.common import conditional_context
+from internlm.utils.timeout import llm_timeout
 
 from .base_scheduler import BaseScheduler, SchedulerHook
 
@@ -26,13 +27,13 @@ class NonPipelineScheduler(BaseScheduler):
         gradient_accumulation_steps(int, optional): the steps of gradient accumulation, 1 for disable
             gradient accumulation.
 
-    Example:
-        # this shows an example of customized data_process_func
-        def data_process_func(dataloader_output):
-            item1, item2, item3 = dataloader_output
-            data = (item1, item2)
-            label = item3
-            return data, label
+    Examples:
+        >>> # this shows an example of customized data_process_func
+        >>> def data_process_func(dataloader_output):
+        >>>     item1, item2, item3 = dataloader_output
+        >>>     data = (item1, item2)
+        >>>     label = item3
+        >>>     return data, label
     """
 
     def __init__(
@@ -131,6 +132,7 @@ class NonPipelineScheduler(BaseScheduler):
 
         return output, loss, moe_loss
 
+    @llm_timeout(func_name="nopp_forward_backward_step")
     def forward_backward_step(
         self,
         engine: Engine,

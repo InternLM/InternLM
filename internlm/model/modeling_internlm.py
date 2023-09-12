@@ -548,7 +548,7 @@ def build_model_with_cfg(
     moe_use_residual: bool = False,
 ):
     """
-    Builde model with config
+    Build model with config.
 
     Args:
         num_chunks (int): The number of partitions in pipeline parallel. 1 by default.
