@@ -23,7 +23,7 @@ jobs:
          fetch-depth: 2
     - name: check-requirements
       run: |
-        source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
+        source activate internlm-env-test
         changed_files=$(git diff --name-only -r HEAD^1 HEAD)
         echo $changed_files
         if [[ $changed_files =~ "runtime.txt" ]]; then
@@ -48,7 +48,5 @@ jobs:
 
     - name: e2e-test
       run: |
-        source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
-        export JOB_NAME="S_7b_train"
-        export CLUSTER_NAME="S"
-        srun -p ${SLURM_PARTITION} --job-name=private-${GITHUB_RUN_ID}-${GITHUB_JOB} -n8 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v ./tests/test_training
+        source activate internlm-env-test
+        srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} -n8 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v ./tests/test_training
