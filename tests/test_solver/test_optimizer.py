@@ -1,8 +1,6 @@
 import copy
 import multiprocessing as mp
-import random
 
-import numpy as np
 import pytest
 import torch
 from torch import nn
@@ -95,21 +93,6 @@ def build_environment(rank, world_size):
     internlm.launch_from_torch(config=config, seed=1024)
 
 
-def seed_all(seed, cuda_deterministic=False):
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(seed)
-        torch.cuda.manual_seed_all(seed)
-    if cuda_deterministic:  # slower, more reproducible
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
-    else:
-        torch.backends.cudnn.deterministic = False
-        torch.backends.cudnn.benchmark = True
-
-
 def loose_close(a, b, dtype: torch.dtype = torch.float32):
     rtol, atol = (1e-3, 5e-3)
     if dtype is torch.float16:
@@ -131,9 +114,6 @@ def exam_hybrid_zero_optim_with_ddp(args):
     config.data.micro_num = micro_num
 
     build_environment(rank, world_size)
-
-    # fix seed
-    seed_all(1024)
 
     # create models
     zero_model = MlpModel().cuda()
@@ -216,9 +196,6 @@ def exam_hybrid_zero_optim_with_ckpt_load_save(args):
     config.parallel.zero1 = zero_parallel
 
     build_environment(rank, world_size)
-
-    # fix seed
-    seed_all(1024)
 
     # create models
     zero_model = MlpModel().cuda()
