@@ -259,6 +259,8 @@ class TestCaseTrain16GPUWith8DP2PP:
         # update config pipeline parallel size
         command = f"sed -i 's/^.*pipeline=.*/    pipeline=dict(size=2),/' {CONFIG_FILE_PATH}"
         subprocess.run(command, shell=True, check=True)
+        command = f"sed -i 's/^.*tensor=.*/    tensor=1,/' {CONFIG_FILE_PATH}"
+        subprocess.run(command, shell=True, check=True)
 
         # initialize distributed environment
         initialize_distributed_env(config=CONFIG_FILE_PATH)
