@@ -211,6 +211,14 @@ monitor_manager = MonitorManager()
 
 @contextmanager
 def initialize_monitor_manager(job_name: str = None, alert_address: str = None):
+    """
+    Initialize monitor manager for monitoring training lifetime and alerting exception info to Feishu.
+
+    Args:
+        job_name (str): The training job name.
+        alert_address (str): The Feishu webhook address for sending alert messages.
+    """
+
     if alert_address is not None:
         try:
             monitor_manager.start_monitor(job_name=job_name, alert_address=alert_address)
@@ -218,9 +226,7 @@ def initialize_monitor_manager(job_name: str = None, alert_address: str = None):
             send_alert_message(address=alert_address, message=f"Training in {socket.gethostname()} is starting.")
             yield
         finally:
-            send_alert_message(
-                address=gpc.config.alert_address, message=f"Training in {socket.gethostname()} completed."
-            )
+            send_alert_message(address=alert_address, message=f"Training in {socket.gethostname()} completed.")
             monitor_manager.stop_monitor()
     else:
         yield

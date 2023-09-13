@@ -1,4 +1,4 @@
-## InternLM Installation
+## Installation
 
 ### Environment Preparation
 The required packages and corresponding version are shown as follows:
@@ -59,12 +59,28 @@ cd ../../
 ```
 
 ### Environment Image
-Users can obtain an image with the InternLM runtime environment installed from https://hub.docker.com/r/sunpengsdu/internlm. The commands for pulling the image and starting the container are as follows:
+Users can use the provided dockerfile combined with docker.Makefile to build their own images, or obtain images with InternLM runtime environment installed from https://hub.docker.com/r/internlm/internlm.
+
+#### Image Configuration and Build
+The configuration and build of the Dockerfile are implemented through the docker.Makefile. To build the image, execute the following command in the root directory of InternLM:
+``` bash
+make -f docker.Makefile BASE_OS=centos7
+``` 
+In docker.Makefile, you can customize the basic image, environment version, etc., and the corresponding parameters can be passed directly through the command line. For BASE_OS, ubuntu20.04 and centos7 are respectively supported.
+
+#### Pull Standard Image
+The standard image based on ubuntu and centos has been built and can be directly pulled:
 
 ```bash
-# pull image
-docker pull sunpengsdu/internlm:torch1.13-cuda11.7-flashatten1.0.5-centos
-# start container
-docker run --gpus all -d -it --shm-size=2gb --name myinternlm sunpengsdu/internlm:torch1.13-cuda11.7-flashatten1.0.5-centos
-docker exec -it myinternlm bash
+# ubuntu20.04
+docker pull internlm/internlm:torch1.13.1-cuda11.7.1-flashatten1.0.5-ubuntu20.04
+# centos7
+docker pull internlm/internlm:torch1.13.1-cuda11.7.1-flashatten1.0.5-centos7
 ```
+
+#### Run Container
+For the local standard image built with dockerfile or pulled, use the following command to run and enter the container:
+```bash
+docker run --gpus all -it -m 500g --cap-add=SYS_PTRACE --cap-add=IPC_LOCK --shm-size 20g --network=host --name myinternlm internlm/internlm:torch1.13.1-cuda11.7.1-flashatten1.0.5-centos7 bash
+```
+The default directory in the container is `/InternLM`, please start training according to the [Usage](./usage.md).

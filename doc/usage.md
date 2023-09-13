@@ -1,4 +1,4 @@
-## 基于InternLM的预训练与微调使用教程
+## 使用教程
 
 启动一个 Demo 模型训练，需要进行三项准备，**安装**，**数据集准备**和**模型训练配置**。接下来，首先会介绍数据准备相关的操作，再简要描述模型训练配置相关的内容。
 
@@ -84,9 +84,7 @@ data = dict(
 )
 ```
 
-<div align="left">
-    <img src="./imgs/pack_into_one.png" width="550"/>
-</div>
+![pack_into_one](./imgs/pack_into_one.png)
 
 
 目前支持传入数据集文件路径`train_folder`，且要求文件格式如下：
@@ -103,18 +101,17 @@ data = dict(
 如果在启动训练时要加载模型 `checkpoint`，可进行如下相关配置：
 ```python
 SAVE_CKPT_FOLDER = "local:/path/to/save/ckpt"
-MODEL_ONLY_FOLDER = "local:/path/to/load/init/model/ckpt"
 LOAD_CKPT_FOLDER = "local:/path/to/load/resume/ckpt"
 ckpt = dict(
     save_ckpt_folder=SAVE_CKPT_FOLDER,  # 存储模型和优化器 checkpoint 的路径
     checkpoint_every=float("inf"),  # 每多少个 step 存储一次 checkpoint，默认值为 inf
-    load_model_only_folder=MODEL_ONLY_FOLDER,  # 加载模型初始权重的路径，只加载模型权重，不加载优化器权重，训练将从第一个 step 开始
-    load_ckpt_folder=LOAD_CKPT_FOLDER,  # 断点续训时，加载模型和优化器等权重的路径，将从指定的 step 恢复训练
-    load_optimizer=True,  # 断点续训时，是否需要加载优化器权重，默认值为 True
+    # 断点续训时，加载模型和优化器等权重的路径，将从指定的 step 恢复训练
+    # content 表示哪些状态会被加载，支持： "model", "sampler", "optimizer", "scheduler", "all"
+    # ckpt_type 表示加载的模型类型，目前支持: "internlm"
+    load_ckpt_info=dict(path=MODEL_ONLY_FOLDER, content=("model",), ckpt_type="internlm"),
 )
 ```
 注意：
-- `load_model_only_folder`与`load_ckpt_folder`不能同时设置
 - 路径若以 `local:` 为前缀，则存储在本地文件系统；若以 `boto3:` 为前缀，则存储在远程 oss 上
 
 模型相关关键参数配置如下所示：
@@ -151,16 +148,20 @@ model = dict(
 ```python
 parallel = dict(
     zero1=8,
-    pipeline=1,
     tensor=1,
+    pipeline=dict(size=1, interleaved_overlap=True),
+    sequence_parallel=False,
 )
 ```
 - zero1：zero 并行策略，分如下三种情况，默认值为 -1
-  - 当`size <= 0`，则 zero1 进程组的大小等于数据并行进程组的大小，因此优化器状态参数将在数据并行范围内分配
-  - 当`size == 1`，则不使用 zero1 ，所有数据并行组保留完整的优化器状态参数
-  - 当`size > 1`且`size <= data_parallel_world_size`，则 zero1 进程组是数据并行进程组的子集
-- pipeline：流水线并行大小，默认值为 1
+  - 当`zero1 <= 0`，则 zero1 进程组的大小等于数据并行进程组的大小，因此优化器状态参数将在数据并行范围内分配
+  - 当`zero1 == 1`，则不使用 zero1 ，所有数据并行组保留完整的优化器状态参数
+  - 当`zero1 > 1`且`zero1 <= data_parallel_world_size`，则 zero1 进程组是数据并行进程组的子集
 - tensor：张量并行大小，通常是每个节点的 GPU 数量，默认值为 1
+- pipeline：流水线并行策略
+  - size：流水线并行大小，默认值为 1
+  - interleaved_overlap：bool 类型，交错式调度时，开启或关闭通信优化，默认值为关闭
+- sequence_parallel：是否开启序列化并行，默认值为 False
 
 注意：`数据并行大小 = 总的 GPU 数目 / 流水线并行大小 / 张量并行大小`
 
