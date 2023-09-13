@@ -324,9 +324,7 @@ def find_subset_with_target_sum(nums: List[int], target: int, approximate_thresh
         if len(indexs) > 0:
             return
 
-        if len(part_idxs) > 0 and (
-            tmpTarget >= -target * approximate_threshold and tmpTarget <= target * approximate_threshold
-        ):
+        if len(part_idxs) > 0 and (-target * approximate_threshold <= tmpTarget <= target * approximate_threshold):
             indexs.append(part_idxs)
         elif tmpTarget > 0:
             for i in range(start, len(nums)):
