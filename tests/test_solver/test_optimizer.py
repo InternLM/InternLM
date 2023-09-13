@@ -112,6 +112,9 @@ def exam_hybrid_zero_optim_with_ddp(args):
     config.hybrid_zero_optimizer.overlap_sync_param = overlap_sync_param
     config.hybrid_zero_optimizer.overlap_sync_grad = overlap_sync_grad
     config.data.micro_num = micro_num
+    totel_step = 5
+    if overlap_sync_param == False:
+        totel_step = 1
 
     build_environment(rank, world_size)
 
@@ -148,7 +151,7 @@ def exam_hybrid_zero_optim_with_ddp(args):
         eps=config.adam.adam_eps,
     )
 
-    for _ in range(5):
+    for _ in range(totel_step):
         zero_optimizer.zero_grad()
         torch_optimizer.zero_grad()
         zero_optimizer.skip_grad_reduce = True
@@ -171,7 +174,11 @@ def exam_hybrid_zero_optim_with_ddp(args):
             zero_optimizer.backward(zero_output.mean())
 
             # torch-ddp backward
-            torch_output.mean().backward()
+            if num == micro_num - 1:
+                torch_output.mean().backward()
+            else:
+                with torch_model.no_sync():
+                    torch_output.mean().backward()
 
         # check grad
         for torch_parm, zero_parm in zip(torch_model.parameters(), zero_model.parameters()):
@@ -184,7 +191,7 @@ def exam_hybrid_zero_optim_with_ddp(args):
         # torch-ddp step
         torch_optimizer.step()
 
-        torch.cuda.synchronize()
+    torch.cuda.synchronize()
     # check updated param
     for torch_parm, zero_parm in zip(torch_model.parameters(), zero_model.parameters()):
         loose_close(torch_parm, zero_parm)
