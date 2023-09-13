@@ -74,10 +74,10 @@ def evaluate_on_val_dls(
         trainer.eval()
         verbose = gpc.is_rank_for_log()
         data_cfg = gpc.config.data
-        valid_max_nbatch = gpc.config.data.get("valid_max_nbatch", None)
+        valid_max_batch_num = gpc.config.data.get("valid_max_batch_num", None)
         assert (
-            valid_max_nbatch is None or valid_max_nbatch > 0
-        ), f"valid_max_nbatch should be positive instead of {valid_max_nbatch}"
+            valid_max_batch_num is None or valid_max_batch_num > 0
+        ), f"valid_max_batch_num should be positive instead of {valid_max_batch_num}"
 
         for val_name, val_dl in val_dls.items():
             if not streaming and len(val_dl) == 0 and verbose:
@@ -135,7 +135,7 @@ def evaluate_on_val_dls(
                             )
                 if verbose:
                     val_loss += loss.item()
-                if valid_max_nbatch is not None and (valid_max_nbatch - 1) <= val_idx:
+                if valid_max_batch_num is not None and (valid_max_batch_num - 1) <= val_idx:
                     break
 
             assert val_idx != -1
