@@ -146,7 +146,9 @@ class ParameterStore(BaseStore):
         # param partitioning data structures
         self._fp16_param_to_rank = dict()
         self._rank_groupid_to_fp16_param_list = dict()
-        self._rank_group_id_to_flat_fp16_param = dict()
+        self._rank_groupid_to_flat_fp16_param = dict()
+        self._rank_groupid_to_proxy_param_indexs = dict()
+        self._rank_groupid_to_flat_proxy_param = dict()
 
         # param reduction data structures
         self._is_param_reduced = dict()
@@ -192,26 +194,55 @@ class ParameterStore(BaseStore):
         tensor_rank = self._fp16_param_to_rank[tensor]
         return tensor_rank == self._local_rank
 
-    def add_fp16_param_list_by_rank_group(self, rank, group_id, tensor_list) -> None:
+    def add_fp16_param_list_by_rank_group(self, rank, group_id, tensor_list, indexs_to_proxy) -> None:
         if rank not in self._rank_groupid_to_fp16_param_list:
             self._rank_groupid_to_fp16_param_list[rank] = dict()
+            self._rank_groupid_to_proxy_param_indexs[rank] = dict()
 
         if group_id not in self._rank_groupid_to_fp16_param_list[rank]:
             self._rank_groupid_to_fp16_param_list[rank][group_id] = []
+            self._rank_groupid_to_proxy_param_indexs[rank][group_id] = []
+
+        if indexs_to_proxy is not None:
+            self._rank_groupid_to_proxy_param_indexs[rank][group_id].extend(indexs_to_proxy)
 
         self._rank_groupid_to_fp16_param_list[rank][group_id].extend(tensor_list)
 
-    def get_fp16_params_by_rank_group(self, rank, group_id) -> List[Tensor]:
-        return self._rank_groupid_to_fp16_param_list[rank][group_id]
+    def get_fp16_params_by_rank_group(self, rank, group_id, option: str = "all") -> List[Tensor]:
+        res = []
+
+        if option == "without_proxy":
+            for idx, param in enumerate(self._rank_groupid_to_fp16_param_list[rank][group_id]):
+                if idx in self._rank_groupid_to_proxy_param_indexs[rank][group_id]:
+                    continue
+                res.append(param)
+        elif option == "proxy_only":
+            for idx, param in enumerate(self._rank_groupid_to_fp16_param_list[rank][group_id]):
+                if idx not in self._rank_groupid_to_proxy_param_indexs[rank][group_id]:
+                    continue
+                res.append(param)
+        else:
+            res = self._rank_groupid_to_fp16_param_list[rank][group_id]
+
+        return res
 
     def add_flat_fp16_param_by_rank_group(self, rank, group_id, tensor) -> None:
-        if rank not in self._rank_group_id_to_flat_fp16_param:
-            self._rank_group_id_to_flat_fp16_param[rank] = dict()
+        if rank not in self._rank_groupid_to_flat_fp16_param:
+            self._rank_groupid_to_flat_fp16_param[rank] = dict()
 
-        self._rank_group_id_to_flat_fp16_param[rank][group_id] = tensor
+        self._rank_groupid_to_flat_fp16_param[rank][group_id] = tensor
 
     def get_flat_fp16_param_by_rank_group(self, rank, group_id) -> Tensor:
-        return self._rank_group_id_to_flat_fp16_param[rank][group_id]
+        return self._rank_groupid_to_flat_fp16_param[rank][group_id]
+
+    def add_flat_proxy_param_by_rank_group(self, rank, group_id, tensor) -> None:
+        if rank not in self._rank_groupid_to_flat_proxy_param:
+            self._rank_groupid_to_flat_proxy_param[rank] = dict()
+
+        self._rank_groupid_to_flat_proxy_param[rank][group_id] = tensor
+
+    def get_flat_proxy_param_by_rank_group(self, rank, group_id) -> Tensor:
+        return self._rank_groupid_to_flat_proxy_param[rank][group_id]
 
     def is_param_reduced(self, tensor):
         return self._is_param_reduced[tensor]

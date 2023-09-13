@@ -81,6 +81,10 @@ hybrid_zero_optimizer = dict(
     reduce_bucket_size=512 * 1024 * 1024,
     # grad clipping
     clip_grad_norm=1.0,
+    # cuda memory balance for activation
+    cuda_memory_balance=False,
+    cuda_memory_balance_amount=1 * 1024,  # MB
+    cuda_memory_balance_compensation={},
 )
 
 loss = dict(
@@ -140,8 +144,8 @@ pipeline parallel (dict):
 tensor parallel: tensor parallel size, usually the number of GPUs per node.
 """
 parallel = dict(
-    zero1=8,
-    pipeline=dict(size=1, interleaved_overlap=True),
+    zero1=-1,
+    pipeline=dict(size=2, interleaved_overlap=True),
     sequence_parallel=False,
 )
 

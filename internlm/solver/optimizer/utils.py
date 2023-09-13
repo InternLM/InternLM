@@ -5,7 +5,7 @@ import math
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from functools import partial
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import torch
 import torch.distributed as dist
@@ -315,6 +315,27 @@ def compute_norm(gradients, parameters, last_stage=False, previous_norm=None, no
         total_norm = -1
 
     return total_norm
+
+
+def find_subset_with_target_sum(nums: List[int], target: int, approximate_threshold: float = 0.0) -> List[int]:
+    indexs = []
+
+    def _inner_helper(start: int, tmpTarget: int, part_idxs: List[int]):
+        if len(indexs) > 0:
+            return
+
+        if len(part_idxs) > 0 and (
+            tmpTarget >= -target * approximate_threshold and tmpTarget <= target * approximate_threshold
+        ):
+            indexs.append(part_idxs)
+        elif tmpTarget > 0:
+            for i in range(start, len(nums)):
+                num = nums[i]
+                _inner_helper(start + 1, tmpTarget - num, part_idxs + [i])
+
+    _inner_helper(start=0, tmpTarget=target, part_idxs=[])
+
+    return indexs[0] if len(indexs) > 0 else None
 
 
 class BaseGradScaler(ABC):

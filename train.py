@@ -177,9 +177,10 @@ def main(args):
         memory_profiler = SimpleMemoryProfiler(
             model,
             optimizer.optim,
-            log_folder=f"memory_trace/rank{gpc.get_global_rank()}_"
-            + f"dp{gpc.get_local_rank(ParallelMode.DATA)}_"
-            + f"tp{gpc.get_local_rank(ParallelMode.TENSOR)}",
+            log_folder=f"memory_trace/rank{gpc.get_global_rank()}"
+            + f"_dp{gpc.get_local_rank(ParallelMode.DATA)}"
+            + f"_tp{gpc.get_local_rank(ParallelMode.TENSOR)}"
+            + f"_pp{gpc.get_local_rank(ParallelMode.PIPELINE)}",
         )
     else:
         memory_profiler = None
