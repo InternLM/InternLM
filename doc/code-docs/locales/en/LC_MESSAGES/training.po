@@ -42,15 +42,12 @@ msgid "初始化"
 msgstr "Initialization"
 
 #: ../../source/training.rst:10
-#, fuzzy
 msgid "初始化模型、优化器、数据加载器、Trainer，生成不同种类的进程组，为混合并行的迭代训练做准备。"
 msgstr ""
 "Initialize model, optimizer, dataloader, trainer, and create different "
-"types of process groups to prepare for iterative steps of hybrid parallel"
-" training. "
+"types of process groups to prepare for iterative steps of hybrid parallel training. "
 
 #: ../../source/training.rst:11
-#, fuzzy
 msgid "初始化Logger、Checkpoint管理器、Monitor管理器、Profiler，对迭代训练的过程观察、预警、记录。"
 msgstr ""
 "Initialize logger, checkpoint manager, monitor manager, and profiler to "
@@ -61,7 +58,6 @@ msgid "迭代训练"
 msgstr "Iterative training steps"
 
 #: ../../source/training.rst:15
-#, fuzzy
 msgid "根据配置文件定义的张量并行、流水线并行、数据并行的大小，加载训练引擎和调度器进行混合并行训练。"
 msgstr ""
 "Load the training engine and scheduler for hybrid parallel training "
@@ -69,7 +65,6 @@ msgstr ""
 "parallel size, and data parallel size. "
 
 #: ../../source/training.rst:16
-#, fuzzy
 msgid "在迭代训练中，调用 Trainer API 进行梯度置零，前向传播计算损失并反向传播，参数更新。"
 msgstr ""
 "In iterative training steps, the Trainer API is called to perform zero "

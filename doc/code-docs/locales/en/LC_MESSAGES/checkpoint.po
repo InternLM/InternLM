@@ -24,7 +24,6 @@ msgid "模型保存"
 msgstr "Model Checkpointing"
 
 #: ../../source/checkpoint.rst:4
-#, fuzzy
 msgid ""
 "InternLM 使用 ``internlm.utils.model_checkpoint.CheckpointManager`` "
 "来管理模型保存。其中，可以使用 ``CheckpointManager.try_save_checkpoint(train_state)`` "

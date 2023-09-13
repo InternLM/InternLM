@@ -28,7 +28,6 @@ msgid "命令行参数解析"
 msgstr "Argument Parsing"
 
 #: ../../source/initialize.rst:9
-#, fuzzy
 msgid ""
 "InternLM 使用 `argparse <https://docs.python.org/3/library/argparse.html>`_"
 " 库来向InternLM运行时提供命令行参数配置。"
@@ -38,7 +37,6 @@ msgstr ""
 "commandline configuration to the InternLM runtime. "
 
 #: ../../source/initialize.rst:11
-#, fuzzy
 msgid ""
 "用户可使用 ``internlm.initialize.get_default_parser()`` 来获取 InternLM "
 "的默认解析器，其中包含一些内置参数，用户可以向此解析器添加自定义参数。"
