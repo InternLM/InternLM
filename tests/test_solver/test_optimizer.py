@@ -184,7 +184,7 @@ def exam_hybrid_zero_optim_with_ddp(args):
         # torch-ddp step
         torch_optimizer.step()
 
-    torch.cuda.synchronize()
+        torch.cuda.synchronize()
     # check updated param
     for torch_parm, zero_parm in zip(torch_model.parameters(), zero_model.parameters()):
         loose_close(torch_parm, zero_parm)
