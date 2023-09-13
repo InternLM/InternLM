@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: InternLM \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-09-08 15:32+0800\n"
+"POT-Creation-Date: 2023-09-13 17:55+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -31,13 +31,21 @@ msgstr "Argument Parsing"
 #, fuzzy
 msgid ""
 "InternLM 使用 `argparse <https://docs.python.org/3/library/argparse.html>`_"
-" 库来向InternLM运行时提供命令行参数配置。用户可使用 "
-"``internlm.initialize.get_default_parser()`` 来获取 InternLM "
+" 库来向InternLM运行时提供命令行参数配置。"
+msgstr ""
+"InternLM uses the `argparse "
+"<https://docs.python.org/3/library/argparse.html>`_ library to supply "
+"commandline configuration to the InternLM runtime. "
+
+#: ../../source/initialize.rst:11
+#, fuzzy
+msgid ""
+"用户可使用 ``internlm.initialize.get_default_parser()`` 来获取 InternLM "
 "的默认解析器，其中包含一些内置参数，用户可以向此解析器添加自定义参数。"
 msgstr ""
-"InternLM uses the `argparse <https://docs.python.org/3/library/argparse.html>`_ library to supply commandline "
-"configuration to the InternLM runtime. Use ``internlm.initialize.get_default_parser()`` to get InternLM's default "
-"parser with some builtin arguments, users can add custom parameters to this parser."
+"Use ``internlm.initialize.get_default_parser()`` to get InternLM's default "
+"parser with some builtin arguments, users can add custom parameters to "
+"this parser."
 
 #: internlm.initialize.launch.get_default_parser:1 of
 msgid ""
@@ -66,7 +74,7 @@ msgstr ""
 msgid "返回类型"
 msgstr ""
 
-#: ../../source/initialize.rst:25
+#: ../../source/initialize.rst:27
 msgid "模型初始化"
 msgstr "Model Initialization"
 
@@ -78,26 +86,26 @@ msgstr ""
 msgid "The neural network model to be trained or evaluated."
 msgstr ""
 
-#: ../../source/initialize.rst:29
+#: ../../source/initialize.rst:31
 msgid "InternLM 在配置文件中使用字段 ``model_type`` 和 ``model`` 来控制模型初始化过程。示例模型初始化配置定义如下："
 msgstr ""
 "InternLM uses the field ``model_type`` and ``model`` in the config file "
 "to control model initialization process. An example model initialization "
 "configuratio"
 
-#: ../../source/initialize.rst:57
+#: ../../source/initialize.rst:59
 msgid "字段 ``model_type`` 指明了要初始化的模型类型"
 msgstr ""
 "The field ``model_type`` specifics the model type has been registered and"
 " to be initialized."
 
-#: ../../source/initialize.rst:58
+#: ../../source/initialize.rst:60
 msgid "字段 ``model`` 中的参数指定了在模型初始化过程中的参数设置"
 msgstr ""
 "The parameters in field ``model`` specific the configuration settings "
 "during model initialization."
 
-#: ../../source/initialize.rst:60
+#: ../../source/initialize.rst:62
 msgid ""
 "值得注意的是，用户可以定义新的模型类型，并使用装饰器 ``@MODEL_INITIALIZER.register_module`` "
 "注册模型的初始化函数，其中 ``MODEL_INITIALIZER`` 是类 "
@@ -109,7 +117,7 @@ msgstr ""
 " instantiated object of class ``internlm.util.registry.Registry``, the "
 "example is shown as follows."
 
-#: ../../source/initialize.rst:72
+#: ../../source/initialize.rst:74
 msgid "优化器初始化"
 msgstr "Optimizer Initialization"
 
@@ -131,7 +139,7 @@ msgstr ""
 msgid "A tuple of (optimizer, beta2_scheduler, lr_scheduler)."
 msgstr ""
 
-#: ../../source/initialize.rst:79
+#: ../../source/initialize.rst:81
 msgid "数据加载器初始化"
 msgstr "Dataloader Initialization"
 
@@ -159,7 +167,7 @@ msgstr ""
 msgid "A tuple of (train_dl, dataset_types)."
 msgstr ""
 
-#: ../../source/initialize.rst:86
+#: ../../source/initialize.rst:88
 msgid "Trainer 初始化"
 msgstr "Trainer Initialization"
 
