@@ -79,7 +79,7 @@ html_context = {
     "display_github": True,
     "github_user": "InternLM",
     "github_repo": "InternLM",
-    "github_version": "master",
+    "github_version": "main",
     "conf_py_path": "/doc/code-docs/source/",
 }
 
