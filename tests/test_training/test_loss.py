@@ -44,6 +44,10 @@ cur_loss_list = []
 
 
 def train():
+    # initialize distributed environment
+    initialize_distributed_env(config=CONFIG_FILE_PATH)
+    assert hasattr(gpc, "config") and gpc.config is not None
+
     # init setting
     gpc.config.data.total_steps = TOTAL_STEPS
     gpc.config.lr_scheduler.total_steps = TOTAL_STEPS
@@ -173,6 +177,22 @@ def train():
         timer("one-batch").stop()
 
 
+def check_loss_spike():
+    if gpc.is_rank_for_log():
+        for step in range(1, TOTAL_STEPS):
+            assert (
+                cur_loss_list[step] < cur_loss_list[step - 1] * LOSS_SPIKE_LIMIT
+            ), f"The loss spike occurs, {cur_loss_list[step - 1]}->{cur_loss_list[step]}, please check it!"
+
+
+def check_loss_accuracy():
+    if gpc.is_rank_for_log():
+        for cur, target in zip(cur_loss_list, BASELINE_LOSS_LIST):
+            assert (
+                abs(cur - target) < LOSS_DEVIATION_LIMIT
+            ), f"The loss accuracy is abnormal, {target}->{cur}, please check it!"
+
+
 class TestCaseTrain8GPU:
     """
     Test cases for Model Training with 8 GPUs.
@@ -182,10 +202,6 @@ class TestCaseTrain8GPU:
 
     @staticmethod
     def setup_class():
-        # initialize distributed environment
-        initialize_distributed_env(config=CONFIG_FILE_PATH)
-        assert hasattr(gpc, "config") and gpc.config is not None
-
         # model training
         train()
 
@@ -195,20 +211,12 @@ class TestCaseTrain8GPU:
     @staticmethod
     @pytest.mark.training_8GPU
     def test_loss_spike_with_dp8():
-        if gpc.is_rank_for_log():
-            for step in range(1, TOTAL_STEPS):
-                assert (
-                    cur_loss_list[step] < cur_loss_list[step - 1] * LOSS_SPIKE_LIMIT
-                ), f"The loss spike occurs, {cur_loss_list[step - 1]}->{cur_loss_list[step]}, please check it!"
+        check_loss_spike()
 
     @staticmethod
     @pytest.mark.training_8GPU
     def test_loss_accuracy_with_dp8():
-        if gpc.is_rank_for_log():
-            for cur, target in zip(cur_loss_list, BASELINE_LOSS_LIST):
-                assert (
-                    abs(cur - target) < LOSS_DEVIATION_LIMIT
-                ), f"The loss accuracy is abnormal, {target}->{cur}, please check it!"
+        check_loss_accuracy()
 
 
 class TestCaseTrain16GPUWith8DP2TP:
@@ -225,10 +233,6 @@ class TestCaseTrain16GPUWith8DP2TP:
         command = f"sed -i 's/^.*tensor=.*/    tensor=2,/' {CONFIG_FILE_PATH}"
         subprocess.run(command, shell=True, check=True)
 
-        # initialize distributed environment
-        initialize_distributed_env(config=CONFIG_FILE_PATH)
-        assert hasattr(gpc, "config") and gpc.config is not None
-
         # model training
         train()
 
@@ -238,20 +242,12 @@ class TestCaseTrain16GPUWith8DP2TP:
     @staticmethod
     @pytest.mark.training_16GPU_8DP2TP
     def test_loss_spike_with_dp8_tp2():
-        if gpc.is_rank_for_log():
-            for step in range(1, TOTAL_STEPS):
-                assert (
-                    cur_loss_list[step] < cur_loss_list[step - 1] * LOSS_SPIKE_LIMIT
-                ), f"The loss spike occurs, {cur_loss_list[step - 1]}->{cur_loss_list[step]}, please check it!"
+        check_loss_spike()
 
     @staticmethod
     @pytest.mark.training_16GPU_8DP2TP
     def test_loss_accuracy_with_dp8_tp2():
-        if gpc.is_rank_for_log():
-            for cur, target in zip(cur_loss_list, BASELINE_LOSS_LIST):
-                assert (
-                    abs(cur - target) < LOSS_DEVIATION_LIMIT
-                ), f"The loss accuracy is abnormal, {target}->{cur}, please check it!"
+        check_loss_accuracy()
 
 
 class TestCaseTrain16GPUWith8DP2TPSP:
@@ -271,10 +267,6 @@ class TestCaseTrain16GPUWith8DP2TPSP:
         command = f"sed -i 's/^.*sequence_parallel=.*/    sequence_parallel=True,/' {CONFIG_FILE_PATH}"
         subprocess.run(command, shell=True, check=True)
 
-        # initialize distributed environment
-        initialize_distributed_env(config=CONFIG_FILE_PATH)
-        assert hasattr(gpc, "config") and gpc.config is not None
-
         # model training
         train()
 
@@ -284,20 +276,12 @@ class TestCaseTrain16GPUWith8DP2TPSP:
     @staticmethod
     @pytest.mark.training_16GPU_8DP2TPSP
     def test_loss_spike_with_dp8_tp2_sp():
-        if gpc.is_rank_for_log():
-            for step in range(1, TOTAL_STEPS):
-                assert (
-                    cur_loss_list[step] < cur_loss_list[step - 1] * LOSS_SPIKE_LIMIT
-                ), f"The loss spike occurs, {cur_loss_list[step - 1]}->{cur_loss_list[step]}, please check it!"
+        check_loss_spike()
 
     @staticmethod
     @pytest.mark.training_16GPU_8DP2TPSP
     def test_loss_accuracy_with_dp8_tp2_sp():
-        if gpc.is_rank_for_log():
-            for cur, target in zip(cur_loss_list, BASELINE_LOSS_LIST):
-                assert (
-                    abs(cur - target) < LOSS_DEVIATION_LIMIT
-                ), f"The loss accuracy is abnormal, {target}->{cur}, please check it!"
+        check_loss_accuracy()
 
 
 class TestCaseTrain16GPUWith8DP2PP:
@@ -316,10 +300,6 @@ class TestCaseTrain16GPUWith8DP2PP:
         command = f"sed -i 's/^.*tensor=.*/    tensor=1,/' {CONFIG_FILE_PATH}"
         subprocess.run(command, shell=True, check=True)
 
-        # initialize distributed environment
-        initialize_distributed_env(config=CONFIG_FILE_PATH)
-        assert hasattr(gpc, "config") and gpc.config is not None
-
         # model training
         train()
 
@@ -329,20 +309,12 @@ class TestCaseTrain16GPUWith8DP2PP:
     @staticmethod
     @pytest.mark.training_16GPU_8DP2PP
     def test_loss_spike_with_dp8_pp2():
-        if gpc.is_rank_for_log():
-            for step in range(1, TOTAL_STEPS):
-                assert (
-                    cur_loss_list[step] < cur_loss_list[step - 1] * LOSS_SPIKE_LIMIT
-                ), f"The loss spike occurs, {cur_loss_list[step - 1]}->{cur_loss_list[step]}, please check it!"
+        check_loss_spike()
 
     @staticmethod
     @pytest.mark.training_16GPU_8DP2PP
     def test_loss_accuracy_with_dp8_pp2():
-        if gpc.is_rank_for_log():
-            for cur, target in zip(cur_loss_list, BASELINE_LOSS_LIST):
-                assert (
-                    abs(cur - target) < LOSS_DEVIATION_LIMIT
-                ), f"The loss accuracy is abnormal, {target}->{cur}, please check it!"
+        check_loss_accuracy()
 
 
 class TestCaseTrain16GPUWith8DP2PPInterleaved:
@@ -364,10 +336,6 @@ class TestCaseTrain16GPUWith8DP2PPInterleaved:
         command = f"sed -i 's/^.*tensor=.*/    tensor=1,/' {CONFIG_FILE_PATH}"
         subprocess.run(command, shell=True, check=False)
 
-        # initialize distributed environment
-        initialize_distributed_env(config=CONFIG_FILE_PATH)
-        assert hasattr(gpc, "config") and gpc.config is not None
-
         # model training
         train()
 
@@ -377,20 +345,12 @@ class TestCaseTrain16GPUWith8DP2PPInterleaved:
     @staticmethod
     @pytest.mark.training_16GPU_8DP2PP_Interleaved
     def test_loss_spike_with_dp8_pp2_interleaved():
-        if gpc.is_rank_for_log():
-            for step in range(1, TOTAL_STEPS):
-                assert (
-                    cur_loss_list[step] < cur_loss_list[step - 1] * LOSS_SPIKE_LIMIT
-                ), f"The loss spike occurs, {cur_loss_list[step - 1]}->{cur_loss_list[step]}, please check it!"
+        check_loss_spike()
 
     @staticmethod
     @pytest.mark.training_16GPU_8DP2PP_Interleaved
     def test_loss_accuracy_with_dp8_pp2_interleaved():
-        if gpc.is_rank_for_log():
-            for cur, target in zip(cur_loss_list, BASELINE_LOSS_LIST):
-                assert (
-                    abs(cur - target) < LOSS_DEVIATION_LIMIT
-                ), f"The loss accuracy is abnormal, {target}->{cur}, please check it!"
+        check_loss_accuracy()
 
 
 class TestCaseTrain16GPUWith8DP2PPInterleavedOverlap:
@@ -413,10 +373,6 @@ class TestCaseTrain16GPUWith8DP2PPInterleavedOverlap:
         command = f"sed -i 's/^.*tensor=.*/    tensor=1,/' {CONFIG_FILE_PATH}"
         subprocess.run(command, shell=True, check=True)
 
-        # initialize distributed environment
-        initialize_distributed_env(config=CONFIG_FILE_PATH)
-        assert hasattr(gpc, "config") and gpc.config is not None
-
         # model training
         train()
 
@@ -426,17 +382,9 @@ class TestCaseTrain16GPUWith8DP2PPInterleavedOverlap:
     @staticmethod
     @pytest.mark.training_16GPU_8DP2PP_InterleavedOverlap
     def test_loss_spike_with_dp8_pp2_interleaved_overlap():
-        if gpc.is_rank_for_log():
-            for step in range(1, TOTAL_STEPS):
-                assert (
-                    cur_loss_list[step] < cur_loss_list[step - 1] * LOSS_SPIKE_LIMIT
-                ), f"The loss spike occurs, {cur_loss_list[step - 1]}->{cur_loss_list[step]}, please check it!"
+        check_loss_spike()
 
     @staticmethod
     @pytest.mark.training_16GPU_8DP2PP_InterleavedOverlap
     def test_loss_accuracy_with_dp8_pp2_interleaved_overlap():
-        if gpc.is_rank_for_log():
-            for cur, target in zip(cur_loss_list, BASELINE_LOSS_LIST):
-                assert (
-                    abs(cur - target) < LOSS_DEVIATION_LIMIT
-                ), f"The loss accuracy is abnormal, {target}->{cur}, please check it!"
+        check_loss_accuracy()
