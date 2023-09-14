@@ -82,13 +82,13 @@ class BaseOptimizer(Optimizer):
 
 
 class FSDPadaptOptimizer(BaseOptimizer):
-    '''
+    """
     optimizer for Pytorch FSDP if 'use_fsdp' is True in config file
     reserve some necessary components of hybird-optim:
         grad_scaler;
         grad_clip and unscale;
         state_dict and load_state_dict
-    '''
+    """
 
     def __init__(
         self,
@@ -146,11 +146,7 @@ class FSDPadaptOptimizer(BaseOptimizer):
     def _compute_norm_with_fsdp_flatten(self, group_id):
         params = self._fp16_param_groups[group_id]
         gradients = [p.grad for p in params]
-        norm_group = compute_norm(
-            gradients=gradients,
-            parameters=params,
-            last_stage=True
-        )
+        norm_group = compute_norm(gradients=gradients, parameters=params, last_stage=True)
 
         return norm_group
 
@@ -178,7 +174,6 @@ class FSDPadaptOptimizer(BaseOptimizer):
             norm_group = self._compute_norm_with_fsdp_flatten(group_idx)
             if norm_group == -1:
                 found_inf = True
-                break
             norm_groups[group_name] = norm_group
 
         loss_scale = float(self.loss_scale.item())  # backup
@@ -187,7 +182,7 @@ class FSDPadaptOptimizer(BaseOptimizer):
             if gpc.is_rank_for_log():
                 logger.warning("Overflow occurs, please check it.")
             self.zero_grad()
-            return False, None
+            return False, norm_groups
 
         # get the global norm
         global_norm_groups = {}
@@ -211,10 +206,12 @@ class FSDPadaptOptimizer(BaseOptimizer):
         self.optim.step()
         self.zero_grad()
 
-        # update fp16 param
         for group_idx in range(len(self._fp16_param_groups)):
             fp16_params = self._fp16_param_groups[group_idx]
             fp32_tensor_params = self._fp32_param_tensor_groups[group_idx]
+            # release fp32 grad
+            release_param_grad(fp32_tensor_params)
+            # update fp16 param
             for p, q in zip(fp16_params, fp32_tensor_params):
                 p.data.copy_(q)
 
@@ -272,8 +269,8 @@ class FSDPadaptOptimizer(BaseOptimizer):
         assert set(flat_fp32_weights.keys()) == set(self._fp32_param_tensor_groups)
         for group_idx, param in flat_fp32_weights.items():
             self_param = self._fp32_param_tensor_groups[group_idx]
-            assert (
-                len(self_param) == len(param)
+            assert len(self_param) == len(
+                param
             ), f"The number of flat tensor is inconsistent, {len(self_param)} != {len(param)}"
             for p, q in zip(self_param, param):
                 p.data.copy_(q.data)

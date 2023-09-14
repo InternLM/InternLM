@@ -478,7 +478,7 @@ class ParallelContext(metaclass=SingletonMeta):
         initializers.append(pgroup_initializer.Initializer_Model(*initializer_args))
         initializers.append(pgroup_initializer.Initializer_Tensor(*initializer_args))
         initializers.append(pgroup_initializer.Initializer_Zero1(*initializer_args))
-        if self.config.parallel.use_fsdp:
+        if self.config.parallel.get("use_fsdp", False):
             initializers.append(pgroup_initializer.Initializer_Zero3_dp(*initializer_args))
         initializers.append(pgroup_initializer.Initializer_Nettest(*initializer_args))
         if self.pipeline_parallel_size > 1:

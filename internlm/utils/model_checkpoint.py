@@ -11,6 +11,9 @@ from enum import Enum
 from typing import Callable, Dict, Union
 
 import torch
+from torch.distributed.fsdp import FullStateDictConfig
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.distributed.fsdp import StateDictType
 
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
@@ -162,13 +165,10 @@ def get_state_dict(model):
     'offload_to_cpu' means that the model states are to be offloaded to cpu chunk by chunk, avoiding OOM in gpu
 
     """
-    from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-    from torch.distributed.fsdp import FullStateDictConfig, StateDictType
 
     # TODO: rank0_only can save memory for non-rank0 gpu, but when tp is enabled, model saving will left some parameters
     save_policy = FullStateDictConfig(offload_to_cpu=True, rank0_only=False)
-    with FSDP.state_dict_type(
-            model, StateDictType.FULL_STATE_DICT, save_policy):
+    with FSDP.state_dict_type(model, StateDictType.FULL_STATE_DICT, save_policy):
         states = model.state_dict()
 
     return states

@@ -11,9 +11,9 @@ from .process_group_initializer import (
     Initializer_Pipeline,
     Initializer_Tensor,
     Initializer_Zero1,
+    Initializer_Zero3_dp,
     ParallelMode,
     ProcessGroupInitializer,
-    Initializer_Zero3_dp,
 )
 from .random import (
     add_seed,

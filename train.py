@@ -27,7 +27,7 @@ from internlm.train import (
     initialize_optimizer,
     load_new_batch,
     record_current_batch_training_metrics,
-    warp_FSDP_model,
+    wrap_FSDP_model,
 )
 from internlm.utils.common import (
     BatchSkipper,
@@ -111,8 +111,8 @@ def main(args):
     # initialize and resume train state
     train_state = TrainState(gpc.config, train_dl.batch_sampler)
 
-    # if fsdp enabled, warp the model        
-    model = warp_FSDP_model(model)
+    # if fsdp enabled, warp the model
+    model = wrap_FSDP_model(model)
 
     optimizer, beta2_scheduler, lr_scheduler = initialize_optimizer(model=model)
 

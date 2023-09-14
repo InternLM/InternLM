@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
+import functools
 import time
 from functools import partial
 from typing import Callable, Iterable, Union
@@ -8,6 +9,12 @@ from typing import Callable, Iterable, Union
 import torch
 import torch.distributed as dist
 from torch import nn
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.distributed.fsdp.fully_sharded_data_parallel import (
+    BackwardPrefetch,
+    ShardingStrategy,
+)
+from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 from torch.utils.data import ConcatDataset, DataLoader
 
 from internlm.core.context import ParallelMode
@@ -25,11 +32,15 @@ from internlm.data.packed_dataset import (
     get_packed_dataset_without_short_length,
 )
 from internlm.data.utils import DATASET_TYPE_IDS_MAP, unpack_data
+from internlm.model.modeling_internlm import (
+    PackedFlashBaseLayer1D,
+    PackedFlashInternLm1D,
+)
 from internlm.monitor import send_heartbeat, set_env_var
 from internlm.monitor.monitor import monitor_manager as mm
 from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
-from internlm.solver.optimizer import HybridZeroOptimizer, FSDPadaptOptimizer
+from internlm.solver.optimizer import FSDPadaptOptimizer, HybridZeroOptimizer
 from internlm.solver.optimizer.utils import ParamBcastSyncHandler
 from internlm.utils.common import DummyProfile
 from internlm.utils.logger import get_logger
@@ -41,17 +52,6 @@ from internlm.utils.parallel import (
 )
 from internlm.utils.registry import MODEL_INITIALIZER
 from internlm.utils.timeout import llm_timeout
-
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp.fully_sharded_data_parallel import (
-    ShardingStrategy,
-    MixedPrecision,
-    BackwardPrefetch,
-)
-from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
-import functools
-from internlm.model.modeling_internlm import PackedFlashBaseLayer1D, PackedFlashInternLm1D
-
 
 logger = get_logger(__file__)
 
@@ -103,19 +103,20 @@ def initialize_model():
     return model
 
 
-def warp_FSDP_model(model: Union[nn.Module, nn.ModuleList]):
+def wrap_FSDP_model(model: Union[nn.Module, nn.ModuleList]):
     if gpc.config.parallel.use_fsdp:
         transformer_wrap_policy = functools.partial(
-            transformer_auto_wrap_policy,
-            transformer_layer_cls={PackedFlashBaseLayer1D, PackedFlashInternLm1D}
+            transformer_auto_wrap_policy, transformer_layer_cls={PackedFlashBaseLayer1D, PackedFlashInternLm1D}
         )
         grp = gpc.get_group(ParallelMode.ZERO1)
-        model = FSDP(module=model,
-                     process_group=grp,
-                     sharding_strategy=ShardingStrategy.FULL_SHARD,
-                     auto_wrap_policy=transformer_wrap_policy,
-                     forward_prefetch=True,
-                     backward_prefetch=BackwardPrefetch.BACKWARD_PRE,
+        model = FSDP(
+            module=model,
+            process_group=grp,
+            sharding_strategy=ShardingStrategy.FULL_SHARD,
+            auto_wrap_policy=transformer_wrap_policy,
+            forward_prefetch=True,
+            backward_prefetch=BackwardPrefetch.BACKWARD_PRE,
+            limit_all_gathers=True,
         )
 
     return model
