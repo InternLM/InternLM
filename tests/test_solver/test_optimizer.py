@@ -31,21 +31,7 @@ config = Config(
         model_type="INTERNLM",
         data=dict(seq_len=2048, micro_num=1, micro_bsz=1, pack_sample_into_one=False, min_length=0, total_steps=9999),
         model=dict(
-            checkpoint=False,
-            num_attention_heads=2,
-            embed_split_hidden=True,
-            vocab_size=103168,
-            embed_grad_scale=1,
-            parallel_output=True,
-            hidden_size=1024,
-            num_layers=2,
-            mlp_ratio=1,
-            apply_post_layer_norm=False,
             dtype=torch.bfloat16,
-            norm_type="rmsnorm",
-            layer_norm_epsilon=1e-5,
-            use_flash_attn=True,
-            num_chunks=1,
         ),
         resume_tb_folder="",
         tensorboard_folder="",
@@ -95,13 +81,12 @@ def build_environment(rank, world_size):
 
 def loose_close(a, b, dtype: torch.dtype = torch.float32):
 
-    rtol, atol = (1e-3, 5e-3)
-    if dtype is torch.float16:
-        rtol = 5e-2
-        atol = 5e-4
+    if dtype is torch.float32:
+        rtol = 1.3e-6
+        atol = 1e-5
     elif dtype is torch.bfloat16:
-        rtol = 4e-2
-        atol = 4e-2
+        rtol = 1.6e-2
+        atol = 1e-5
 
     if isinstance(a, torch.Tensor):
         a = a.detach().to(dtype)
@@ -131,6 +116,7 @@ def init_optimizer_grouped_parameters(check_group, model):
 def exam_hybrid_zero_optim_with_ddp(args):
     # init
     rank, world_size, zero_parallel, overlap_sync_param, overlap_sync_grad, micro_num, check_group, dtype = args
+    # TODO: Need to test the combine of overlap param and group_params when ready
     # ParamBcastSyncHandler does not consider paramters in different optimizer group currently
     if overlap_sync_param and check_group:
         return
@@ -299,13 +285,13 @@ def exam_hybrid_zero_optim_with_ckpt_load_save(args):
         zero_optimizer._fp32_flat_param_groups_of_current_rank.values(),
         zero_optimizer2._fp32_flat_param_groups_of_current_rank.values(),
     ):
-        loose_close(zero1_param, zero2_param)
+        assert torch.equal(zero1_param, zero2_param)
 
     # check fp16 model weights
     for zero1_param, zero2_param in zip(
         zero_optimizer._fp16_param_groups.values(), zero_optimizer2._fp16_param_groups.values()
     ):
-        loose_close(zero1_param, zero2_param)
+        assert zero1_param == zero2_param
 
 
 zero_parallel_check_list = [-1, 1, 4]
