@@ -42,6 +42,7 @@ from internlm.utils.model_checkpoint import CheckpointManager
 from internlm.utils.parallel import get_parallel_log_file_name
 from internlm.utils.simple_memory_profiler import SimpleMemoryProfiler
 from internlm.utils.writer import Writer
+from collections import deque
 
 # global llm logger
 logger = get_logger(__file__)
@@ -192,6 +193,20 @@ def main(args):
     train_iter = iter(train_dl)
 
     with initialize_llm_profile(profiling=args.profiling, start_time=current_time) as prof:
+        tgs_statistic = {
+            "sum_step": 0,
+            "sum_tg": 0,
+            "sum_time": 0, 
+            "sum_last_tg_10": 0,
+            "sum_last_time_10": 0,
+            "sum_last_tg_50": 0,
+            "sum_last_time_50": 0,
+            "SMA_tg_50": 0,
+            "SMA_time_50": 0, 
+            "SMA_tg_50_list": deque(),
+            "SMA_time_50_list": deque(),
+            "sum_tgs": 0
+        }
         # start iterating the train data and begin training
         for batch_count in range(train_state.batch_count, total_steps):
             empty_cache_and_diag(batch_count, interval=gpc.config.data.empty_cache_and_diag_interval)
@@ -257,6 +272,7 @@ def main(args):
                 grad_norm=grad_norm_groups,
                 metric=metric,
                 update_panel=uniscale_logger is not None,
+                tgs_statistic=tgs_statistic,
             )
 
             timer("one-batch").stop()

@@ -347,6 +347,7 @@ def record_current_batch_training_metrics(
     grad_norm,
     metric,
     update_panel,
+    tgs_statistic,
 ):
     """
     Print some training metrics of current batch.
@@ -372,7 +373,43 @@ def record_current_batch_training_metrics(
         max_length_in_batch = max([(b[1:] - b[:-1]).max().item() for b in batch[0]["cu_seqlens"]])
         max_samples_in_batch = max([len(b) - 1 for b in batch[0]["cu_seqlens"]])
         min_samples_in_batch = min([len(b) - 1 for b in batch[0]["cu_seqlens"]])
-
+        time_cost = time.time() - start_time
+        tk_per_gpu = round(
+            num_tokens_in_batch
+            * gpc.get_world_size(ParallelMode.DATA)
+            / gpc.get_world_size(ParallelMode.GLOBAL),
+            4,
+        )
+        
+        tgs_statistic['sum_step'] += 1
+        tgs_statistic['sum_tg'] += tk_per_gpu
+        tgs_statistic['sum_time'] += time_cost
+        tgs_statistic['sum_last_tg_10'] += tk_per_gpu
+        tgs_statistic['sum_last_time_10'] += time_cost
+        tgs_statistic['sum_last_tg_50'] += tk_per_gpu
+        tgs_statistic['sum_last_time_50'] += time_cost
+        tgs_statistic['SMA_tg_50'] += tk_per_gpu
+        tgs_statistic['SMA_time_50'] += time_cost
+        tgs_statistic['SMA_tg_50_list'].append(tk_per_gpu)
+        tgs_statistic['SMA_time_50_list'].append(time_cost)
+        if tgs_statistic['sum_step'] > 50:
+            tgs_statistic['SMA_tg_50'] -= tgs_statistic['SMA_tg_50_list'][0]
+            tgs_statistic['SMA_time_50'] -= tgs_statistic['SMA_time_50_list'][0]
+            tgs_statistic['SMA_tg_50_list'].popleft()
+            tgs_statistic['SMA_time_50_list'].popleft()
+            
+        
+        last_tgs_1 = round(tk_per_gpu / time_cost, 2)
+        tgs_statistic['sum_tgs'] += last_tgs_1
+        
+        last_tgs_10 = round(tgs_statistic['sum_last_tg_10'] / tgs_statistic['sum_last_time_10'], 2)
+        last_tgs_50 = round(tgs_statistic['sum_last_tg_50'] / tgs_statistic['sum_last_time_50'], 2)
+        tgs_all = round(tgs_statistic['sum_tg'] / tgs_statistic['sum_time'], 2)
+        tgs_avg = round(tgs_statistic['sum_tgs'] / tgs_statistic['sum_step'], 2)
+        tgs_SMA = round(tgs_statistic['SMA_tg_50'] / tgs_statistic['SMA_time_50'], 2)
+        
+        
+        
         tk_per_gpu = 0
         tk_per_gpu = round(
             num_tokens_in_batch
@@ -383,16 +420,32 @@ def record_current_batch_training_metrics(
         )
 
         tflops = get_tflops_func((time.time() - start_time))
+        
+
 
         infos = {
             "tflops": tflops,
             "step": batch_count,
             "loss": loss.item(),
             "tgs (tokens/gpu/second)": tk_per_gpu,
+            "last_tgs_1": last_tgs_1,
+            "tgs_all": tgs_all,
+            "tgs_avg": tgs_avg,
+            "tgs_SMA": tgs_SMA,
             "lr": lr,
             "loss_scale": scaler,
             "grad_norm": grad_norm,
         }
+        
+        if tgs_statistic['sum_step'] % 10 == 0:
+            infos["last_tgs_10"] = last_tgs_10
+            tgs_statistic['sum_last_tg_10'] = 0
+            tgs_statistic['sum_last_time_10'] = 0
+        
+        if tgs_statistic['sum_step'] % 50 == 0:
+            infos["last_tgs_50"] = last_tgs_50
+            tgs_statistic['sum_last_tg_50'] = 0
+            tgs_statistic['sum_last_time_50'] = 0
 
         infos["micro_num"] = len(batch[1])
         infos["num_consumed_tokens"] = train_state.num_consumed_tokens
@@ -428,7 +481,7 @@ def record_current_batch_training_metrics(
                 "num_consumed_tokens": train_state.num_consumed_tokens,
                 "loss": loss.item(),
                 "flops": tflops,
-                "tgs": tk_per_gpu,
+                "tgs": last_tgs_1,
                 "acc": acc_perplex["acc"],
                 "perplexity": acc_perplex["perplexity"],
                 "fwd_bwd_time": fwd_bwd_time,
