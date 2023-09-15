@@ -4,6 +4,7 @@
 import socket
 import time
 import traceback
+from collections import deque
 from functools import partial
 
 import torch
@@ -42,7 +43,6 @@ from internlm.utils.model_checkpoint import CheckpointManager
 from internlm.utils.parallel import get_parallel_log_file_name
 from internlm.utils.simple_memory_profiler import SimpleMemoryProfiler
 from internlm.utils.writer import Writer
-from collections import deque
 
 # global llm logger
 logger = get_logger(__file__)
@@ -196,16 +196,16 @@ def main(args):
         tgs_statistic = {
             "sum_step": 0,
             "sum_tg": 0,
-            "sum_time": 0, 
+            "sum_time": 0,
             "sum_last_tg_10": 0,
             "sum_last_time_10": 0,
             "sum_last_tg_50": 0,
             "sum_last_time_50": 0,
             "SMA_tg_50": 0,
-            "SMA_time_50": 0, 
+            "SMA_time_50": 0,
             "SMA_tg_50_list": deque(),
             "SMA_time_50_list": deque(),
-            "sum_tgs": 0
+            "sum_tgs": 0,
         }
         # start iterating the train data and begin training
         for batch_count in range(train_state.batch_count, total_steps):
