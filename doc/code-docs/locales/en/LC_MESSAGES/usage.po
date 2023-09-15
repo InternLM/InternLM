@@ -183,7 +183,8 @@ msgstr ""
 
 #: ../../../usage.md:237
 msgid "接下来将详细介绍启动一个模型训练所需要进行的数据、模型、并行和监控等相关的配置。"
-msgstr "let's discuss the data, model, parallel and monitoring configurations "
+msgstr ""
+"let's discuss the data, model, parallel and monitoring configurations "
 "required to start a model training."
 
 #: ../../../usage.md:239
@@ -275,7 +276,6 @@ msgstr ""
 "default value is -1"
 
 #: ../../../usage.md:325
-#, fuzzy
 msgid "当`zero1 <= 0`，则 zero1 进程组的大小等于数据并行进程组的大小，因此优化器状态参数将在数据并行范围内分配"
 msgstr ""
 "When `zero1 <= 0`, the size of the zero1 process group is equal to the "
@@ -283,14 +283,12 @@ msgstr ""
 "parameters will be split within the data parallel range."
 
 #: ../../../usage.md:326
-#, fuzzy
 msgid "当`zero1 == 1`，则不使用 zero1 ，所有数据并行组保留完整的优化器状态参数"
 msgstr ""
 "When `zero1 == 1`, zero1 is not used, and all data parallel groups retain"
 " the complete optimizer state parameters."
 
 #: ../../../usage.md:327
-#, fuzzy
 msgid "当`zero1 > 1`且`zero1 <= data_parallel_world_size`，则 zero1 进程组是数据并行进程组的子集"
 msgstr ""
 "When `zero1 > 1` and `zero1 <= data_parallel_world_size`, the zero1 "

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: InternLM \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-09-08 15:32+0800\n"
+"POT-Creation-Date: 2023-09-14 12:23+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -23,24 +23,68 @@ msgstr ""
 msgid "训练构建"
 msgstr "Training Setup"
 
-#: ../../source/initialize.rst:7
+#: ../../source/initialize.rst:4
+msgid "InternLM 的训练流程可以归纳为两个步骤："
+msgstr "The training process of InternLM can be summarized into two steps: "
+
+#: ../../source/initialize.rst:6
+msgid "初始化"
+msgstr "Initialization"
+
+#: ../../source/initialize.rst:8
+msgid "初始化模型、优化器、数据加载器、Trainer，生成不同种类的进程组，为混合并行的迭代训练做准备。"
+msgstr ""
+"Initialize model, optimizer, dataloader, trainer, and create different "
+"types of process groups to prepare for iterative steps of hybrid parallel training. "
+
+#: ../../source/initialize.rst:9
+msgid "初始化Logger、Checkpoint管理器、Monitor管理器、Profiler，对迭代训练的过程观察、预警、记录。"
+msgstr ""
+"Initialize logger, checkpoint manager, monitor manager, and profiler to "
+"watch, alert, and record the iterative training steps. "
+
+#: ../../source/initialize.rst:11
+msgid "迭代训练"
+msgstr "Iterative training steps"
+
+#: ../../source/initialize.rst:13
+msgid "根据配置文件定义的张量并行、流水线并行、数据并行的大小，加载训练引擎和调度器进行混合并行训练。"
+msgstr ""
+"Load the training engine and scheduler for hybrid parallel training "
+"according to the configuration such as tensor parallel size, pipeline "
+"parallel size, and data parallel size. "
+
+#: ../../source/initialize.rst:14
+msgid "在迭代训练中，调用 Trainer API 进行梯度置零，前向传播计算损失并反向传播，参数更新。"
+msgstr ""
+"In iterative training steps, the Trainer API is called to perform zero "
+"gradients, forward-loss-backward, and parameter update."
+
+#: ../../source/initialize.rst:20
+msgid "InternLM训练流程图"
+msgstr "InternLM training process"
+
+#: ../../source/initialize.rst:25
 msgid "命令行参数解析"
 msgstr "Argument Parsing"
 
-#: ../../source/initialize.rst:9
-#, fuzzy
+#: ../../source/initialize.rst:27
 msgid ""
 "InternLM 使用 `argparse <https://docs.python.org/3/library/argparse.html>`_"
-" 库来向InternLM运行时提供命令行参数配置。用户可使用 "
-"``internlm.initialize.get_default_parser()`` 来获取 InternLM "
-"的默认解析器，其中包含一些内置参数，用户可以向此解析器添加自定义参数。"
+" 库来向InternLM运行时提供命令行参数配置。"
 msgstr ""
 "InternLM uses the `argparse "
 "<https://docs.python.org/3/library/argparse.html>`_ library to supply "
-"commandline configuration to the InternLM runtime. Use "
-"``internlm.initialize.get_default_parser()`` to get InternLM's default "
-"parser with some builtin arguments, users can add custom parameters to "
-"this parser."
+"commandline configuration to the InternLM runtime. "
+
+#: ../../source/initialize.rst:29
+msgid ""
+"用户可使用 ``internlm.initialize.get_default_parser()`` 来获取 InternLM "
+"的默认解析器，其中包含一些内置参数，用户可以向此解析器添加自定义参数。"
+msgstr ""
+"Use ``internlm.initialize.get_default_parser()`` to get InternLM's "
+"default parser with some builtin arguments, users can add custom "
+"parameters to this parser."
 
 #: internlm.initialize.launch.get_default_parser:1 of
 msgid ""
@@ -69,7 +113,7 @@ msgstr ""
 msgid "返回类型"
 msgstr ""
 
-#: ../../source/initialize.rst:25
+#: ../../source/initialize.rst:45
 msgid "模型初始化"
 msgstr "Model Initialization"
 
@@ -81,26 +125,26 @@ msgstr ""
 msgid "The neural network model to be trained or evaluated."
 msgstr ""
 
-#: ../../source/initialize.rst:29
+#: ../../source/initialize.rst:49
 msgid "InternLM 在配置文件中使用字段 ``model_type`` 和 ``model`` 来控制模型初始化过程。示例模型初始化配置定义如下："
 msgstr ""
 "InternLM uses the field ``model_type`` and ``model`` in the config file "
 "to control model initialization process. An example model initialization "
 "configuratio"
 
-#: ../../source/initialize.rst:57
+#: ../../source/initialize.rst:77
 msgid "字段 ``model_type`` 指明了要初始化的模型类型"
 msgstr ""
 "The field ``model_type`` specifics the model type has been registered and"
 " to be initialized."
 
-#: ../../source/initialize.rst:58
+#: ../../source/initialize.rst:78
 msgid "字段 ``model`` 中的参数指定了在模型初始化过程中的参数设置"
 msgstr ""
 "The parameters in field ``model`` specific the configuration settings "
 "during model initialization."
 
-#: ../../source/initialize.rst:60
+#: ../../source/initialize.rst:80
 msgid ""
 "值得注意的是，用户可以定义新的模型类型，并使用装饰器 ``@MODEL_INITIALIZER.register_module`` "
 "注册模型的初始化函数，其中 ``MODEL_INITIALIZER`` 是类 "
@@ -112,7 +156,7 @@ msgstr ""
 " instantiated object of class ``internlm.util.registry.Registry``, the "
 "example is shown as follows."
 
-#: ../../source/initialize.rst:72
+#: ../../source/initialize.rst:92
 msgid "优化器初始化"
 msgstr "Optimizer Initialization"
 
@@ -134,7 +178,7 @@ msgstr ""
 msgid "A tuple of (optimizer, beta2_scheduler, lr_scheduler)."
 msgstr ""
 
-#: ../../source/initialize.rst:79
+#: ../../source/initialize.rst:99
 msgid "数据加载器初始化"
 msgstr "Dataloader Initialization"
 
@@ -162,7 +206,7 @@ msgstr ""
 msgid "A tuple of (train_dl, dataset_types)."
 msgstr ""
 
-#: ../../source/initialize.rst:86
+#: ../../source/initialize.rst:106
 msgid "Trainer 初始化"
 msgstr "Trainer Initialization"
 
