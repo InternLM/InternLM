@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: InternLM \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-09-11 14:25+0800\n"
+"POT-Creation-Date: 2023-09-13 17:07+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -175,8 +175,7 @@ msgid "训练配置"
 msgstr "Training Configuration"
 
 #: ../../../usage.md:70
-#, fuzzy
-msgid "以 7B Demo 的配置文件`configs/7B_sft.py`为例："
+msgid "以 7B Demo 的配置文件`configs/7B_sft.py`为例，介绍启动一个模型训练所需要进行的数据、模型和并行等相关的配置。"
 msgstr ""
 "Taking the configuration file `configs/7B_sft.py` for the 7B demo as an "
 "example,"
@@ -186,60 +185,60 @@ msgid "接下来将详细介绍启动一个模型训练所需要进行的数据�
 msgstr "let's discuss the data, model, parallel and monitoring configurations "
 "required to start a model training."
 
-#: ../../../usage.md:239
+#: ../../../usage.md:72
 msgid "数据配置"
 msgstr "Data Configuration"
 
-#: ../../../usage.md:240
+#: ../../../usage.md:73
 msgid "数据相关的关键参数配置及释义如下所示："
 msgstr "Here are the key parameters and their explanations for data configuration:"
 
-#: ../../../usage.md:255
+#: ../../../usage.md:88
 msgid "![pack_into_one](./imgs/pack_into_one.png)"
 msgstr ""
 
-#: ../../../usage.md:255
+#: ../../../usage.md:88
 msgid "pack_into_one"
 msgstr ""
 
-#: ../../../usage.md:258
+#: ../../../usage.md:91
 msgid "目前支持传入数据集文件路径`train_folder`，且要求文件格式如下："
 msgstr ""
 "Currently, it supports passing the dataset file path `train_folder`, and "
 "the file format is required to be as follows:"
 
-#: ../../../usage.md:265
+#: ../../../usage.md:98
 msgid "数据集的详细内容可参考``数据准备``模块相关的介绍。"
 msgstr ""
 "For detailed information about the dataset, please refer to the \"Data "
 "Preparation\" section."
 
-#: ../../../usage.md:267
+#: ../../../usage.md:100
 msgid "模型配置"
 msgstr "Model Configuration"
 
-#: ../../../usage.md:269
+#: ../../../usage.md:102
 msgid "如果在启动训练时要加载模型 `checkpoint`，可进行如下相关配置："
 msgstr ""
 "If you want to load a model checkpoint when starting the training, you "
 "can configure it as follows:"
 
-#: ../../../usage.md:282
+#: ../../../usage.md:115
 msgid "注意："
 msgstr "Note:"
 
-#: ../../../usage.md:283
+#: ../../../usage.md:116
 msgid "路径若以 `local:` 为前缀，则存储在本地文件系统；若以 `boto3:` 为前缀，则存储在远程 oss 上"
 msgstr ""
 "If the path starts with `local:`, it means the file is stored in the "
 "local file system. If it starts with `boto3:`, it means the file is "
 "stored in the remote OSS."
 
-#: ../../../usage.md:285
+#: ../../../usage.md:118
 msgid "模型相关关键参数配置如下所示："
 msgstr "The configuration for the model is as follows:"
 
-#: ../../../usage.md:309
+#: ../../../usage.md:142
 msgid "注意：用户可自定义模型类型名和模型结构，并配置相对应的模型参数。通过`utils/registry.py`下的`MODEL_INITIALIZER`对象进行模型初始化函数接口注册，在训练主函数`train.py`中初始化模型时，可通过`model_type`配置获取指定的模型初始化接口函数。"
 msgstr ""
 "Note: Users can customize the model type name and model structure, and "
@@ -250,7 +249,7 @@ msgstr ""
 "interface function can be obtained through the `model_type` "
 "configuration."
 
-#: ../../../usage.md:311
+#: ../../../usage.md:144
 msgid ""
 "*如果基于 InternLM 7B继续训练，可以参考 "
 "[ModelZoo](https://github.com/InternLM/InternLM/tree/main#model-zoo) 中 "
@@ -260,79 +259,76 @@ msgstr ""
 "OpenXLab [ModelZoo](https://github.com/InternLM/InternLM/tree/main#model-"
 "zoo) to download weights*."
 
-#: ../../../usage.md:313
+#: ../../../usage.md:146
 msgid "并行配置"
 msgstr "Parallel Configuration"
 
-#: ../../../usage.md:315
+#: ../../../usage.md:148
 msgid "训练并行配置样例如下："
 msgstr "Training parallel configuration example:"
 
-#: ../../../usage.md:324
+#: ../../../usage.md:157
 msgid "zero1：zero 并行策略，分如下三种情况，默认值为 -1"
 msgstr ""
 "zero1: zero parallel strategy, divided into the following three cases, "
 "default value is -1"
 
-#: ../../../usage.md:325
-#, fuzzy
+#: ../../../usage.md:158
 msgid "当`zero1 <= 0`，则 zero1 进程组的大小等于数据并行进程组的大小，因此优化器状态参数将在数据并行范围内分配"
 msgstr ""
 "When `zero1 <= 0`, the size of the zero1 process group is equal to the "
 "size of the data parallel process group, so the optimizer state "
 "parameters will be split within the data parallel range."
 
-#: ../../../usage.md:326
-#, fuzzy
+#: ../../../usage.md:159
 msgid "当`zero1 == 1`，则不使用 zero1 ，所有数据并行组保留完整的优化器状态参数"
 msgstr ""
 "When `zero1 == 1`, zero1 is not used, and all data parallel groups retain"
 " the complete optimizer state parameters."
 
-#: ../../../usage.md:327
-#, fuzzy
+#: ../../../usage.md:160
 msgid "当`zero1 > 1`且`zero1 <= data_parallel_world_size`，则 zero1 进程组是数据并行进程组的子集"
 msgstr ""
 "When `zero1 > 1` and `zero1 <= data_parallel_world_size`, the zero1 "
 "process group is a subset of the data parallel process group."
 
-#: ../../../usage.md:328
+#: ../../../usage.md:161
 msgid "tensor：张量并行大小，通常是每个节点的 GPU 数量，默认值为 1"
 msgstr ""
 "tensor: tensor parallel size, usually the number of GPUs per node, "
 "default is 1"
 
-#: ../../../usage.md:329
+#: ../../../usage.md:162
 msgid "pipeline：流水线并行策略"
 msgstr "pipeline: pipeline parallel strategy"
 
-#: ../../../usage.md:330
+#: ../../../usage.md:163
 msgid "size：流水线并行大小，默认值为 1"
 msgstr "size: pipeline parallel size, the default value is 1"
 
-#: ../../../usage.md:331
+#: ../../../usage.md:164
 msgid "interleaved_overlap：bool 类型，交错式调度时，开启或关闭通信优化，默认值为关闭"
 msgstr ""
 "interleaved_overlap: bool type, when interleaved scheduling, enable or "
 "disable communication optimization, the default value is False"
 
-#: ../../../usage.md:332
+#: ../../../usage.md:165
 msgid "sequence_parallel：是否开启序列化并行，默认值为 False"
 msgstr ""
 "sequence_parallel: Whether to enable sequence parallelism, the default "
 "value is False"
 
-#: ../../../usage.md:334
+#: ../../../usage.md:167
 msgid "注意：`数据并行大小 = 总的 GPU 数目 / 流水线并行大小 / 张量并行大小`"
 msgstr ""
 "Note: `Data parallel size = Total number of GPUs / Pipeline parallel size"
 " / Tensor parallel size`"
 
-#: ../../../usage.md:336
+#: ../../../usage.md:169
 msgid "启动训练"
 msgstr "Start Training"
 
-#: ../../../usage.md:338
+#: ../../../usage.md:171
 msgid "完成了以上数据集准备和相关训练配置后，可启动 Demo 训练。接下来分别以 slurm 和 torch 环境为例，介绍训练启动方式。"
 msgstr ""
 "After completing the data preparation and relevant training "
@@ -340,23 +336,23 @@ msgstr ""
 "following examples demonstrate how to start the training in both slurm "
 "and torch environments."
 
-#: ../../../usage.md:340
+#: ../../../usage.md:173
 msgid "若在 slurm 上启动分布式运行环境，多节点 16 卡的运行命令如下所示："
 msgstr ""
 "If you want to start distributed training on slurm with 16 GPUs across "
 "multiple nodes, use the following command:"
 
-#: ../../../usage.md:345
+#: ../../../usage.md:178
 msgid "若在 torch 上启动分布式运行环境，单节点 8 卡的运行命令如下所示："
 msgstr ""
 "If you want to start distributed training on torch with 8 GPUs on a "
 "single node, use the following command:"
 
-#: ../../../usage.md:350
+#: ../../../usage.md:183
 msgid "运行结果"
 msgstr "Training Results"
 
-#: ../../../usage.md:352
+#: ../../../usage.md:185
 msgid "以 slurm 上单机 8 卡的 Demo 训练配置为例，训练结果日志展示如下："
 msgstr ""
 "Taking the configuration of the demo training on a single machine with 8 "
