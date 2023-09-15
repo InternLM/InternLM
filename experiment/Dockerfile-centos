@@ -1,0 +1,161 @@
+ARG BASE_IMAGE
+ARG https_proxy
+ARG http_proxy
+
+##############################################################################
+# Install the basic environment on centos
+##############################################################################
+FROM ${BASE_IMAGE} as base
+ARG https_proxy
+ARG http_proxy
+RUN yum install deltarpm -y && yum update -y \
+    && yum install -y \
+        ca-certificates \
+        cmake \
+        curl \
+        git \
+        wget \
+        tar \
+        m4 \
+        bzip2 \
+        gcc \
+        gcc-c++ \
+        file \
+        texinfo \
+        which
+
+
+##############################################################################
+# Install the conda environment
+##############################################################################
+FROM base as conda
+ARG PYTHON_VERSION=3.10
+ARG TARGETPLATFORM
+ARG https_proxy
+ARG http_proxy
+RUN case ${TARGETPLATFORM} in \
+         "linux/arm64")  MINICONDA_ARCH=aarch64  ;; \
+         *)              MINICONDA_ARCH=x86_64   ;; \
+    esac && \
+    curl -fsSL -v -o ~/miniconda.sh -O  "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-${MINICONDA_ARCH}.sh"
+
+RUN chmod +x ~/miniconda.sh && \
+    bash ~/miniconda.sh -b -p /opt/conda && \
+    rm ~/miniconda.sh && \
+    /opt/conda/bin/conda install -y python=${PYTHON_VERSION} cmake conda-build pyyaml numpy ipython && \
+    /opt/conda/bin/conda clean -ya
+
+
+##############################################################################
+# Install environment dependencies
+##############################################################################
+FROM conda as dep
+WORKDIR /dep
+ARG https_proxy
+ARG http_proxy
+ARG GMP_VERSION
+ARG MPFR_VERSION
+ARG MPC_VERSION
+RUN wget https://ftp.gnu.org/gnu/gmp/gmp-${GMP_VERSION}.tar.bz2 \
+    && tar -vxf gmp-${GMP_VERSION}.tar.bz2 \
+    && cd gmp-${GMP_VERSION}/ \
+    && ./configure --prefix=/usr/local/gmp-${GMP_VERSION} \
+    && make -j64 && make install \
+    && cd .. \
+    && wget https://ftp.gnu.org/gnu/mpfr/mpfr-${MPFR_VERSION}.tar.gz \
+    && tar -vxf mpfr-${MPFR_VERSION}.tar.gz \
+    && cd mpfr-${MPFR_VERSION}/ \
+    && ./configure --prefix=/usr/local/mpfr-${MPFR_VERSION} --with-gmp=/usr/local/gmp-${GMP_VERSION} \
+    && make -j64 && make install \
+    && cd .. \
+    && wget http://www.multiprecision.org/downloads/mpc-${MPC_VERSION}.tar.gz \
+    && tar -vxf mpc-${MPC_VERSION}.tar.gz \
+    && cd mpc-${MPC_VERSION}/ \
+    && ./configure --prefix=/usr/local/mpc-${MPC_VERSION} --with-gmp=/usr/local/gmp-${GMP_VERSION} --with-mpfr=/usr/local/mpfr-${MPFR_VERSION} \
+    && make -j64 && make install \
+    && cd .. \
+    && git clone https://github.com/ninja-build/ninja.git \
+    && cd ninja \
+    && git checkout release \
+    && ./configure.py --bootstrap \
+    && mv ./ninja /usr/bin \
+    && cd ..
+
+ENV MPFR_HOME=/usr/local/mpfr-${MPFR_VERSION}
+ENV LD_LIBRARY_PATH=${MPFR_HOME}/lib:$LD_LIBRARY_PATH
+
+ARG https_proxy
+ARG http_proxy
+ARG GCC_VERSION
+ARG GMP_VERSION
+ARG MPFR_VERSION
+ARG MPC_VERSION
+RUN wget https://ftp.gnu.org/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz \
+    && tar -vxf gcc-${GCC_VERSION}.tar.xz \
+    && mkdir build \
+    && cd build/ \
+    && ../gcc-${GCC_VERSION}/configure --prefix=/usr/local/gcc-${GCC_VERSION}/ --enable-threads=posix --disable-checking --enable-languages=c,c++ --disable-multilib \
+       --with-gmp=/usr/local/gmp-${GMP_VERSION} --with-mpfr=/usr/local/mpfr-${MPFR_VERSION} --with-mpc=/usr/local/mpc-${MPC_VERSION} \
+    && make -j64 && make install
+
+ENV GCC_HOME=/usr/local/gcc-${GCC_VERSION}
+ENV LD_LIBRARY_PATH=${GCC_HOME}/lib64:${CUDA_PATH}/lib64:$LD_LIBRARY_PATH
+ENV PATH=${GCC_HOME}/bin:${CUDA_PATH}/bin:$PATH
+ENV CC=${GCC_HOME}/bin/gcc
+ENV CXX=${GCC_HOME}/bin/c++
+
+
+##############################################################################
+# Install InternLM development environment, including flash-attention and apex
+##############################################################################
+FROM dep as intrenlm-dev
+COPY . /InternLM
+WORKDIR /InternLM
+ARG https_proxy
+ARG http_proxy
+ARG PYTORCH_VERSION
+ARG TORCHVISION_VERSION
+ARG TORCHAUDIO_VERSION
+
+RUN /opt/conda/bin/pip --no-cache-dir install \
+    transformers==4.29.2 \
+    sentencepiece \
+    numpy \
+    tqdm \
+    psutil \
+    packaging \
+    pre-commit \
+    ninja \
+    gputil \
+    pytest \
+    packaging \
+    boto3 \
+    botocore \
+    torch-scatter \
+    pyecharts \
+    -f https://data.pyg.org/whl/torch-${PYTORCH_VERSION}+cu117.html \
+    && /opt/conda/bin/pip --no-cache-dir install \
+    --extra-index-url https://download.pytorch.org/whl/cu117 \
+    torch==${PYTORCH_VERSION}+cu117 \
+    torchvision==${TORCHVISION_VERSION}+cu117 \
+    torchaudio==${TORCHAUDIO_VERSION}
+
+ARG https_proxy
+ARG http_proxy
+ARG TORCH_CUDA_ARCH_LIST="8.0;8.6+PTX"
+ARG FLASH_ATTEN_TAG
+
+RUN git submodule update --init --recursive \
+    && cd /InternLM/third_party/flash-attention \
+    && git checkout ${FLASH_ATTEN_TAG} \
+    && /opt/conda/bin/python setup.py install \
+    && cd ./csrc \
+    && cd fused_dense_lib && /opt/conda/bin/pip install -v . \
+    && cd ../xentropy && /opt/conda/bin/pip install -v . \
+    && cd ../rotary && /opt/conda/bin/pip install -v . \
+    && cd ../layer_norm && /opt/conda/bin/pip install -v . \
+    && cd ../../../../ \
+    && cd ./third_party/apex \
+    && /opt/conda/bin/pip --no-cache-dir install -v --disable-pip-version-check --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./ \
+    && /opt/conda/bin/pip cache purge \
+    && rm -rf ~/.cache/pip

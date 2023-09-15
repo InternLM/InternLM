@@ -1,4 +1,4 @@
-## Pre-training and Fine-tuning Tutorial for InternLM
+## Quickstart Guide for Pre-training and Fine-tuning
 
 To start a demo model training, you need to prepare three things: **installation**, **dataset preparation**, and **model training configuration**. In this guide, we will first cover the steps for dataset preparation and then briefly describe the model training configuration.
 
@@ -93,10 +93,7 @@ data = dict(
 )
 ```
 
-<div align="left">
-    <img src="../imgs/pack_into_one.png" width="550"/>
-</div>
-
+![pack_into_one](../imgs/pack_into_one.png)
 
 Currently, it supports passing the dataset file path `train_folder`, and the file format is required to be as follows:
 
@@ -115,19 +112,19 @@ If you want to load a model checkpoint when starting the training, you can confi
 
 ```python
 SAVE_CKPT_FOLDER = "local:/path/to/save/ckpt"
-MODEL_ONLY_FOLDER = "local:/path/to/load/init/model/ckpt"
 LOAD_CKPT_FOLDER = "local:/path/to/load/resume/ckpt"
 ckpt = dict(
     save_ckpt_folder=SAVE_CKPT_FOLDER,  # Path to save the model and optimizer checkpoints
     checkpoint_every=float("inf"),  # Save a checkpoint every specified number of steps, default value is inf
-    load_model_only_folder=MODEL_ONLY_FOLDER,  # Path to load the initial model weights, only load model weights without loading optimizer weights, training will start from the first step
-    load_ckpt_folder=LOAD_CKPT_FOLDER,  # Path to load the weights of the model and optimizer for resuming training, training will resume from the specified step
-    load_optimizer=True,  # Whether to load optimizer weights when resuming training, default value is True
+    # When resuming training from a breakpoint,:
+    # (1) 'path' is the path of the loaded checkpoint.
+    # (2) 'content' indicates which state will be loaded, support: "model", "sampler", "optimizer", "scheduler", "all"
+    # (3) 'ckpt_type' indicates which type ckpt will be loaded, currently supported: "internlm"
+    load_ckpt_info=dict(path=MODEL_ONLY_FOLDER, content=("model",), ckpt_type="internlm"),
 )
 ```
 
 Note:
-- `load_model_only_folder` and `load_ckpt_folder` cannot be set at the same time.
 - If the path starts with `local:`, it means the file is stored in the local file system. If it starts with `boto3:`, it means the file is stored in the remote OSS.
 
 The configuration for the model is as follows:
@@ -165,17 +162,21 @@ Training parallel configuration example:
 ```python
 parallel = dict(
     zero1=8,
-    pipeline=1,
     tensor=1,
+    pipeline=dict(size=1, interleaved_overlap=True),
+    sequence_parallel=False,
 )
 ```
 
 - zero1: zero parallel strategy, divided into the following three cases, default value is -1
-  - When `size <= 0`, the size of the zero1 process group is equal to the size of the data parallel process group, so the optimizer state parameters will be split within the data parallel range.
-  - When `size == 1`, zero1 is not used, and all data parallel groups retain the complete optimizer state parameters.
-  - When `size > 1` and `size <= data_parallel_world_size`, the zero1 process group is a subset of the data parallel process group.
-- pipeline: pipeline parallel size, default value is 1
-- tensor: tensor parallel size, usually the number of GPUs per node, default value is 1
+  - When `zero1 <= 0`, the size of the zero1 process group is equal to the size of the data parallel process group, so the optimizer state parameters will be split within the data parallel range.
+  - When `zero1 == 1`, zero1 is not used, and all data parallel groups retain the complete optimizer state parameters.
+  - When `zero1 > 1` and `zero1 <= data_parallel_world_size`, the zero1 process group is a subset of the data parallel process group.
+- tensor: tensor parallel size, usually the number of GPUs per node, default is 1
+- pipeline: pipeline parallel strategy
+   - size: pipeline parallel size, the default value is 1
+   - interleaved_overlap: bool type, when interleaved scheduling, enable or disable communication optimization, the default value is False
+- sequence_parallel: Whether to enable sequence parallelism, the default value is False
 
 Note: `Data parallel size = Total number of GPUs / Pipeline parallel size / Tensor parallel size`
 
