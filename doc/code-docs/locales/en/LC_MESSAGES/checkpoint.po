@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: InternLM \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-09-13 17:07+0800\n"
+"POT-Creation-Date: 2023-09-15 19:06+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -35,11 +35,15 @@ msgstr ""
 "``CheckpointManager.try_save_checkpoint(train_state)`` to checkpoint "
 "training states at specific steps. "
 
-#: ../../source/checkpoint.rst:8
+#: ../../source/checkpoint.rst:6
+msgid "InternLM支持启动时自动加载最新的模型备份，并在接收信号退出训练时自动进行模型备份。"
+msgstr ""
+
+#: ../../source/checkpoint.rst:9
 msgid "CheckpointManager"
 msgstr ""
 
-#: ../../source/checkpoint.rst:10
+#: ../../source/checkpoint.rst:11
 msgid ""
 "``CheckpointManager`` "
 "是InternLM负责进行模型加载和保存的工具类，其会使用config文件中的ckpt字段的初始化参数字典初始化自身的参数，目前相关的参数有："
@@ -49,65 +53,75 @@ msgstr ""
 "initialization parameter dictionary from the 'ckpt' field in the config "
 "file. Currently, the relevant parameters are as follows"
 
-#: ../../source/checkpoint.rst:12
-msgid "``enable_save_ckpt``: 是否开启检查点存储功能（不影响检查点加载）。参数类型 ``bool``，必选参数"
+#: ../../source/checkpoint.rst:13
+#, fuzzy
+msgid "``enable_save_ckpt``: 是否开启检查点存储功能（不影响检查点加载）。参数类型 ``bool``，必选参数。"
 msgstr ""
 "``enable_save_ckpt``: Whether to enable checkpoint storage functionality "
 "(does not affect checkpoint loading). Parameter type: `bool`, it is a "
 "required parameter."
 
-#: ../../source/checkpoint.rst:14
-msgid "``save_ckpt_folder``: 检查点存储路径，参数类型 ``str``，在开启检查点存储功能时为必选参数"
+#: ../../source/checkpoint.rst:15
+#, fuzzy
+msgid "``save_ckpt_folder``: 检查点存储路径，参数类型 ``str``，默认为： ``None``，在开启检查点存储功能时为必选参数。"
 msgstr ""
 "``save_ckpt_folder``: Checkpoint storage path. Parameter type: ``str``. "
 "This is a required parameter when enabling checkpoint storage "
 "functionality."
 
-#: ../../source/checkpoint.rst:16
-msgid "``checkpoint_every``: 检查点存储频率，参数类型 ``int``"
+#: ../../source/checkpoint.rst:17
+#, fuzzy
+msgid "``checkpoint_every``: 检查点存储频率，参数类型 ``int``，默认为： ``50``。"
 msgstr ""
 "``checkpoint_every``: Checkpoint storage frequency. Parameter type: "
 "``int``."
 
-#: ../../source/checkpoint.rst:18
+#: ../../source/checkpoint.rst:19
+#, fuzzy
 msgid ""
-"``load_ckpt_folder``: 初始化检查点/权重加载路径。参数类型 ``str``，默认为 ``None``，详见 :ref"
-":`load-ckpt-folder`"
+"``load_ckpt_folder``: 初始化检查点/权重加载路径。参数类型 ``str``，默认为： ``None``，详见 :ref"
+":`load-ckpt-folder`。"
 msgstr ""
 "``load_ckpt_folder1`: Initialization checkpoint/weight loading path. "
 "Parameter type: ``str``. Default is ``None``. :ref:`load-ckpt-folder`"
 
-#: ../../source/checkpoint.rst:20
-msgid "``async_upload``: 是否开启异步上传。详见 :ref:`asyncupload`"
+#: ../../source/checkpoint.rst:21
+#, fuzzy
+msgid "``async_upload``: 是否开启异步上传，默认值为：``False``，详见 :ref:`asyncupload`。"
 msgstr ""
 "``async_upload``: Whether to enable asynchronous uploading. See "
 "documentation for more details: ref:`asyncupload`."
 
-#: ../../source/checkpoint.rst:22
+#: ../../source/checkpoint.rst:23
 msgid "``async_upload_tmp_folder``: 异步上传临时存储路径。"
 msgstr ""
 "``async_upload_tmp_folder``: Temporary storage path for asynchronous "
 "uploading."
 
-#: ../../source/checkpoint.rst:24
-msgid "``oss_snapshot_freq``: 快照存储频率。详见 :ref:`snapshot`"
+#: ../../source/checkpoint.rst:25
+#, fuzzy
+msgid ""
+"``oss_snapshot_freq``: 快照存储频率，默认值为：``checkpoint_every``的一半。详见 "
+":ref:`snapshot`。"
 msgstr ""
 "``oss_snapshot_freq``: Snapshot storage frequency. See documentation for "
 "more details: ref:`snapshot`."
 
-#: ../../source/checkpoint.rst:26
-msgid "``auto_resume``: 是否开启检查点自动恢复。详见 :ref:`autoresume`"
+#: ../../source/checkpoint.rst:27
+#, fuzzy
+msgid "``auto_resume``: 是否开启检查点自动恢复，默认值为：``True``，详见 :ref:`autoresume`。"
 msgstr ""
 "``auto_resume``: Whether to enable automatic checkpoint resume. See "
 "documentation for more details: ref:`autoresume`."
 
-#: ../../source/checkpoint.rst:28
-msgid "``stop_file_path`` : 检查点存储控制文件的路径.详见 :ref:`stopfile`"
+#: ../../source/checkpoint.rst:29
+#, fuzzy
+msgid "``stop_file_path`` : 检查点存储控制文件的路径，默认值为：``None``，详见 :ref:`stopfile`。"
 msgstr ""
 "``stop_file_path``: Path to the checkpoint storage control file. See "
 "documentation for more details: ref:`stopfile`."
 
-#: ../../source/checkpoint.rst:31
+#: ../../source/checkpoint.rst:32
 msgid "下面给出config文件的参数设置例子："
 msgstr "Here is an example of parameter settings in the config file."
 
@@ -155,104 +169,113 @@ msgstr ""
 msgid "Save checkpoint to the given folder path."
 msgstr ""
 
-#: ../../source/checkpoint.rst:52
+#: ../../source/checkpoint.rst:53
 msgid "加载与存储格式约定"
 msgstr "Model loading and saving path format conventions."
 
-#: ../../source/checkpoint.rst:57
+#: ../../source/checkpoint.rst:58
 msgid "(1) 路径格式约定"
 msgstr "(1) Path format conventions."
 
-#: ../../source/checkpoint.rst:59
+#: ../../source/checkpoint.rst:60
 msgid "InternLM对config中出现的所有存储路径都遵循以下的路径格式约定:"
 msgstr ""
 "InternLM follows the following path format conventions for all storage "
 "paths specified in the config:"
 
-#: ../../source/checkpoint.rst:65
+#: ../../source/checkpoint.rst:66
 msgid "对于不同backend的路径，有以下的规则需要注意:"
 msgstr "For paths of different backends, the following rules should be noted:"
 
-#: ../../source/checkpoint.rst:67
+#: ../../source/checkpoint.rst:68
+#, fuzzy
 msgid ""
 "如果需要使用boto3的路径，需要在运行前提前导入 ``S3_ACCESS_KEY_ID`` 和 "
-"``S3_SECRET_ACCESS_KEY_ID`` 这两个环境变量。."
+"``S3_SECRET_ACCESS_KEY_ID`` 这两个环境变量。"
 msgstr ""
 "If you need to use paths with Boto3, make sure to import the "
 "``S3_ACCESS_KEY_ID`` and ``S3_SECRET_ACCESS_KEY_ID`` environment "
 "variables before running."
 
-#: ../../source/checkpoint.rst:69
-msgid "bucket的endpoint一般分为Inside IP和Outside IP，如果可以尽量使用inside IP，会获得更佳的存储速度."
+#: ../../source/checkpoint.rst:70
+#, fuzzy
+msgid "bucket的endpoint一般分为Inside IP和Outside IP，如果可以尽量使用inside IP，会获得更佳的存储速度。"
 msgstr ""
 "The bucket's endpoint is typically divided into Inside IP and Outside IP."
 " Whenever possible, it's advisable to use the Inside IP to achieve better"
 " storage speed."
 
-#: ../../source/checkpoint.rst:74
+#: ../../source/checkpoint.rst:75
 msgid "(2) 模型加载(load_ckpt_folder)格式约定"
 msgstr "(2) Model loading format conventions (load_ckpt_folder)."
 
-#: ../../source/checkpoint.rst:76
+#: ../../source/checkpoint.rst:77
 msgid "load_ckpt_folder 由三个字段组成， ``path`` 、 ``content`` 和 ``ckpt_type`` 。"
 msgstr ""
 "``load_ckpt_folder`` consists of three fields: ``path``, ``content``, and"
 " ``ckpt_type``."
 
-#: ../../source/checkpoint.rst:78
-msgid "``path`` : 给出了检查点/初始化模型权重的加载路径（path的格式见下小节）"
+#: ../../source/checkpoint.rst:79
+#, fuzzy
+msgid "``path``：给出了检查点/初始化模型权重的加载路径（path的格式见下小节）"
 msgstr ""
 "``path``: Specifies the loading path for the checkpoint/initial model "
 "weights (the format of the path is described in the following "
 "subsection)."
 
-#: ../../source/checkpoint.rst:80
+#: ../../source/checkpoint.rst:81
 msgid "``content``: 表示需要加载的内容，目前支持的字段包括："
 msgstr ""
 "``content``: Indicates the content to be loaded, currently supported "
 "fields include:"
 
-#: ../../source/checkpoint.rst:82
-msgid "``model``: 加载模型权重"
+#: ../../source/checkpoint.rst:83
+#, fuzzy
+msgid "``model``：加载模型权重。"
 msgstr "``model``: Load model weights."
 
-#: ../../source/checkpoint.rst:83
-msgid "``sampler``: 加载sampler状态"
+#: ../../source/checkpoint.rst:84
+#, fuzzy
+msgid "``sampler``：加载sampler状态。"
 msgstr "``sampler``: Load sampler state."
 
-#: ../../source/checkpoint.rst:84
-msgid "``scheduler``: 加载lr_scheduler状态"
+#: ../../source/checkpoint.rst:85
+msgid "``scheduler``：加载lr_scheduler状态。"
 msgstr ""
 
-#: ../../source/checkpoint.rst:85
-msgid "``optimzier``: 加载optimizer状态"
+#: ../../source/checkpoint.rst:86
+#, fuzzy
+msgid "``optimzier``：加载optimizer状态。"
 msgstr "``optimizer``: Load optimizer state."
 
-#: ../../source/checkpoint.rst:86
-msgid "``all``： 表示所有状态均加载，一般在resume训练使用"
+#: ../../source/checkpoint.rst:87
+#, fuzzy
+msgid "``all``：表示所有状态均加载，一般在resume训练使用。"
 msgstr ""
 "``all``: Indicates that all states should be loaded, typically used for "
 "resuming training."
 
-#: ../../source/checkpoint.rst:88
-msgid "``ckpt_type``: 表示加载的模型权重类型，目前支持的字段包括："
+#: ../../source/checkpoint.rst:89
+#, fuzzy
+msgid "``ckpt_type``：表示加载的模型权重类型，目前支持的字段包括："
 msgstr ""
 "``ckpt_type``: Represents the type of model weight to be loaded, "
 "currently supported fields include:"
 
-#: ../../source/checkpoint.rst:90
-msgid "``internlm``: internlm约定的checkpoint存储格式"
+#: ../../source/checkpoint.rst:91
+#, fuzzy
+msgid "``internlm``：internlm约定的checkpoint存储格式。"
 msgstr "``internlm``: Checkpoint storage format as per InternLM conventions."
 
-#: ../../source/checkpoint.rst:92
+#: ../../source/checkpoint.rst:93
 msgid "下面给出两个例子："
 msgstr "Here are two examples:"
 
-#: ../../source/checkpoint.rst:106
+#: ../../source/checkpoint.rst:107
 msgid "异步上传"
 msgstr "Asynchronous upload."
 
-#: ../../source/checkpoint.rst:108
+#: ../../source/checkpoint.rst:109
 msgid ""
 "异步上传会先同步的将模型存储到 ``async_upload_tmp_folder`` "
 "中，再异步的写入远端存储（OSS/NFS）中。从而避免存储ckpt阻塞训练过长时间。"
@@ -262,34 +285,36 @@ msgstr ""
 "storage (OSS/NFS). This helps prevent blocking training for extended "
 "periods while storing checkpoints."
 
-#: ../../source/checkpoint.rst:110 ../../source/checkpoint.rst:128
-#: ../../source/checkpoint.rst:144 ../../source/checkpoint.rst:159
+#: ../../source/checkpoint.rst:111 ../../source/checkpoint.rst:129
+#: ../../source/checkpoint.rst:145 ../../source/checkpoint.rst:160
 msgid "config.ckpt 中相关的参数："
 msgstr "The parameters related to ``config.ckpt`` are:"
 
-#: ../../source/checkpoint.rst:112
-msgid "``async_upload``: 是否开启异步上传。参数类型 ``bool/None``，默认为 ``False``"
+#: ../../source/checkpoint.rst:113
+#, fuzzy
+msgid "``async_upload``: 是否开启异步上传。参数类型 ``bool/None``，默认为 ``False``。"
 msgstr ""
 "``async_upload``: Whether to enable asynchronous upload. Parameter type: "
 "``bool/None``. Default is ``False``."
 
-#: ../../source/checkpoint.rst:114
+#: ../../source/checkpoint.rst:115
+#, fuzzy
 msgid ""
 "``async_upload_tmp_folder``: 异步上传临时存储路径。参数类型 ``str/None``, 默认值为 "
-"``/dev/shm/{JOB_NAME}_tmp_ckpt/``"
+"``/dev/shm/{JOB_NAME}_tmp_ckpt/``。"
 msgstr ""
 "`async_upload_tmp_folder`: Temporary storage path for asynchronous "
 "upload. Parameter type: `str/None`. Default value is "
 "``/dev/shm/{JOB_NAME}_tmp_ckpt/``."
 
-#: ../../source/checkpoint.rst:116
+#: ../../source/checkpoint.rst:117
 msgid "需要注意的是，异步上传功能仅在backend为boto3时才会有效果，bcakend为local时只支持同步存储。"
 msgstr ""
 "It's important to note that asynchronous upload functionality is only "
 "effective when the backend is set to \"boto3.\" When the backend is set "
 "to \"local,\" only synchronous storage is supported."
 
-#: ../../source/checkpoint.rst:118
+#: ../../source/checkpoint.rst:119
 msgid ""
 "``async_upload_tmp_folder`` "
 "设置的的原则为尽量设置为计算节点的local目录，这样才可以获得最佳的异步上传速度，一般来说建议为 ``/dev/shm`` 或 "
@@ -301,11 +326,11 @@ msgstr ""
 "or ``/nvme``. If If you use synchronous upload, this path does not need "
 "to be given."
 
-#: ../../source/checkpoint.rst:124
+#: ../../source/checkpoint.rst:125
 msgid "快照检查点"
 msgstr "Snapshot Checkpoint"
 
-#: ../../source/checkpoint.rst:126
+#: ../../source/checkpoint.rst:127
 msgid ""
 "快照检查点是一种特殊的检查点，其是为了减少模型因为训练崩溃（ECC error, NCCL error, "
 ".etc）等问题导致训练任务崩溃而损失的训练进度。其采用交替覆盖写的策略，所占用的存储大小为两个step的检查点所需的空间。配合上异步的检查点写入，在不影响训练速度和存储容量的条件下极大的增大了检查点的存储频率。"
@@ -319,27 +344,29 @@ msgstr ""
 "frequency of checkpoints without affecting training speed and storage "
 "capacity."
 
-#: ../../source/checkpoint.rst:130
-msgid "``oss_snapshot_freq``: 快照存储频率。参数类型 ``int/None``，默认为 ``50``"
+#: ../../source/checkpoint.rst:131
+#, fuzzy
+msgid "``oss_snapshot_freq``: 快照存储频率。参数类型 ``int/None``，默认为 ``50``。"
 msgstr ""
 "``oss_snapshot_freq``: Snapshot storage frequency. Parameter type "
 "``int/None``, default is ``50``"
 
-#: ../../source/checkpoint.rst:132
+#: ../../source/checkpoint.rst:133
+#, fuzzy
 msgid ""
 "``oss_snapshot_freq`` 可以根据模型每step时间酌情设置，一般快照频率在1小时以下，半小时以上为怡/不给（默认值是 "
-"``checkpoint_every`` 的二分之一），"
+"``checkpoint_every`` 的二分之一）。"
 msgstr ""
 "``oss_snapshot_freq`` can be set according to the time of each step of "
 "the model. Generally, the snapshot frequency is less than 1 hour, and it "
 "is Yi/Non for more than half an hour (the default value is one-half of "
 "``checkpoint_every``)"
 
-#: ../../source/checkpoint.rst:138
+#: ../../source/checkpoint.rst:139
 msgid "检查点自动恢复"
 msgstr "Checkpoint automatic recovery"
 
-#: ../../source/checkpoint.rst:140
+#: ../../source/checkpoint.rst:141
 #, fuzzy
 msgid ""
 "检查点自动加载功能的目的是在resume训练时，自动加载 ``save_ckpt_folder`` "
@@ -351,7 +378,7 @@ msgstr ""
 "automatic restart mechanism, tasks can be automatically restored without "
 "human intervention."
 
-#: ../../source/checkpoint.rst:142
+#: ../../source/checkpoint.rst:143
 msgid ""
 "该功能默认开启，所以要注意如果需要加载 ``load_ckpt_folder`` 路径下的模型权重，要将 ``auto_resume`` 设置为 "
 "False，否则可能会产生预期外的行为。"
@@ -360,27 +387,29 @@ msgstr ""
 "load the model weights under the ``load_ckpt_folder`` path, you must set "
 "``auto_resume`` to ``False``, otherwise unexpected behavior may occur."
 
-#: ../../source/checkpoint.rst:146
-msgid "``auto_resume``: 是否开启检查点自动恢复。参数类型 ``bool``，默认为 ``True``"
+#: ../../source/checkpoint.rst:147
+#, fuzzy
+msgid "``auto_resume``: 是否开启检查点自动恢复。参数类型 ``bool``，默认为 ``True``。"
 msgstr ""
 "``auto_resume``: Whether to enable automatic checkpoint recovery. "
 "Parameter type ``bool``, default is ``True``"
 
-#: ../../source/checkpoint.rst:148
+#: ../../source/checkpoint.rst:149
+#, fuzzy
 msgid ""
 "``auto_resume`` 如果为True，则尝试从 ``save_ckpt_folder`` "
 "路径中自动加载最新的ckpt，如果找不到，则从step 0开始训练。如果为False，则尝试从 ``load_ckpt_folder`` "
-"中加载模型参数"
+"中加载模型参数。"
 msgstr ""
 "``auto_resume`` If True, attempts to save_ckpt_folder`Automatically load "
 "the latest ckpt in the path. If not found, training will start from step "
 "0. If False, try to load model parameters from ``load_ckpt_folder``"
 
-#: ../../source/checkpoint.rst:154
+#: ../../source/checkpoint.rst:155
 msgid "手动控制检查点存储"
 msgstr "anual control of checkpoint storage\""
 
-#: ../../source/checkpoint.rst:156
+#: ../../source/checkpoint.rst:157
 msgid ""
 "在模型距离下一次检查点存储还有很长时间，这时如果希望立刻停止一个任务，又不希望丢失目前训练进度时可以使用手动控制检查点存储功能。通过向一个位于NFS上的"
 " ``stop_file_path`` 文件中写入希望任务停止的step步数，Global Rank "
@@ -396,14 +425,15 @@ msgstr ""
 "all training processes, and it is agreed that each process will store a "
 "checkpoint when training reaches this step, and choose whether to exit."
 
-#: ../../source/checkpoint.rst:161
-msgid "``stop_file_path`` : 检查点存储控制文件的路径，参数类型 ``str/None``，默认为 ``None``，表示关闭该功能"
+#: ../../source/checkpoint.rst:162
+#, fuzzy
+msgid "``stop_file_path``：检查点存储控制文件的路径，参数类型 ``str/None``，默认为 ``None``，表示关闭该功能。"
 msgstr ""
 "``stop_file_path``: The path of the checkpoint storage control file, "
 "parameter type ``str/None``, the default is ``None``, indicating to turn "
 "off this function"
 
-#: ../../source/checkpoint.rst:163
+#: ../../source/checkpoint.rst:164
 msgid "下面给出一个写入 ``stop_file_path`` 的例子："
 msgstr "An example of writing to ``stop_file_path`` is given below:"
 
@@ -436,4 +466,7 @@ msgstr "An example of writing to ``stop_file_path`` is given below:"
 
 #~ msgid "return type"
 #~ msgstr ""
+
+#~ msgid "``scheduler``: 加载lr_scheduler状态"
+#~ msgstr "``scheduler``: Load lr_scheduler status"
 
