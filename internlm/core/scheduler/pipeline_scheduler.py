@@ -335,7 +335,7 @@ class PipelineScheduler(BaseScheduler):
 
         self._call_hooks("before_backward", output_obj, output_obj_grad)
         with switch_optimizer_grad_sync_skip_mode(engine.optimizer, skip_grad_sync):
-            if moe_loss is None:
+            if moe_loss is None or moe_loss.item() == 0.0:
                 if output_obj_grad is None:
                     engine.backward(output_obj)
                 else:
