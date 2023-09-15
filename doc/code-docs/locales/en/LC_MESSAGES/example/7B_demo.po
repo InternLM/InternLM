@@ -37,8 +37,8 @@ msgstr "Start Training"
 
 #: ../../source/example/7B_demo.rst:164 9e7a864ae2e14d05b0681f16792e5278
 msgid "完成以上训练配置后，可启动模型训练，以在 ``slurm`` 平台上为例，启动单节点 8GPU 的训练命令如下所示："
-msgstr "After completing the data preparation and relevant training configurations, you can start the demo training.
-The following example shows how to start distributed training in ``slurm`` environments with 8 GPUs."
+msgstr "After completing the data preparation and relevant training configurations, you can start the demo training. "
+"The following example shows how to start distributed training in ``slurm`` environments with 8 GPUs."
 
 #: ../../source/example/7B_demo.rst:171 fdd053efb1854d46aabf6c0f279fe7fc
 msgid "训练结果"

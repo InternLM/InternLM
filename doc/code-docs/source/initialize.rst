@@ -1,12 +1,32 @@
 训练构建
 ==============
 
+InternLM 的训练流程可以归纳为两个步骤：
+
+1. 初始化
+
+    * 初始化模型、优化器、数据加载器、Trainer，生成不同种类的进程组，为混合并行的迭代训练做准备。
+    * 初始化Logger、Checkpoint管理器、Monitor管理器、Profiler，对迭代训练的过程观察、预警、记录。
+
+2. 迭代训练
+   
+    * 根据配置文件定义的张量并行、流水线并行、数据并行的大小，加载训练引擎和调度器进行混合并行训练。
+    * 在迭代训练中，调用 Trainer API 进行梯度置零，前向传播计算损失并反向传播，参数更新。
+
+.. figure:: ../../imgs/hybrid_parallel_training.png
+  :scale: 45%
+  :class: with-border
+
+  InternLM训练流程图
+
 .. _InternLM-args:
 
 命令行参数解析
 ----------------
 
-InternLM 使用 `argparse <https://docs.python.org/3/library/argparse.html>`_ 库来向InternLM运行时提供命令行参数配置。用户可使用 ``internlm.initialize.get_default_parser()`` 来获取 InternLM 的默认解析器，其中包含一些内置参数，用户可以向此解析器添加自定义参数。
+InternLM 使用 `argparse <https://docs.python.org/3/library/argparse.html>`_ 库来向InternLM运行时提供命令行参数配置。
+
+用户可使用 ``internlm.initialize.get_default_parser()`` 来获取 InternLM 的默认解析器，其中包含一些内置参数，用户可以向此解析器添加自定义参数。
 
 .. code-block:: python
 
