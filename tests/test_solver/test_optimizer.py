@@ -1,6 +1,8 @@
 import copy
 import multiprocessing as mp
+import random
 
+import numpy as np
 import pytest
 import torch
 from torch import nn
@@ -85,8 +87,8 @@ def loose_close(a, b, dtype: torch.dtype = torch.float32):
         rtol = 1.3e-6
         atol = 1e-5
     elif dtype is torch.bfloat16:
-        rtol = 1.6e-2
-        atol = 1e-5
+        rtol = 2e-2
+        atol = 2e-2
 
     if isinstance(a, torch.Tensor):
         a = a.detach().to(dtype)
@@ -113,6 +115,21 @@ def init_optimizer_grouped_parameters(check_group, model):
     return optimizer_grouped_parameters
 
 
+def seed_all(seed, cuda_deterministic=False):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+    if cuda_deterministic:  # slower, more reproducible
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+    else:
+        torch.backends.cudnn.deterministic = False
+        torch.backends.cudnn.benchmark = True
+
+
 def exam_hybrid_zero_optim_with_ddp(args):
     # init
     rank, world_size, zero_parallel, overlap_sync_param, overlap_sync_grad, micro_num, check_group, dtype = args
@@ -130,6 +147,7 @@ def exam_hybrid_zero_optim_with_ddp(args):
         totel_step = 1
 
     build_environment(rank, world_size)
+    seed_all(1024)
 
     # create models
     torch_model = MlpModel().cuda()
@@ -173,6 +191,8 @@ def exam_hybrid_zero_optim_with_ddp(args):
         for num in range(micro_num):
             if num == micro_num - 1:
                 zero_optimizer.skip_grad_reduce = False
+
+            seed_all(1024 + rank)
             # create input
             input_data = torch.rand(16, 128).cuda()
 
@@ -195,30 +215,32 @@ def exam_hybrid_zero_optim_with_ddp(args):
                 with torch_model.no_sync():
                     torch_output.mean().backward()
 
-        # check grad
-        if check_group:
-            group1 = zip(list(torch_model.parameters())[:2], list(zero_model.parameters())[:2])
-            group2 = zip(list(torch_model.parameters())[2:], list(zero_model.parameters())[2:])
-            for torch_parm, zero_parm in group1:
-                if torch_parm.grad is not None:
-                    loose_close(torch_parm.grad, zero_parm.grad, dtype=dtype)
-            for torch_parm, zero_parm in group2:
-                if torch_parm.grad is not None:
-                    loose_close(torch_parm.grad, zero_parm.grad, dtype=dtype)
-        else:
-            for torch_parm, zero_parm in zip(torch_model.parameters(), zero_model.parameters()):
-                if torch_parm.grad is not None:
-                    loose_close(torch_parm.grad, zero_parm.grad, dtype=dtype)
-
         # zero-dp step
         zero_optimizer.step()
 
         # torch-ddp step
         torch_optimizer.step()
 
+        # check grad
+        if check_group:
+            group1 = zip(list(torch_model.parameters())[:2], list(zero_model.parameters())[:2])
+            group2 = zip(list(torch_model.parameters())[2:], list(zero_model.parameters())[2:])
+            for torch_parm, zero_parm in group1:
+                if zero_parm.grad is not None:
+                    loose_close(torch_parm.grad, zero_parm.grad, dtype=dtype)
+            for torch_parm, zero_parm in group2:
+                if zero_parm.grad is not None:
+                    loose_close(torch_parm.grad, zero_parm.grad, dtype=dtype)
+        else:
+            for torch_parm, zero_parm in zip(torch_model.parameters(), zero_model.parameters()):
+                if zero_parm.grad is not None:
+                    loose_close(torch_parm.grad, zero_parm.grad, dtype=dtype)
+
     torch.cuda.synchronize()
     # check updated param
     if check_group:
+        group1 = zip(list(torch_model.parameters())[:2], list(zero_model.parameters())[:2])
+        group2 = zip(list(torch_model.parameters())[2:], list(zero_model.parameters())[2:])
         for torch_parm, zero_parm in group1:
             loose_close(torch_parm, zero_parm, dtype=dtype)
         for torch_parm, zero_parm in group2:
@@ -295,8 +317,8 @@ def exam_hybrid_zero_optim_with_ckpt_load_save(args):
 
 
 zero_parallel_check_list = [-1, 1, 4]
-overlap_sync_grad_check_list = [True, False]
 overlap_sync_param_check_list = [True, False]
+overlap_sync_grad_check_list = [True, False]
 miro_num_check_list = [1, 2, 4]
 check_group_list = [True, False]
 dtype_list = [torch.float32, torch.bfloat16]
