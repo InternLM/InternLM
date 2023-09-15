@@ -126,7 +126,7 @@ if __name__ == "__main__":
     for chunk in openai.ChatCompletion.create(
         model="internlm-chat-7b",
         messages=[
-            {"role": "user", "content": "你好"},
+            {"role": "user", "content": "Hello!"},
         ],
         stream=True
     ):
