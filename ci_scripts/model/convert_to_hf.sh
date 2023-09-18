@@ -4,6 +4,7 @@ set -x
 source ./ci_scripts/common/variables.sh
 [[ -n ${DATA_VOLUME} ]] || { echo "should set DATA_VOLUME first before ci, exit."; exit 1; }
 [[ -n ${GITHUB_WORKSPACE} ]] || { echo "should set GITHUB_WORKSPACE first before ci, exit."; exit 1; }
+[[ -n ${CLEAN_PATH} ]] || { echo "should set CLEAN_PATH first before ci, exit."; exit 1; }
 
 readonly CKPTS_INPUT="${DATA_VOLUME}/lm_data/alpaca_data/llm_ckpts/20"
 readonly CKPTS_OUTPUT="${GITHUB_WORKSPACE}/hf_ckpt"
@@ -18,7 +19,7 @@ source ./ci_scripts/common/basic_func.sh
 echo "start to test convert2hf.py."
 
 if [[ -d ${CKPTS_OUTPUT} ]]; then
-    if ! rm -rf ${CKPTS_OUTPUT}/*; then
+    if ! mv ${CKPTS_OUTPUT}/* ${CLEAN_PATH}; then
        echo "cleaning cached file in ${CKPTS_OUTPUT} failed, exit."
        exit 1
     fi

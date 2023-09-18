@@ -3,6 +3,7 @@ set -x
 
 source ./ci_scripts/common/variables.sh
 [[ -n ${DATA_VOLUME} ]] || { echo "should set DATA_VOLUME first before ci, exit."; exit 1; }
+[[ -n ${CLEAN_PATH} ]] || { echo "should set CLEAN_PATH first before ci, exit."; exit 1; }
 
 readonly SRC_DATASET_META=${DATA_VOLUME}/lm_data/alpaca_data/alpaca_data.json
 readonly RESULTS=${DATA_VOLUME}/lm_data/alpaca_data/result
@@ -19,7 +20,7 @@ source ./ci_scripts/common/basic_func.sh
 echo "start to test alpaca_tokenizer.py."
 
 if [[ -d ${RESULTS} ]]; then
-    if ! rm -rf ${RESULTS}/*; then
+    if ! mv ${RESULTS}/* ${CLEAN_PATH}; then
        echo "cleaning test data in ${RESULTS} failed, exit."
        exit 1
     fi
@@ -41,8 +42,8 @@ for file in ${file_list[@]}; do
     fi
 done
 
-# clean the test files.
-if ! rm -rf ${RESULTS}/*; then
+# move the test files.
+if ! mv ${RESULTS}/* ${CLEAN_PATH}; then
     echo "cleaning test data in ${RESULTS} failed."
     exit_code=$(($exit_code + 1))
 fi

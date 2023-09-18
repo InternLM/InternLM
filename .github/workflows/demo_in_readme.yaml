@@ -83,13 +83,13 @@ jobs:
         source activate internlm-env-test
         export PYTHONPATH=$PWD:$PYTHONPATH
         sh ./ci_scripts/train/load_ckpt.sh 7B_load_new_ckpt ${GITHUB_RUN_ID}-${GITHUB_JOB}
-        rm -rf $GITHUB_WORKSPACE/llm_ckpts
+        mv $GITHUB_WORKSPACE/llm_ckpts ${{env.WORKSPACE_PREFIX}}/ci_clean_bak 
 
     - name: torchrun-train
       run: |
         source activate internlm-env-test
         sh ./ci_scripts/train/torchrun.sh ${GITHUB_RUN_ID}-${GITHUB_JOB}
-        rm -rf $GITHUB_WORKSPACE/llm_ckpts
+        mv $GITHUB_WORKSPACE/llm_ckpts ${{env.WORKSPACE_PREFIX}}/ci_clean_bak
 
   convert-model-then-load:
     if: ${{ always() }}
@@ -110,7 +110,7 @@ jobs:
         cd ./hf_ckpt
         srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --gpus-per-task=2 python ../ci_scripts/model/loaded_as_transformer.py
         cd ..
-        rm -rf $GITHUB_WORKSPACE/hf_ckpt
+        mv $GITHUB_WORKSPACE/hf_ckpt ${{env.WORKSPACE_PREFIX}}/ci_clean_bak
   load-chat-model-in-hf:
     if: ${{ always() }}
     needs: check-requirements
