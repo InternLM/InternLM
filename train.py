@@ -14,7 +14,7 @@ from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.core.scheduler import SchedulerMetricHook
 from internlm.core.trainer import TrainState
-from internlm.initialize import initialize_distributed_env
+from internlm.initialize import initialize_distributed_env, try_bind_numa
 from internlm.model.loss import FlashGPTLMLoss
 from internlm.model.metrics import AccPerplex
 from internlm.monitor import initialize_monitor_manager, send_alert_message
@@ -290,6 +290,8 @@ def main(args):
 if __name__ == "__main__":
     args = parse_args()
     hostname = socket.gethostname()
+
+    try_bind_numa(args.launcher)
 
     # initialize distributed environment
     initialize_distributed_env(config=args.config, launcher=args.launcher, master_port=args.port, seed=args.seed)
