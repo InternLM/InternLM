@@ -123,6 +123,11 @@ class PackedFlashBaseLayer1D(nn.Module):
             self.norm1 = nn.LayerNorm(hidden_size, eps=layer_norm_epsilon)
             self.norm2 = nn.LayerNorm(hidden_size, eps=layer_norm_epsilon)
 
+        for param in self.norm1.parameters():
+            param.is_norm = True
+        for param in self.norm2.parameters():
+            param.is_norm = True
+
         self.num_experts = num_experts
         self.moe_gate_k = moe_gate_k
         self.moe_capacity_factor = moe_capacity_factor
