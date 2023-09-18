@@ -31,7 +31,7 @@ from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
 from internlm.solver.optimizer import HybridZeroOptimizer
 from internlm.solver.optimizer.utils import ParamBcastSyncHandler
-from internlm.utils.common import DummyProfile
+from internlm.utils.common import DummyProfile, create_param_groups
 from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
 from internlm.utils.parallel import (
@@ -109,8 +109,9 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
         param_bcast_sync_handler = None
 
     adam_cfg = gpc.config.adam
+    params = create_param_groups(model, adam_cfg.weight_decay)
     naive_optimizer = torch.optim.AdamW(
-        params=[{"params": model.parameters(), "weight_decay": adam_cfg.weight_decay}],
+        params=params,
         lr=adam_cfg.lr,
         betas=(adam_cfg.adam_beta1, adam_cfg.adam_beta2),
         eps=adam_cfg.adam_eps,
