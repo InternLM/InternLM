@@ -108,7 +108,7 @@ jobs:
         export PYTHONPATH=$PWD:$PYTHONPATH
         sh ./ci_scripts/model/convert_to_hf.sh
         cd ./hf_ckpt
-        srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --gpus-per-task=2 python ../ci_scripts/model/loaded_as_transformer.py
+        srun -p ${SLURM_PARTITION} --quotatype=spot --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --gpus-per-task=2 python ../ci_scripts/model/loaded_as_transformer.py
         cd ..
         mv $GITHUB_WORKSPACE/hf_ckpt ${{env.WORKSPACE_PREFIX}}/ci_clean_bak
   load-chat-model-in-hf:
@@ -125,4 +125,4 @@ jobs:
     - name: chat-model-in-hf
       run: |
         source activate internlm-env-test
-        srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --gpus-per-task=2 python ./ci_scripts/model/demo_load_7B_chat_model.py
+        srun -p ${SLURM_PARTITION} --quotatype=spot --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --gpus-per-task=2 python ./ci_scripts/model/demo_load_7B_chat_model.py

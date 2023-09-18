@@ -22,7 +22,7 @@ if [[ ! -f ${file} ]]; then
         exit_code=$(($exit_code + 1))
     fi
 
-srun -p ${SLURM_PARTITION} --exclusive --job-name=$2 -n 8 --ntasks-per-node=8 --gpus-per-task=1 python train.py --config ${file}
+srun -p ${SLURM_PARTITION} --exclusive --quotatype=spot --job-name=$2 -n 8 --ntasks-per-node=8 --gpus-per-task=1 python train.py --config ${file}
 [[ $? -ne 0 ]] && { echo "test slurm training failed.";  exit_code=$(($exit_code + 1)); }
 
 
