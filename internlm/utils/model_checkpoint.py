@@ -447,8 +447,8 @@ class CheckpointManager:
 
         Args:
             ckpt_config (dict): model checkpoint config.
-            model (nn.module): model obj
-            optimizer (object): optimzier obj.
+            model (nn.module): model obj.
+            optimizer (object): optimizer obj.
             lr_scheduler (object): lr_scheduler obj.
             model_config (dict): model config.
         """
@@ -712,7 +712,6 @@ now step_count is {train_state.step_count}",
         return dict(path=latest_ckpt, content=("all",), ckpt_type="internlm")
 
     def try_resume_training(self, train_state: TrainState, current_time=""):
-
         if self.load_ckpt_info is None or self.load_ckpt_info["path"] is None:
             if gpc.is_rank_for_log():
                 logger.info(
