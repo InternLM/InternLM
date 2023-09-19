@@ -20,7 +20,7 @@ source ./ci_scripts/common/basic_func.sh
 echo "start to test alpaca_tokenizer.py."
 
 if [[ -d ${RESULTS} ]]; then
-    if ! rsync -av --remove-source-files ${RESULTS}/* ${CLEAN_PATH}; then
+    if ! rsync -av --remove-source-files ${RESULTS} ${CLEAN_PATH}; then
        echo "cleaning test data in ${RESULTS} failed, exit."
        exit 1
     fi
