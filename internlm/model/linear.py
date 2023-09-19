@@ -4,14 +4,13 @@
 from typing import Optional
 
 import torch
-import torch.nn.functional as F
 from flash_attn.ops.fused_dense import ColumnParallelLinear, RowParallelLinear
 from flash_attn.utils.distributed import all_reduce, reduce_scatter
 from torch import nn
 
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
-from internlm.model.utils import fused_dense_func_torch, Silu
+from internlm.model.utils import Silu, fused_dense_func_torch
 
 
 class ScaleColumnParallelLinear(nn.Linear):
@@ -195,7 +194,7 @@ class FeedForward(nn.Module):
             device=device,
             dtype=dtype,
         )
- 
+
     def forward(self, x):
         w1_o = self.w1(x)
         w2_o = self.w2(x)
