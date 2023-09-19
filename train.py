@@ -291,7 +291,8 @@ if __name__ == "__main__":
     args = parse_args()
     hostname = socket.gethostname()
 
-    try_bind_numa(args.launcher)
+    if args.bind_numa:
+        try_bind_numa(args.launcher)
 
     # initialize distributed environment
     initialize_distributed_env(config=args.config, launcher=args.launcher, master_port=args.port, seed=args.seed)
