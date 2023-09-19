@@ -1,0 +1,56 @@
+name: e2e-tests
+on: 
+  pull_request:
+    branches:
+      - "main"
+      - "develop"
+    paths-ignore:
+      - "doc/**"
+      - "**.md"
+env:
+  WORKSPACE_PREFIX: $(echo $GITHUB_WORKSPACE |cut -d '/' -f 1-4)
+  SLURM_PARTITION: llm
+
+jobs:
+  check-requirements:
+    runs-on: [lmtest]
+    steps:
+    - name: mask env
+      run: |
+        echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
+    - uses: actions/checkout@v3
+      with:
+         fetch-depth: 2
+    - name: check-requirements
+      run: |
+        source activate internlm-env-test
+        changed_files=$(git diff --name-only -r HEAD^1 HEAD)
+        echo $changed_files
+        if [[ $changed_files =~ "runtime.txt" ]]; then
+          pip install -r requirements/runtime.txt
+        fi
+
+        if [[ $changed_files =~ "torch.txt"  ]]; then
+          pip install -r requirements/torch.txt
+        fi
+
+
+  e2e_tests:
+    if: ${{ always() }}
+    needs: check-requirements
+    runs-on: [lmtest]
+    timeout-minutes: 30
+    steps:
+    - name: mask env
+      run: |
+        echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
+    - uses: actions/checkout@v3
+
+    - name: e2e-test
+      run: |
+        source activate internlm-env-test
+        srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} -n8 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_8GPU" ./tests/test_training
+        srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} -n16 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_16GPU_8DP2TP" ./tests/test_training
+        srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} -n16 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_16GPU_8DP2TPSP" ./tests/test_training
+        srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} -n16 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_16GPU_8DP2PP" ./tests/test_training
+        srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} -n16 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_16GPU_8DP2PP_InterleavedOverlap" ./tests/test_training
