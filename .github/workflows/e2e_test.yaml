@@ -13,8 +13,6 @@ env:
 
 jobs:
   training_8GPU:
-    if: ${{ always() }}
-    needs: check-requirements
     runs-on: [t_cluster]
     timeout-minutes: 10
     steps:
@@ -29,8 +27,6 @@ jobs:
         srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} -n8 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_8GPU" ./tests/test_training
 
   training_16GPU_8DP2TP:
-    if: ${{ always() }}
-    needs: check-requirements
     runs-on: [t_cluster]
     timeout-minutes: 10
     steps:
@@ -45,8 +41,6 @@ jobs:
         srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} -n16 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_16GPU_8DP2TP" ./tests/test_training
 
   training_16GPU_8DP2TPSP:
-    if: ${{ always() }}
-    needs: check-requirements
     runs-on: [t_cluster]
     timeout-minutes: 10
     steps:
@@ -61,8 +55,6 @@ jobs:
         srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} -n16 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_16GPU_8DP2TPSP" ./tests/test_training
             
   training_16GPU_8DP2PP:
-    if: ${{ always() }}
-    needs: check-requirements
     runs-on: [t_cluster]
     timeout-minutes: 10
     steps:
@@ -77,8 +69,6 @@ jobs:
         srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} -n16 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_16GPU_8DP2PP" ./tests/test_training
 
   training_16GPU_8DP2PP_InterleavedOverlap:
-    if: ${{ always() }}
-    needs: check-requirements
     runs-on: [t_cluster]
     timeout-minutes: 10
     steps:
