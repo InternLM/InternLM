@@ -109,3 +109,29 @@ InternLM 在 GSM8K 数据集中带工具和不带工具的性能表现：
 | -------- | -------------------- |
 | w/o tool | 34.5                 |
 | w tool   | 39.2                 |
+
+# openai_api.py
+
+使用 OpenAI 接口实现的流式部署，可以应用于基于 ChatGPT 的应用的后端。部署的命令为：
+
+```bash
+python openai_api.py
+```
+
+然后可以通过下面代码调用部署好的 api：
+
+```python
+import openai
+if __name__ == "__main__":
+    openai.api_base = "http://localhost:8000/internlm"
+    openai.api_key = "none"
+    for chunk in openai.ChatCompletion.create(
+        model="internlm-chat-7b",
+        messages=[
+            {"role": "user", "content": "你好"},
+        ],
+        stream=True
+    ):
+        if hasattr(chunk.choices[0].delta, "content"):
+            print(chunk.choices[0].delta.content, end="", flush=True)
+```

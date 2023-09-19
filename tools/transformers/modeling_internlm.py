@@ -19,21 +19,29 @@
 # limitations under the License.
 """ PyTorch InternLM model."""
 import math
+import queue
+import threading
 from typing import List, Optional, Tuple, Union
-import threading, queue
 
 import torch
 import torch.utils.checkpoint
+from configuration_internlm import InternLMConfig
 from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
-
 from transformers.activations import ACT2FN
-from transformers.modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast, SequenceClassifierOutputWithPast
-from transformers.modeling_utils import PreTrainedModel
 from transformers.generation.streamers import BaseStreamer
-from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward, logging, replace_return_docstrings
-from configuration_internlm import InternLMConfig
-
+from transformers.modeling_outputs import (
+    BaseModelOutputWithPast,
+    CausalLMOutputWithPast,
+    SequenceClassifierOutputWithPast,
+)
+from transformers.modeling_utils import PreTrainedModel
+from transformers.utils import (
+    add_start_docstrings,
+    add_start_docstrings_to_model_forward,
+    logging,
+    replace_return_docstrings,
+)
 
 logger = logging.get_logger(__name__)
 
@@ -869,7 +877,7 @@ class InternLMForCausalLM(InternLMPreTrainedModel):
             producer.start()
             while True:
                 res = response_queue.get()
-                if res is not None:
+                if res is None:
                     return
                 yield res
 
