@@ -38,7 +38,7 @@ def convert2hf(model_config, states_tp_pps):
         current_states["lm_head.weight"] = states.pop("head.weight")
 
         for i in range(model_config["num_layers"]):
-            states.pop(f"blocks.{i}.mixer.rotary_emb.inv_freq")
+            states.pop(f"blocks.{i}.mixer.rotary_emb.inv_freq", None)
 
             wqkv = states.pop(f"blocks.{i}.mixer.Wqkv.weight").reshape(
                 3, model_config["num_attention_heads"], -1, model_config["hidden_size"]

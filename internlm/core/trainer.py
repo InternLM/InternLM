@@ -4,6 +4,7 @@
 # adopted from https://github.com/hpcaitech/ColossalAI/blob/main/colossalai/engine
 
 import json
+from collections import deque
 from typing import Iterable, Optional
 
 from internlm.core.engine import Engine
@@ -57,6 +58,24 @@ class TrainState:
         # smapler state
         if batch_sampler:
             self.init_batch_sampler(batch_sampler)
+
+        # tgs statistic
+        self.tgs_statistic = {
+            "sum_step": 0,
+            "sum_tg": 0,
+            "sum_time": 0,
+            "sum_last_tg_10": 0,
+            "sum_last_time_10": 0,
+            "sum_last_tg_50": 0,
+            "sum_last_time_50": 0,
+            "SMA_tg_50": 0,
+            "SMA_time_50": 0,
+            "SMA_tg_50_list": deque(),
+            "SMA_time_50_list": deque(),
+            "sum_tgs": 0,
+            "last_tgs_10": 0,
+            "last_tgs_50": 0,
+        }
 
     def init_batch_sampler(self, batch_sampler):
         """
