@@ -11,7 +11,7 @@ from torch import nn
 
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
-from internlm.model.utils import fused_dense_func_torch
+from internlm.model.utils import fused_dense_func_torch, Silu
 
 
 class ScaleColumnParallelLinear(nn.Linear):
@@ -137,12 +137,6 @@ class RowParallelLinearTorch(RowParallelLinear):
         return reduce_fn(out, self.process_group)
 
 
-def Silu(w1_o, w2_o):
-    return F.silu(w1_o) * w2_o
-
-Silu = torch.jit.script(Silu)
-    
-
 class FeedForward(nn.Module):
     """
     FeedForward.
@@ -206,5 +200,4 @@ class FeedForward(nn.Module):
         w1_o = self.w1(x)
         w2_o = self.w2(x)
         out = self.w3(Silu(w1_o, w2_o))
-        # out = self.w3(F.silu(self.w1(x)) * self.w2(x))
         return out
