@@ -869,7 +869,7 @@ class InternLMForCausalLM(InternLMPreTrainedModel):
             producer.start()
             while True:
                 res = response_queue.get()
-                if res is not None:
+                if res is None:
                     return
                 yield res
 
