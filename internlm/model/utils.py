@@ -225,3 +225,10 @@ def is_norm_param(param: torch.Tensor) -> bool:
     if hasattr(param, "is_norm") and param.is_norm:
         return True
     return False
+
+
+def Silu(w1_o, w2_o):
+    return F.silu(w1_o) * w2_o
+
+
+Silu = torch.jit.script(Silu)

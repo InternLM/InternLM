@@ -263,6 +263,12 @@ def args_sanity_check():
             gpc.config.parallel.sequence_parallel is True and gpc.config.model.use_flash_attn is False
         ), "sequence parallel does not support use_flash_attn=False"
 
+    # currently only interleaved pipeline scheduler with overlap can guarantee loss accuracy
+    if hasattr(gpc.config.model, "num_chunks") and gpc.config.model.num_chunks > 1:
+        assert (
+            gpc.config.parallel["pipeline"].get("interleaved_overlap", False) is True
+        ), "only support interleaved pipeline scheduler with overlap"
+
     # monitoring default config
     monitor_default_config = {
         "alert_address": None,  # compatible with old alert config
