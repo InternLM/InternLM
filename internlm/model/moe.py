@@ -38,6 +38,18 @@ def is_moe_param(param: torch.Tensor) -> bool:
     return False
 
 
+def is_gate_param(param: torch.Tensor) -> bool:
+    if hasattr(param, "is_gate") and param.is_gate:
+        return True
+    return False
+
+
+def is_norm_param(param: torch.Tensor) -> bool:
+    if hasattr(param, "is_norm") and param.is_norm:
+        return True
+    return False
+
+
 class MoE(torch.nn.Module):
     """Initialize an MoE layer.
 
@@ -205,55 +217,85 @@ def split_params_into_different_moe_groups_for_optimizer(param_groups: Tuple[Dic
                 data_parallel_group_names.add(param.group_name)
     data_parallel_group_names = list(data_parallel_group_names)
     group_moe = {}
+    gate_group = {}
+    norm_group = {}
     # Create the param MoE groups, leave param assign to next step
     for param_group in param_groups:
+        group_moe[param_group["name"]] = {}
         for key in data_parallel_group_names:
-            group_moe[key] = {}
-            group_moe[key]["name"] = key
-            group_moe[key]["moe"] = True
+            group_moe[param_group["name"]][key] = {}
+            group_moe[param_group["name"]][key]["name"] = key
+            group_moe[param_group["name"]][key]["moe"] = True
             for ori_key in param_group.keys():
                 if ori_key != "name":
                     if ori_key == "params":
-                        group_moe[key][ori_key] = []
+                        group_moe[param_group["name"]][key][ori_key] = []
                     else:
-                        group_moe[key][ori_key] = param_group[ori_key]
-                        
+                        group_moe[param_group["name"]][key][ori_key] = param_group[ori_key]
+        gate_group["name"] = "gate"
+        gate_group["gate"] = True
+        for ori_key in param_group.keys():
+            if ori_key != "name":
+                if ori_key == "params":
+                    gate_group[ori_key] = []
+                else:
+                    gate_group[ori_key] = param_group[ori_key]
+        norm_group["name"] = "norm"
+        norm_group["norm"] = True
+        for ori_key in param_group.keys():
+            if ori_key != "name":
+                if ori_key == "params":
+                    norm_group[ori_key] = []
+                else:
+                    norm_group[ori_key] = param_group[ori_key]
     # Assign param
+    norm_params = []
+    gate_params = []
     for param_group in param_groups:
         new_params = []
         for param in param_group["params"]:
             if is_moe_param(param):
-                group_moe[param.group_name]["params"].append(param)
-                # param_group['params'].remove(param)
+                group_moe[param_group["name"]][param.group_name]["params"].append(param)
+            elif is_norm_param(param):
+                norm_params.append(param)
+            elif is_gate_param(param):
+                gate_params.append(param)
             else:
                 new_params.append(param)
         param_group["params"] = new_params
+    norm_group["params"] = norm_params
+    gate_group["params"] = gate_params
+    param_groups.append(norm_group)
+    param_groups.append(gate_group)
 
     # Flatten the moe groups
     if max_group_size is not None:
-        for _, v1 in group_moe.items():
-            cur_group = []
-            all_groups = []
-            size_of_cur_group = 0
-            for param in v1["params"]:
-                cur_group.append(param)
-                size_of_cur_group += param.numel()
-                if size_of_cur_group > max_group_size:
+        for _, v in group_moe.items():
+            for _, v1 in v.items():
+                cur_group = []
+                all_groups = []
+                size_of_cur_group = 0
+                for param in v1["params"]:
+                    if size_of_cur_group + param.numel() <= max_group_size:
+                        cur_group.append(param)
+                        size_of_cur_group += param.numel()
+                    else:
+                        all_groups.append(cur_group)
+                        cur_group = [param]
+                        size_of_cur_group = param.numel()
+                if cur_group:
                     all_groups.append(cur_group)
-                    cur_group = []
-                    size_of_cur_group = 0
-            if cur_group:
-                all_groups.append(cur_group)
-            for group in all_groups:
-                new_dict = {}
-                for key, val in v1.items():
-                    if key != "params":
-                        new_dict[key] = val
-                new_dict["params"] = group
-                param_groups.append(new_dict)
+                for group in all_groups:
+                    new_dict = {}
+                    for key, val in v1.items():
+                        if key != "params":
+                            new_dict[key] = val
+                    new_dict["params"] = group
+                    param_groups.append(new_dict)
     else:
-        for _, v1 in group_moe.items():
-            param_groups.append(v1)
+        for _, v in group_moe.items():
+            for _, v1 in v.items():
+                param_groups.append(v1)
     return tuple(param_groups)
 
 

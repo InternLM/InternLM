@@ -308,6 +308,12 @@ class HybridZeroOptimizer(BaseOptimizer):
     def _is_moe_group(self, param_group):
         return "moe" in param_group.keys() and param_group["moe"]
 
+    def _is_norm_group(self, param_group):
+        return "norm" in param_group.keys() and param_group["norm"]
+
+    def _is_gate_group(self, param_group):
+        return "gate" in param_group.keys() and param_group["gate"]
+
     def _attach_reduction_hook(self):
         # we iterate over the fp16 params
         # on each param, we register a hook to its AccumulateGrad object
@@ -687,6 +693,22 @@ class HybridZeroOptimizer(BaseOptimizer):
             assert (
                 param_shape == flat_fp32_avg_grads.shape
             ), f"fp32 param and grad have different shape {param_shape} vs {flat_fp32_avg_grads.shape}"
+
+            # Parameters shared within a TP group, such as norm and moe gate, have precision inconsistency in gradients.
+            # Therefore, it is recommended to synchronize gradients within the TP group to eliminate accumulated errors.
+            if self._is_norm_group(self.optim.param_groups[group_id]):
+                dist.all_reduce(
+                    flat_fp32_avg_grads,
+                    op=dist.ReduceOp.AVG,
+                    group=gpc.get_group(ParallelMode.TENSOR),
+                )
+
+            if self._is_gate_group(self.optim.param_groups[group_id]):
+                dist.all_reduce(
+                    flat_fp32_avg_grads,
+                    op=dist.ReduceOp.AVG,
+                    group=gpc.get_group(ParallelMode.TENSOR),
+                )
 
             single_grad_partition_groups.append(flat_fp32_avg_grads)
             device = self._fp32_flat_param_groups_of_current_rank[group_id].device

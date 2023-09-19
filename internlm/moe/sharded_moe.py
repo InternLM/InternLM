@@ -167,11 +167,6 @@ def _top_idx(source, k):
     return torch.topk(source, k=k, dim=0)[1]
 
 
-@torch.jit.script
-def _one_hot_to_float(x, num_classes):
-    return F.one_hot(x, num_classes=num_classes).float()
-
-
 def top1gating(
     logits: Tensor,
     capacity_factor: float,
@@ -210,7 +205,7 @@ def top1gating(
 
     # Compute l_aux
     me = torch.mean(gates, dim=0)
-    ce = torch.mean(mask1.float(), dim=0)
+    ce = torch.mean(mask1.type_as(logits), dim=0)
     l_aux = torch.sum(me * ce) * num_experts
 
     # Random Token Selection
@@ -244,10 +239,10 @@ def top1gating(
     locations1_s = torch.sum(locations1 * mask1, dim=1)
 
     # Normalize gate probabilities
-    mask1_float = mask1.float()
+    mask1_float = mask1.type_as(logits)
     gates = gates * mask1_float
 
-    locations1_sc = _one_hot_to_float(locations1_s, capacity)
+    locations1_sc = F.one_hot(locations1_s, num_classes=capacity).type_as(logits)
     combine_weights = einsum("se,sc->sec", gates, locations1_sc)
 
     dispatch_mask = combine_weights.bool()
@@ -271,7 +266,7 @@ def top2gating(logits: Tensor, capacity_factor: float, min_capacity: int) -> Tup
     # https://timvieira.github.io/blog/post/2014/07/31/gumbel-max-trick/
     logits_w_noise = logits + gumbel_rsample(logits.shape, device=logits.device)
     # Replace top-expert with min value
-    logits_except1 = logits_w_noise.masked_fill(mask1.bool(), float("-inf"))
+    logits_except1 = logits_w_noise.masked_fill(mask1.bool(), torch.finfo(logits.dtype).min)
     indices2_s = torch.argmax(logits_except1, dim=1)
     mask2 = F.one_hot(indices2_s, num_classes=num_experts)
 
@@ -286,7 +281,7 @@ def top2gating(logits: Tensor, capacity_factor: float, min_capacity: int) -> Tup
 
     # Compute l_aux
     me = torch.mean(gates, dim=0)
-    ce = torch.mean(mask1.float(), dim=0)
+    ce = torch.mean(mask1.type_as(logits), dim=0)
     l_aux = torch.mean(me * ce) * num_experts * num_experts
 
     # Remove locations outside capacity from mask
@@ -298,8 +293,8 @@ def top2gating(logits: Tensor, capacity_factor: float, min_capacity: int) -> Tup
     locations2_s = torch.sum(locations2 * mask2, dim=1)
 
     # Normalize gate probabilities
-    mask1_float = mask1.float()
-    mask2_float = mask2.float()
+    mask1_float = mask1.type_as(logits)
+    mask2_float = mask2.type_as(logits)
     gates1_s = einsum("se,se->s", gates, mask1_float)
     gates2_s = einsum("se,se->s", gates, mask2_float)
     denom_s = gates1_s + gates2_s
@@ -311,8 +306,8 @@ def top2gating(logits: Tensor, capacity_factor: float, min_capacity: int) -> Tup
     # Calculate combine_weights and dispatch_mask
     gates1 = einsum("s,se->se", gates1_s, mask1_float)
     gates2 = einsum("s,se->se", gates2_s, mask2_float)
-    locations1_sc = _one_hot_to_float(locations1_s, capacity)
-    locations2_sc = _one_hot_to_float(locations2_s, capacity)
+    locations1_sc = F.one_hot(locations1_s, num_classes=capacity).type_as(logits)
+    locations2_sc = F.one_hot(locations2_s, num_classes=capacity).type_as(logits)
     combine1_sec = einsum("se,sc->sec", gates1, locations1_sc)
     combine2_sec = einsum("se,sc->sec", gates2, locations2_sc)
     combine_weights = combine1_sec + combine2_sec
@@ -357,7 +352,7 @@ class TopKGate(Module):
         if k not in (1, 2):
             raise ValueError("Only top-1 and top-2 gatings are supported.")
         # Deepspeed's mechisms, alway use fp32
-        self.wg = torch.nn.Linear(model_dim, num_experts, bias=False).float()
+        self.wg = torch.nn.Linear(model_dim, num_experts, bias=False)
         self.k = k
         self.capacity_factor = capacity_factor
         self.eval_capacity_factor = eval_capacity_factor
@@ -368,6 +363,9 @@ class TopKGate(Module):
         self.drop_tokens = drop_tokens
         self.use_rts = use_rts
 
+        for param in self.wg.parameters():
+            param.is_gate = True
+
     def forward(
         self, inputs: torch.Tensor, used_token: torch.Tensor = None
     ) -> Tuple[Tensor, Tensor, Tensor]:  # type: ignore
@@ -375,13 +373,10 @@ class TopKGate(Module):
         if self.wall_clock_breakdown:
             timer("TopKGate").start()
 
-        if self.wg.weight.dtype != torch.float32:  # TODO can we change it to fp16
-            self.wg = self.wg.float()
-        inputs_fp32 = inputs.float()
         # input jittering
         if self.noisy_gate_policy == "Jitter" and self.training:
-            inputs_fp32 = multiplicative_jitter(inputs_fp32, device=inputs.device)
-        logits = self.wg(inputs_fp32)
+            inputs = multiplicative_jitter(inputs, device=inputs.device)
+        logits = self.wg(inputs)
 
         if self.k == 1:
             gate_output = top1gating(
