@@ -207,3 +207,21 @@ def try_import_RMSNorm():
         from internlm.model.norm import RMSNormTorch as RMSNorm
 
         return RMSNorm
+
+
+def is_moe_param(param: torch.Tensor) -> bool:
+    if hasattr(param, "is_expert") and param.is_expert:
+        return True
+    return False
+
+
+def is_gate_param(param: torch.Tensor) -> bool:
+    if hasattr(param, "is_gate") and param.is_gate:
+        return True
+    return False
+
+
+def is_norm_param(param: torch.Tensor) -> bool:
+    if hasattr(param, "is_norm") and param.is_norm:
+        return True
+    return False

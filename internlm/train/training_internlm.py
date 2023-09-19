@@ -25,13 +25,13 @@ from internlm.data.packed_dataset import (
     get_packed_dataset_without_short_length,
 )
 from internlm.data.utils import DATASET_TYPE_IDS_MAP, unpack_data
-from internlm.model.moe import create_moe_param_groups
 from internlm.monitor import send_heartbeat, set_env_var
 from internlm.monitor.monitor import monitor_manager as mm
 from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
 from internlm.solver.optimizer import HybridZeroOptimizer
 from internlm.solver.optimizer.utils import ParamBcastSyncHandler
+from internlm.train.utils import create_param_groups
 from internlm.utils.common import DummyProfile
 from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
@@ -112,7 +112,7 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
     adam_cfg = gpc.config.adam
     # split the moe parameters into different groups
     if gpc.config.model.num_experts > 1:
-        params = create_moe_param_groups(model, adam_cfg.weight_decay)
+        params = create_param_groups(model, adam_cfg.weight_decay)
     else:
         params = [{"params": model.parameters(), "weight_decay": adam_cfg.weight_decay}]
     naive_optimizer = torch.optim.AdamW(

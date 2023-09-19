@@ -149,10 +149,15 @@ class ParallelContext(metaclass=SingletonMeta):
         self.num_processes_on_current_node = -1
         self.virtual_pipeline_parallel_size = None
         self.virtual_pipeline_parallel_rank = None
+        self._expert_parallel_group_names = []
 
     @property
     def config(self):
         return self._config
+
+    @property
+    def expert_parallel_group_names(self):
+        return self._expert_parallel_group_names
 
     def load_config(self, config: Union[dict, str]):
         """Loads the configuration from either a dict or a file.
