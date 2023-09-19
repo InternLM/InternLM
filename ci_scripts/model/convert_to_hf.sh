@@ -19,7 +19,7 @@ source ./ci_scripts/common/basic_func.sh
 echo "start to test convert2hf.py."
 
 if [[ -d ${CKPTS_OUTPUT} ]]; then
-    if ! mv ${CKPTS_OUTPUT}/* ${CLEAN_PATH}; then
+    if ! rsync -av --remove-source-files ${CKPTS_OUTPUT}/* ${CLEAN_PATH}; then
        echo "cleaning cached file in ${CKPTS_OUTPUT} failed, exit."
        exit 1
     fi

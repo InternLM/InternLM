@@ -17,7 +17,7 @@ echo "start to test tokenizer.py."
 
 num=$(num_files "${RESULTS}")
 if [[ ${num} -gt 0 ]]; then
-    if ! mv ${RESULTS} ${CLEAN_PATH}; then
+    if ! rsync -av --remove-source-files ${RESULTS} ${CLEAN_PATH}; then
        echo "cleaning test data ${RESULTS} failed, exit."
        exit 1
     fi
@@ -35,7 +35,7 @@ for file in ${file_list[@]}; do
 done
 
 # move the test files.
-if ! mv ${RESULTS}/* ${CLEAN_PATH}; then
+if ! rsync -av --remove-source-files ${RESULTS} ${CLEAN_PATH}; then
    echo "cleaning cached file in ${RESULTS} failed."
    exit_code=$(($exit_code + 1))
 fi

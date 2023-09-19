@@ -34,7 +34,7 @@ fi
 
 # move the test files.
 if [[ -d ${CKPTS_PATH} ]]; then
-    if ! mv ${CKPTS_PATH}/* ${CLEAN_PATH}; then
+    if ! rsync -av --remove-source-files ${CKPTS_PATH}/* ${CLEAN_PATH}; then
         echo "cleaning cached file in ${CKPTS_PATH} failed."
         exit_code=$(($exit_code + 1))
     fi

@@ -16,7 +16,7 @@ source ./ci_scripts/common/basic_func.sh
 echo "start to test torch training."
 
 if [[ -d ${CKPTS20_PATH} ]]; then
-    if ! mv ${CKPTS20_PATH}/* ${CLEAN_PATH}; then
+    if ! rsync -av --remove-source-files ${CKPTS20_PATH}/* ${CLEAN_PATH}; then
        echo "cleaning cached file in ${CKPTS20_PATH} failed, exit."
        exit 1
     fi
@@ -32,7 +32,7 @@ if [[ ${num} -ne ${expected_num} ]]; then
 fi
 
 # move the test files.
-if ! mv ${CKPTS_PATH}/* ${CLEAN_PATH}; then
+if ! rsync -av --remove-source-files ${CKPTS_PATH}/* ${CLEAN_PATH}; then
     echo "cleaning cached file in ${CKPTS_PATH} failed."
     exit_code=$(($exit_code + 1))
 fi
