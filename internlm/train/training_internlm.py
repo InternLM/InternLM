@@ -31,7 +31,8 @@ from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
 from internlm.solver.optimizer import HybridZeroOptimizer
 from internlm.solver.optimizer.utils import ParamBcastSyncHandler
-from internlm.utils.common import DummyProfile, create_param_groups
+from internlm.train.utils import create_param_groups
+from internlm.utils.common import DummyProfile
 from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
 from internlm.utils.parallel import (
