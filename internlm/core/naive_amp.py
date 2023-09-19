@@ -182,15 +182,15 @@ class NaiveAMPModel(nn.Module):
             if isinstance(_chunk, NaiveAMPModel):
                 _chunk = _chunk.model
 
-            for _, sub_module in _chunk.named_modules():
+            for child in _chunk.children():
                 # should be the transformer block definaton in modeling_xxx.py
-                if isinstance(sub_module, nn.ModuleList):
-                    for _, module in enumerate(sub_module):
-                        modules.append(module)
-
+                if isinstance(child, nn.ModuleList):
+                    for _, block in enumerate(child):
+                        # TODO special case for MoE
+                        modules.extend(list(block.children()))
                 else:
                     # embedding, head, etc that out of the transformer block
-                    modules.append(sub_module)
+                    modules.append(child)
 
         # register_forward_pre_hook for transformer/embeding/norm/xxx block
         for sub_module in modules:
