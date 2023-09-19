@@ -130,6 +130,7 @@ class PackedFlashBaseLayer1D(nn.Module):
         for _, param in self.mlp.named_parameters():
             if gpc.get_world_size(ParallelMode.TENSOR) > 1:
                 setattr(param, IS_TENSOR_PARALLEL, True)
+
         self.dropout2 = nn.Dropout(drop_rate)
         self.use_swiglu = use_swiglu
         self.use_scaled_init = use_scaled_init
