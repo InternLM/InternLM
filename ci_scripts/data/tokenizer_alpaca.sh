@@ -43,7 +43,7 @@ for file in ${file_list[@]}; do
 done
 
 # move the test files.
-if ! rsync -av --remove-source-files ${RESULTS}/* ${CLEAN_PATH}; then
+if ! rsync -av --remove-source-files ${RESULTS} ${CLEAN_PATH}; then
     echo "cleaning test data in ${RESULTS} failed."
     exit_code=$(($exit_code + 1))
 fi
