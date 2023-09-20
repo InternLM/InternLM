@@ -139,11 +139,10 @@ class MHA(nn.Module):
         else:
             qkv = rearrange(qkv, "(b s) (three h d) -> b s three h d", s=seqlen, three=3, d=self.head_dim)
 
-        if self.rotary_emb_dim > 0:
-            kwargs["inference_params"] = inference_params
-            qkv = self.rotary_emb(qkv, **kwargs)
-
         if inference_params is None:
+            if self.rotary_emb_dim > 0:
+                kwargs["inference_params"] = inference_params
+                qkv = self.rotary_emb(qkv, **kwargs)
             if gpc.config.model.dtype is torch.float32 and gpc.config.model.use_flash_attn:
                 with torch.cuda.amp.autocast(dtype=torch.bfloat16):
                     if qkv.dtype not in [torch.float16, torch.bfloat16]:
@@ -152,9 +151,34 @@ class MHA(nn.Module):
             else:
                 context = self.inner_attn(qkv)
         else:
-            q = qkv[:, :, 0]
-            assert self.layer_idx is not None, "Generation requires layer_idx in the constructor"
-            kv = _update_kv_cache(qkv[:, :, 1:], inference_params, self.layer_idx)
+            if self.use_dynamic_ntk_rope:
+                q = qkv[:, :, 0]
+                assert self.layer_idx is not None, "Generation requires layer_idx in the constructor"
+                kv = _update_kv_cache(qkv[:, :, 1:], inference_params, self.layer_idx)
+                if inference_params.sequence_len_offset != 0:
+                    # q shape: [bsz, 1, nheads, head_dim]
+                    # kv shape: [bsz, seqlen, 2, nheads, head_dim]
+                    bsz, seq_len, _, nheads, head_dim = kv.shape
+                    q = torch.cat([q.new_zeros(size=(bsz, seq_len-1, nheads, head_dim)), q], dim=1).unsqueeze(2)
+                    qkv = torch.cat([q, kv], dim=2)
+                    if self.rotary_emb_dim > 0:
+                        qkv = self.rotary_emb(qkv)
+                    q = qkv[:, [-1], 0]
+                    kv = qkv[:, :, 1:]
+                else:
+                    if self.rotary_emb_dim > 0:
+                        kwargs["inference_params"] = inference_params
+                        qkv = self.rotary_emb(qkv, **kwargs)
+                        q = qkv[:, :, 0]
+                        kv = qkv[:, :, 1:]
+            else:
+                if self.rotary_emb_dim > 0:
+                    kwargs["inference_params"] = inference_params
+                    qkv = self.rotary_emb(qkv, **kwargs)
+                q = qkv[:, :, 0]
+                assert self.layer_idx is not None, "Generation requires layer_idx in the constructor"
+                kv = _update_kv_cache(qkv[:, :, 1:], inference_params, self.layer_idx)
+            
             # If we're processing the prompt, causal=None (use self.causal).
             # If we're decoding, then causal=False.
             causal = None if inference_params.sequence_len_offset == 0 else False

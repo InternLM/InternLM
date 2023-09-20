@@ -137,6 +137,8 @@ class RotaryEmbedding(torch.nn.Module):
         """ """
         super().__init__()
         # Generate and save the inverse frequency buffer (non trainable)
+        self.dim = dim
+        self.base = base
         self.inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2, device=device, dtype=torch.float32) / dim))
         self.scale_base = scale_base
         self.scale = (
@@ -240,38 +242,48 @@ class DynamicNTKScalingRotaryEmbedding(RotaryEmbedding):
             b659ced9/src/transformers/models/llama/modeling_llama.py#L147
     """
     def __init__(self, dim: int, base=10000, scale_base=0, device=None, max_position_embeddings=2048, scaling_factor=1.0):
+        super().__init__(dim=dim, base=base, scale_base=scale_base, device=device)
         self.max_position_embeddings = max_position_embeddings
         self.scaling_factor = scaling_factor
-        super().__init__(dim=dim, base=base, scale_base=scale_base, device=device)
+        
+    def _update(self, seqlen, x):
+        self._seq_len_cached = seqlen
+        if seqlen > self.max_position_embeddings:
+            base = self.base * (
+                (self.scaling_factor * seqlen / self.max_position_embeddings) - (self.scaling_factor - 1)
+            ) ** (self.dim / (self.dim - 2))
+            inv_freq = 1.0 / (base ** (torch.arange(0, self.dim, 2).float().to(x.device) / self.dim))
+        else:
+            inv_freq = self.inv_freq
 
+        t = torch.arange(seqlen, device=x.device, dtype=inv_freq.dtype)
+        freqs = torch.outer(t, inv_freq.to(device=t.device))
+        if self.scale is None:
+            self._cos_cached = torch.cos(freqs).to(x.dtype)
+            self._sin_cached = torch.sin(freqs).to(x.dtype)
+        else:
+            power = (
+                torch.arange(seqlen, dtype=self.scale.dtype, device=self.scale.device) - seqlen // 2
+            ) / self.scale_base
+            scale = self.scale.to(device=power.device) ** rearrange(power, "s -> s 1")
+            # We want the multiplication by scale to happen in fp32
+            self._cos_cached = (torch.cos(freqs) * scale).to(x.dtype)
+            self._sin_cached = (torch.sin(freqs) * scale).to(x.dtype)
+            self._cos_k_cached = (torch.cos(freqs) / scale).to(x.dtype)
+            self._sin_k_cached = (torch.sin(freqs) / scale).to(x.dtype)
+    
     def _update_cos_sin_cache(self, x, indexes):
         """x: (batch, seqlen, nheads, headdim) or (batch, seqlen, 3, nheads, headdim)"""
         if not isinstance(indexes, int):
             seqlen = indexes.max().item() + 1
         else:
             seqlen = indexes + 1  # eval_forward
-        # Reset the tables if the sequence length has changed,
-        # or if we're on a new device (possibly due to tracing for instance)
-        if seqlen > self._seq_len_cached or self._cos_cached.device != x.device or self._cos_cached.dtype != x.dtype:
-            self._seq_len_cached = seqlen
-
-            base = self.base * (
-                (self.scaling_factor * seqlen / self.max_position_embeddings) - (self.scaling_factor - 1)
-            ) ** (self.dim / (self.dim - 2))
-            self.inv_freq = 1.0 / (base ** (torch.arange(0, self.dim, 2).float().to(x.device) / self.dim))
-
-            t = torch.arange(seqlen, device=x.device, dtype=self.inv_freq.dtype)
-            freqs = torch.outer(t, self.inv_freq.to(device=t.device))
-            if self.scale is None:
-                self._cos_cached = torch.cos(freqs).to(x.dtype)
-                self._sin_cached = torch.sin(freqs).to(x.dtype)
-            else:
-                power = (
-                    torch.arange(seqlen, dtype=self.scale.dtype, device=self.scale.device) - seqlen // 2
-                ) / self.scale_base
-                scale = self.scale.to(device=power.device) ** rearrange(power, "s -> s 1")
-                # We want the multiplication by scale to happen in fp32
-                self._cos_cached = (torch.cos(freqs) * scale).to(x.dtype)
-                self._sin_cached = (torch.sin(freqs) * scale).to(x.dtype)
-                self._cos_k_cached = (torch.cos(freqs) / scale).to(x.dtype)
-                self._sin_k_cached = (torch.sin(freqs) / scale).to(x.dtype)
+        if seqlen <= self.max_position_embeddings:
+                # Reset the tables if the sequence length has changed,
+            # or if we're on a new device (possibly due to tracing for instance)
+            if self._seq_len_cached > self.max_position_embeddings or seqlen > self._seq_len_cached \
+                or self._cos_cached.device != x.device or self._cos_cached.dtype != x.dtype:
+                self._update(seqlen, x)
+        else:
+            self._update(seqlen, x)
+                
