@@ -170,8 +170,8 @@ class MHA(nn.Module):
                 else:
                     if inference_params.sequence_len_offset > self.max_position_embeddings:
                         warnings.warn(
-                            "Notice your prompt's length is longer than model's "
-                            f"max_position_embeddings:{self.max_position_embeddings}."
+                            "Notice your prompt's length is longer than model's max_position_embeddings: "
+                            f"{self.max_position_embeddings}, which will cause deviations in dynamic ntk calculations."
                         )
                     if self.rotary_emb_dim > 0:
                         kwargs["inference_params"] = inference_params
