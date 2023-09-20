@@ -16,6 +16,7 @@
 
 [![license](./doc/imgs/license.svg)](https://github.com/open-mmlab/mmdetection/blob/main/LICENSE)
 [![evaluation](./doc/imgs/compass_support.svg)](https://github.com/internLM/OpenCompass/)
+[![Documentation Status](https://readthedocs.org/projects/internlm/badge/?version=latest)](https://internlm.readthedocs.io/zh_CN/latest/?badge=latest)
 
 [📘使用文档](./doc/usage.md) |
 [🛠️安装教程](./doc/install.md) |

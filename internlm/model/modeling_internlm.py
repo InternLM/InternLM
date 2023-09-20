@@ -127,6 +127,9 @@ class PackedFlashBaseLayer1D(nn.Module):
                 device=device,
                 dtype=dtype,
             )
+        for _, param in self.mlp.named_parameters():
+            if gpc.get_world_size(ParallelMode.TENSOR) > 1:
+                setattr(param, IS_TENSOR_PARALLEL, True)
         self.dropout2 = nn.Dropout(drop_rate)
         self.use_swiglu = use_swiglu
         self.use_scaled_init = use_scaled_init
@@ -451,10 +454,9 @@ def build_model_with_cfg(
     use_scaled_init: bool = True,
     use_swiglu: bool = True,
     use_flash_attn: bool = True,
-    sequence_parallel: bool = False,  # pylint: disable=W0613
 ):
     """
-    Builde model with config
+    Build model with config.
 
     Args:
         num_chunks (int): The number of partitions in pipeline parallel. 1 by default.

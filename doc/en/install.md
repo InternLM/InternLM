@@ -1,4 +1,4 @@
-## InternLM Installation
+## Installation
 
 ### Environment Preparation
 The required packages and corresponding version are shown as follows:

@@ -12,19 +12,25 @@ import sys
 project = "InternLM"
 copyright = "2023, InternLM Team"
 author = "InternLM Team"
-release = "v0.2.0"
+
+with open("../../../version.txt", "r") as f:
+    release = f.readline().rstrip()
+
+master_doc = "index"
+
+autodoc_member_order = "bysource"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
-    "recommonmark",
     "sphinx_rtd_theme",
     "sphinx.ext.viewcode",
     "sphinx.ext.autodoc",
     "sphinxcontrib.autodoc_pydantic",
     "sphinx.ext.autosectionlabel",
     "sphinx.ext.napoleon",
+    "myst_parser",
 ]
 
 pygments_style = "sphinx"
@@ -66,14 +72,14 @@ exclude_patterns = []
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = "sphinx_rtd_theme"
-html_static_path = ["_static"]
+html_static_path = []
 
 # GitHub integration
 html_context = {
     "display_github": True,
-    "github_user": "pjlab",
+    "github_user": "InternLM",
     "github_repo": "InternLM",
-    "github_version": "master",
+    "github_version": "main",
     "conf_py_path": "/doc/code-docs/source/",
 }
 
@@ -89,3 +95,9 @@ autodoc_mock_imports = [
     "torch",
     "numpy",
 ]
+
+# support multi-language docs
+language = "zh_CN"
+locale_dirs = ["../locales/"]  # path is example but recommended.
+gettext_compact = False  # optional.
+gettext_uuid = False  # optional.

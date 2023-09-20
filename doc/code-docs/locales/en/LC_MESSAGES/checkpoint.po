@@ -1,0 +1,106 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, InternLM Team
+# This file is distributed under the same license as the InternLM package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: InternLM \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-09-13 17:07+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: en\n"
+"Language-Team: en <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.12.1\n"
+
+#: ../../source/checkpoint.rst:2
+msgid "模型保存"
+msgstr "Model Checkpointing"
+
+#: ../../source/checkpoint.rst:4
+msgid ""
+"InternLM 使用 ``internlm.utils.model_checkpoint.CheckpointManager`` "
+"来管理模型保存。其中，可以使用 ``CheckpointManager.try_save_checkpoint(train_state)`` "
+"来保存指定 step 的模型状态。"
+msgstr ""
+"InternLM uses ``internlm.utils.model_checkpoint.CheckpointManager`` to "
+"manage model checkpointing. In the implementation, we use "
+"``CheckpointManager.try_save_checkpoint(train_state)`` to checkpoint "
+"training states at specific steps. "
+
+#: ../../source/checkpoint.rst:6
+msgid "InternLM支持启动时自动加载最新的模型备份，并在接收信号退出训练时自动进行模型备份。"
+msgstr "InternLM supports automatic loading of latest ckpt at startup and automatic model checkpointing at signal quit. "
+
+#: ../../source/checkpoint.rst:9
+msgid "Checkpointing"
+msgstr ""
+
+#: internlm.utils.model_checkpoint.CheckpointManager:1 of
+msgid "StorageManagerContext"
+msgstr ""
+
+#: internlm.utils.model_checkpoint.CheckpointManager.quit_signal_handler:1 of
+msgid ""
+"Exit signal detection function, if we write the exit step in the "
+"'QUIT_FILE_PATH' file, all ranks will save ckpt and exit. Negative "
+"integer step means save ckpt. Positive integer step means save ckpt and "
+"quit."
+msgstr ""
+
+#: internlm.utils.model_checkpoint.CheckpointManager.quit_signal_handler of
+msgid "参数"
+msgstr ""
+
+#: internlm.utils.model_checkpoint.CheckpointManager.quit_signal_handler of
+msgid "返回"
+msgstr ""
+
+#: internlm.utils.model_checkpoint.CheckpointManager.quit_signal_handler:9 of
+msgid "whether to quit."
+msgstr ""
+
+#: internlm.utils.model_checkpoint.CheckpointManager.quit_signal_handler of
+msgid "返回类型"
+msgstr ""
+
+#: internlm.utils.model_checkpoint.CheckpointManager.wait_async_upload_finish:1
+#: of
+msgid "wait for all checkpoint uploads to be completed"
+msgstr ""
+
+#: internlm.utils.model_checkpoint.CheckpointManager.query_latest_snapshot_step_boto3:1
+#: of
+msgid ""
+"Returns: Tuple(str, int): path of latest ckpt and ckpt step, if not "
+"found, None will return."
+msgstr ""
+
+#: internlm.utils.model_checkpoint.CheckpointManager.save_checkpoint:1 of
+msgid "Save checkpoint to the given folder path."
+msgstr ""
+
+#~ msgid "Attempt to restore the training state of the last ckpt."
+#~ msgstr ""
+
+#~ msgid "lr_scheduler object."
+#~ msgstr ""
+
+#~ msgid "optimizer object."
+#~ msgstr ""
+
+#~ msgid "learning rate."
+#~ msgstr ""
+
+#~ msgid "traing states."
+#~ msgstr ""
+
+#~ msgid "traning dataloader object"
+#~ msgstr ""
+
