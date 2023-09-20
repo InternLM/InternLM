@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
+import warnings
 from typing import Optional
 
 import torch
@@ -16,7 +17,7 @@ from torch import nn
 
 from internlm.core.context import IS_TENSOR_PARALLEL, ParallelMode
 from internlm.core.context import global_context as gpc
-from internlm.model.embedding import RotaryEmbedding
+from internlm.model.embedding import DynamicNTKScalingRotaryEmbedding, RotaryEmbedding
 from internlm.model.linear import ColumnParallelLinearTorch, RowParallelLinearTorch
 
 
@@ -52,10 +53,12 @@ class MHA(nn.Module):
         embed_dim: int,
         num_heads: int,
         process_group: Optional[torch.distributed.ProcessGroup],
+        max_position_embeddings: int = 2048,
         dropout: float = 0.0,
         softmax_scale: float = None,
         causal: bool = False,
         layer_idx: int = None,
+        use_dynamic_ntk_rope: bool = False,
         rotary_emb_dim: int = 0,
         rotary_emb_scale_base: int = 0,
         use_flash_attn: bool = True,
@@ -67,6 +70,8 @@ class MHA(nn.Module):
         self.embed_dim = embed_dim
         self.causal = causal
         self.layer_idx = layer_idx
+        self.max_position_embeddings = max_position_embeddings
+        self.use_dynamic_ntk_rope = use_dynamic_ntk_rope
         self.rotary_emb_dim = rotary_emb_dim
         self.use_flash_attn = use_flash_attn
         self.num_heads = num_heads
@@ -74,7 +79,16 @@ class MHA(nn.Module):
         self.head_dim = self.embed_dim // num_heads
 
         if self.rotary_emb_dim > 0:
-            self.rotary_emb = RotaryEmbedding(self.rotary_emb_dim, scale_base=rotary_emb_scale_base, device=device)
+            if self.use_dynamic_ntk_rope:
+                self.rotary_emb = DynamicNTKScalingRotaryEmbedding(
+                    self.rotary_emb_dim,
+                    scale_base=rotary_emb_scale_base,
+                    device=device,
+                    max_position_embeddings=max_position_embeddings,
+                    scaling_factor=1.0,  # Currently do not support dynamic scaling.
+                )
+            else:
+                self.rotary_emb = RotaryEmbedding(self.rotary_emb_dim, scale_base=rotary_emb_scale_base, device=device)
 
         # notice here should change bias=True
         self.Wqkv = ColumnParallelLinearTorch(
@@ -127,11 +141,10 @@ class MHA(nn.Module):
         else:
             qkv = rearrange(qkv, "(b s) (three h d) -> b s three h d", s=seqlen, three=3, d=self.head_dim)
 
-        if self.rotary_emb_dim > 0:
-            kwargs["inference_params"] = inference_params
-            qkv = self.rotary_emb(qkv, **kwargs)
-
         if inference_params is None:
+            if self.rotary_emb_dim > 0:
+                kwargs["inference_params"] = inference_params
+                qkv = self.rotary_emb(qkv, **kwargs)
             if gpc.config.model.dtype is torch.float32 and gpc.config.model.use_flash_attn:
                 with torch.cuda.amp.autocast(dtype=torch.bfloat16):
                     if qkv.dtype not in [torch.float16, torch.bfloat16]:
@@ -140,9 +153,39 @@ class MHA(nn.Module):
             else:
                 context = self.inner_attn(qkv)
         else:
-            q = qkv[:, :, 0]
-            assert self.layer_idx is not None, "Generation requires layer_idx in the constructor"
-            kv = _update_kv_cache(qkv[:, :, 1:], inference_params, self.layer_idx)
+            if self.use_dynamic_ntk_rope:
+                q = qkv[:, :, 0]
+                assert self.layer_idx is not None, "Generation requires layer_idx in the constructor"
+                kv = _update_kv_cache(qkv[:, :, 1:], inference_params, self.layer_idx)
+                if inference_params.sequence_len_offset != 0:
+                    # q shape: [bsz, 1, nheads, head_dim]
+                    # kv shape: [bsz, seqlen, 2, nheads, head_dim]
+                    bsz, seq_len, _, nheads, head_dim = kv.shape
+                    q = torch.cat([q.new_zeros(size=(bsz, seq_len - 1, nheads, head_dim)), q], dim=1).unsqueeze(2)
+                    qkv = torch.cat([q, kv], dim=2)
+                    if self.rotary_emb_dim > 0:
+                        qkv = self.rotary_emb(qkv)
+                    q = qkv[:, [-1], 0]
+                    kv = qkv[:, :, 1:]
+                else:
+                    if inference_params.sequence_len_offset > self.max_position_embeddings:
+                        warnings.warn(
+                            "Notice your prompt's length is longer than model's max_position_embeddings: "
+                            f"{self.max_position_embeddings}, which will cause deviations in dynamic ntk calculations."
+                        )
+                    if self.rotary_emb_dim > 0:
+                        kwargs["inference_params"] = inference_params
+                        qkv = self.rotary_emb(qkv, **kwargs)
+                        q = qkv[:, :, 0]
+                        kv = qkv[:, :, 1:]
+            else:
+                if self.rotary_emb_dim > 0:
+                    kwargs["inference_params"] = inference_params
+                    qkv = self.rotary_emb(qkv, **kwargs)
+                q = qkv[:, :, 0]
+                assert self.layer_idx is not None, "Generation requires layer_idx in the constructor"
+                kv = _update_kv_cache(qkv[:, :, 1:], inference_params, self.layer_idx)
+
             # If we're processing the prompt, causal=None (use self.causal).
             # If we're decoding, then causal=False.
             causal = None if inference_params.sequence_len_offset == 0 else False
