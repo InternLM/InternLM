@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
+import gc
 import math
 import socket
 
@@ -41,6 +42,10 @@ def empty_cache_and_diag(batch_count, interval=50):
                 bench_net()
         # do empty_cache after the bench
         torch.cuda.empty_cache()
+        # do gc
+        gc.enable()
+        gc.collect()
+        gc.disable()
 
 
 def benchmark_forward(
