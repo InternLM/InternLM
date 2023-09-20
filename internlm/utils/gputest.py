@@ -19,6 +19,8 @@ try:
 except ImportError:
     GPUtil, psutil = None, None
 
+import gc
+
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.utils.common import get_current_device
@@ -41,6 +43,10 @@ def empty_cache_and_diag(batch_count, interval=50):
                 bench_net()
         # do empty_cache after the bench
         torch.cuda.empty_cache()
+        # do gc
+        gc.enable()
+        gc.collect()
+        gc.disable()
 
 
 def benchmark_forward(
