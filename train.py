@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-import gc
 import socket
 import time
 import traceback
