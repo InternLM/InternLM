@@ -56,12 +56,12 @@ def tokenize(sample, sp_model):
     Returns:
         tuple: dumped processed data sample and length of tokens.
     """
-    special_tokens_map = {"<eoh>": 103167, "<eoa>": 103166, "nl_id": 13}
+    special_tokens_map = {"<eoh>": 103027, "<eoa>": 103028, "nl_id": 13, "\n": 364}
     token_ids = [sp_model.bos_id()]
     human_s = sample["user"]
     ass_s = sample["bot"]
 
-    human_ids = sp_model.encode(human_s) + [special_tokens_map["<eoh>"], special_tokens_map["nl_id"]]
+    human_ids = sp_model.encode(human_s) + [special_tokens_map["<eoh>"], special_tokens_map["\n"]]
     human_ids_ignore = [-token_id for token_id in human_ids]
 
     ass_template_ids = sp_model.encode("<|Bot|>:")
