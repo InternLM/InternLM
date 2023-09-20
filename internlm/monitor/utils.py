@@ -16,6 +16,10 @@ def get_job_id():
         job_id = os.getenv("SLURM_JOB_ID")
     elif os.getenv("K8S_WORKSPACE_ID") is not None:
         job_id = os.getenv("K8S_WORKSPACE_ID")
+    elif os.getenv("KUBERNETES_POD_NAME") is not None:
+        job_id = os.getenv("KUBERNETES_POD_NAME").split("-")[0]
+    elif os.getenv("MLP_TASK_INSTANCE_ID") is not None:
+        job_id = os.getenv("MLP_TASK_ID")
 
     return job_id
 
