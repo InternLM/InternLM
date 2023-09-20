@@ -39,7 +39,7 @@
 ## Introduction
 InternLM is an open-sourced lightweight training framework aims to  support model pre-training without the need for extensive dependencies. With a single codebase, it supports pre-training on large-scale clusters with thousands of GPUs, and fine-tuning on a single GPU while achieving remarkable performance optimizations. InternLM achieves nearly 90% acceleration efficiency during training on 1024 GPUs.
 
-Based on the InternLM training framework, we have pre-trained two open-sourced pretrained model InternLM-7B and InternLM-20B.
+Based on the InternLM training framework, we have released two open-sourced pretrained model InternLM-7B and InternLM-20B.
 
 
 ## News
