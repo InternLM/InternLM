@@ -16,7 +16,7 @@ from torch import nn
 
 from internlm.core.context import IS_TENSOR_PARALLEL, ParallelMode
 from internlm.core.context import global_context as gpc
-from internlm.model.embedding import RotaryEmbedding, DynamicNTKScalingRotaryEmbedding
+from internlm.model.embedding import DynamicNTKScalingRotaryEmbedding, RotaryEmbedding
 from internlm.model.linear import ColumnParallelLinearTorch, RowParallelLinearTorch
 
 
@@ -79,11 +79,11 @@ class MHA(nn.Module):
         if self.rotary_emb_dim > 0:
             if self.use_dynamic_ntk_rope:
                 self.rotary_emb = DynamicNTKScalingRotaryEmbedding(
-                    self.rotary_emb_dim, 
-                    scale_base=rotary_emb_scale_base, 
-                    device=device, 
+                    self.rotary_emb_dim,
+                    scale_base=rotary_emb_scale_base,
+                    device=device,
                     max_position_embeddings=max_position_embeddings,
-                    scaling_factor=1.0  # Currently do not support dynamic scaling.
+                    scaling_factor=1.0,  # Currently do not support dynamic scaling.
                 )
             else:
                 self.rotary_emb = RotaryEmbedding(self.rotary_emb_dim, scale_base=rotary_emb_scale_base, device=device)
@@ -159,7 +159,7 @@ class MHA(nn.Module):
                     # q shape: [bsz, 1, nheads, head_dim]
                     # kv shape: [bsz, seqlen, 2, nheads, head_dim]
                     bsz, seq_len, _, nheads, head_dim = kv.shape
-                    q = torch.cat([q.new_zeros(size=(bsz, seq_len-1, nheads, head_dim)), q], dim=1).unsqueeze(2)
+                    q = torch.cat([q.new_zeros(size=(bsz, seq_len - 1, nheads, head_dim)), q], dim=1).unsqueeze(2)
                     qkv = torch.cat([q, kv], dim=2)
                     if self.rotary_emb_dim > 0:
                         qkv = self.rotary_emb(qkv)
@@ -178,7 +178,7 @@ class MHA(nn.Module):
                 q = qkv[:, :, 0]
                 assert self.layer_idx is not None, "Generation requires layer_idx in the constructor"
                 kv = _update_kv_cache(qkv[:, :, 1:], inference_params, self.layer_idx)
-            
+
             # If we're processing the prompt, causal=None (use self.causal).
             # If we're decoding, then causal=False.
             causal = None if inference_params.sequence_len_offset == 0 else False
