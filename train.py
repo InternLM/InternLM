@@ -289,7 +289,6 @@ def main(args):
 
 
 if __name__ == "__main__":
-    gc.disable()
     args = parse_args()
     hostname = socket.gethostname()
 
