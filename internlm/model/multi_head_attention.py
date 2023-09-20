@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
+import warnings
 from typing import Optional
 
 import torch
@@ -69,6 +70,7 @@ class MHA(nn.Module):
         self.embed_dim = embed_dim
         self.causal = causal
         self.layer_idx = layer_idx
+        self.max_position_embeddings = max_position_embeddings
         self.use_dynamic_ntk_rope = use_dynamic_ntk_rope
         self.rotary_emb_dim = rotary_emb_dim
         self.use_flash_attn = use_flash_attn
@@ -166,6 +168,11 @@ class MHA(nn.Module):
                     q = qkv[:, [-1], 0]
                     kv = qkv[:, :, 1:]
                 else:
+                    if inference_params.sequence_len_offset > self.max_position_embeddings:
+                        warnings.warn(
+                            "Notice your prompt's length is longer than model's "
+                            f"max_position_embeddings:{self.max_position_embeddings}."
+                        )
                     if self.rotary_emb_dim > 0:
                         kwargs["inference_params"] = inference_params
                         qkv = self.rotary_emb(qkv, **kwargs)
