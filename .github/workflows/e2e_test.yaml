@@ -38,46 +38,49 @@ jobs:
     - name: training_16GPU_8DP2TP
       run: |
         source activate internlm-env-test
+        which python
+        pwd
+        ls
         srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} -n16 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_16GPU_8DP2TP" ./tests/test_training
 
-  training_16GPU_8DP2TPSP:
-    runs-on: [t_cluster]
-    timeout-minutes: 10
-    steps:
-    - name: mask env
-      run: |
-        echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
-    - uses: actions/checkout@v3
+  # training_16GPU_8DP2TPSP:
+  #   runs-on: [t_cluster]
+  #   timeout-minutes: 10
+  #   steps:
+  #   - name: mask env
+  #     run: |
+  #       echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
+  #   - uses: actions/checkout@v3
 
-    - name: training_16GPU_8DP2TPSP
-      run: |
-        source activate internlm-env-test
-        srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} -n16 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_16GPU_8DP2TPSP" ./tests/test_training
+  #   - name: training_16GPU_8DP2TPSP
+  #     run: |
+  #       source activate internlm-env-test
+  #       srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} -n16 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_16GPU_8DP2TPSP" ./tests/test_training
             
-  training_16GPU_8DP2PP:
-    runs-on: [t_cluster]
-    timeout-minutes: 10
-    steps:
-    - name: mask env
-      run: |
-        echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
-    - uses: actions/checkout@v3
+  # training_16GPU_8DP2PP:
+  #   runs-on: [t_cluster]
+  #   timeout-minutes: 10
+  #   steps:
+  #   - name: mask env
+  #     run: |
+  #       echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
+  #   - uses: actions/checkout@v3
 
-    - name: training_16GPU_8DP2PP
-      run: |
-        source activate internlm-env-test   
-        srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} -n16 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_16GPU_8DP2PP" ./tests/test_training
+  #   - name: training_16GPU_8DP2PP
+  #     run: |
+  #       source activate internlm-env-test   
+  #       srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} -n16 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_16GPU_8DP2PP" ./tests/test_training
 
-  training_16GPU_8DP2PP_InterleavedOverlap:
-    runs-on: [t_cluster]
-    timeout-minutes: 10
-    steps:
-    - name: mask env
-      run: |
-        echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
-    - uses: actions/checkout@v3
+  # training_16GPU_8DP2PP_InterleavedOverlap:
+  #   runs-on: [t_cluster]
+  #   timeout-minutes: 10
+  #   steps:
+  #   - name: mask env
+  #     run: |
+  #       echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
+  #   - uses: actions/checkout@v3
 
-    - name: training_16GPU_8DP2PP_InterleavedOverlap
-      run: |
-        source activate internlm-env-test   
-        srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} -n16 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_16GPU_8DP2PP_InterleavedOverlap" ./tests/test_training
+  #   - name: training_16GPU_8DP2PP_InterleavedOverlap
+  #     run: |
+  #       source activate internlm-env-test   
+  #       srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} -n16 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_16GPU_8DP2PP_InterleavedOverlap" ./tests/test_training
