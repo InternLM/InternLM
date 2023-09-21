@@ -31,17 +31,14 @@ jobs:
     runs-on: [t_cluster]
     timeout-minutes: 5
     steps:
-    # - name: mask env
-    #   run: |
-    #     echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
+    - name: mask env
+      run: |
+        echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
     - uses: actions/checkout@v3
 
     - name: training_16GPU_8DP2TP
       run: |
         source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
-        which python
-        pwd
-        ls
         srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} -n16 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_16GPU_8DP2TP" ./tests/test_training
 
   # training_16GPU_8DP2TPSP:
