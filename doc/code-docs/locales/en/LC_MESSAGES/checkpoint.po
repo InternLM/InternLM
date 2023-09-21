@@ -37,7 +37,7 @@ msgstr ""
 
 #: ../../source/checkpoint.rst:6
 msgid "InternLM支持启动时自动加载最新的模型备份，并在接收信号退出训练时自动进行模型备份。"
-msgstr ""
+msgstr "InternLM supports automatic loading of latest ckpt at startup and automatic model checkpointing at signal quit."
 
 #: ../../source/checkpoint.rst:9
 msgid "CheckpointManager"
@@ -127,7 +127,7 @@ msgstr "Here is an example of parameter settings in the config file."
 
 #: internlm.utils.model_checkpoint.CheckpointManager:1 of
 msgid "StorageManagerContext"
-msgstr "StorageManagerContext"
+msgstr ""
 
 #: internlm.utils.model_checkpoint.CheckpointManager.quit_signal_handler:1 of
 msgid ""
@@ -139,11 +139,11 @@ msgstr ""
 
 #: internlm.utils.model_checkpoint.CheckpointManager.quit_signal_handler of
 msgid "参数"
-msgstr "parameter"
+msgstr ""
 
 #: internlm.utils.model_checkpoint.CheckpointManager.quit_signal_handler of
 msgid "返回"
-msgstr "return"
+msgstr ""
 
 #: internlm.utils.model_checkpoint.CheckpointManager.quit_signal_handler:9 of
 msgid "whether to quit."
@@ -151,7 +151,7 @@ msgstr ""
 
 #: internlm.utils.model_checkpoint.CheckpointManager.quit_signal_handler of
 msgid "返回类型"
-msgstr "return type"
+msgstr ""
 
 #: internlm.utils.model_checkpoint.CheckpointManager.wait_async_upload_finish:1
 #: of
