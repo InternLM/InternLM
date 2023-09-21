@@ -241,11 +241,14 @@ class DynamicNTKScalingRotaryEmbedding(RotaryEmbedding):
         https://github.com/huggingface/transformers/blob/eb8489971ac1415f67b0abdd1584fde8 \
             b659ced9/src/transformers/models/llama/modeling_llama.py#L147
     """
-    def __init__(self, dim: int, base=10000, scale_base=0, device=None, max_position_embeddings=2048, scaling_factor=1.0):
+
+    def __init__(
+        self, dim: int, base=10000, scale_base=0, device=None, max_position_embeddings=2048, scaling_factor=1.0
+    ):
         super().__init__(dim=dim, base=base, scale_base=scale_base, device=device)
         self.max_position_embeddings = max_position_embeddings
         self.scaling_factor = scaling_factor
-        
+
     def _update(self, seqlen, x):
         self._seq_len_cached = seqlen
         if seqlen > self.max_position_embeddings:
@@ -271,7 +274,7 @@ class DynamicNTKScalingRotaryEmbedding(RotaryEmbedding):
             self._sin_cached = (torch.sin(freqs) * scale).to(x.dtype)
             self._cos_k_cached = (torch.cos(freqs) / scale).to(x.dtype)
             self._sin_k_cached = (torch.sin(freqs) / scale).to(x.dtype)
-    
+
     def _update_cos_sin_cache(self, x, indexes):
         """x: (batch, seqlen, nheads, headdim) or (batch, seqlen, 3, nheads, headdim)"""
         if not isinstance(indexes, int):
@@ -279,11 +282,14 @@ class DynamicNTKScalingRotaryEmbedding(RotaryEmbedding):
         else:
             seqlen = indexes + 1  # eval_forward
         if seqlen <= self.max_position_embeddings:
-                # Reset the tables if the sequence length has changed,
+            # Reset the tables if the sequence length has changed,
             # or if we're on a new device (possibly due to tracing for instance)
-            if self._seq_len_cached > self.max_position_embeddings or seqlen > self._seq_len_cached \
-                or self._cos_cached.device != x.device or self._cos_cached.dtype != x.dtype:
+            if (
+                self._seq_len_cached > self.max_position_embeddings
+                or seqlen > self._seq_len_cached
+                or self._cos_cached.device != x.device
+                or self._cos_cached.dtype != x.dtype
+            ):
                 self._update(seqlen, x)
         else:
             self._update(seqlen, x)
-                
