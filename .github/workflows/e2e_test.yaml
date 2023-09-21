@@ -14,7 +14,7 @@ env:
 jobs:
   training_8GPU:
     runs-on: [t_cluster]
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
     - name: mask env
       run: |
@@ -23,21 +23,22 @@ jobs:
 
     - name: training_8GPU
       run: |
-        source activate internlm-env-test
+        source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
+        which python
         srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} -n8 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_8GPU" ./tests/test_training
 
   training_16GPU_8DP2TP:
     runs-on: [t_cluster]
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
-    - name: mask env
-      run: |
-        echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
+    # - name: mask env
+    #   run: |
+    #     echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
     - uses: actions/checkout@v3
 
     - name: training_16GPU_8DP2TP
       run: |
-        source activate internlm-env-test
+        source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
         which python
         pwd
         ls
@@ -45,7 +46,7 @@ jobs:
 
   # training_16GPU_8DP2TPSP:
   #   runs-on: [t_cluster]
-  #   timeout-minutes: 10
+  #   timeout-minutes: 5
   #   steps:
   #   - name: mask env
   #     run: |
@@ -59,7 +60,7 @@ jobs:
             
   # training_16GPU_8DP2PP:
   #   runs-on: [t_cluster]
-  #   timeout-minutes: 10
+  #   timeout-minutes: 5
   #   steps:
   #   - name: mask env
   #     run: |
@@ -73,7 +74,7 @@ jobs:
 
   # training_16GPU_8DP2PP_InterleavedOverlap:
   #   runs-on: [t_cluster]
-  #   timeout-minutes: 10
+  #   timeout-minutes: 5
   #   steps:
   #   - name: mask env
   #     run: |
