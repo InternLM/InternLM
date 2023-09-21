@@ -592,7 +592,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         groups_norms = []
         for group_id in range(self.num_param_groups):
             if self._is_moe_group(self.optim.param_groups[group_id]):
-                groups_norms.append([])
+                groups_norms.append(None)
             else:
                 groups_norms.append(self._compute_norm_with_stage(group_id=group_id))
 

@@ -9,12 +9,23 @@ def split_params_into_different_groups_for_optimizer(param_groups: Tuple[Dict]) 
     Compatiable with muiltiple param groups, each should have a name
 
     Args:
-        param_groups (Tuple[Dict]):
-            The list of parameter groups to split
+        param_groups (Tuple[Dict]): The list of parameter groups to split
+        Output Example:
+        >>> (
+        >>>     {'name': 'default', 'params': [tensor], 'weight_decay' :xxx},
+        >>>     ...,
+        >>> )
 
     Returns:
-        Tuple[Dict]:
-        list of MoE/non-MoE groups for optimizer
+        Tuple[Dict]: list of params groups for optimizer
+        Output Example:
+        >>> (
+        >>>     {'name': 'default','params': [tensor],'weight_decay' :xxx},
+        >>>     {'name': 'norm', 'norm': True, 'params': [tensor],'weight_decay' :xxx},
+        >>>     {'name': 'gate', 'gate': True, 'params': [tensor],'weight_decay' :xxx},
+        >>>     {'name': 'moe_ep_size_4', 'moe': True, 'params':  [tensor],'weight_decay' :xxx},
+        >>>     ...,
+        >>> )
     """
     if isinstance(param_groups, tuple):
         param_groups = list(param_groups)  # Tuple cannot be modified

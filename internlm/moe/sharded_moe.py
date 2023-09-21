@@ -69,10 +69,6 @@ def gumbel_rsample(shape: Tuple, device: torch.device) -> Tensor:
     return gumbel(shape)
 
 
-# einsum dimensions: (g)roup, (s)equence, (e)xpert, (m)odel, (c)apacity
-# See https://arxiv.org/pdf/2006.16668.pdf for details.
-
-
 # Based on https://github.com/pytorch/pytorch/pull/40762
 class _AllToAll(torch.autograd.Function):
     """
@@ -477,10 +473,10 @@ class MOELayer(Base):
 
         combined_output = einsum("sec,ecm->sm", combine_weights.type_as(inputs[0]), expert_output)
 
-        a = combined_output.reshape(inputs[0].shape)
+        out = combined_output.reshape(inputs[0].shape)
 
         if self.wall_clock_breakdown:
             timer("moe").stop()
             self.time_moe = timer("moe").elapsed(reset=False)
 
-        return a
+        return out

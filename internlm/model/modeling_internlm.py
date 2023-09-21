@@ -501,7 +501,7 @@ def _build_generic_model_1d(num_layers, num_chunks, device=torch.device("cuda"),
     all_parts = partition_uniform(num_layers, pipeline_size, num_chunks)
     parts = all_parts[pipeline_rank]
     if gpc.is_rank_for_log():
-        logger.info(f"The layer sharding is {all_parts}.")  # pylint: disable=W1203
+        logger.info(f"The layer sharding is {all_parts}.")
 
     models = []
 

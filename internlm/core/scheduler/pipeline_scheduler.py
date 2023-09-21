@@ -15,12 +15,9 @@ from internlm.core.context import global_context as gpc
 from internlm.core.engine import Engine
 from internlm.core.naive_amp import NaiveAMPModel
 from internlm.utils.common import get_current_device, move_to_device
-from internlm.utils.logger import get_logger
 from internlm.utils.timeout import llm_timeout
 
 from .base_scheduler import BaseScheduler, SchedulerHook
-
-logger = get_logger(__file__)
 
 
 def get_tensor_shape():
@@ -1346,8 +1343,6 @@ class InterleavedPipelineScheduler(PipelineScheduler):
             output, label = pack_return_tensors(self._return_tensors)
         else:
             output, label = (None, None)
-
-        logger.info(f"{gpc.get_local_rank(ParallelMode.PIPELINE)}, moe_loss: {self._accum_moe_loss.item()}")
 
         dist.all_reduce(self._accum_moe_loss, group=gpc.get_group(ParallelMode.PIPELINE))
         accum_moe_loss = self._accum_moe_loss

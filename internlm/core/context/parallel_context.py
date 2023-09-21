@@ -491,7 +491,7 @@ class ParallelContext(metaclass=SingletonMeta):
         initializers.append(pgroup_initializer.Initializer_Nettest(*initializer_args))
         if self.pipeline_parallel_size > 1:
             initializers.append(pgroup_initializer.Initializer_Pipeline(*initializer_args))
-        if self.config.model.num_experts > 1:
+        if self.config.model.get("num_experts", 1) > 1:
             initializers.append(pgroup_initializer.Initializer_Expert(*initializer_args))
         for initializer in initializers:
             parallel_setting = initializer.init_dist_group()
