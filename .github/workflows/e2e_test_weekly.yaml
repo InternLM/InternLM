@@ -1,13 +1,9 @@
 name: e2e-tests
 on: 
-  pull_request:
+  push:
     branches:
-      - "develop"
-    paths-ignore:
-      - "doc/**"
-      - "**.md"
+      - "main"
 env:
-  WORKSPACE_PREFIX: $(echo $GITHUB_WORKSPACE |cut -d '/' -f 1-4)
   SLURM_PARTITION: llm_s
 
 jobs:
@@ -20,6 +16,7 @@ jobs:
     - name: training_8GPU
       run: |
         source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
+        which python
         srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} -n8 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_8GPU" ./tests/test_training
 
   training_16GPU_8DP2TP:
