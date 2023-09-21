@@ -461,6 +461,9 @@ class ParallelContext(metaclass=SingletonMeta):
         # instead, it should be calculated based on other parallel config
         self.data_parallel_size = self.world_size // (self.pipeline_parallel_size * self.tensor_parallel_size)
 
+        # the recommended nettest_parallel_size is 32 GPUs
+        self.nettest_parallel_size = 32
+
         if self.zero1_parallel_size <= 0:
             self.zero1_parallel_size = self.data_parallel_size
 
