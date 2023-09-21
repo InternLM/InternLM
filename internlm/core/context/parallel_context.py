@@ -18,6 +18,7 @@ import torch.distributed as dist
 
 from internlm.utils.common import SingletonMeta
 from internlm.utils.logger import get_logger
+from internlm.utils.timeout import LLM_NCCL_TIMEOUT
 
 from . import process_group_initializer as pgroup_initializer
 from .process_group_initializer import ParallelMode
@@ -143,14 +144,20 @@ class ParallelContext(metaclass=SingletonMeta):
         self.pipeline_parallel_size = 1
         self.tensor_parallel_size = 1
         self.zero1_parallel_size = -1
-        self.expert_parallel_size = 1
+        self.nettest_parallel_size = 1
+        self.expert_parallel_size = -1
         self.num_processes_on_current_node = -1
         self.virtual_pipeline_parallel_size = None
         self.virtual_pipeline_parallel_rank = None
+        self._expert_parallel_group_names = []
 
     @property
     def config(self):
         return self._config
+
+    @property
+    def expert_parallel_group_names(self):
+        return self._expert_parallel_group_names
 
     def load_config(self, config: Union[dict, str]):
         """Loads the configuration from either a dict or a file.
@@ -374,12 +381,22 @@ class ParallelContext(metaclass=SingletonMeta):
         """
         # initialize the default process group
         init_method = f"tcp://[{host}]:{port}"
-        dist.init_process_group(rank=rank, world_size=world_size, backend=backend, init_method=init_method)
+        dist.init_process_group(
+            rank=rank,
+            world_size=world_size,
+            backend=backend,
+            init_method=init_method,
+            timeout=LLM_NCCL_TIMEOUT,
+        )
 
         # None will give the default global process group for pytorch dist operations
         ranks = list(range(world_size))
         if use_cpu:
-            cpu_group = dist.new_group(ranks, backend="gloo") if dist.get_backend() != "gloo" else None
+            cpu_group = (
+                dist.new_group(ranks, backend="gloo", timeout=LLM_NCCL_TIMEOUT)
+                if dist.get_backend() != "gloo"
+                else None
+            )
         else:
             cpu_group = None
         self._register_dist(rank, world_size, dist.GroupMember.WORLD, cpu_group, ranks, ParallelMode.GLOBAL)
@@ -456,6 +473,7 @@ class ParallelContext(metaclass=SingletonMeta):
             self.pipeline_parallel_size,
             self.tensor_parallel_size,
             self.zero1_parallel_size,
+            self.nettest_parallel_size,
             self.expert_parallel_size,
         ]
 
@@ -465,9 +483,10 @@ class ParallelContext(metaclass=SingletonMeta):
         initializers.append(pgroup_initializer.Initializer_Model(*initializer_args))
         initializers.append(pgroup_initializer.Initializer_Tensor(*initializer_args))
         initializers.append(pgroup_initializer.Initializer_Zero1(*initializer_args))
+        initializers.append(pgroup_initializer.Initializer_Nettest(*initializer_args))
         if self.pipeline_parallel_size > 1:
             initializers.append(pgroup_initializer.Initializer_Pipeline(*initializer_args))
-        if self.config.model.num_experts > 1:
+        if self.config.model.get("num_experts", 1) > 1:
             initializers.append(pgroup_initializer.Initializer_Expert_Data(*initializer_args))
         for initializer in initializers:
             parallel_setting = initializer.init_dist_group()
@@ -525,6 +544,7 @@ class ParallelContext(metaclass=SingletonMeta):
         if dpseed_with_tpoffset:
             dp_seed = seed + pipeline_offset * 1024
         add_seed(ParallelMode.DATA, dp_seed)
+        add_seed(ParallelMode.DUMMY, dp_seed)
 
         # model parallel seeds are different across ranks
         if self.is_initialized(ParallelMode.TENSOR):
@@ -532,7 +552,11 @@ class ParallelContext(metaclass=SingletonMeta):
             tp_seed = seed + tp_rank + pipeline_offset * 1024
             add_seed(ParallelMode.TENSOR, tp_seed)
 
-        set_mode(ParallelMode.DATA)
+        # we do not set the random state mode to ParallelMode.DATA until model is built (instead, we use a dummy mode
+        # during model construction), this is because the random state will be different in different tensor parallel
+        # device of the same data parallel group. The underlying reason is that the device of tp_rank = 0 will perform
+        # additional random operations during the RowParallelLinear module building process.
+        set_mode(ParallelMode.DUMMY)
 
         seeds = get_seeds()
         seed_str = ", ".join([f"{k}: {v}" for k, v in seeds.items()])

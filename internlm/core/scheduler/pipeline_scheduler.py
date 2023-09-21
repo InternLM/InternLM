@@ -15,11 +15,9 @@ from internlm.core.context import global_context as gpc
 from internlm.core.engine import Engine
 from internlm.core.naive_amp import NaiveAMPModel
 from internlm.utils.common import get_current_device, move_to_device
-from internlm.utils.logger import get_logger
+from internlm.utils.timeout import llm_timeout
 
 from .base_scheduler import BaseScheduler, SchedulerHook
-
-logger = get_logger(__file__)
 
 
 def get_tensor_shape():
@@ -31,7 +29,7 @@ def get_tensor_shape():
 
     if hasattr(gpc.config, "SEQ_LEN") and hasattr(gpc.config.data, "micro_bsz") and hasattr(gpc.config, "HIDDEN_SIZE"):
         if gpc.config.model.use_flash_attn:
-            if gpc.config.model.sequence_parallel:
+            if gpc.config.parallel.sequence_parallel:
                 sequence_world_size = gpc.get_world_size(ParallelMode.TENSOR)
                 tensor_shape = (
                     gpc.config.SEQ_LEN * gpc.config.data["micro_bsz"] // sequence_world_size,
@@ -141,7 +139,7 @@ class PipelineScheduler(BaseScheduler):
             and gpc.get_world_size(ParallelMode.TENSOR) > 1
         )
 
-        if gpc.config.model.sequence_parallel:
+        if gpc.config.parallel.sequence_parallel:
             self.scatter_gather_tensors = False
 
         # cache for the batch data
@@ -256,7 +254,6 @@ class PipelineScheduler(BaseScheduler):
         return_output_label=True,
         accum_loss=None,
         accum_moe_loss=None,
-        moe_loss_coeff=1.0,
     ):
         """
         Forward step for passed-in model. If it is the first stage, the input tensor
@@ -278,6 +275,7 @@ class PipelineScheduler(BaseScheduler):
         data, label = self._get_data_label_for_current_step(input_obj, micro_batch_data)
 
         self._call_hooks("before_forward", data)
+        # moe_losses contains the loss of each layer in current stage
         output_obj, moe_losses = self._call_engine(engine.model, data)
         self._call_hooks("after_forward", output_obj)
 
@@ -294,7 +292,7 @@ class PipelineScheduler(BaseScheduler):
                 accum_loss.add_(loss_reduced.detach())
                 output_obj = loss_reduced
 
-        moe_loss = sum(moe_losses) * moe_loss_coeff
+        moe_loss = sum(moe_losses) * gpc.config.loss.moe_loss_coeff
         moe_loss /= self.num_microbatches
         accum_moe_loss.add_(moe_loss.detach())
 
@@ -334,7 +332,7 @@ class PipelineScheduler(BaseScheduler):
 
         self._call_hooks("before_backward", output_obj, output_obj_grad)
         with switch_optimizer_grad_sync_skip_mode(engine.optimizer, skip_grad_sync):
-            if moe_loss is None:
+            if moe_loss is None or moe_loss.item() == 0.0:
                 if output_obj_grad is None:
                     engine.backward(output_obj)
                 else:
@@ -345,6 +343,9 @@ class PipelineScheduler(BaseScheduler):
                 else:
                     # scale the latent loss
                     moe_loss = moe_loss * engine.optimizer.loss_scale
+                    # we perform chain rule here by projecting the grad to the direction of
+                    # [output_obj_grad, 1], Because moe_loss have no relation with subsequent
+                    # layer, we set it to None (will be ragarded as 1).
                     engine.backward_by_grad([output_obj, moe_loss], [output_obj_grad, None])
 
         # Collect the grad of the input_obj.
@@ -360,7 +361,7 @@ class PipelineScheduler(BaseScheduler):
 
         return input_obj_grad
 
-    def _forward_only_step(self, engine, return_loss=True, return_output_label=True, moe_loss_coeff=1.0):
+    def _forward_only_step(self, engine, return_loss=True, return_output_label=True):
         """
         This function performs forward only computation process. The scheduling of microbatches is similar to the
         warmup phase, where each microbatch first receives the forward input from the previous stage, then performs
@@ -415,7 +416,6 @@ class PipelineScheduler(BaseScheduler):
                 return_output_label=return_output_label,
                 accum_loss=accum_loss,
                 accum_moe_loss=accum_moe_loss,
-                moe_loss_coeff=moe_loss_coeff,
             )
 
             if not gpc.is_last_rank(ParallelMode.PIPELINE):
@@ -433,7 +433,7 @@ class PipelineScheduler(BaseScheduler):
 
         return output, label, accum_loss, accum_moe_loss
 
-    def _forward_backward_step(self, engine, return_loss=True, return_output_label=True, moe_loss_coeff=1.0):
+    def _forward_backward_step(self, engine, return_loss=True, return_output_label=True):
         """
         This function schedules the forward and backward computation of microbatches in the pipeline in a 1F1B manner.
         It consists of three stages: warmup, 1F1B, and cooldown.
@@ -515,7 +515,6 @@ class PipelineScheduler(BaseScheduler):
                 return_output_label=return_output_label,
                 accum_loss=accum_loss,
                 accum_moe_loss=accum_moe_loss,
-                moe_loss_coeff=moe_loss_coeff,
             )
 
             if not gpc.is_last_rank(ParallelMode.PIPELINE):
@@ -536,7 +535,6 @@ class PipelineScheduler(BaseScheduler):
             input_objs.append(input_obj)
             output_objs.append(output_obj)
             moe_losses.append(moe_loss)
-
         # Before running 1F1B, need to receive first forward tensor.
         # If all microbatches are run in warmup / cooldown phase, then no need to
         # receive this tensor here.
@@ -562,7 +560,6 @@ class PipelineScheduler(BaseScheduler):
                 return_output_label=return_output_label,
                 accum_loss=accum_loss,
                 accum_moe_loss=accum_moe_loss,
-                moe_loss_coeff=moe_loss_coeff,
             )
 
             if gpc.is_last_rank(ParallelMode.PIPELINE):
@@ -628,8 +625,6 @@ class PipelineScheduler(BaseScheduler):
             if not gpc.is_first_rank(ParallelMode.PIPELINE):
                 comm.send_backward(input_obj_grad, scatter_gather_tensors=self.scatter_gather_tensors)
 
-        logger.info(f"{gpc.get_local_rank(ParallelMode.PIPELINE)}, moe_loss: {accum_moe_loss.item()}")
-
         output, label = pack_return_tensors(return_tensors) if len(return_tensors) > 0 else (None, None)
         dist.all_reduce(accum_moe_loss, group=gpc.get_group(ParallelMode.PIPELINE))
 
@@ -638,9 +633,8 @@ class PipelineScheduler(BaseScheduler):
 
         return output, label, accum_loss, accum_moe_loss
 
-    def forward_backward_step(
-        self, engine, data_iter, forward_only=False, return_loss=True, return_output_label=True, moe_loss_coeff=1.0
-    ):
+    @llm_timeout(func_name="nointerleaved_forward_backward_step")
+    def forward_backward_step(self, engine, data_iter, forward_only=False, return_loss=True, return_output_label=True):
         """Runs non-interleaved 1F1B schedule, with communication between pipeline stages.
         Returns a tuple with losses if the last stage, an empty tuple otherwise.
 
@@ -663,9 +657,9 @@ class PipelineScheduler(BaseScheduler):
         self.load_batch(engine, data_iter)
 
         if forward_only:
-            return self._forward_only_step(engine, return_loss, return_output_label, moe_loss_coeff)
+            return self._forward_only_step(engine, return_loss, return_output_label)
         else:
-            return self._forward_backward_step(engine, return_loss, return_output_label, moe_loss_coeff)
+            return self._forward_backward_step(engine, return_loss, return_output_label)
 
 
 class InterleavedPipelineScheduler(PipelineScheduler):
@@ -782,7 +776,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         self.microbatch_offset[model_chunk_id] += self.microbatch_size
         return move_to_device(micro_batch_data)
 
-    def _forward_step(self, engine, chunk_id, moe_loss_coeff=1.0):
+    def _forward_step(self, engine, chunk_id):
         """Forward step for passed-in model. If it is the first stage, the input tensor
         is obtained from data_iterator, otherwise the passed-in input_obj is used.
         Returns output tensor. This is a helper function and can be ignored by users.
@@ -824,7 +818,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
                 self._accum_loss.add_(loss_reduced.detach())
                 output_obj = loss_reduced
 
-        moe_loss = sum(moe_losses) * moe_loss_coeff
+        moe_loss = sum(moe_losses) * gpc.config.loss.moe_loss_coeff
         moe_loss /= self.num_microbatches
 
         if self._accum_moe_loss is not None:
@@ -891,7 +885,6 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         num_warmup_microsteps: int,
         receive_extra_backward: bool = False,
         forward_only: bool = False,
-        moe_loss_coeff: float = 1.0,
     ) -> None:
         """
         Run the warm-up loop and prepare data for the 1F1B stage.
@@ -929,7 +922,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         for k in range(num_warmup_microsteps):
             chunk_id = self._get_chunk_by_microbatch(k)
 
-            output_obj = self._forward_step(engine, chunk_id, moe_loss_coeff)
+            output_obj = self._forward_step(engine, chunk_id)
 
             if forward_only:
                 # when forward-only, no need to save tensors for a backward pass
@@ -1011,7 +1004,6 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         num_warmup_microsteps: int,
         num_1f1b_micropairs: int,
         all_warmup_microsteps: bool = False,
-        moe_loss_coeff: float = 1.0,
     ) -> None:
         """
         Run the 1F1B loop with overlap.
@@ -1041,7 +1033,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
             backward_chunk_id = self._get_chunk_by_microbatch(backward_microstep_id, backward=True)
 
             # 1. Forward pass.
-            output_obj = self._forward_step(engine, forward_chunk_id, moe_loss_coeff)
+            output_obj = self._forward_step(engine, forward_chunk_id)
 
             # 2. Check if the backward input is ready.
             if backward_async_communicator is not None:
@@ -1126,7 +1118,6 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         num_warmup_microsteps: int,
         num_1f1b_micropairs: int,
         all_warmup_microsteps: bool = False,
-        moe_loss_coeff: float = 1.0,
     ) -> None:
         """
         Run the 1F1B loop without overlap.
@@ -1135,8 +1126,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         1. Perform the forward pass.
         2. Perform the backward pass.
         3. Send the forward output of this iteration to the next stage, and send the backward output of this iteration
-           to the previous stage,
-        and receive the forward and backward inputs for the next iteration.
+           to the previous stage, and receive the forward and backward inputs for the next iteration.
 
         Args:
             engine (Engine): The engine to use for computation.
@@ -1148,7 +1138,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
             # Forward pass.
             forward_microstep_id = k + num_warmup_microsteps
             forward_chunk_id = self._get_chunk_by_microbatch(forward_microstep_id)
-            output_obj = self._forward_step(engine, forward_chunk_id, moe_loss_coeff)
+            output_obj = self._forward_step(engine, forward_chunk_id)
 
             # Backward pass.
             backward_microstep_id = k
@@ -1253,7 +1243,7 @@ class InterleavedPipelineScheduler(PipelineScheduler):
                 )
             )
 
-    def _forward_only_step(self, engine: Engine, moe_loss_coeff: float = 1.0):
+    def _forward_only_step(self, engine: Engine):
         num_microsteps = self.num_microbatches * self._num_chunks
         num_warmup_microsteps = num_microsteps
 
@@ -1263,10 +1253,9 @@ class InterleavedPipelineScheduler(PipelineScheduler):
             num_warmup_microsteps,
             receive_extra_backward=False,
             forward_only=True,
-            moe_loss_coeff=moe_loss_coeff,
         )
 
-    def _forward_backward_step(self, engine: Engine, moe_loss_coeff: float = 1.0):
+    def _forward_backward_step(self, engine: Engine):
         # Compute number of warmup and remaining microbatches.
         all_warmup_microsteps = False
         num_microsteps = self.num_microbatches * self._num_chunks
@@ -1300,7 +1289,6 @@ class InterleavedPipelineScheduler(PipelineScheduler):
             num_microsteps,
             num_warmup_steps,
             receive_extra_backward=receive_extra_backward,
-            moe_loss_coeff=moe_loss_coeff,
         )
 
         # 2. 1F1B
@@ -1309,15 +1297,13 @@ class InterleavedPipelineScheduler(PipelineScheduler):
             num_warmup_steps,
             num_1f1b_micropairs=num_1f1b_micropairs,
             all_warmup_microsteps=all_warmup_microsteps,
-            moe_loss_coeff=moe_loss_coeff,
         )
 
         # 3. Cooldown
         self._run_cooldown_loop(engine, num_microsteps, num_1f1b_micropairs=num_1f1b_micropairs)
 
-    def forward_backward_step(
-        self, engine, data_iter, forward_only=False, return_loss=True, return_output_label=True, moe_loss_coeff=1.0
-    ):
+    @llm_timeout(func_name="interleaved_forward_backward_step")
+    def forward_backward_step(self, engine, data_iter, forward_only=False, return_loss=True, return_output_label=True):
         """Run interleaved 1F1B schedule (model split into model chunks), with
         communication between pipeline stages as needed.
 
@@ -1349,16 +1335,14 @@ class InterleavedPipelineScheduler(PipelineScheduler):
             self._return_tensors = []
 
         if forward_only:
-            self._forward_only_step(engine, moe_loss_coeff)
+            self._forward_only_step(engine)
         else:
-            self._forward_backward_step(engine, moe_loss_coeff)
+            self._forward_backward_step(engine)
 
         if return_output_label and len(self._return_tensors) > 0:
             output, label = pack_return_tensors(self._return_tensors)
         else:
             output, label = (None, None)
-
-        logger.info(f"{gpc.get_local_rank(ParallelMode.PIPELINE)}, moe_loss: {self._accum_moe_loss.item()}")
 
         dist.all_reduce(self._accum_moe_loss, group=gpc.get_group(ParallelMode.PIPELINE))
         accum_moe_loss = self._accum_moe_loss

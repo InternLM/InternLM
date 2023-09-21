@@ -5,7 +5,7 @@ import torch.distributed as dist
 
 from internlm.core.context import IS_TENSOR_PARALLEL, ParallelMode
 from internlm.core.context import global_context as gpc
-from internlm.model.moe import is_moe_param
+from internlm.model.utils import is_moe_param
 
 
 def is_model_parallel_parameter(p):

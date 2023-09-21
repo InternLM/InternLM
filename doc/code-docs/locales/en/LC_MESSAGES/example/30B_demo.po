@@ -1,0 +1,50 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, InternLM Team
+# This file is distributed under the same license as the InternLM package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: InternLM \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-09-07 10:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: en\n"
+"Language-Team: en <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.12.1\n"
+
+#: ../../source/example/30B_demo.rst:2 242d1f89ae2045f1bf1f31bf82f07846
+msgid "30B Demo"
+msgstr ""
+
+#: ../../source/example/30B_demo.rst:5 c2415bfa6978414a939dcc395fdfb544
+msgid "训练配置"
+msgstr "Training Config"
+
+#: ../../source/example/30B_demo.rst:7 75f568d1ca5546228f88958c12c2dd65
+msgid "30B demo 训练配置文件样例如下:"
+msgstr "30B demo config file example:"
+
+#: ../../source/example/30B_demo.rst:164 533cb04f94314eeb8381e45f06d03108
+msgid "启动训练"
+msgstr "Start Training"
+
+#: ../../source/example/30B_demo.rst:166 24974384d5ab42e68266aeb67ae222ce
+msgid "完成以上训练配置后，可启动模型训练，以在 ``slurm`` 平台上为例，启动两节点 16GPU 的训练命令如下所示："
+msgstr "After completing the data preparation and relevant training configurations, you can start the demo training. "
+"The following example shows how to start distributed training in ``slurm`` environments with 16 GPUs."
+
+#: ../../source/example/30B_demo.rst:173 948ac71ed53848f9bad07f69d956c4bb
+msgid "训练结果"
+msgstr "Training Results"
+
+#: ../../source/example/30B_demo.rst:175 615a3481b0aa49729b7219b1365519aa
+msgid "基于以上训练配置和启动命令，两节点 16GPU 下的模型训练部分日志展示如下："
+msgstr "Taking the configuration of the demo training on two nodes with 16 GPUs on slurm as an example, the training result log is shown below:"
+

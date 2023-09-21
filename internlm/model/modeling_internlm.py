@@ -123,6 +123,11 @@ class PackedFlashBaseLayer1D(nn.Module):
             self.norm1 = nn.LayerNorm(hidden_size, eps=layer_norm_epsilon)
             self.norm2 = nn.LayerNorm(hidden_size, eps=layer_norm_epsilon)
 
+        for param in self.norm1.parameters():
+            param.is_norm = True
+        for param in self.norm2.parameters():
+            param.is_norm = True
+
         self.num_experts = num_experts
         self.moe_gate_k = moe_gate_k
         self.moe_capacity_factor = moe_capacity_factor
@@ -159,36 +164,13 @@ class PackedFlashBaseLayer1D(nn.Module):
                     device=device,
                     dtype=dtype,
                 )
+            for _, param in self.mlp.named_parameters():
+                if gpc.get_world_size(ParallelMode.TENSOR) > 1:
+                    setattr(param, IS_TENSOR_PARALLEL, True)
         else:
-            experts = torch.nn.ModuleList(
-                [
-                    FeedForward(
-                        hidden_size,
-                        int(hidden_size * gpc.config.model.mlp_ratio),
-                        out_features=hidden_size,
-                        process_group=gpc.get_group(ParallelMode.TENSOR),
-                        bias=False,
-                        device=torch.device("cuda"),
-                        dtype=torch.float,
-                    )
-                    for i in range(num_experts // ep_size)
-                ]
-            )
-
-            if moe_use_residual:
-                residual_mlp = FeedForward(
-                    hidden_size,
-                    int(hidden_size * gpc.config.model.mlp_ratio),
-                    out_features=hidden_size,
-                    process_group=gpc.get_group(ParallelMode.TENSOR),
-                    bias=False,
-                    device=torch.device("cuda"),
-                    dtype=torch.float,
-                )
-
+            # replace mlp by MoE module. The expert in MoE is a FeedForward module.
             self.mlp = MoE(
                 hidden_size=hidden_size,
-                experts=experts,
                 num_experts=num_experts,
                 ep_size=ep_size,
                 k=moe_gate_k,
@@ -199,8 +181,12 @@ class PackedFlashBaseLayer1D(nn.Module):
                 drop_tokens=moe_drop_tokens,
                 use_rts=moe_use_rts,
                 use_residual=moe_use_residual,
-                residual_mlp=residual_mlp if moe_use_residual else None,
+                device=device,
+                dtype=dtype,
             )
+            for _, param in self.mlp.moe_layer.experts.named_parameters():
+                if gpc.get_world_size(ParallelMode.TENSOR) > 1:
+                    setattr(param, IS_TENSOR_PARALLEL, True)
 
         self.dropout2 = nn.Dropout(drop_rate)
         self.use_swiglu = use_swiglu
@@ -291,9 +277,9 @@ class PackedFlashBaseLayer1D(nn.Module):
 
         # MLP.
         moe_loss = torch.tensor(0.0, device=hidden_states.device, dtype=hidden_states.dtype)
-        if self.num_experts <= 1:
+        if self.num_experts <= 1:  # dense mlp output
             hidden_states = self.mlp(hidden_states)
-        else:
+        else:  # MoE output
             hidden_states, moe_loss, _ = self.mlp(hidden_states)
 
         return hidden_states + residual, moe_loss
@@ -456,7 +442,8 @@ class PackedFlashInternLm1D(nn.Module):
 
     def forward(self, hidden_states=None, cu_seqlens=None, input_ids=None, indexes=None, inference_params=None):
         # attention_mask: compute attention on the places where the value is 1
-        if hasattr(self, "embedding"):
+        # old condition may fail when use shared embedding
+        if gpc.is_pipeline_first_stage():
             hidden_states = self.embedding(input_ids)
             if self.embed_grad_scale != 1:
                 hidden_states = (
@@ -514,7 +501,7 @@ def _build_generic_model_1d(num_layers, num_chunks, device=torch.device("cuda"),
     all_parts = partition_uniform(num_layers, pipeline_size, num_chunks)
     parts = all_parts[pipeline_rank]
     if gpc.is_rank_for_log():
-        logger.info(f"The layer sharding is {all_parts}.")  # pylint: disable=W1203
+        logger.info(f"The layer sharding is {all_parts}.")
 
     models = []
 
@@ -561,7 +548,6 @@ def build_model_with_cfg(
     use_scaled_init: bool = True,
     use_swiglu: bool = True,
     use_flash_attn: bool = True,
-    sequence_parallel: bool = False,  # pylint: disable=W0613
     num_experts: int = 1,
     moe_gate_k: int = 1,
     moe_capacity_factor: float = 1.0,
@@ -573,7 +559,7 @@ def build_model_with_cfg(
     moe_use_residual: bool = False,
 ):
     """
-    Builde model with config
+    Build model with config.
 
     Args:
         num_chunks (int): The number of partitions in pipeline parallel. 1 by default.

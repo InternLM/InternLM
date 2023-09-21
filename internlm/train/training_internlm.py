@@ -10,9 +10,9 @@ import torch.distributed as dist
 from torch import nn
 from torch.utils.data import ConcatDataset, DataLoader
 
-import internlm
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
+from internlm.core.context.random import set_mode
 from internlm.core.naive_amp import NaiveAMPModel
 from internlm.core.trainer import TrainState
 from internlm.data.batch_sampler import StaticBatchSampler, get_dpsampler_dataloader
@@ -25,14 +25,14 @@ from internlm.data.packed_dataset import (
     get_packed_dataset_without_short_length,
 )
 from internlm.data.utils import DATASET_TYPE_IDS_MAP, unpack_data
-from internlm.model.moe import create_moe_param_groups, has_moe_layers
-from internlm.monitor import set_env_var
+from internlm.monitor import send_heartbeat, set_env_var
 from internlm.monitor.monitor import monitor_manager as mm
 from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
 from internlm.solver.optimizer import HybridZeroOptimizer
 from internlm.solver.optimizer.utils import ParamBcastSyncHandler
-from internlm.utils.common import DummyProfile, get_master_node
+from internlm.train.utils import create_param_groups
+from internlm.utils.common import DummyProfile
 from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
 from internlm.utils.parallel import (
@@ -41,41 +41,19 @@ from internlm.utils.parallel import (
     sync_model_param_within_tp,
 )
 from internlm.utils.registry import MODEL_INITIALIZER
+from internlm.utils.timeout import llm_timeout
 
 logger = get_logger(__file__)
 
 
-def initialize_distributed_env(config: str, launcher: str = "slurm", master_port: int = 8888, seed: int = 1024):
-    """
-    Initialize distributed environment for distributed training.
-
-    Args:
-        config (str): Config file path.
-        launcher (str): Launcher for launching distributed environment, can be slurm or torch. "slurm" by default.
-        master_port (str): The master port for distributed training. 8888 by default.
-        seed (int, optional): Specified random seed for every process. 1024 by default.
-    """
-
-    torch.cuda.empty_cache()
-
-    if launcher == "torch":
-        internlm.launch_from_torch(config=config, seed=seed)
-    elif launcher == "slurm":
-        internlm.launch_from_slurm(
-            config=config,
-            host=get_master_node(),
-            port=master_port,
-            seed=seed,
-        )
-    else:
-        assert launcher in ["slurm", "torch"], "launcher only support slurm or torch"
-
-
+@llm_timeout(func_name="initialize_model")
 def initialize_model():
     """
-    Initialize model.
+    Initialize model with Automatic Mixed Precision.
 
-    Returns: The neural network model to be trained or evaluated.
+    Returns:
+        torch.nn.Module:
+            The neural network model to be trained or evaluated.
     """
 
     model = MODEL_INITIALIZER.get_module(module_name=gpc.config.model_type)(**(gpc.config.model))
@@ -108,22 +86,33 @@ def initialize_model():
     # the same across tensor parallelism.
     sync_model_param_within_tp(model)
 
+    # Change random state mode to ParallelMode.DATA after model is built, guaranteeing the random
+    # state in the same dp group are all the same.
+    set_mode(ParallelMode.DATA)
+
     return model
 
 
+@llm_timeout(func_name="initialize_optimizer")
 def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
     """
     Initialize optimizer.
 
     Args:
-        model (torch.nn.Module): Your model instance to be trained or evaluated.
+        model (:class:`torch.nn.Module`): Your model instance to be trained or evaluated.
 
-    Returns: A tuple of (optimizer, beta2_scheduler, lr_scheduler).
+    Returns:
+        A tuple of (optimizer, beta2_scheduler, lr_scheduler).
     """
-    param_bcast_sync_handler = ParamBcastSyncHandler(model)
+    if gpc.config.hybrid_zero_optimizer.overlap_sync_param:
+        param_bcast_sync_handler = ParamBcastSyncHandler(model)
+    else:
+        param_bcast_sync_handler = None
+
     adam_cfg = gpc.config.adam
+    # split the moe parameters into different groups
     if gpc.config.model.num_experts > 1:
-        params = create_moe_param_groups(model, adam_cfg.weight_decay)
+        params = create_param_groups(model, adam_cfg.weight_decay)
     else:
         params = [{"params": model.parameters(), "weight_decay": adam_cfg.weight_decay}]
     naive_optimizer = torch.optim.AdamW(
@@ -133,12 +122,10 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
         eps=adam_cfg.adam_eps,
     )
 
-    has_moe = has_moe_layers(model)
     optimizer = HybridZeroOptimizer(
         naive_optimizer,
         grad_scal_cfg=gpc.config.grad_scaler,
         zero_cfg=gpc.config.hybrid_zero_optimizer,
-        has_moe=has_moe,
         param_bcast_sync_handler=param_bcast_sync_handler,
     )
 
@@ -149,13 +136,21 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
     return optimizer, beta2_scheduler, lr_scheduler
 
 
+@llm_timeout(func_name="get_train_data_loader")
 def get_train_data_loader(
     num_worker: int = 0, dataset_generate_func: Callable = None, train_sampler=None, train_collate_fn=None
 ):
     """
     Generate and return the training data loader.
 
-    Returns: A tuple of (train_dl, dataset_types).
+    Args:
+        num_worker (:class:`int`): number of subprocesses used for dataloader.
+        dataset_generate_func (:class:`Callable`, optional): generate function for dataset.
+        train_sampler (:class:`torch.utils.data.sampler`, optional): dataset sampler for training dataloader.
+        train_collate_fn (:class:`Callable`, optional): collate function for training dataloader.
+
+    Returns:
+        A tuple of (train_dl, dataset_types).
     """
 
     # Get the dataset types
@@ -221,6 +216,7 @@ def get_train_data_loader(
     return train_dl, dataset_types
 
 
+@llm_timeout(func_name="get_validation_data_loader")
 def get_validation_data_loader(
     num_worker: int = 0, dataset_generate_func: Callable = None, val_collate_fn=None, dataloader_func=None
 ):
@@ -282,6 +278,7 @@ def get_validation_data_loader(
     return val_dls
 
 
+@llm_timeout(func_name="load_new_batch")
 def load_new_batch(train_dl: DataLoader, train_iter: Iterable, train_state: TrainState):
     """
     Load and return the new batch data based on training data loader.
@@ -339,6 +336,7 @@ def initialize_llm_profile(profiling: bool = False, start_time: str = None):
     )
 
 
+@llm_timeout(func_name="record_current_batch_training_metrics")
 def record_current_batch_training_metrics(
     get_tflops_func,
     logger,
@@ -363,6 +361,7 @@ def record_current_batch_training_metrics(
 
     set_env_var(key="LAST_ACTIVE_TIMESTAMP", value=int(time.time()))
 
+    timer.store_last_timers()
     if success_update in (0, True):
         train_state.num_consumed_tokens += batch[1].nelement() * gpc.get_world_size(ParallelMode.DATA)
     if is_no_pp_or_last_stage():
@@ -380,9 +379,52 @@ def record_current_batch_training_metrics(
         max_length_in_batch = max([(b[1:] - b[:-1]).max().item() for b in batch[0]["cu_seqlens"]])
         max_samples_in_batch = max([len(b) - 1 for b in batch[0]["cu_seqlens"]])
         min_samples_in_batch = min([len(b) - 1 for b in batch[0]["cu_seqlens"]])
-
-        tk_per_gpu = 0
+        time_cost = time.time() - start_time
         tk_per_gpu = round(
+            num_tokens_in_batch * gpc.get_world_size(ParallelMode.DATA) / gpc.get_world_size(ParallelMode.GLOBAL),
+            4,
+        )
+        tgs_statistic = train_state.tgs_statistic
+        tgs_statistic["sum_step"] += 1
+        tgs_statistic["sum_tg"] += tk_per_gpu
+        tgs_statistic["sum_time"] += time_cost
+        tgs_statistic["sum_last_tg_10"] += tk_per_gpu
+        tgs_statistic["sum_last_time_10"] += time_cost
+        tgs_statistic["sum_last_tg_50"] += tk_per_gpu
+        tgs_statistic["sum_last_time_50"] += time_cost
+        tgs_statistic["SMA_tg_50"] += tk_per_gpu
+        tgs_statistic["SMA_time_50"] += time_cost
+        tgs_statistic["SMA_tg_50_list"].append(tk_per_gpu)
+        tgs_statistic["SMA_time_50_list"].append(time_cost)
+        if tgs_statistic["sum_step"] > 50:
+            tgs_statistic["SMA_tg_50"] -= tgs_statistic["SMA_tg_50_list"][0]
+            tgs_statistic["SMA_time_50"] -= tgs_statistic["SMA_time_50_list"][0]
+            tgs_statistic["SMA_tg_50_list"].popleft()
+            tgs_statistic["SMA_time_50_list"].popleft()
+
+        last_tgs_1 = round(tk_per_gpu / time_cost, 2)
+        tgs_statistic["sum_tgs"] += last_tgs_1
+
+        if tgs_statistic["sum_step"] % 10 == 0:
+            tgs_statistic["last_tgs_10"] = round(tgs_statistic["sum_last_tg_10"] / tgs_statistic["sum_last_time_10"], 2)
+            tgs_statistic["sum_last_tg_10"] = 0
+            tgs_statistic["sum_last_time_10"] = 0
+
+        if tgs_statistic["sum_step"] % 50 == 0:
+            tgs_statistic["last_tgs_50"] = round(tgs_statistic["sum_last_tg_50"] / tgs_statistic["sum_last_time_50"], 2)
+            tgs_statistic["sum_last_tg_50"] = 0
+            tgs_statistic["sum_last_time_50"] = 0
+
+        last_tgs_10 = tgs_statistic["last_tgs_10"]
+        last_tgs_50 = tgs_statistic["last_tgs_50"]
+
+        tgs_all = round(tgs_statistic["sum_tg"] / tgs_statistic["sum_time"], 2)
+        tgs_avg = round(tgs_statistic["sum_tgs"] / tgs_statistic["sum_step"], 2)
+        tgs_SMA = round(tgs_statistic["SMA_tg_50"] / tgs_statistic["SMA_time_50"], 2)
+
+        tflops = get_tflops_func((time.time() - start_time))
+
+        tgs_origin = round(
             num_tokens_in_batch
             * gpc.get_world_size(ParallelMode.DATA)
             / gpc.get_world_size(ParallelMode.GLOBAL)
@@ -390,14 +432,18 @@ def record_current_batch_training_metrics(
             2,
         )
 
-        tflops = get_tflops_func((time.time() - start_time))
-
         infos = {
             "tflops": tflops,
             "step": batch_count,
-            "loss": loss.item(),
+            "loss": loss.item() - moe_loss.item(),
             "moe_loss": moe_loss.item(),
-            "tgs (tokens/gpu/second)": tk_per_gpu,
+            "tgs (tokens/gpu/second)": tgs_origin,
+            "tgs/last_tgs_1": last_tgs_1,
+            "tgs/tgs_all": tgs_all,
+            "tgs/tgs_avg": tgs_avg,
+            "tgs/tgs_SMA": tgs_SMA,
+            "tgs/last_tgs_10": last_tgs_10,
+            "tgs/last_tgs_50": last_tgs_50,
             "lr": lr,
             "loss_scale": scaler,
             "grad_norm": grad_norm,
@@ -421,27 +467,41 @@ def record_current_batch_training_metrics(
         line = ""
         for key, value in infos.items():
             line += f"{key}={value} "
-            writer.add_scalar(key=key, value=value, step=train_state.step_count)
+            if isinstance(value, dict):
+                writer.add_scalars(key=key, value=value, step=train_state.step_count)
+            else:
+                writer.add_scalar(key=key, value=value, step=train_state.step_count)
+
+        if gpc.config.monitor.alert.get("light_monitor_address", None) and batch_count % 50 == 0:
+            send_heartbeat("train_metrics", infos)
 
         if update_panel:
+            # metrics shown with dashboard panels
+            panel_metrics = {
+                "step": batch_count,
+                "lr": lr,
+                "num_consumed_tokens": train_state.num_consumed_tokens,
+                "loss": loss.item() - moe_loss.item(),
+                "flops": tflops,
+                "tgs": last_tgs_1,
+                "acc": acc_perplex["acc"],
+                "perplexity": acc_perplex["perplexity"],
+                "fwd_bwd_time": fwd_bwd_time,
+            }
+            for norm_key, norm_value in grad_norm.items():
+                panel_metrics[norm_key] = norm_value
+
             logger.info(
-                line,
-                extra={
-                    "step": batch_count,
-                    "lr": lr,
-                    "num_consumed_tokens": train_state.num_consumed_tokens,
-                    "grad_norm": grad_norm,
-                    "loss": loss.item(),
-                    "moe_loss": moe_loss.item(),
-                    "flops": tflops,
-                    "tgs": tk_per_gpu,
-                    "acc": acc_perplex["acc"],
-                    "perplexity": acc_perplex["perplexity"],
-                    "fwd_bwd_time": fwd_bwd_time,
-                },
+                "{line}",
+                line=line,
+                extra=panel_metrics,
             )
         else:
             logger.info(line)
 
         # if loss spike occurs, send alert info to feishu
-        mm.monitor_loss_spike(alert_address=gpc.config.alert_address, step_count=batch_count, cur_step_loss=loss.item())
+        mm.monitor_loss_spike(
+            alert_address=gpc.config.monitor.alert.feishu_alert_address,
+            step_count=batch_count,
+            cur_step_loss=loss.item(),
+        )

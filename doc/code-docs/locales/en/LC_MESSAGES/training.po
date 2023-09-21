@@ -1,0 +1,162 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, InternLM Team
+# This file is distributed under the same license as the InternLM package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: InternLM \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-09-14 12:23+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: en\n"
+"Language-Team: en <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.12.1\n"
+
+#: ../../source/training.rst:2
+msgid "训练 API"
+msgstr "Training API"
+
+#: ../../source/training.rst:4
+msgid ""
+"InternLM 的训练 API 由 ``internlm.core.trainer.Trainer`` "
+"管理。在定义了训练引擎和调度器之后，我们可以调用 Trainer API 来执行模型训练、评估、梯度清零和参数更新等。"
+msgstr ""
+"InternLM training API is managed in ``internlm.core.trainer.Trainer``. "
+"After defining the training engine and runtime scheduler, we can call "
+"training API to perform training, evaluation, zero gradients and "
+"parameter update steps."
+
+#: ../../source/training.rst:6
+msgid "有关详细用法，请参阅 Trainer API 文档和示例。"
+msgstr ""
+"For detailed usage, please refer to Trainer API documentation and "
+"examples."
+
+#: internlm.core.trainer.Trainer:1 of
+msgid ""
+"This is a class tending for easy deployments of users' training and "
+"evaluation instead of writing their own scripts."
+msgstr ""
+
+#: internlm.core.trainer.Trainer internlm.core.trainer.Trainer.execute_schedule
+#: of
+msgid "参数"
+msgstr ""
+
+#: internlm.core.trainer.Trainer:4 of
+msgid "Engine responsible for the process function."
+msgstr ""
+
+#: internlm.core.trainer.Trainer:6 of
+msgid "Runtime schedule. Defaults to None."
+msgstr ""
+
+#: internlm.core.trainer.Trainer.engine:1 of
+msgid ""
+"Returns the engine that responsible for managing the training and "
+"evaluation process."
+msgstr ""
+
+#: internlm.core.trainer.Trainer.schedule:1 of
+msgid "Returns the runtime scheduler."
+msgstr ""
+
+#: internlm.core.trainer.Trainer.uses_pipeline:1 of
+msgid "Returns whether the pipeline parallel is used or not."
+msgstr ""
+
+#: internlm.core.trainer.Trainer.train:1 of
+msgid "Sets the model to training mode."
+msgstr ""
+
+#: internlm.core.trainer.Trainer.eval:1 of
+msgid "Sets the model to evaluation mode."
+msgstr ""
+
+#: internlm.core.trainer.Trainer.zero_grad:1 of
+msgid "Sets the gradient of all parameters in the model to zero."
+msgstr ""
+
+#: internlm.core.trainer.Trainer.step:1 of
+msgid "Executes the parameter update step."
+msgstr ""
+
+#: internlm.core.trainer.Trainer.execute_schedule:1 of
+msgid ""
+"Runs the forward, loss computation, and backward for the model. Returns a"
+" tuple of (output, label, loss)."
+msgstr ""
+
+#: internlm.core.trainer.Trainer.execute_schedule:4 of
+msgid "The data iterator."
+msgstr ""
+
+#: internlm.core.trainer.Trainer.execute_schedule:6 of
+msgid "Additional keyword arguments."
+msgstr ""
+
+#: internlm.core.trainer.Trainer.execute_schedule of
+msgid "返回"
+msgstr ""
+
+#: internlm.core.trainer.Trainer.execute_schedule:8 of
+msgid "A tuple of (output, label, loss)."
+msgstr ""
+
+#: internlm.core.trainer.Trainer.execute_schedule of
+msgid "返回类型"
+msgstr ""
+
+#: internlm.core.trainer.Trainer.execute_schedule:9 of
+msgid "Tuple[:class:`torch.Tensor`]"
+msgstr ""
+
+#~ msgid "InternLM 的训练流程可以归纳为两个步骤："
+#~ msgstr "The training process of InternLM can be summarized into two steps: "
+
+#~ msgid "初始化"
+#~ msgstr "Initialization"
+
+#~ msgid "初始化模型、优化器、数据加载器、Trainer，生成不同种类的进程组，为混合并行的迭代训练做准备。"
+#~ msgstr ""
+#~ "Initialize model, optimizer, dataloader, "
+#~ "trainer, and create different types of"
+#~ " process groups to prepare for "
+#~ "iterative steps of hybrid parallel "
+#~ "training. "
+
+#~ msgid "初始化Logger、Checkpoint管理器、Monitor管理器、Profiler，对迭代训练的过程观察、预警、记录。"
+#~ msgstr ""
+#~ "Initialize logger, checkpoint manager, monitor"
+#~ " manager, and profiler to watch, "
+#~ "alert, and record the iterative training"
+#~ " steps. "
+
+#~ msgid "迭代训练"
+#~ msgstr "Iterative training steps"
+
+#~ msgid "根据配置文件定义的张量并行、流水线并行、数据并行的大小，加载训练引擎和调度器进行混合并行训练。"
+#~ msgstr ""
+#~ "Load the training engine and scheduler"
+#~ " for hybrid parallel training according "
+#~ "to the configuration such as tensor "
+#~ "parallel size, pipeline parallel size, "
+#~ "and data parallel size. "
+
+#~ msgid "在迭代训练中，调用 Trainer API 进行梯度置零，前向传播计算损失并反向传播，参数更新。"
+#~ msgstr ""
+#~ "In iterative training steps, the Trainer"
+#~ " API is called to perform zero "
+#~ "gradients, forward-loss-backward, and "
+#~ "parameter update."
+
+#~ msgid "InternLM训练流程图"
+#~ msgstr "InternLM training process"
+

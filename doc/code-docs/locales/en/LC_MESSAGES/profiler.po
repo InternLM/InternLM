@@ -1,0 +1,175 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, InternLM Team
+# This file is distributed under the same license as the InternLM package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: InternLM \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-09-14 11:05+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: en\n"
+"Language-Team: en <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.12.1\n"
+
+#: ../../source/profiler.rst:2
+msgid "性能分析"
+msgstr "Profiler"
+
+#: ../../source/profiler.rst:7
+msgid "Torch Profiler"
+msgstr ""
+
+#: ../../source/profiler.rst:9
+msgid ""
+"InternLM 使用 ``internlm.train.initialize_llm_profile()`` "
+"来收集和分析模型训练或推理期间的性能数据，如 CPU/CUDA/memory 等性能数据。这个实现基于 `torch.profiler "
+"<https://pytorch.org/docs/stable/profiler.html>`_ ，输出的性能分析 trace 文件可以使用 "
+"`tensorboard <https://www.tensorflow.org/tensorboard?hl=en>`_ 进行可视化。"
+msgstr ""
+"InternLM uses ``internlm.train.initialize_llm_profile()`` to profile "
+"performance data, execution time duration and breakdown analysis of step "
+"time. The implementation is based on `torch.profiler "
+"<https://pytorch.org/docs/stable/profiler.html>`_ and output tracing "
+"files can be visualized with `tensorboard <https://www.tensorflow.org/tensorboard?hl=en>`_."
+
+#: ../../source/profiler.rst:11
+msgid ""
+"用户如果想使用这个 torch 性能分析工具，需要在启动训练时传递 ``--profiling`` 参数以启用性能分析。完成 torch "
+"性能分析后，用户可以在 ``{JOB_NAME}/{start_time}/traces/rank{}_dp{}_tp{}_pp{}`` "
+"文件夹中看到性能分析结果。"
+msgstr ""
+"To use this torch profiler tool, you need to enable profiling by passing "
+"the ``--profiling`` flag when starting training. After torch profiling is"
+" completed, you can find the profiling results in the "
+"``{JOB_NAME}/{start_time}/traces/rank{}_dp{}_tp{}_pp{}`` folder."
+
+#: ../../source/profiler.rst:13
+msgid "实际运行生成的 ``Torch Profiler`` 目录结构如下："
+msgstr ""
+"The directory structure of ``Torch Profiler`` generated files is as "
+"follows:"
+
+#: ../../source/profiler.rst:22
+msgid "其中， ``traces`` 可以通过 ``TensorBoard`` 可视化，运行命令"
+msgstr ""
+"Among them, ``traces`` can be visualized through ``TensorBoard`` and run "
+"with the command"
+
+#: ../../source/profiler.rst:29
+msgid ""
+"在打开的 ``TensorBoard -> PyTorch Profiler -> Views -> Trace`` "
+"页面可以看到Operator和GPU Kernel的性能分析时间线如下，更多的功能请参考 `torch profiler with "
+"tensorboard "
+"<https://pytorch.org/tutorials/intermediate/tensorboard_profiler_tutorial.html"
+"#pytorch-profiler-with-tensorboard>`_"
+msgstr ""
+"In the opened ``TensorBoard -> PyTorch Profiler -> Views -> Trace`` page,"
+" you can see the timeline of profiled operators and GPU kernels. For more"
+" usage, please refer to `torch profiler with tensorboard "
+"<https://pytorch.org/tutorials/intermediate/tensorboard_profiler_tutorial.html"
+"#pytorch-profiler-with-tensorboard>`_"
+
+#: internlm.train.training_internlm.initialize_llm_profile:1 of
+msgid "Initialize and return the profiler context manager instance."
+msgstr ""
+
+#: ../../source/profiler.rst:38
+msgid "Memory Profiler"
+msgstr ""
+
+#: ../../source/profiler.rst:40
+msgid ""
+"InternLM 提供了一个实用的内存分析工具 "
+"``internlm.utils.simple_memory_profiler.SimpleMemoryProfiler`` 来监控实际的 GPU"
+" 内存使用情况。在实现中，会对模型数据（包括模型参数、模型梯度和优化器状态）和非模型数据（包括激活值）分别进行详细的统计。"
+msgstr ""
+"InternLM provides a practical solution "
+"``internlm.utils.simple_memory_profiler.SimpleMemoryProfiler`` to monitor"
+" actual GPU memory usage. In the implmentation, model data (including "
+"model parameters, model gradients, and optimizer states) and non-model "
+"data (including activations) are calculated."
+
+#: ../../source/profiler.rst:42
+msgid ""
+"要使用这个内存分析工具，用户需要在启动训练时传递 ``--profiling`` 参数以启用内存分析。完成内存分析后，用户可以在 "
+"``memory_trace/rank{}_dp{}_tp{}`` 文件夹中找到特定 rank "
+"对应的内存分析结果（包括不同时间点的内存使用日志和显示总体内存使用情况的太阳图表）。"
+msgstr ""
+"To use this memory profiler tool, you need to enable profiling by passing"
+" the ``--profiling`` flag when starting training. After memory profiling "
+"is completed, you can find the profiling results (including logs of "
+"memory usage at different time point and sunburst charts showing overall "
+"memory usage) for a specific rank device in the "
+"``memory_trace/rank{}_dp{}_tp{}`` folder."
+
+#: ../../source/profiler.rst:44
+msgid "实际运行生成的 ``memory_trace`` 目录结构如下："
+msgstr "The directory structure of ``memory_trace`` generated files is as follows:"
+
+#: ../../source/profiler.rst:107
+msgid "其中， ``memory.log`` 的内容示例如下："
+msgstr "An example of ``memory.log`` is as follows:"
+
+#: ../../source/profiler.rst:157
+msgid "模型参数的太阳图示例如下："
+msgstr "An example of model parameters sunburst chart is as follows:"
+
+#: internlm.utils.simple_memory_profiler.SimpleMemoryProfiler:1 of
+msgid "A memory profiler for a llm model."
+msgstr ""
+
+#: internlm.utils.simple_memory_profiler.SimpleMemoryProfiler
+#: internlm.utils.simple_memory_profiler.SimpleMemoryProfiler.point of
+msgid "参数"
+msgstr ""
+
+#: internlm.utils.simple_memory_profiler.SimpleMemoryProfiler:3 of
+msgid "The model to profile."
+msgstr ""
+
+#: internlm.utils.simple_memory_profiler.SimpleMemoryProfiler:5 of
+msgid "The optimizer used for training the model."
+msgstr ""
+
+#: internlm.utils.simple_memory_profiler.SimpleMemoryProfiler:7 of
+msgid "The file to write the memory state information to."
+msgstr ""
+
+#: internlm.utils.simple_memory_profiler.SimpleMemoryProfiler:9 of
+msgid "number of steps to trace."
+msgstr ""
+
+#: internlm.utils.simple_memory_profiler.SimpleMemoryProfiler.point:1 of
+msgid "Record the memory state."
+msgstr ""
+
+#: internlm.utils.simple_memory_profiler.SimpleMemoryProfiler.point:3 of
+msgid "The options to include in the memory state. Defaults to \"\"."
+msgstr ""
+
+#: internlm.utils.simple_memory_profiler.SimpleMemoryProfiler.point:5 of
+msgid "Whether to create a new memory record file. Defaults to False."
+msgstr ""
+
+#: internlm.utils.simple_memory_profiler.SimpleMemoryProfiler.point
+#: internlm.utils.simple_memory_profiler.SimpleMemoryProfiler.step of
+msgid "返回"
+msgstr ""
+
+#: internlm.utils.simple_memory_profiler.SimpleMemoryProfiler.point:8
+#: internlm.utils.simple_memory_profiler.SimpleMemoryProfiler.step:3 of
+msgid "None"
+msgstr ""
+
+#: internlm.utils.simple_memory_profiler.SimpleMemoryProfiler.step:1 of
+msgid "Update the memory state of the optimizer state."
+msgstr ""
+

@@ -1,10 +1,10 @@
 import typing
-from typing import Dict, Tuple
 
 import torch
 
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
+from internlm.model.linear import FeedForward
 from internlm.moe.experts import Experts
 from internlm.moe.sharded_moe import MOELayer, TopKGate
 from internlm.utils.logger import get_logger
@@ -17,24 +17,6 @@ from internlm.utils.logger import get_logger
 
 # global llm logger
 logger = get_logger(__file__)
-
-
-def has_moe_layers(m):
-    has_moe = False
-    num_experts = 0
-
-    for _, module in m.named_modules():
-        if isinstance(module, MoE):
-            has_moe = True
-            num_experts = module.num_experts
-            break
-    return has_moe, num_experts
-
-
-def is_moe_param(param: torch.Tensor) -> bool:
-    if hasattr(param, "all_reduce") and not param.all_reduce:
-        return True
-    return False
 
 
 class MoE(torch.nn.Module):
@@ -63,7 +45,6 @@ class MoE(torch.nn.Module):
     def __init__(
         self,
         hidden_size,
-        experts,
         num_experts=1,
         ep_size=1,
         k=1,
@@ -75,7 +56,8 @@ class MoE(torch.nn.Module):
         use_rts: bool = True,
         using_default_moe: bool = True,
         use_residual=False,
-        residual_mlp=None,
+        device=None,
+        dtype=None,
     ):
 
         super().__init__()
@@ -87,16 +69,34 @@ class MoE(torch.nn.Module):
         self.num_experts = num_experts
         self.num_local_experts = num_experts // self.ep_size
 
-        logger.info(  # pylint: disable=W1203
-            f"Creating MoE layer with num_experts: {num_experts} | num_local_experts:"
-            f"{self.num_local_experts} | expert_parallel_size: {self.ep_size}"
-        )
-
+        if gpc.is_rank_for_log():
+            logger.info(  # pylint: disable=W1203
+                f"Creating MoE layer with num_experts: {num_experts} | num_local_experts:"
+                f"{self.num_local_experts} | expert_parallel_size: {self.ep_size}"
+            )
         assert noisy_gate_policy is None or noisy_gate_policy in ["None", "Jitter", "RSample"], (
             "Unsupported noisy_gate_policy: " + noisy_gate_policy
         )
 
-        expert_group_name = f"ep_size_{self.ep_size}"
+        # for elastic expert paralle, experts may have multiple groups
+        expert_group_name = f"moe_ep_size_{self.ep_size}"
+        if expert_group_name not in gpc.expert_parallel_group_names:
+            gpc.expert_parallel_group_names.append(expert_group_name)
+        experts = torch.nn.ModuleList(
+            [
+                # TODO have trouble when use internlm.model.linear.FeedForward
+                FeedForward(
+                    hidden_size,
+                    int(hidden_size * gpc.config.model.mlp_ratio),
+                    out_features=hidden_size,
+                    process_group=gpc.get_group(ParallelMode.TENSOR),
+                    bias=False,
+                    device=device,
+                    dtype=dtype,
+                )
+                for _ in range(self.num_local_experts)
+            ]
+        )
         experts = Experts(experts, self.num_local_experts, expert_group_name)
 
         if using_default_moe:
@@ -118,10 +118,19 @@ class MoE(torch.nn.Module):
                 self.num_local_experts,
             )
 
+        # residual network, see https://arxiv.org/pdf/2201.05596.pdf, seems useful for convergence
         self.use_residual = use_residual
         if use_residual:
-            self.residual_mlp = residual_mlp
-            # coefficient is used for weighted sum of the output of expert and mlp
+            self.residual_mlp = FeedForward(
+                hidden_size,
+                int(hidden_size * gpc.config.model.mlp_ratio),
+                out_features=hidden_size,
+                process_group=gpc.get_group(ParallelMode.TENSOR),
+                bias=False,
+                device=device,
+                dtype=dtype,
+            )
+            # coefficient is used for weighted sum of the output of expert and residual mlp
             self.coefficient = torch.nn.Linear(hidden_size, 2)
 
     def forward(self, hidden_states, used_token=None):
@@ -150,94 +159,3 @@ class MoE(torch.nn.Module):
             coef = torch.nn.functional.softmax(coef, dim=-1)
             output = output * coef[..., 0:1] + output_mlp * coef[..., 1:]
         return output, self.moe_layer.l_aux, self.moe_layer.exp_counts
-
-
-def split_params_into_different_moe_groups_for_optimizer(
-    param_groups: Tuple[Dict], max_group_size=178956971
-) -> Tuple[Dict]:
-    """Split parameters into different MoE groups for optimizer
-    Compatiable with muiltiple param groups, each should have a name
-
-    Args:
-        param_groups (Tuple[Dict]):
-            The list of parameter groups to split
-
-    Returns:
-        Tuple[Dict]:
-        list of MoE/non-MoE groups for optimizer
-    """
-    if isinstance(param_groups, tuple):
-        param_groups = list(param_groups)  # Tuple cannot be modified
-    elif isinstance(param_groups, dict):
-        param_groups = [param_groups]
-    elif not isinstance(param_groups, list):
-        raise ValueError(f"Unknown param group type of {type(param_groups)}")
-
-    # gather all data parallel group names
-    data_parallel_group_names = set()
-    for param_group in param_groups:
-        for param in param_group["params"]:
-            if is_moe_param(param):
-                data_parallel_group_names.add(param.group_name)
-    data_parallel_group_names = list(data_parallel_group_names)
-    group_moe = {}
-    # Create the param MoE groups, leave param assign to next step
-    for param_group in param_groups:
-        group_moe[param_group["name"]] = {}
-        for key in data_parallel_group_names:
-            group_moe[param_group["name"]][key] = {}
-            group_moe[param_group["name"]][key]["name"] = key
-            group_moe[param_group["name"]][key]["moe"] = True
-            for ori_key in param_group.keys():
-                if ori_key != "name":
-                    if ori_key == "params":
-                        group_moe[param_group["name"]][key][ori_key] = []
-                    else:
-                        group_moe[param_group["name"]][key][ori_key] = param_group[ori_key]
-    # Assign param
-    for param_group in param_groups:
-        new_params = []
-        for param in param_group["params"]:
-            if is_moe_param(param):
-                group_moe[param_group["name"]][param.group_name]["params"].append(param)
-                # param_group['params'].remove(param)
-            else:
-                new_params.append(param)
-        param_group["params"] = new_params
-
-    # Flatten the moe groups
-    if max_group_size is not None:
-        for _, v in group_moe.items():
-            for _, v1 in v.items():
-                cur_group = []
-                all_groups = []
-                size_of_cur_group = 0
-                for param in v1["params"]:
-                    if size_of_cur_group + param.numel() <= max_group_size:
-                        cur_group.append(param)
-                        size_of_cur_group += param.numel()
-                    else:
-                        all_groups.append(cur_group)
-                        cur_group = [param]
-                        size_of_cur_group = param.numel()
-                if cur_group:
-                    all_groups.append(cur_group)
-                for group in all_groups:
-                    new_dict = {}
-                    for key, val in v1.items():
-                        if key != "params":
-                            new_dict[key] = val
-                    new_dict["params"] = group
-                    param_groups.append(new_dict)
-    else:
-        for _, v in group_moe.items():
-            for _, v1 in v.items():
-                param_groups.append(v1)
-
-    return tuple(param_groups)
-
-
-def create_moe_param_groups(model, weight_decay):
-    parameters = {"params": list(model.parameters()), "name": "default", "weight_decay": weight_decay}
-
-    return split_params_into_different_moe_groups_for_optimizer(parameters)

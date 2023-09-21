@@ -1,4 +1,4 @@
-## 基于InternLM的预训练与微调使用教程
+## 使用教程
 
 启动一个 Demo 模型训练，需要进行三项准备，**安装**，**数据集准备**和**模型训练配置**。接下来，首先会介绍数据准备相关的操作，再简要描述模型训练配置相关的内容。
 
@@ -66,7 +66,174 @@ python tools/alpaca_tokenizer.py /path/to/alpaca_dataset /path/to/output_dataset
 
 ### 训练配置
 
-以 7B Demo 的配置文件`configs/7B_sft.py`为例，介绍启动一个模型训练所需要进行的数据、模型和并行等相关的配置。
+以 7B Demo 的配置文件`configs/7B_sft.py`为例：
+```python
+JOB_NAME = "7b_train"
+DO_ALERT = False
+
+SEQ_LEN = 2048
+HIDDEN_SIZE = 4096
+NUM_ATTENTION_HEAD = 32
+MLP_RATIO = 8 / 3
+NUM_LAYER = 32
+VOCAB_SIZE = 103168
+
+MODEL_ONLY_FOLDER = "local:llm_ckpts/xxxx"
+# Ckpt folder format:
+# fs: 'local:/mnt/nfs/XXX'
+SAVE_CKPT_FOLDER = "local:llm_ckpts"
+LOAD_CKPT_FOLDER = "local:llm_ckpts/49"
+
+# boto3 Ckpt folder format:
+# import os
+# BOTO3_IP = os.environ["BOTO3_IP"] # boto3 bucket endpoint
+# SAVE_CKPT_FOLDER = f"boto3:s3://model_weights.{BOTO3_IP}/internlm"
+# LOAD_CKPT_FOLDER = f"boto3:s3://model_weights.{BOTO3_IP}/internlm/snapshot/1/"
+CHECKPOINT_EVERY = 50
+ckpt = dict(
+    enable_save_ckpt=False,  # enable ckpt save.
+    save_ckpt_folder=SAVE_CKPT_FOLDER,  # Path to save training ckpt.
+    # load_ckpt_folder= dict(path=MODEL_ONLY_FOLDER, content=["model"], ckpt_type="normal"),
+    load_ckpt_folder="local:llm_ckpts/",
+    # 'load_ckpt_info' setting guide:
+    # 1. the 'path' indicate ckpt path,
+    # 2. the 'content‘ means what states will be loaded, support: "model", "sampler", "optimizer", "scheduler", "all"
+    # 3. the ’ckpt_type‘ means the type of checkpoint to be loaded, now only 'normal' type is supported.
+    load_ckpt_info=dict(path=MODEL_ONLY_FOLDER, content=("model",), ckpt_type="internlm"),
+    checkpoint_every=CHECKPOINT_EVERY,
+    async_upload=True,  # async ckpt upload. (only work for boto3 ckpt)
+    async_upload_tmp_folder="/dev/shm/internlm_tmp_ckpt/",  # path for temporarily files during asynchronous upload.
+    oss_snapshot_freq=int(CHECKPOINT_EVERY / 2),  # snapshot ckpt save frequency.
+)
+
+TRAIN_FOLDER = "/path/to/dataset"
+VALID_FOLDER = "/path/to/dataset"
+data = dict(
+    seq_len=SEQ_LEN,
+    # micro_num means the number of micro_batch contained in one gradient update
+    micro_num=4,
+    # packed_length = micro_bsz * SEQ_LEN
+    micro_bsz=2,
+    # defaults to the value of micro_num
+    valid_micro_num=4,
+    # defaults to 0, means disable evaluate
+    valid_every=50,
+    pack_sample_into_one=False,
+    total_steps=50000,
+    skip_batches="",
+    rampup_batch_size="",
+    # Datasets with less than 50 rows will be discarded
+    min_length=50,
+    # train_folder=TRAIN_FOLDER,
+    # valid_folder=VALID_FOLDER,
+    empty_cache_and_diag_interval=10,
+    diag_outlier_ratio=1.1,
+)
+
+grad_scaler = dict(
+    fp16=dict(
+        # the initial loss scale, defaults to 2**16
+        initial_scale=2**16,
+        # the minimum loss scale, defaults to None
+        min_scale=1,
+        # the number of steps to increase loss scale when no overflow occurs
+        growth_interval=1000,
+    ),
+    # the multiplication factor for increasing loss scale, defaults to 2
+    growth_factor=2,
+    # the multiplication factor for decreasing loss scale, defaults to 0.5
+    backoff_factor=0.5,
+    # the maximum loss scale, defaults to None
+    max_scale=2**24,
+    # the number of overflows before decreasing loss scale, defaults to 2
+    hysteresis=2,
+)
+
+hybrid_zero_optimizer = dict(
+    # Enable low_level_optimzer overlap_communication
+    overlap_sync_grad=True,
+    overlap_sync_param=True,
+    # bucket size for nccl communication params
+    reduce_bucket_size=512 * 1024 * 1024,
+    # grad clipping
+    clip_grad_norm=1.0,
+)
+
+loss = dict(
+    label_smoothing=0,
+)
+
+adam = dict(
+    lr=1e-4,
+    adam_beta1=0.9,
+    adam_beta2=0.95,
+    adam_beta2_c=0,
+    adam_eps=1e-8,
+    weight_decay=0.01,
+)
+
+lr_scheduler = dict(
+    total_steps=data["total_steps"],
+    init_steps=0,  # optimizer_warmup_step
+    warmup_ratio=0.01,
+    eta_min=1e-5,
+    last_epoch=-1,
+)
+
+beta2_scheduler = dict(
+    init_beta2=adam["adam_beta2"],
+    c=adam["adam_beta2_c"],
+    cur_iter=-1,
+)
+
+model = dict(
+    checkpoint=False,  # The proportion of layers for activation aheckpointing, the optional value are True/False/[0-1]
+    num_attention_heads=NUM_ATTENTION_HEAD,
+    embed_split_hidden=True,
+    vocab_size=VOCAB_SIZE,
+    embed_grad_scale=1,
+    parallel_output=True,
+    hidden_size=HIDDEN_SIZE,
+    num_layers=NUM_LAYER,
+    mlp_ratio=MLP_RATIO,
+    apply_post_layer_norm=False,
+    dtype="torch.float16",  # Support: "torch.float16", "torch.half", "torch.bfloat16", "torch.float32", "torch.tf32"
+    norm_type="rmsnorm",
+    layer_norm_epsilon=1e-5,
+    use_flash_attn=True,
+    num_chunks=1,  # if num_chunks > 1, interleaved pipeline scheduler is used.
+)
+"""
+zero1 parallel:
+    1. if zero1 <= 0, The size of the zero process group is equal to the size of the dp process group,
+        so parameters will be divided within the range of dp.
+    2. if zero1 == 1, zero is not used, and all dp groups retain the full amount of model parameters.
+    3. zero1 > 1 and zero1 <= dp world size, the world size of zero is a subset of dp world size.
+        For smaller models, it is usually a better choice to split the parameters within nodes with a setting <= 8.
+pipeline parallel (dict):
+    1. size: int, the size of pipeline parallel.
+    2. interleaved_overlap: bool, enable/disable communication overlap when using interleaved pipeline scheduler.
+tensor parallel: tensor parallel size, usually the number of GPUs per node.
+"""
+parallel = dict(
+    zero1=8,
+    pipeline=dict(size=1, interleaved_overlap=True),
+    sequence_parallel=False,
+)
+
+cudnn_deterministic = False
+cudnn_benchmark = False
+
+monitor = dict(
+    # feishu alert configs
+    alert=dict(
+        enable_feishu_alert=DO_ALERT,
+        feishu_alert_address=None,  # feishu webhook to send alert message
+        light_monitor_address=None,  # light_monitor address to send heartbeat
+    ),
+)
+```
+接下来将详细介绍启动一个模型训练所需要进行的数据、模型、并行和监控等相关的配置。
 
 #### 数据配置
 数据相关的关键参数配置及释义如下所示：
@@ -84,9 +251,7 @@ data = dict(
 )
 ```
 
-<div align="left">
-    <img src="./imgs/pack_into_one.png" width="550"/>
-</div>
+![pack_into_one](./imgs/pack_into_one.png)
 
 
 目前支持传入数据集文件路径`train_folder`，且要求文件格式如下：
@@ -103,18 +268,17 @@ data = dict(
 如果在启动训练时要加载模型 `checkpoint`，可进行如下相关配置：
 ```python
 SAVE_CKPT_FOLDER = "local:/path/to/save/ckpt"
-MODEL_ONLY_FOLDER = "local:/path/to/load/init/model/ckpt"
 LOAD_CKPT_FOLDER = "local:/path/to/load/resume/ckpt"
 ckpt = dict(
     save_ckpt_folder=SAVE_CKPT_FOLDER,  # 存储模型和优化器 checkpoint 的路径
     checkpoint_every=float("inf"),  # 每多少个 step 存储一次 checkpoint，默认值为 inf
-    load_model_only_folder=MODEL_ONLY_FOLDER,  # 加载模型初始权重的路径，只加载模型权重，不加载优化器权重，训练将从第一个 step 开始
-    load_ckpt_folder=LOAD_CKPT_FOLDER,  # 断点续训时，加载模型和优化器等权重的路径，将从指定的 step 恢复训练
-    load_optimizer=True,  # 断点续训时，是否需要加载优化器权重，默认值为 True
+    # 断点续训时，加载模型和优化器等权重的路径，将从指定的 step 恢复训练
+    # content 表示哪些状态会被加载，支持： "model", "sampler", "optimizer", "scheduler", "all"
+    # ckpt_type 表示加载的模型类型，目前支持: "internlm"
+    load_ckpt_info=dict(path=MODEL_ONLY_FOLDER, content=("model",), ckpt_type="internlm"),
 )
 ```
 注意：
-- `load_model_only_folder`与`load_ckpt_folder`不能同时设置
 - 路径若以 `local:` 为前缀，则存储在本地文件系统；若以 `boto3:` 为前缀，则存储在远程 oss 上
 
 模型相关关键参数配置如下所示：
@@ -151,16 +315,20 @@ model = dict(
 ```python
 parallel = dict(
     zero1=8,
-    pipeline=1,
     tensor=1,
+    pipeline=dict(size=1, interleaved_overlap=True),
+    sequence_parallel=False,
 )
 ```
 - zero1：zero 并行策略，分如下三种情况，默认值为 -1
-  - 当`size <= 0`，则 zero1 进程组的大小等于数据并行进程组的大小，因此优化器状态参数将在数据并行范围内分配
-  - 当`size == 1`，则不使用 zero1 ，所有数据并行组保留完整的优化器状态参数
-  - 当`size > 1`且`size <= data_parallel_world_size`，则 zero1 进程组是数据并行进程组的子集
-- pipeline：流水线并行大小，默认值为 1
+  - 当`zero1 <= 0`，则 zero1 进程组的大小等于数据并行进程组的大小，因此优化器状态参数将在数据并行范围内分配
+  - 当`zero1 == 1`，则不使用 zero1 ，所有数据并行组保留完整的优化器状态参数
+  - 当`zero1 > 1`且`zero1 <= data_parallel_world_size`，则 zero1 进程组是数据并行进程组的子集
 - tensor：张量并行大小，通常是每个节点的 GPU 数量，默认值为 1
+- pipeline：流水线并行策略
+  - size：流水线并行大小，默认值为 1
+  - interleaved_overlap：bool 类型，交错式调度时，开启或关闭通信优化，默认值为关闭
+- sequence_parallel：是否开启序列化并行，默认值为 False
 
 注意：`数据并行大小 = 总的 GPU 数目 / 流水线并行大小 / 张量并行大小`
 
