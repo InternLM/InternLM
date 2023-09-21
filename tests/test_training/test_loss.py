@@ -262,10 +262,12 @@ class TestCaseTrain16GPUWith8DP2TPSP:
     @staticmethod
     def setup_class():
         # update config tensor parallel size and sequence parallel
-        command = f"sed -i 's/^.*tensor=.*/    tensor=2,/' {CONFIG_FILE_PATH}"
-        subprocess.run(command, shell=True, check=True)
-        command = f"sed -i 's/^.*sequence_parallel=.*/    sequence_parallel=True,/' {CONFIG_FILE_PATH}"
-        subprocess.run(command, shell=True, check=True)
+        commands = [
+            f"sed -i 's/^.*tensor=.*/    tensor=2,/' {CONFIG_FILE_PATH}",
+            f"sed -i 's/^.*sequence_parallel=.*/    sequence_parallel=True,/' {CONFIG_FILE_PATH}",
+        ]
+        commands_string = "; ".join(commands)
+        subprocess.run(commands_string, shell=True, check=True)
 
         # model training
         train()
@@ -297,8 +299,6 @@ class TestCaseTrain16GPUWith8DP2PP:
         # update config pipeline parallel size
         command = f"sed -i 's/^.*pipeline=.*/    pipeline=dict(size=2),/' {CONFIG_FILE_PATH}"
         subprocess.run(command, shell=True, check=True)
-        command = f"sed -i 's/^.*tensor=.*/    tensor=1,/' {CONFIG_FILE_PATH}"
-        subprocess.run(command, shell=True, check=True)
 
         # model training
         train()
@@ -329,12 +329,12 @@ class TestCaseTrain16GPUWith8DP2PPInterleaved:
     @staticmethod
     def setup_class():
         # update config pipeline parallel size
-        command = f"sed -i 's/^.*pipeline=.*/    pipeline=dict(size=2),/' {CONFIG_FILE_PATH}"
-        subprocess.run(command, shell=True, check=True)
-        command = f"sed -i 's/^.*num_chunks=.*/    num_chunks=2,/' {CONFIG_FILE_PATH}"
-        subprocess.run(command, shell=True, check=True)
-        command = f"sed -i 's/^.*tensor=.*/    tensor=1,/' {CONFIG_FILE_PATH}"
-        subprocess.run(command, shell=True, check=False)
+        commands = [
+            f"sed -i 's/^.*pipeline=.*/    pipeline=dict(size=2),/' {CONFIG_FILE_PATH}",
+            f"sed -i 's/^.*num_chunks=.*/    num_chunks=2,/' {CONFIG_FILE_PATH}",
+        ]
+        commands_string = "; ".join(commands)
+        subprocess.run(commands_string, shell=True, check=True)
 
         # model training
         train()
@@ -366,12 +366,12 @@ class TestCaseTrain16GPUWith8DP2PPInterleavedOverlap:
     @staticmethod
     def setup_class():
         # update config pipeline parallel size
-        command = f"sed -i 's/^.*pipeline=.*/    pipeline=dict(size=2, interleaved_overlap=True),/' {CONFIG_FILE_PATH}"
-        subprocess.run(command, shell=True, check=True)
-        command = f"sed -i 's/^.*num_chunks=.*/    num_chunks=2,/' {CONFIG_FILE_PATH}"
-        subprocess.run(command, shell=True, check=True)
-        command = f"sed -i 's/^.*tensor=.*/    tensor=1,/' {CONFIG_FILE_PATH}"
-        subprocess.run(command, shell=True, check=True)
+        commands = [
+            f"sed -i 's/^.*pipeline=.*/    pipeline=dict(size=2, interleaved_overlap=True),/' {CONFIG_FILE_PATH}",
+            f"sed -i 's/^.*num_chunks=.*/    num_chunks=2,/' {CONFIG_FILE_PATH}",
+        ]
+        commands_string = "; ".join(commands)
+        subprocess.run(commands_string, shell=True, check=True)
 
         # model training
         train()
