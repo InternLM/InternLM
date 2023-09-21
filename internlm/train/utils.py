@@ -10,7 +10,7 @@ def split_params_into_different_groups_for_optimizer(param_groups: Tuple[Dict]) 
 
     Args:
         param_groups (Tuple[Dict]): The list of parameter groups to split
-        Output Example:
+        Input Example:
         >>> (
         >>>     {'name': 'default', 'params': [tensor], 'weight_decay' :xxx},
         >>>     ...,
