@@ -1,4 +1,5 @@
 JOB_NAME = "7b_train"
+DO_ALERT = False
 
 SEQ_LEN = 2048
 HIDDEN_SIZE = 4096
@@ -22,13 +23,16 @@ CHECKPOINT_EVERY = 50
 ckpt = dict(
     enable_save_ckpt=False,  # enable ckpt save.
     save_ckpt_folder=SAVE_CKPT_FOLDER,  # Path to save training ckpt.
-    # load_ckpt_folder=LOAD_CKPT_FOLDER, # Ckpt path to resume training(load weights and scheduler/context states).
-    # load_model_only_folder=MODEL_ONLY_FOLDER, # Path to initialize with given model weights.
-    load_optimizer=True,  # Wheter to load optimizer states when continuing training.
+    # load_ckpt_folder= dict(path=MODEL_ONLY_FOLDER, content=["model"], ckpt_type="normal"),
+    load_ckpt_folder="local:llm_ckpts/",
+    # 'load_ckpt_info' setting guide:
+    # 1. the 'path' indicate ckpt path,
+    # 2. the 'content‘ means what states will be loaded, support: "model", "sampler", "optimizer", "scheduler", "all"
+    # 3. the ’ckpt_type‘ means the type of checkpoint to be loaded, now only 'normal' type is supported.
+    load_ckpt_info=dict(path=MODEL_ONLY_FOLDER, content=("model",), ckpt_type="internlm"),
     checkpoint_every=CHECKPOINT_EVERY,
     async_upload=True,  # async ckpt upload. (only work for boto3 ckpt)
     async_upload_tmp_folder="/dev/shm/internlm_tmp_ckpt/",  # path for temporarily files during asynchronous upload.
-    snapshot_ckpt_folder="/".join([SAVE_CKPT_FOLDER, "snapshot"]),  # directory for snapshot ckpt storage path.
     oss_snapshot_freq=int(CHECKPOINT_EVERY / 2),  # snapshot ckpt save frequency.
 )
 
@@ -52,6 +56,8 @@ data = dict(
     min_length=50,
     # train_folder=TRAIN_FOLDER,
     # valid_folder=VALID_FOLDER,
+    empty_cache_and_diag_interval=10,
+    diag_outlier_ratio=1.1,
 )
 
 grad_scaler = dict(
@@ -75,7 +81,8 @@ grad_scaler = dict(
 
 hybrid_zero_optimizer = dict(
     # Enable low_level_optimzer overlap_communication
-    zero_overlap_communication=True,
+    overlap_sync_grad=True,
+    overlap_sync_param=True,
     # bucket size for nccl communication params
     reduce_bucket_size=512 * 1024 * 1024,
     # grad clipping
@@ -84,7 +91,6 @@ hybrid_zero_optimizer = dict(
 
 loss = dict(
     label_smoothing=0,
-    moe_loss_coeff=1.0,
 )
 
 adam = dict(
@@ -121,12 +127,11 @@ model = dict(
     num_layers=NUM_LAYER,
     mlp_ratio=MLP_RATIO,
     apply_post_layer_norm=False,
-    dtype="torch.bfloat16",
+    dtype="torch.bfloat16",  # Support: "torch.float16", "torch.half", "torch.bfloat16", "torch.float32", "torch.tf32"
     norm_type="rmsnorm",
     layer_norm_epsilon=1e-5,
     use_flash_attn=True,
     num_chunks=1,  # if num_chunks > 1, interleaved pipeline scheduler is used.
-    num_experts=8,
 )
 """
 zero1 parallel:
@@ -142,6 +147,7 @@ tensor parallel: tensor parallel size, usually the number of GPUs per node.
 """
 parallel = dict(
     zero1=8,
+    tensor=1,
     pipeline=dict(size=1, interleaved_overlap=True),
     sequence_parallel=False,
     expert=2,
@@ -149,3 +155,12 @@ parallel = dict(
 
 cudnn_deterministic = False
 cudnn_benchmark = False
+
+monitor = dict(
+    # feishu alert configs
+    alert=dict(
+        enable_feishu_alert=DO_ALERT,
+        feishu_alert_address=None,  # feishu webhook to send alert message
+        light_monitor_address=None,  # light_monitor address to send heartbeat
+    ),
+)
