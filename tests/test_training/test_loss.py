@@ -24,7 +24,7 @@ from internlm.utils.gputest import empty_cache_and_diag
 from internlm.utils.megatron_timers import megatron_timer as timer
 from internlm.utils.model_checkpoint import CheckpointManager
 
-CONFIG_FILE_PATH = "./configs/7B_sft.py"
+CONFIG_FILE_PATH = "/mnt/hwfile/qa-caif-cicd/lm_runner/_work/InternLM/InternLM/configs/7B_sft.py"
 TOTAL_STEPS = 10
 LOSS_SPIKE_LIMIT = 1.5
 LOSS_DEVIATION_LIMIT = 0.2
