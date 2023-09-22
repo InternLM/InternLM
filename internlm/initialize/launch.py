@@ -292,6 +292,8 @@ def args_sanity_check():
         optim_ckpt._add_item("overlap_sync_grad", False)
     if "overlap_sync_param" not in optim_ckpt:
         optim_ckpt._add_item("overlap_sync_param", False)
+    if "cuda_memory_balance" not in optim_ckpt:
+        optim_ckpt._add_item("cuda_memory_balance", False)
     if gpc.is_rank_for_log():
         logger.info(
             f"overlap_sync_grad:{optim_ckpt.overlap_sync_grad}, overlap_sync_param:{optim_ckpt.overlap_sync_param}"
