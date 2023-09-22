@@ -17,19 +17,17 @@ def initialize_light_monitor(monitor_address: str = None):
     Initialize the lightweight monitoring module.
 
     Args:
-        monitor_address (str, optional): The address of the monitor.
-        If not provided, it will be obtained from the environment variable 'MONITOR_SERVER' if set.
-            Defaults to None.
+        monitor_address (str, optional): The address of the monitor. Defaults to 'MONITOR_SERVER' environment.
 
     Raises:
         Exception: If any exceptions occur during initialization, they will be caught and logged as warnings.
 
     Example:
-        # Initialize the monitoring module with the default address
-        initialize_light_monitor()
+        Initialize the monitoring module with the default address
+        ``initialize_light_monitor()``
 
-        # Initialize the monitoring module with a custom address
-        initialize_light_monitor("http://custom-monitor-address.com")
+        Initialize the monitoring module with a custom address
+        ``initialize_light_monitor("http://custom-monitor-address.com")``
     """
     try:
         from uniscale_monitoring import init_monitor
@@ -48,14 +46,14 @@ def send_heartbeat(msg_type: str, msg: Dict):
         msg (Dict): A dictionary containing message data to be included in the heartbeat.
 
     Example:
-        # Sending a heartbeat message for training metrics
-        send_heartbeat("train_metrics", {"loss": 0.1, "accuracy": 0.95})
+        Sending a heartbeat message for training metrics
+        ``send_heartbeat("train_metrics", {"loss": 0.1, "accuracy": 0.95})``
 
-        # Sending a heartbeat message for initialization time
-        send_heartbeat("init_time", {"import_time": 0.25})
+        Sending a heartbeat message for initialization time
+        ``send_heartbeat("init_time", {"import_time": 0.25})``
 
-        # Sending a heartbeat message for stage time
-        send_heartbeat("stage_time", {"fwd_time": 2.3, "bwd_time": 6.2})
+        Sending a heartbeat message for stage time
+        ``send_heartbeat("stage_time", {"fwd_time": 2.3, "bwd_time": 6.2})``
     """
 
     def nan2none(v):

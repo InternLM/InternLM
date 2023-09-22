@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: InternLM \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-09-22 18:27+0800\n"
+"POT-Creation-Date: 2023-09-22 19:29+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -186,77 +186,81 @@ msgid ""
 "来初始化轻量监控客户端。一旦初始化完成，它会建立与监控服务器的连接。在训练过程中，使用 "
 "``internlm.monitor.alert.send_heartbeat`` "
 "来发送不同类型的心跳信息至监控服务器。监控服务器会根据这些心跳信息来检测训练是否出现异常，并在需要时发送警报消息。"
-msgstr "InternLM uses ``internlm.monitor.alert.initialize_light_monitor`` to initialize the lightweight monitoring client. Once initialization is complete, it establishes a connection with the monitoring server. During the training process, it uses ``internlm.monitor.alert.send_heartbeat`` to send various types of heartbeat messages to the monitoring server. The monitoring server uses these heartbeat messages to detect if the training encounters any abnormalities and sends alert messages as needed."
+msgstr ""
+"InternLM uses ``internlm.monitor.alert.initialize_light_monitor`` to "
+"initialize the lightweight monitoring client. Once initialization is "
+"complete, it establishes a connection with the monitoring server. During "
+"the training process, it uses ``internlm.monitor.alert.send_heartbeat`` "
+"to send various types of heartbeat messages to the monitoring server. The"
+" monitoring server uses these heartbeat messages to detect if the "
+"training encounters any abnormalities and sends alert messages as needed."
 
 #: internlm.monitor.alert.initialize_light_monitor:1 of
-msgid "初始化轻量级监控模块"
-msgstr "Initialize the lightweight monitoring module."
+msgid "Initialize the lightweight monitoring module."
+msgstr ""
 
 #: internlm.monitor.alert.initialize_light_monitor:3 of
-msgid "监控器的地址。如果未提供，它将从环境变量 'MONITOR_SERVER' 中获取（如果已设置）。"
-"默认值为 None。"
+msgid "The address of the monitor. Defaults to 'MONITOR_SERVER' environment."
 msgstr ""
-"The address of the monitor. If not provided, it will be obtained from the"
-" environment variable 'MONITOR_SERVER' if set. Defaults to None."
 
-#: internlm.monitor.alert.initialize_light_monitor:7 of
-msgid "如果在初始化过程中出现任何异常，将捕获并记录为警告。"
-msgstr ""
+#: internlm.monitor.alert.initialize_light_monitor:6 of
+msgid ""
 "If any exceptions occur during initialization, they will be caught and "
 "logged as warnings."
+msgstr ""
 
-#: internlm.monitor.alert.initialize_light_monitor:10
+#: internlm.monitor.alert.initialize_light_monitor:9
 #: internlm.monitor.alert.send_heartbeat:9 of
 msgid "示例"
 msgstr "Example"
 
-#: internlm.monitor.alert.initialize_light_monitor:11 of
+#: internlm.monitor.alert.initialize_light_monitor:10 of
 msgid ""
-"使用默认地址初始化监控模块（如果已设置，将从 'MONITOR_SERVER' 环境变量获取）"
-"initialize_light_monitor()"
+"Initialize the monitoring module with the default address "
+"``initialize_light_monitor()``"
 msgstr ""
-"Initialize the monitoring module with the default address (retrieved "
-"from 'MONITOR_SERVER' environment variable if set) "
-"initialize_light_monitor()"
 
-
-#: internlm.monitor.alert.initialize_light_monitor:14 of
+#: internlm.monitor.alert.initialize_light_monitor:13 of
 msgid ""
-"使用自定义地址初始化监控模块 "
-"initialize_light_monitor(\"http://custom-monitor-address.com\")"
+"Initialize the monitoring module with a custom address "
+"``initialize_light_monitor(\"http://custom-monitor-address.com\")``"
 msgstr ""
 "Initialize the monitoring module with a custom address "
 "initialize_light_monitor(\"http://custom-monitor-address.com\")"
 
 #: internlm.monitor.alert.send_heartbeat:1 of
-msgid "发送心跳消息到监控系统。"
-msgstr "Send a heartbeat message to a monitoring server."
+msgid "Send a heartbeat message to a monitoring server."
+msgstr ""
 
 #: internlm.monitor.alert.send_heartbeat:3 of
-msgid "心跳消息的类型，例如 \"train_metrics\"、\"init_time\"、\"stage_time\" 等。"
-msgstr "The type of heartbeat message, e.g., \"train_metrics\", \"init_time\", "
+msgid ""
+"The type of heartbeat message, e.g., \"train_metrics\", \"init_time\", "
 "\"stage_time\"."
+msgstr ""
 
 #: internlm.monitor.alert.send_heartbeat:5 of
-msgid "包含要包含在心跳消息中的数据的字典。"
-msgstr "A dictionary containing message data to be included in the heartbeat."
+msgid "A dictionary containing message data to be included in the heartbeat."
+msgstr ""
 
 #: internlm.monitor.alert.send_heartbeat:10 of
-msgid "发送用于训练指标的心跳消息"
-"send_heartbeat(\"train_metrics\", {\"loss\": 0.1, \"accuracy\": 0.95})"
-msgstr "Sending a heartbeat message for training metrics "
+#, fuzzy
+msgid ""
+"Sending a heartbeat message for training metrics "
+"``send_heartbeat(\"train_metrics\", {\"loss\": 0.1, \"accuracy\": "
+"0.95})``"
+msgstr ""
+"Sending a heartbeat message for training metrics "
 "send_heartbeat(\"train_metrics\", {\"loss\": 0.1, \"accuracy\": 0.95})"
 
 #: internlm.monitor.alert.send_heartbeat:13 of
-msgid "发送用于初始化时间的心跳消息"
-"send_heartbeat(\"init_time\", {\"import_time\": 0.25})"
-msgstr "Sending a heartbeat message for initialization time "
-"send_heartbeat(\"init_time\", {\"import_time\": 0.25})"
+msgid ""
+"Sending a heartbeat message for initialization time "
+"``send_heartbeat(\"init_time\", {\"import_time\": 0.25})``"
+msgstr ""
 
 #: internlm.monitor.alert.send_heartbeat:16 of
 msgid ""
-"发送用于阶段时间的心跳消息"
-"send_heartbeat(\"stage_time\", {\"fwd_time\": 2.3, \"bwd_time\": 6.2})"
-msgstr ""
 "Sending a heartbeat message for stage time "
-"send_heartbeat(\"stage_time\", {\"fwd_time\": 2.3, \"bwd_time\": 6.2})"
+"``send_heartbeat(\"stage_time\", {\"fwd_time\": 2.3, \"bwd_time\": "
+"6.2})``"
+msgstr ""
