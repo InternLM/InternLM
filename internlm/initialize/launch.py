@@ -478,15 +478,18 @@ def get_config_value(config, key, defalut):
 
 
 def try_bind_numa(launcher):
+    # check pacakge
     try:
         import numa
         from numa import memory, schedule
         from pynvml.smi import nvidia_smi
     except (AttributeError, ImportError):
-        logger.info(
-            "Try bind numa failed! Package import error, if numa is not installed, "
-            "please implement: pip install --upgrade py-libnuma"
-        )
+        global_rank = int(os.environ["SLURM_PROCID"]) if launcher == "slurm" else int(os.environ["RANK"])
+        if global_rank == 0:
+            logger.info(
+                "Try bind numa failed! Package import error, if numa is not installed, "
+                "please implement: pip install --upgrade py-libnuma"
+            )
         return
 
     # get numa node number
