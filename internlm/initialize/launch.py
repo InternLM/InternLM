@@ -6,9 +6,7 @@ import os
 from pathlib import Path
 from typing import Dict, Union
 
-import numa
 import torch
-from pynvml.smi import nvidia_smi
 
 from internlm.core.context import Config
 from internlm.core.context import global_context as gpc
@@ -480,6 +478,17 @@ def get_config_value(config, key, defalut):
 
 
 def try_bind_numa(launcher):
+    try:
+        import numa
+        from numa import memory, schedule
+        from pynvml.smi import nvidia_smi
+    except (AttributeError, ImportError):
+        logger.info(
+            "Try bind numa failed! Package import error, if numa is not installed, "
+            "please implement: pip install --upgrade py-libnuma"
+        )
+        return
+
     # get numa node number
     numa_node_num = numa.info.get_max_node() + 1
     # get total gpu number of current node
@@ -509,12 +518,7 @@ def try_bind_numa(launcher):
     per_numa = total_GPU_per_node // numa_node_num
     numa_id = local_rank // per_numa
 
-    try:
-        from numa import memory, schedule
-
-        schedule.run_on_nodes(numa_id)
-        memory.set_membind_nodes(numa_id)
-    except (AttributeError, ImportError):
-        return
-    else:
-        print(f"Rank: {global_rank} success bind process to numa node: {numa_id}", flush=True)
+    # bind numa node
+    schedule.run_on_nodes(numa_id)
+    memory.set_membind_nodes(numa_id)
+    logger.info(f"Rank: {global_rank} success bind process to numa node: {numa_id}")
