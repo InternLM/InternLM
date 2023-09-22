@@ -365,11 +365,12 @@ def launch(
             f"data parallel size: {gpc.data_parallel_size}, pipeline parallel size: {gpc.pipeline_parallel_size}, "
             f"tensor parallel size: {gpc.tensor_parallel_size}",
         )
-        logger.info(
-            f"Creating MoE with num_experts: {gpc.config.model.num_experts} | "
-            f"expert parallel size: {gpc.expert_parallel_size} | "
-            f"number of local experts: {gpc.config.model.num_experts//gpc.expert_parallel_size}"
-        )
+        if hasattr(gpc.config.model, "num_experts") and gpc.config.model.num_experts > 1:
+            logger.info(
+                f"Creating MoE with num_experts: {gpc.config.model.num_experts} | "
+                f"expert parallel size: {gpc.expert_parallel_size} | "
+                f"number of local experts: {gpc.config.model.num_experts//gpc.expert_parallel_size}"
+            )
 
 
 def launch_from_slurm(
