@@ -25,9 +25,6 @@ def initialize_light_monitor(monitor_address: str = None):
     Example:
         Initialize the monitoring module with the default address
         ``initialize_light_monitor()``
-
-        Initialize the monitoring module with a custom address
-        ``initialize_light_monitor("http://custom-monitor-address.com")``
     """
     try:
         from uniscale_monitoring import init_monitor
