@@ -59,7 +59,7 @@ CheckpointManager
 
 InternLM对config中出现的所有存储路径都遵循以下的路径格式约定:
 
-.. figure:: ../../imgs/ckpt_path_format_EN.png
+.. figure:: ../../imgs/ckpt_path_format_CN.png
   :scale: 30%
   :class: with-border
 

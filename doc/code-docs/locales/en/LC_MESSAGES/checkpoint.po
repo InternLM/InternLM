@@ -76,14 +76,14 @@ msgid ""
 "``load_ckpt_folder``: 初始化检查点/权重加载路径。参数类型 ``str``，默认为： ``None``，详见 :ref"
 ":`load-ckpt-folder`。"
 msgstr ""
-"``load_ckpt_folder1`: Initialization checkpoint/weight loading path. "
+"``load_ckpt_folder``: Initialization checkpoint/weight loading path. "
 "Parameter type: ``str``. Default is ``None``. :ref:`load-ckpt-folder`"
 
 #: ../../source/checkpoint.rst:21
 msgid "``async_upload``: 是否开启异步上传，默认值为：``False``，详见 :ref:`asyncupload`。"
 msgstr ""
 "``async_upload``: Whether to enable asynchronous uploading. See "
-"documentation for more details: ref:`asyncupload`."
+"documentation for more details :ref:`asyncupload`."
 
 #: ../../source/checkpoint.rst:23
 msgid "``async_upload_tmp_folder``: 异步上传临时存储路径。"
@@ -97,19 +97,19 @@ msgid ""
 ":ref:`snapshot`。"
 msgstr ""
 "``oss_snapshot_freq``: Snapshot storage frequency. See documentation for "
-"more details: ref:`snapshot`."
+"more details :ref:`snapshot`."
 
 #: ../../source/checkpoint.rst:27
 msgid "``auto_resume``: 是否开启检查点自动恢复，默认值为：``True``，详见 :ref:`autoresume`。"
 msgstr ""
 "``auto_resume``: Whether to enable automatic checkpoint resume. See "
-"documentation for more details: ref:`autoresume`."
+"documentation for more details :ref:`autoresume`."
 
 #: ../../source/checkpoint.rst:29
 msgid "``stop_file_path`` : 检查点存储控制文件的路径，默认值为：``None``，详见 :ref:`stopfile`。"
 msgstr ""
 "``stop_file_path``: Path to the checkpoint storage control file. See "
-"documentation for more details: ref:`stopfile`."
+"documentation for more details :ref:`stopfile`."
 
 #: ../../source/checkpoint.rst:32
 msgid "下面给出config文件的参数设置例子："
@@ -226,7 +226,7 @@ msgstr "``sampler``: Load sampler state."
 
 #: ../../source/checkpoint.rst:85
 msgid "``scheduler``：加载lr_scheduler状态。"
-msgstr ""
+msgstr "``scheduler``: Load lr_scheduler state."
 
 #: ../../source/checkpoint.rst:86
 msgid "``optimzier``：加载optimizer状态。"
@@ -381,7 +381,7 @@ msgstr ""
 
 #: ../../source/checkpoint.rst:155
 msgid "手动控制检查点存储"
-msgstr "anual control of checkpoint storage\""
+msgstr "Manual control of checkpoint storage"
 
 #: ../../source/checkpoint.rst:157
 msgid ""
@@ -409,37 +409,3 @@ msgstr ""
 #: ../../source/checkpoint.rst:164
 msgid "下面给出一个写入 ``stop_file_path`` 的例子："
 msgstr "An example of writing to ``stop_file_path`` is given below:"
-
-#~ msgid "Attempt to restore the training state of the last ckpt."
-#~ msgstr ""
-
-#~ msgid "lr_scheduler object."
-#~ msgstr ""
-
-#~ msgid "optimizer object."
-#~ msgstr ""
-
-#~ msgid "learning rate."
-#~ msgstr ""
-
-#~ msgid "traing states."
-#~ msgstr ""
-
-#~ msgid "traning dataloader object"
-#~ msgstr ""
-
-#~ msgid "Checkpointing"
-#~ msgstr ""
-
-#~ msgid "parameter"
-#~ msgstr ""
-
-#~ msgid "return"
-#~ msgstr ""
-
-#~ msgid "return type"
-#~ msgstr ""
-
-#~ msgid "``scheduler``: 加载lr_scheduler状态"
-#~ msgstr "``scheduler``: Load lr_scheduler status"
-
