@@ -9,12 +9,6 @@ from internlm.moe.experts import Experts
 from internlm.moe.sharded_moe import MOELayer, TopKGate
 from internlm.utils.logger import get_logger
 
-# Copyright (c) Microsoft Corporation.
-# SPDX-License-Identifier: Apache-2.0
-
-# DeepSpeed Team
-
-
 # global llm logger
 logger = get_logger(__file__)
 

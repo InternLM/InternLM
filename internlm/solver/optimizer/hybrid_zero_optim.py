@@ -538,8 +538,7 @@ class HybridZeroOptimizer(BaseOptimizer):
 
     def _compute_norm_with_moe_group(self, group_id):
         params = self._param_store.get_fp16_params_by_rank_group(group_id=group_id, rank=self._zero_local_rank)
-        # wo do not get the average grad for moe parameters, so we have to constuct the gradients list here.
-        # Maybe this can be optimized.
+        # we do not get the average grad for moe parameters, so we have to constuct the gradients list here.
         grads = [p.grad for p in params]
 
         if len(params) == 0:
@@ -696,14 +695,11 @@ class HybridZeroOptimizer(BaseOptimizer):
 
             # Parameters shared within a TP group, such as norm and moe gate, have precision inconsistency in gradients.
             # Therefore, it is recommended to synchronize gradients within the TP group to eliminate accumulated errors.
-            if self._is_norm_group(self.optim.param_groups[group_id]):
-                dist.all_reduce(
-                    flat_fp32_avg_grads,
-                    op=dist.ReduceOp.AVG,
-                    group=gpc.get_group(ParallelMode.TENSOR),
-                )
-
-            if self._is_gate_group(self.optim.param_groups[group_id]):
+            is_tp_sync_groups = (
+                self._is_norm_group(self.optim.param_groups[group_id]),
+                self._is_gate_group(self.optim.param_groups[group_id]),
+            )
+            if any(is_tp_sync_groups):
                 dist.all_reduce(
                     flat_fp32_avg_grads,
                     op=dist.ReduceOp.AVG,

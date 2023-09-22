@@ -646,7 +646,8 @@ class PipelineScheduler(BaseScheduler):
             return_loss (bool, optional): Whether returns the loss value. Default is true.
             return_output_label (bool, optional): If False, the output and label won't be returned.
         Returns:
-            Tuple[:class:`torch.Tensor`]: A tuple of (output, label, loss, loss), loss and label could be None.
+            Tuple[:class:`torch.Tensor`]: A tuple of (output, label, loss, moe_loss), loss and label could be None.
+                The loss would be returned only in the last stage. And the moe_loss is accumulated from all stages.
         """
 
         assert (
@@ -1316,8 +1317,8 @@ class InterleavedPipelineScheduler(PipelineScheduler):
             return_output_label (bool, optional): If False, the output and label won't be returned.
 
         Returns:
-            Tuple[:class:`torch.Tensor`]: A tuple of (output, label, loss), loss and label could be None.
-                The loss would be returned only in the last stage.
+            Tuple[:class:`torch.Tensor`]: A tuple of (output, label, loss, moe_loss), loss and label could be None.
+                The loss would be returned only in the last stage. And the moe_loss is accumulated from all stages.
         """
         assert (
             forward_only or return_loss
