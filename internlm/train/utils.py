@@ -1,7 +1,6 @@
 from typing import Dict, Tuple
 
 from internlm.core.context.parallel_context import global_context as gpc
-from internlm.model.utils import is_gate_param, is_moe_param, is_norm_param
 
 
 def split_params_into_different_groups_for_optimizer(param_groups: Tuple[Dict]) -> Tuple[Dict]:
@@ -27,6 +26,19 @@ def split_params_into_different_groups_for_optimizer(param_groups: Tuple[Dict]) 
         >>>     ...,
         >>> )
     """
+
+    def _get_group(param):
+        group_keys = ["is_expert", "is_gate", "is_norm"]
+        for i, key in enumerate(group_keys):
+            if hasattr(param, key) and getattr(param, key):
+                # experts param should return its group name
+                if i == 0:
+                    return param.group_name
+                else:
+                    return key[3:]
+        # TODO: deal with fp32 group
+        return None
+
     if isinstance(param_groups, tuple):
         param_groups = list(param_groups)  # Tuple cannot be modified
     elif isinstance(param_groups, dict):
@@ -34,46 +46,39 @@ def split_params_into_different_groups_for_optimizer(param_groups: Tuple[Dict]) 
     elif not isinstance(param_groups, list):
         raise ValueError(f"Unknown param group type of {type(param_groups)}")
 
-    new_groups = {}
+    new_groups = []
     for pgroup in param_groups:
-        new_groups[pgroup["name"]] = {}
+        current_groups = {}
 
         # create new groups for gate and norm
         for key in ["gate", "norm"]:
-            new_groups[pgroup["name"]][key] = {}
-            new_groups[pgroup["name"]][key]["name"] = key
-            new_groups[pgroup["name"]][key][key] = True
+            current_groups[key] = {"name": key, key: True, "params": []}
         # create moe groups
         for key in gpc.expert_parallel_group_names:
-            new_groups[pgroup["name"]][key] = {}
-            new_groups[pgroup["name"]][key]["name"] = key
-            new_groups[pgroup["name"]][key]["moe"] = True
+            current_groups[key] = {"name": key, "moe": True, "params": []}
 
         # copy attribute from origin group
         for ori_key in pgroup.keys():
-            for key in new_groups[pgroup["name"]].keys():
-                if ori_key != "name":
-                    if ori_key == "params":
-                        new_groups[pgroup["name"]][key][ori_key] = []
-                    else:
-                        new_groups[pgroup["name"]][key][ori_key] = pgroup[ori_key]
+            if ori_key not in ("name", "params"):
+                for _, group in current_groups.items():
+                    group[ori_key] = pgroup[ori_key]
+
         # Assign param
         origin_params = []
         for param in pgroup["params"]:
-            if is_moe_param(param):
-                new_groups[pgroup["name"]][param.group_name]["params"].append(param)
-            elif is_norm_param(param):
-                new_groups[pgroup["name"]]["norm"]["params"].append(param)
-            elif is_gate_param(param):
-                new_groups[pgroup["name"]]["gate"]["params"].append(param)
+            group = _get_group(param)
+            if group is not None:
+                current_groups[group]["params"].append(param)
             else:
                 origin_params.append(param)
 
         pgroup["params"] = origin_params
 
-    for _, v in new_groups.items():
-        for _, v1 in v.items():
-            param_groups.append(v1)
+        new_groups.append(current_groups)
+
+    for g in new_groups:
+        for _, v in g.items():
+            param_groups.append(v)
 
     return tuple(param_groups)
 
