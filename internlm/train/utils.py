@@ -8,7 +8,6 @@ from internlm.model.utils import is_gate_param, is_moe_param, is_norm_param
 
 def split_params_into_different_groups_for_optimizer(param_groups: Tuple[Dict]) -> Tuple[Dict]:
     """Split parameters into different MoE groups for optimizer
-    Compatiable with muiltiple param groups, each should have a name
 
     Args:
         param_groups (Tuple[Dict]): The list of parameter groups to split
@@ -41,7 +40,7 @@ def split_params_into_different_groups_for_optimizer(param_groups: Tuple[Dict]) 
     new_groups = {}
     new_groups["fp32"] = {"name": "fp32", "params": []}
     for key in ["gate", "norm"]:
-        new_groups[key] = {"name": key, "sync_tp": True, "params": []}
+        new_groups[key] = {"name": key, key: True, "params": []}
     for key in gpc.expert_parallel_group_names:
         new_groups[key] = {"name": key, "moe": True, "params": []}
 
