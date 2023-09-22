@@ -225,8 +225,6 @@ msgid ""
 "Initialize the monitoring module with a custom address "
 "``initialize_light_monitor(\"http://custom-monitor-address.com\")``"
 msgstr ""
-"Initialize the monitoring module with a custom address "
-"initialize_light_monitor(\"http://custom-monitor-address.com\")"
 
 #: internlm.monitor.alert.send_heartbeat:1 of
 msgid "Send a heartbeat message to a monitoring server."
@@ -249,8 +247,6 @@ msgid ""
 "``send_heartbeat(\"train_metrics\", {\"loss\": 0.1, \"accuracy\": "
 "0.95})``"
 msgstr ""
-"Sending a heartbeat message for training metrics "
-"send_heartbeat(\"train_metrics\", {\"loss\": 0.1, \"accuracy\": 0.95})"
 
 #: internlm.monitor.alert.send_heartbeat:13 of
 msgid ""
