@@ -96,7 +96,7 @@ class InternLMRotaryEmbedding(torch.nn.Module):
     def __init__(self, dim, max_position_embeddings=2048, base=10000, device=None):
         super().__init__()
         inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2).float().to(device) / dim))
-        self.register_buffer("inv_freq", inv_freq)
+        self.register_buffer("inv_freq", inv_freq, persistent=False)
 
         # Build here to make `torch.jit.trace` work.
         self.max_seq_len_cached = max_position_embeddings
@@ -769,9 +769,7 @@ class InternLMForCausalLM(InternLMPreTrainedModel):
     def build_inputs(self, tokenizer, query: str, history: List[Tuple[str, str]] = []):
         prompt = ""
         for record in history:
-            prompt += f"""<s><|User|>:{record[0]}<eoh>\n<|Bot|>:{record[1]}<eoa>\n"""
-        if len(prompt) == 0:
-            prompt += "<s>"
+            prompt += f"""<|User|>:{record[0]}<eoh>\n<|Bot|>:{record[1]}<eoa>\n"""
         prompt += f"""<|User|>:{query}<eoh>\n<|Bot|>:"""
         return tokenizer([prompt], return_tensors="pt")
     
@@ -869,7 +867,7 @@ class InternLMForCausalLM(InternLMPreTrainedModel):
             producer.start()
             while True:
                 res = response_queue.get()
-                if res is not None:
+                if res is None:
                     return
                 yield res
 
