@@ -186,7 +186,7 @@ def train(
         # do forward and backward
         timer("fwd-bwd").start()
 
-        _, _, loss = trainer.execute_schedule(batch, forward_only=False, return_loss=True, return_output_label=False)
+        _, _, loss, _ = trainer.execute_schedule(batch, forward_only=False, return_loss=True, return_output_label=False)
         if gpc.is_rank_for_log():
             assert loss is not None and not math.isnan(loss.item())
             global cur_loss_list
