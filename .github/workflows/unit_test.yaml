@@ -1,0 +1,43 @@
+name: unit-tests
+on: 
+  pull_request:
+    branches:
+      - "develop"
+    paths-ignore:
+      - "doc/**"
+      - "**.md"
+env:
+  SLURM_PARTITION: llm_s
+
+jobs:
+  optimizer:
+    runs-on: [t_cluster]
+    timeout-minutes: 40
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: test_optimizer
+      run: |
+        source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
+        srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 1 --gres=gpu:8 python -m pytest -s ./tests/test_solver/test_optimizer.py
+
+  model_accuracy:
+    runs-on: [t_cluster]
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: test_embedding
+      run: |
+        source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
+        srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 1 --gres=gpu:8 python -m pytest -s ./tests/test_model/test_embedding.py
+        
+    - name: test_model_internlm
+      run: |
+        source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
+        srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 1 --gres=gpu:8 python -m pytest -s ./tests/test_model/test_model_internlm.py
+        
+    - name: test_norm
+      run: |
+        source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
+        srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 1 --gres=gpu:8 python -m pytest -s ./tests/test_model/test_norm.py
