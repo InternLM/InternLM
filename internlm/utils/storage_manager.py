@@ -166,19 +166,18 @@ def compute_file_md5_by_chunk(file_name: str):
 
 
 def try_get_storage_backend(path: str):
-    sre = path.split(":", maxsplit=1)
-    if len(sre) == 1:
-        if path.startswith("s3:"):
-            backend = "boto3"
-            if gpc.is_rank_for_log():
-                logger.warning(f"path: '{path}' not start with backend prefix, guess it is the backend of boto3.")
-        else:
-            backend = "local"
+    if path.startswith("s3:"):
+        if gpc.is_rank_for_log():
+            logger.warning(f"path: '{path}' not start with backend prefix, guess it is the backend of boto3.")
+        return "boto3", path
+    else:
+        sre = path.split(":", maxsplit=1)
+        if len(sre) == 1:
             if gpc.is_rank_for_log():
                 logger.warning(f"path: '{path}' not start with backend prefix, guess it is the backend of local.")
-        return backend, sre
-    else:
-        return sre[0], sre[1]  # (backend_prefix, splited_path)
+            return "local", sre[0]
+        else:
+            return sre[0], sre[1]  # (backend_prefix, splited_path)
 
 
 class Boto3Client(StorageClient):
