@@ -24,7 +24,7 @@ InternLM 监控线程会周期性地检查模型训练过程中是否出现 loss
 轻量监控
 -----------------
 
-InternLM轻量级监控工具采用心跳机制实时监测训练过程中的各项指标，如loss、grad_norm、训练阶段的耗时等。同时，InternLM还可以通过dashboard直观地呈现这些指标信息，以便用户进行更加全面和深入的训练分析。
+InternLM轻量级监控工具采用心跳机制实时监测训练过程中的各项指标，如loss、grad_norm、训练阶段的耗时等。同时，InternLM还可以通过 `grafana dashboard <https://grafana.com/grafana/dashboards/>`_ 直观地呈现这些指标信息，以便用户进行更加全面和深入的训练分析。
 
 轻量监控的配置由配置文件中的 ``monitor`` 字段指定， 用户可以通过修改配置文件 `config file <https://github.com/InternLM/InternLM/blob/main/configs/7B_sft.py>`_ 来更改监控配置。以下是一个监控配置的示例：
 
