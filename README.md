@@ -16,6 +16,7 @@
 
 [![license](./doc/imgs/license.svg)](./LICENSE)
 [![evaluation](./doc/imgs/compass_support.svg)](https://github.com/internLM/OpenCompass/)
+[![Documentation Status](https://readthedocs.org/projects/internlm/badge/?version=latest)](https://internlm.readthedocs.io/zh_CN/latest/?badge=latest)
 
 [📘Usage](./doc/en/usage.md) |
 [🛠️Installation](./doc/en/install.md) |
@@ -32,26 +33,100 @@
 </div>
 
 <p align="center">
-    👋 join us on <a href="https://twitter.com/intern_lm" target="_blank">Twitter</a>, <a href="https://discord.gg/xa29JuW87d" target="_blank">Discord</a> and <a href="https://r.vansin.top/?r=internwx" target="_blank">WeChat</a>
+    👋 join us on <a href="https://discord.gg/xa29JuW87d" target="_blank">Discord</a> and <a href="https://github.com/InternLM/InternLM/assets/25839884/a6aad896-7232-4220-ac84-9e070c2633ce" target="_blank">WeChat</a>
 </p>
 
 ## Introduction
+InternLM is an open-sourced lightweight training framework aims to  support model pre-training without the need for extensive dependencies. With a single codebase, it supports pre-training on large-scale clusters with thousands of GPUs, and fine-tuning on a single GPU while achieving remarkable performance optimizations. InternLM achieves nearly 90% acceleration efficiency during training on 1024 GPUs.
 
-InternLM has open-sourced a 7 billion parameter base model and a chat model tailored for practical scenarios. The model has the following characteristics:
+Based on the InternLM training framework, we have released two open-sourced pretrained model InternLM-7B and InternLM-20B.
+
+
+## News
+
+[20230920] InternLM-20B is released with base and chat versions.  
+[20230822] InternLM-7B-Chat v1.1 is released with code interpreter and function calling capability. You can try it with [Lagent](https://github.com/InternLM/lagent).
+
+
+## Model Zoo
+
+Our models are released in three platforms: Transformers, ModelScope and OpenXLab.  
+
+| Model                     | Transformers                                                               | ModelScope                                                                                                                          | OpenXLab                                                                                                                                      | Release Date |
+|---------------------------|------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------|
+| **InternLM Chat 20B**     | [🤗internlm/internlm-chat-20b](https://huggingface.co/internlm/internlm-20b-chat)         | [<img src="./doc/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-chat-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-20b-chat/summary)         | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-20b)     | 2023-09-20   |
+| **InternLM 20B** | [🤗internlm/internlm-20b](https://huggingface.co/internlm/internlm-20b) | [<img src="./doc/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-20b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-20b) | 2023-09-20 |
+| **InternLM Chat 7B v1.1** | [🤗internlm/internlm-chat-7b-v1.1](https://huggingface.co/internlm/internlm-chat-7b-v1.1) | [<img src="./doc/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-chat-7b-v1_1](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-chat-7b-v1_1/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b-v1.1) | 2023-08-22   |
+| **InternLM 7B**           | [🤗internlm/internlm-7b](https://huggingface.co/internlm/internlm-7b)                     | [<img src="./doc/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-7b/summary)                     | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-7b)           | 2023-07-06   |
+| **InternLM Chat 7B**      | [🤗internlm/internlm-chat-7b](https://huggingface.co/internlm/internlm-chat-7b)           | [<img src="./doc/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-chat-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-chat-7b/summary)           | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b)      | 2023-07-06   |
+| **InternLM Chat 7B 8k**   | [🤗internlm/internlm-chat-7b-8k](https://huggingface.co/internlm/internlm-chat-7b-8k)     | [<img src="./doc/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-chat-7b-8k](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-chat-7b-8k/summary)     | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b-8k)   | 2023-07-06   |
+
+#### Introduction
+InternLM-20B was pre-trained on over **2.3T** Tokens containing high-quality English, Chinese, and code data. Additionally, the Chat version has undergone SFT and RLHF training, enabling it to better and more securely meet users' needs.
+
+In terms of model structure, InternLM-20B opted for a deeper architecture, with a depth set at 60 layers. This surpasses the conventional 7B and 13B models that utilize 32 or 40 layers. When parameters are limited, increasing the number of layers can enhance the model's overall capability. Furthermore, compared to InternLM-7B, the pre-training data used for InternLM-20B underwent higher quality cleansing and was supplemented with data rich in knowledge and designed for reinforcing understanding and reasoning capabilities. As a result, it exhibits significant improvements in understanding, reasoning, mathematical, and programming abilities—all of which test the technical proficiency of language models. Overall, InternLM-20B features the following characteristics:
+- Outstanding overall performance
+- Strong utility invocation capability
+- Supports a 16k context length (Through inference extrapolation)
+- Better value alignment.
+
+#### Performance Evaluation
+
+On the 5 capability dimensions proposed by OpenCompass, InternLM-20B has achieved excellent results (the bolded scores represent the best performances within the 13B-33B parameter range).
+
+| Capability | Llama-13B | Llama2-13B | Baichuan2-13B | InternLM-20B | Llama-33B | Llama-65B | Llama2-70B |
+|----------|-----------|------------|---------------|--------------|-----------|-----------|------------|
+| Language     | 42.5      | 47         | 47.5          | **55**           | 44.6      | 47.1      | 51.6       |
+| Knowledge     | 58.2      | 58.3       | 48.9          | 60.1         | **64**        | 66        | 67.7       |
+| Understanding     | 45.5      | 50.9       | 58.1          | **67.3**         | 50.6      | 54.2      | 60.8       |
+| Reasoning     | 42.7      | 43.6       | 44.2          | **54.9**         | 46.4      | 49.8      | 55         |
+| Examination     | 37.3      | 45.2       | 51.8          | **62.5**         | 47.4      | 49.7      | 57.3       |
+| Overall   | 43.8      | 47.3       | 49.4          | **59.2**         | 48.9      | 51.9      | 57.4       |
+
+The table below compares the performance of mainstream open-source models on some influential and typical datasets.
+
+|      | Benchmarks           | Llama-13B | Llama2-13B | Baichuan2-13B | InternLM-20B | Llama-33B | Llama-65B | Llama2-70B |
+|------|------------------|-----------|------------|---------------|--------------|-----------|-----------|------------|
+| Examination | MMLU             | 47.73     | 54.99      | 59.55         | **62.05**        | 58.73     | 63.71     | 69.75      |
+|      | C-Eval (val)     | 31.83     | 41.4       | **59.01**         | 58.8         | 37.47     | 40.36     | 50.13      |
+|      | AGI-Eval         | 22.03     | 30.93      | 37.37         | **44.58**        | 33.53     | 33.92     | 40.02      |
+| Knowledge | BoolQ            | 78.75     | 82.42      | 67            | **87.46**        | 84.43     | 86.61     | 87.74      |
+|      | TriviaQA         | 52.47     | 59.36      | 46.61         | 57.26        | **66.24**     | 69.79     | 70.71      |
+|      | NaturalQuestions | 20.17     | 24.85      | 16.32         | 25.15        | **30.89**     | 33.41     | 34.16      |
+| Understanding | CMRC             | 9.26      | 31.59      | 29.85         | **68.78**        | 14.17     | 34.73     | 43.74      |
+|      | CSL              | 55        | 58.75      | 63.12         | **65.62**        | 57.5      | 59.38     | 60         |
+|      | RACE (middle)    | 53.41     | 63.02      | 68.94         | **86.35**        | 64.55     | 72.35     | 81.55      |
+|      | RACE (high)      | 47.63     | 58.86      | 67.18         | **83.28**        | 62.61     | 68.01     | 79.93      |
+|      | XSum             | 20.37     | 23.37      | 25.23         | **35.54**        | 20.55     | 19.91     | 25.38      |
+| Reasoning | WinoGrande       | 64.64     | 64.01      | 67.32         | **69.38**        | 66.85     | 69.38     | 69.77      |
+|      | BBH              | 37.93     | 45.62      | 48.98         | **52.51**        | 49.98     | 58.38     | 64.91      |
+|      | GSM8K            | 20.32     | 29.57      | **52.62**         | **52.62**        | 42.3      | 54.44     | 63.31      |
+|      | PIQA             | 79.71     | 79.76      | 78.07         | 80.25        | **81.34**     | 82.15     | 82.54      |
+| Programming | HumanEval        | 14.02     | 18.9       | 17.07         | **25.61**        | 17.68     | 18.9      | 26.22      |
+|      | MBPP             | 20.6      | 26.8       | 30.8          | **35.6**         | 28.4      | 33.6      | 39.6       |
+
+Overall, InternLM-20B comprehensively outperforms open-source models in the 13B parameter range in terms of overall capabilities, and on inference evaluation sets, it approaches or even surpasses the performance of Llama-65B.
+
+- The evaluation results were obtained from [OpenCompass 20230920](https://github.com/internLM/OpenCompass/).
+- The evaluation data may have numerical differences due to the version iteration of [OpenCompass](https://github.com/internLM/OpenCompass/), so please refer to the latest evaluation results of [OpenCompass](https://github.com/internLM/OpenCompass/).
+
+</details>
+
+
+<details> 
+<summary> InternLM-7B </summary>
+
+#### News
+[20230822] By utilizing richer SFT-type data, the InternLM-7B-Chat v1.1 model supports code interpretation and function invocation. The model structure and code remain unchanged, so the more powerful InternLM-7B-Chat v1.1 can be used in exactly the same way as InternLM-7B-Chat.
+
+#### Introduction
+InternLM-7B contains a 7 billion parameter base model and a chat model tailored for practical scenarios. The model has the following characteristics:
 
 - It leverages trillions of high-quality tokens for training to establish a powerful knowledge base.
 - It supports an 8k context window length, enabling longer input sequences and stronger reasoning capabilities.
 - It provides a versatile toolset for users to flexibly build their own workflows.
 
-Additionally, a lightweight training framework is offered to support model pre-training without the need for extensive dependencies. With a single codebase, it supports pre-training on large-scale clusters with thousands of GPUs, and fine-tuning on a single GPU while achieving remarkable performance optimizations. InternLM achieves nearly 90% acceleration efficiency during training on 1024 GPUs.
-
-## News
-
-InternLM-7B-Chat v1.1 is released with code interpreter and function calling capability. You can try it with [Lagent](https://github.com/InternLM/lagent).
-
-## InternLM-7B
-
-### Performance Evaluation
+#### Performance Evaluation
 
 We conducted a comprehensive evaluation of InternLM using the open-source evaluation tool [OpenCompass](https://github.com/internLM/OpenCompass/). The evaluation covered five dimensions of capabilities: disciplinary competence, language competence, knowledge competence, inference competence, and comprehension competence. Here are some of the evaluation results, and you can visit the [OpenCompass leaderboard](https://opencompass.org.cn/rank) for more evaluation results.
 
@@ -71,18 +146,11 @@ We conducted a comprehensive evaluation of InternLM using the open-source evalua
 - The evaluation results were obtained from [OpenCompass 20230706](https://github.com/internLM/OpenCompass/) (some data marked with *, which means come from the original papers), and evaluation configuration can be found in the configuration files provided by [OpenCompass](https://github.com/internLM/OpenCompass/).
 - The evaluation data may have numerical differences due to the version iteration of [OpenCompass](https://github.com/internLM/OpenCompass/), so please refer to the latest evaluation results of [OpenCompass](https://github.com/internLM/OpenCompass/).
 
-### Model Zoo
-
-InternLM 7B and InternLM 7B Chat, trained using InternLM, have been open-sourced. We provide two formats of model weights for use. In addition to loading the models using the Transformers format, you can also load the weights directly using InternLM for further pre-training or human preference alignment training.
-
-| Model                         | InternLM Format Weight Download Link                                                                                                                 | Transformers Format Weight Download Link                                         |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| **InternLM 7B**         | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-7b)         | [🤗internlm/intern-7b](https://huggingface.co/internlm/internlm-7b)                 |
-| **InternLM Chat 7B v1.1**    | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b-v1.1)    | [🤗internlm/intern-chat-7b-v1.1](https://huggingface.co/internlm/internlm-chat-7b-v1.1)       |
-| **InternLM Chat 7B**    | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b)    | [🤗internlm/intern-chat-7b](https://huggingface.co/internlm/internlm-chat-7b)       |
-| **InternLM Chat 7B 8k** | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b-8k) | [🤗internlm/intern-chat-7b-8k](https://huggingface.co/internlm/internlm-chat-7b-8k) |
+</details>
 
 **Limitations:** Although we have made efforts to ensure the safety of the model during the training process and to encourage the model to generate text that complies with ethical and legal requirements, the model may still produce unexpected outputs due to its size and probabilistic generation paradigm. For example, the generated responses may contain biases, discrimination, or other harmful content. Please do not propagate such content. We are not responsible for any consequences resulting from the dissemination of harmful information.
+
+## Usage Examples
 
 ### Import from Transformers
 
@@ -107,6 +175,23 @@ Sure, here are three tips for effective time management:
 Remember, good time management skills take practice and patience. Start with small steps and gradually incorporate these habits into your daily routine.
 ```
 
+### Import from ModelScope
+
+To load the InternLM model using ModelScope, use the following code:
+
+```python
+from modelscope import snapshot_download, AutoTokenizer, AutoModelForCausalLM
+import torch
+model_dir = snapshot_download('Shanghai_AI_Laboratory/internlm-chat-7b-v1_1', revision='v1.0.0')
+tokenizer = AutoTokenizer.from_pretrained(model_dir, device_map="auto", trust_remote_code=True,torch_dtype=torch.float16)
+model = AutoModelForCausalLM.from_pretrained(model_dir,device_map="auto",  trust_remote_code=True,torch_dtype=torch.float16)
+model = model.eval()
+response, history = model.chat(tokenizer, "hello", history=[])
+print(response)
+response, history = model.chat(tokenizer, "please provide three suggestions about time management", history=history)
+print(response)
+```
+
 ### Dialogue
 
 You can interact with the InternLM Chat 7B model through a frontend interface by running the following code:
@@ -123,45 +208,27 @@ The effect is as follows
 
 ### Deployment
 
-We use [LMDeploy](https://github.com/InternLM/LMDeploy) to complete the workflow of InternLM deployment.
+We use [LMDeploy](https://github.com/InternLM/LMDeploy) to complete the one-click deployment of InternLM.
 
-```bash
-python3 -m pip install lmdeploy
+1. First, install LMDeploy:
+
+```
+  python3 -m pip install lmdeploy
 ```
 
-You can utilize the following commands to conduct `internlm-chat-7b` FP16 inference, serve it and interact with AI assistant via WebUI:
+2. Use the following command for quick deployment:
 
-```bash
-# convert weight layout
-python3 -m lmdeploy.serve.turbomind.deploy internlm-chat-7b
-
-# inference lmdeploy's turbomind engine
-python3 -m lmdeploy.turbomind.chat ./workspace
-
-# serving with gradio
-python3 -m lmdeploy.serve.gradio.app ./workspace
+```
+  python3 -m lmdeploy.serve.turbomind.deploy InternLM-7B /path/to/internlm-7b/model hf
 ```
 
-You can also deploy 4-bit quantized `internlm-chat-7b` model via LMDeploy. It greatly trims down the model's memory overhead to 6G, just 40% of what FP16 inference would take. More importantly, with extreme optimized kernel, the inference performance achieves 2.4x faster than FP16 inference on A100-80G.
+3. After exporting the model, you can start a server and have a conversation with the deployed model using the following command:
 
-Try the followings to enjoy 4-bit `internlm-chat-7b` on a Geforce RTX 30x GPU card. You can find the inference benchmark from [here](https://github.com/InternLM/lmdeploy/blob/main/docs/en/w4a16.md#inference-performance).
-
-```bash
-# download prequnantized internlm-chat-7b model from huggingface
-git-lfs install
-git clone https://huggingface.co/lmdeploy/llama2-chat-7b-w4
-
-# Convert the model's layout and store it in the default path, ./workspace.
-python3 -m lmdeploy.serve.turbomind.deploy internlm-chat-7b ./llama2-chat-7b-w4 awq --group-size 128
-
-# inference lmdeploy's turbomind engine
-python3 -m lmdeploy.turbomind.chat ./workspace
-
-# serving with gradio
-python3 -m lmdeploy.serve.gradio.app ./workspace
+```
+  python3 -m lmdeploy.serve.client {server_ip_addresss}:33337
 ```
 
-LMDeploy is an efficient toolkit for compressing, deploying, and serving LLM models. Please refer to the [deployment tutorial](https://github.com/InternLM/LMDeploy) for more details on deploying InternLM.
+[LMDeploy](https://github.com/InternLM/LMDeploy) provides a complete workflow for deploying InternLM. Please refer to the [deployment tutorial](https://github.com/InternLM/LMDeploy) for more details on deploying InternLM.
 
 ## Fine-tuning & Training
 

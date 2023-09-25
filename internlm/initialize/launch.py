@@ -2,6 +2,7 @@
 # -*- encoding: utf-8 -*-
 
 import argparse
+import gc
 import os
 from pathlib import Path
 from typing import Dict, Union
@@ -13,6 +14,7 @@ from internlm.core.context import global_context as gpc
 from internlm.monitor import initialize_light_monitor
 from internlm.utils.common import get_master_node
 from internlm.utils.logger import get_logger
+from internlm.utils.timeout import llm_timeout
 
 logger = get_logger(__file__)
 
@@ -22,7 +24,7 @@ def get_default_parser():
     Input arguments include configuration, host, port, world size, local rank, backend for torch.distributed.
 
     Returns:
-       Namespace: Returns the parser with the default arguments, the user may add customized arguments into this parser.
+       Parser: Returns the parser with the default arguments, the user may add customized arguments into this parser.
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, help="path to the config file")
@@ -96,6 +98,13 @@ def args_sanity_check():
 
     if "valid_every" not in data:
         data._add_item("valid_every", 0)
+
+    if "empty_cache_and_diag_interval" not in data:
+        data._add_item("empty_cache_and_diag_interval", 50)
+
+    if "diag_outlier_ratio" not in data:
+        data._add_item("diag_outlier_ratio", 1.1)
+    data.diag_outlier_ratio = max(1, data.diag_outlier_ratio)
 
     if gpc.is_rank_for_log():
         logger.info("+" * 15 + " Data Info " + "+" * 15)  # pylint: disable=W1201
@@ -252,6 +261,12 @@ def args_sanity_check():
         assert not (
             gpc.config.parallel.sequence_parallel is True and gpc.config.model.use_flash_attn is False
         ), "sequence parallel does not support use_flash_attn=False"
+
+    # currently only interleaved pipeline scheduler with overlap can guarantee loss accuracy
+    if hasattr(gpc.config.model, "num_chunks") and gpc.config.model.num_chunks > 1:
+        assert (
+            gpc.config.parallel["pipeline"].get("interleaved_overlap", False) is True
+        ), "only support interleaved pipeline scheduler with overlap"
 
     # monitoring default config
     monitor_default_config = {
@@ -415,6 +430,7 @@ def launch_from_torch(
     )
 
 
+@llm_timeout(func_name="initialize_distributed_env")
 def initialize_distributed_env(
     config: str,
     launcher: str = "slurm",
@@ -431,6 +447,8 @@ def initialize_distributed_env(
         master_port (str): The master port for distributed training. 8888 by default.
         seed (int, optional): Specified random seed for every process. 1024 by default.
     """
+    # close automatic garbage collection
+    gc.disable()
 
     torch.cuda.empty_cache()
 

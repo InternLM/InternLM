@@ -1,0 +1,198 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, InternLM Team
+# This file is distributed under the same license as the InternLM package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: InternLM \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-09-07 10:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: en\n"
+"Language-Team: en <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.12.1\n"
+
+#: ../../source/monitor.rst:2 f95ef3bff8574c77a28ca2f6212cc4b8
+msgid "监控和告警"
+msgstr "Monitor and Alert"
+
+#: ../../source/monitor.rst:5 959bd4a6061f4483875c7950ab4546cf
+msgid "监控"
+msgstr "Monitoring"
+
+#: ../../source/monitor.rst:7 6071bc878d894865b73380cb887847c1
+msgid ""
+"InternLM 使用 ``internlm.monitor.monitor.initialize_monitor_manager()`` "
+"来初始化上下文监控管理。其中，一个实例化的单例对象 ``internlm.monitor.monitor.MonitorManager`` "
+"将管理监控线程并使用 ``internlm.monitor.monitor.MonitorTracker`` 来跟踪模型训练生命周期和训练状态。"
+msgstr ""
+"InternLM uses ``internlm.monitor.monitor.initialize_monitor_manager()`` to initialize context monitor. During this time, "
+"a singleton ``internlm.monitor.monitor.MonitorManager`` will manage monitoring thread and track training status "
+"with ``internlm.monitor.monitor.MonitorTracker``."
+
+#: 9256a063b6dd449786f29e03ce085176
+#: internlm.monitor.monitor.initialize_monitor_manager:1 of
+msgid ""
+"Initialize monitor manager for monitoring training lifetime and alerting "
+"exception info to Feishu."
+msgstr ""
+
+#: 138340fca72a4226be901f7f16c8a590 904b7938fdea46bf81c1ef738aa7bfae
+#: 9ed2a7b4af2243b289e72b2751aec902 aa0dd0dc6bee4a5bb15cc9705f7c13ee
+#: internlm.monitor.alert.send_feishu_msg_with_webhook
+#: internlm.monitor.monitor.MonitorManager.start_monitor
+#: internlm.monitor.monitor.MonitorTracker
+#: internlm.monitor.monitor.initialize_monitor_manager of
+msgid "参数"
+msgstr ""
+
+#: 3b302339e1d143b6b1d782ff59c9396d 6a06f053828b4c80aef56970750e2085
+#: internlm.monitor.monitor.MonitorManager.start_monitor:3
+#: internlm.monitor.monitor.initialize_monitor_manager:3 of
+msgid "The training job name."
+msgstr ""
+
+#: 3330d06145ee4d35b0b3632e799a35b3 c105473f2f6a4f838a9f0d098762d698
+#: internlm.monitor.monitor.MonitorManager.start_monitor:5
+#: internlm.monitor.monitor.initialize_monitor_manager:5 of
+msgid "The Feishu webhook address for sending alert messages."
+msgstr ""
+
+#: 774c6ff82a2e452295a1a7dcabaded3d internlm.monitor.monitor.MonitorManager:1
+#: of
+msgid ""
+"Monitor Manager for managing monitor thread and monitoring training "
+"status."
+msgstr ""
+
+#: 72e696c0ce8f41ea8c7947d35cf322f0
+#: internlm.monitor.monitor.MonitorManager.monitor_loss_spike:1 of
+msgid "Check loss value, if loss spike occurs, send alert message to Feishu."
+msgstr ""
+
+#: 2b668b057fa84e8b92c65bfd49bfb3e9
+#: internlm.monitor.monitor.MonitorManager.monitor_exception:1 of
+msgid "Catch and format exception information, send alert message to Feishu."
+msgstr ""
+
+#: 9852b7143026476d89e1a175223e6d79
+#: internlm.monitor.monitor.MonitorManager.handle_sigterm:1 of
+msgid "Catch SIGTERM signal, and send alert message to Feishu."
+msgstr ""
+
+#: 2e3827bad7b1445fb0d9a7c5a28def5d
+#: internlm.monitor.monitor.MonitorManager.start_monitor:1 of
+msgid ""
+"Initialize and start monitor thread for checking training job status, "
+"loss spike and so on."
+msgstr ""
+
+#: 271cc3e1b0834a7ba6a1ba4d5cce0ef1
+#: internlm.monitor.monitor.MonitorManager.start_monitor:7 of
+msgid "The time of monitor interval in seconds, defaults to 300."
+msgstr ""
+
+#: e4a06091fce8401b83e31ce26c8075a0
+#: internlm.monitor.monitor.MonitorManager.start_monitor:9 of
+msgid ""
+"The limit multiple of current loss to previous loss value, which means "
+"loss spike may be occurs, defaults to 1.5."
+msgstr ""
+
+#: 28bde748477e41f39fa6ca3e1855923d
+#: internlm.monitor.monitor.MonitorManager.stop_monitor:1 of
+msgid "Stop the monitor and alert thread."
+msgstr ""
+
+#: ffb3dda227664748bdb326b6630bc827 internlm.monitor.monitor.MonitorTracker:1
+#: of
+msgid "Track job status and alert to Feishu during job training."
+msgstr ""
+
+#: a1e93683cbb04d8ab825e2776e76efa7 internlm.monitor.monitor.MonitorTracker:3
+#: of
+msgid "The Feishu webhook address for sending alerting messages."
+msgstr ""
+
+#: 7913eeecc0904c128046e80cec1553f2 internlm.monitor.monitor.MonitorTracker:5
+#: of
+msgid "The interval in seconds for monitoring checks. Defaults to 300."
+msgstr ""
+
+#: 8d1abc3067584866983139dd3d85c59c internlm.monitor.monitor.MonitorTracker:7
+#: of
+msgid "The threshold for detecting loss value spikes. Defaults to 1.5."
+msgstr ""
+
+#: a0416fd68700450793daa2167f776618
+#: internlm.monitor.monitor.MonitorTracker.run:1 of
+msgid "start the monitor tracker."
+msgstr ""
+
+#: f55eb990c07b4e8f9388236dd60f0017
+#: internlm.monitor.monitor.MonitorTracker.stop:1 of
+msgid "Stop the monitor tracker."
+msgstr ""
+
+#: ../../source/monitor.rst:18 2202bc091aab417097a1b0268dfe6785
+msgid "告警"
+msgstr "Alerting"
+
+#: ../../source/monitor.rst:20 69334f83e644455aa619dde70b8ed1f2
+msgid ""
+"InternLM 监控线程会周期性地检查模型训练过程中是否出现 loss spike、潜在的 training stuck、运行时异常等，并捕获 "
+"SIGTERM 异常信号。当出现上述情况时，将触发警报，并通过调用 "
+"``internlm.monitor.alert.send_feishu_msg_with_webhook()`` 向飞书的 Webhook "
+"地址发送报警消息。"
+msgstr ""
+"InternLM monitor thread periodically tracks loss spike, potential stuck condition, runtime exception, and SIGTERM signal. "
+"When above situation occurs, an alert will be triggered and a message will be sent to the Feishu webhook address by calling "
+"``internlm.monitor.alert.send_feishu_msg_with_webhook()``."
+
+#: 15980526c2fa4ed8befa1604f271a3f1
+#: internlm.monitor.alert.send_feishu_msg_with_webhook:1 of
+msgid "Use Feishu robot to send messages with the given webhook."
+msgstr ""
+
+#: 38e5738c2b914c8096e1a0f345e6c0b4
+#: internlm.monitor.alert.send_feishu_msg_with_webhook:3 of
+msgid "The webhook to be used to send message."
+msgstr ""
+
+#: 4984f1a3bb0d46b48b2aad4fba8b43d9
+#: internlm.monitor.alert.send_feishu_msg_with_webhook:5 of
+msgid "The message title."
+msgstr ""
+
+#: a9822a4cf30d4947b12f70a0efe62a5e
+#: internlm.monitor.alert.send_feishu_msg_with_webhook:7 of
+msgid "The message body."
+msgstr ""
+
+#: 57d9ab65fe9f45c28351839fecf2f31e
+#: internlm.monitor.alert.send_feishu_msg_with_webhook of
+msgid "返回"
+msgstr ""
+
+#: 2b6ac97fd152498183a8624a9087812b
+#: internlm.monitor.alert.send_feishu_msg_with_webhook:10 of
+msgid "The response from the request. Or catch the exception and return None."
+msgstr ""
+
+#: ec45dedf976046eb909f5b7f79a7d44c
+#: internlm.monitor.alert.send_feishu_msg_with_webhook of
+msgid "抛出"
+msgstr ""
+
+#: 4c6aeec19a6041cfbfa577b1c5a85ac1
+#: internlm.monitor.alert.send_feishu_msg_with_webhook:12 of
+msgid "An exception rasied by the HTTP post request."
+msgstr ""
+

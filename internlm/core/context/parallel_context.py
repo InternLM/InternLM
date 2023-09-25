@@ -18,6 +18,7 @@ import torch.distributed as dist
 
 from internlm.utils.common import SingletonMeta
 from internlm.utils.logger import get_logger
+from internlm.utils.timeout import LLM_NCCL_TIMEOUT
 
 from . import process_group_initializer as pgroup_initializer
 from .process_group_initializer import ParallelMode
@@ -374,12 +375,22 @@ class ParallelContext(metaclass=SingletonMeta):
         """
         # initialize the default process group
         init_method = f"tcp://[{host}]:{port}"
-        dist.init_process_group(rank=rank, world_size=world_size, backend=backend, init_method=init_method)
+        dist.init_process_group(
+            rank=rank,
+            world_size=world_size,
+            backend=backend,
+            init_method=init_method,
+            timeout=LLM_NCCL_TIMEOUT,
+        )
 
         # None will give the default global process group for pytorch dist operations
         ranks = list(range(world_size))
         if use_cpu:
-            cpu_group = dist.new_group(ranks, backend="gloo") if dist.get_backend() != "gloo" else None
+            cpu_group = (
+                dist.new_group(ranks, backend="gloo", timeout=LLM_NCCL_TIMEOUT)
+                if dist.get_backend() != "gloo"
+                else None
+            )
         else:
             cpu_group = None
         self._register_dist(rank, world_size, dist.GroupMember.WORLD, cpu_group, ranks, ParallelMode.GLOBAL)

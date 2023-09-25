@@ -2,7 +2,6 @@
 # -*- encoding: utf-8 -*-
 
 import copy
-import fcntl
 import inspect
 import os
 import socket
@@ -33,6 +32,7 @@ from internlm.utils.storage_manager import (
     llm_save,
     try_get_storage_backend,
 )
+from internlm.utils.timeout import llm_timeout
 
 logger = get_logger(__file__)
 
@@ -447,8 +447,8 @@ class CheckpointManager:
 
         Args:
             ckpt_config (dict): model checkpoint config.
-            model (nn.module): model obj
-            optimizer (object): optimzier obj.
+            model (nn.module): model obj.
+            optimizer (object): optimizer obj.
             lr_scheduler (object): lr_scheduler obj.
             model_config (dict): model config.
         """
@@ -544,12 +544,17 @@ class CheckpointManager:
         if self.stop_file_path is None:
             return now_break, now_save_ckpt, save_type
 
-        with open(self.stop_file_path, "a+", encoding="utf-8") as f:
-            fcntl.flock(f, fcntl.LOCK_EX)
-            f.seek(0)
-            msg = f.read()
-            fcntl.flock(f, fcntl.LOCK_UN)
-            action_step = int(msg)
+        with torch.no_grad():
+            action_step_t = torch.zeros((1,), dtype=torch.int64).cuda()
+            if gpc.get_global_rank() == 0:
+                with open(self.stop_file_path, "r+", encoding="utf-8") as f:
+                    f.seek(0)
+                    msg = f.read()
+                    action_step_t.fill_(int(msg))
+
+            torch.distributed.broadcast(action_step_t, src=0)
+            action_step = action_step_t.item()
+            del action_step_t
 
         if action_step < 0 and abs(action_step) == train_state.step_count:
             now_save_ckpt = True
@@ -626,41 +631,50 @@ now step_count is {train_state.step_count}",
             return None, None
 
         max_normal_step = 0
-        ckpt_list = list(map(lambda a: int(a.strip("/")) if a.strip("/").isdigit() else 0, ckpt_list))
-        ckpt_list.sort(reverse=True)
-        for ckpt in ckpt_list:
-            fns_list = self.storage_manager.get_fns(os.path.join(self.save_ckpt_folder, str(ckpt)))
-            for fn in fns_list:
-                if fn.endswith(".step"):
-                    max_normal_step = ckpt
+        # Return ckpt_list look like: ['pings', 'snapshot', '4']
+        # Here we only try to find the ckpt folder named after step, ignoring snapshot and other folders.
+        ckpt_list = [int(fn.strip("/")) for fn in ckpt_list if fn.strip("/").isdigit()]
+        if len(ckpt_list) == 0:
+            logger.warning("Not found avaliable normal checkpoint!")
+        else:
+            logger.info(f"Found avaliable normal checkpoint: {ckpt_list}!")
+            ckpt_list.sort(reverse=True)
+            for ckpt in ckpt_list:
+                fns_list = self.storage_manager.get_fns(os.path.join(self.save_ckpt_folder, str(ckpt)))
+                for fn in fns_list:
+                    if fn.endswith(".step"):
+                        max_normal_step = ckpt
+                        break
+                if max_normal_step != 0:
                     break
-            if max_normal_step != 0:
-                break
 
-        max_normal_step = ckpt_list[0]
-        load_normal_ckpt_path = os.path.join(self.save_ckpt_folder, str(max_normal_step))
+            max_normal_step = ckpt_list[0]
+            load_normal_ckpt_path = os.path.join(self.save_ckpt_folder, str(max_normal_step))
 
         snapshot_path_0 = os.path.join(self.save_ckpt_folder, "snapshot", "0")
         snapshot_path_1 = os.path.join(self.save_ckpt_folder, "snapshot", "1")
-        ckpt_list_1 = self.storage_manager.get_fns(snapshot_path_0)
-        ckpt_list_2 = self.storage_manager.get_fns(snapshot_path_1)
-        max_step_0, max_step_1 = 0, 0
-        if ckpt_list_1:
-            for ckpt in ckpt_list_1:
-                ckpt = ckpt.strip("/")
-                if ckpt.endswith(".step"):
-                    max_step_0 = max(max_step_0, int(ckpt.split(".")[0]))
-        if ckpt_list_2:
-            for ckpt in ckpt_list_2:
-                ckpt = ckpt.strip("/")
-                if ckpt.endswith(".step"):
-                    max_step_1 = max(max_step_1, int(ckpt.split(".")[0]))
+        ckpt_list_0 = self.storage_manager.get_fns(snapshot_path_0)
+        ckpt_list_1 = self.storage_manager.get_fns(snapshot_path_1)
 
-        snap_load_path = snapshot_path_0 if max_step_0 > max_step_1 else snapshot_path_1
-        snap_step = max(max_step_0, max_step_1)
-        load_path = snap_load_path if snap_step > max_normal_step else load_normal_ckpt_path
-        load_step = max(snap_step, max_normal_step)
-        return load_path, load_step
+        def found_latest_snapshot(_ckpt_list):
+            _max_step_snapshot = 0
+            if _ckpt_list:
+                for ckpt in _ckpt_list:
+                    ckpt = ckpt.strip("/")
+                    if ckpt.endswith(".step"):
+                        _max_step_snapshot = max(_max_step_snapshot, int(ckpt.split(".")[0]))
+            return _max_step_snapshot
+
+        max_step_0 = found_latest_snapshot(ckpt_list_0)
+        max_step_1 = found_latest_snapshot(ckpt_list_1)
+
+        if sum([max_step_0, max_step_1, max_normal_step]) == 0:
+            return None, None
+        else:
+            snap_load_path = snapshot_path_0 if max_step_0 > max_step_1 else snapshot_path_1
+            snap_step = max(max_step_0, max_step_1)
+            load_path = snap_load_path if snap_step > max_normal_step else load_normal_ckpt_path
+            return load_path, max(snap_step, max_normal_step)
 
     def query_latest_snapshot_step_local(self):
         max_step, max_step_path = 0, None
@@ -698,7 +712,6 @@ now step_count is {train_state.step_count}",
         return dict(path=latest_ckpt, content=("all",), ckpt_type="internlm")
 
     def try_resume_training(self, train_state: TrainState, current_time=""):
-
         if self.load_ckpt_info is None or self.load_ckpt_info["path"] is None:
             if gpc.is_rank_for_log():
                 logger.info(
@@ -727,6 +740,7 @@ now step_count is {train_state.step_count}",
                 if load_content_str:
                     logger.info(f"===========Load contents are: {load_content_str}")
 
+    @llm_timeout(func_name="save_checkpoint")
     def save_checkpoint(
         self,
         folder,

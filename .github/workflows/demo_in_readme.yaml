@@ -9,11 +9,11 @@ on:
       - "**.md"
 env:
   WORKSPACE_PREFIX: $(echo $GITHUB_WORKSPACE |cut -d '/' -f 1-4)
-  SLURM_PARTITION: llm
+  SLURM_PARTITION: llm_s
 
 jobs:
   check-requirements:
-    runs-on: [lmtest]
+    runs-on: [t_cluster]
     steps:
     - name: mask env
       run: |
@@ -37,7 +37,7 @@ jobs:
   dataset-preparation:
     if: ${{ always() }}
     needs: check-requirements
-    runs-on: [lmtest]
+    runs-on: [t_cluster]
     steps:
     - name: mask env
       run: |
@@ -57,7 +57,7 @@ jobs:
   train:
     if: ${{ always() }}
     needs: check-requirements
-    runs-on: [lmtest]
+    runs-on: [t_cluster]
     timeout-minutes: 30
     steps:
     - name: mask env
@@ -83,18 +83,19 @@ jobs:
         source activate internlm-env-test
         export PYTHONPATH=$PWD:$PYTHONPATH
         sh ./ci_scripts/train/load_ckpt.sh 7B_load_new_ckpt ${GITHUB_RUN_ID}-${GITHUB_JOB}
-        rm -rf $GITHUB_WORKSPACE/llm_ckpts
+        rsync -av --remove-source-files $GITHUB_WORKSPACE/llm_ckpts ${{env.WORKSPACE_PREFIX}}/ci_clean_bak 
 
     - name: torchrun-train
       run: |
         source activate internlm-env-test
         sh ./ci_scripts/train/torchrun.sh ${GITHUB_RUN_ID}-${GITHUB_JOB}
-        rm -rf $GITHUB_WORKSPACE/llm_ckpts
+        rsync -av --remove-source-files $GITHUB_WORKSPACE/llm_ckpts ${{env.WORKSPACE_PREFIX}}/ci_clean_bak
 
   convert-model-then-load:
     if: ${{ always() }}
     needs: check-requirements
-    runs-on: [lmtest]
+    runs-on: [t_cluster]
+    timeout-minutes: 15
     steps:
     - name: mask env
       run: |
@@ -107,13 +108,14 @@ jobs:
         export PYTHONPATH=$PWD:$PYTHONPATH
         sh ./ci_scripts/model/convert_to_hf.sh
         cd ./hf_ckpt
-        srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --gpus-per-task=2 python ../ci_scripts/model/loaded_as_transformer.py
+        srun -p ${SLURM_PARTITION} --quotatype=spot --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --gpus-per-task=2 python ../ci_scripts/model/loaded_as_transformer.py
         cd ..
-        rm -rf $GITHUB_WORKSPACE/hf_ckpt
+        rsync -av --remove-source-files $GITHUB_WORKSPACE/hf_ckpt ${{env.WORKSPACE_PREFIX}}/ci_clean_bak
   load-chat-model-in-hf:
     if: ${{ always() }}
     needs: check-requirements
-    runs-on: [lmtest]
+    runs-on: [t_cluster]
+    timeout-minutes: 15
     steps:
     - name: mask env
       run: |
@@ -123,4 +125,4 @@ jobs:
     - name: chat-model-in-hf
       run: |
         source activate internlm-env-test
-        srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --gpus-per-task=2 python ./ci_scripts/model/demo_load_7B_chat_model.py
+        srun -p ${SLURM_PARTITION} --quotatype=spot --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --gpus-per-task=2 python ./ci_scripts/model/demo_load_7B_chat_model.py
