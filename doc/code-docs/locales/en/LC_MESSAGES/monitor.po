@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: InternLM \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-09-22 19:48+0800\n"
+"POT-Creation-Date: 2023-09-25 11:30+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -181,6 +181,29 @@ msgid "轻量监控"
 msgstr "Light Monitoring"
 
 #: ../../source/monitor.rst:27
+msgid "InternLM轻量级监控工具采用心跳机制实时监测训练过程中的各项指标，如loss、grad_norm、训练阶段的耗时等。同时，InternLM还可以通过dashboard直观地呈现这些指标信息，以便用户进行更加全面和深入的训练分析。"
+msgstr "The InternLM light monitoring tool employs a heartbeat mechanism to real-time monitor various metrics during the training process, such as loss, grad_norm, and training phase duration. Additionally, InternLM can present these metric details through a dashboard, allowing users to conduct more comprehensive and in-depth training analysis in an intuitive manner."
+
+#: ../../source/monitor.rst:29
+msgid ""
+"轻量监控的配置由配置文件中的 ``monitor`` 字段指定， 用户可以通过修改配置文件 `config file "
+"<https://github.com/InternLM/InternLM/blob/main/configs/7B_sft.py>`_ "
+"来更改监控配置。以下是一个监控配置的示例："
+msgstr "The configuration for light monitoring is specified by the ``monitor`` field in the configuration file. Users can modify monitoring settings by editing the configuration file `config file <https://github.com/InternLM/InternLM/blob/main/configs/7B_sft.py>`_. Here is an example of a monitoring configuration:"
+
+#: ../../source/monitor.rst:41
+msgid "enable_feishu_alert：是否启用飞书告警"
+msgstr "enable_feishu_alert: Whether to enable Feishu alerts."
+
+#: ../../source/monitor.rst:42
+msgid "feishu_alert_address：飞书告警的 Webhook 地址"
+msgstr "feishu_alert_address: The webhook address for Feishu alerts."
+
+#: ../../source/monitor.rst:43
+msgid "light_monitor_address：轻量监控的地址"
+msgstr "light_monitor_address: The address for lightweight monitoring."
+
+#: ../../source/monitor.rst:45
 msgid ""
 "InternLM 使用 ``internlm.monitor.alert.initialize_light_monitor`` "
 "来初始化轻量监控客户端。一旦初始化完成，它会建立与监控服务器的连接。在训练过程中，使用 "
@@ -254,3 +277,8 @@ msgid ""
 "``send_heartbeat(\"stage_time\", {\"fwd_time\": 2.3, \"bwd_time\": "
 "6.2})``"
 msgstr ""
+
+#~ msgid ""
+#~ "InternLM轻量监控基于心跳机制来监控训练过程中是否出现 "
+#~ "loss、grad_norm异常、训练各阶段时间超时等异常，并通过dashboard展示训练指标信息等。"
+#~ msgstr ""
