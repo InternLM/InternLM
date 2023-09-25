@@ -38,9 +38,9 @@ InternLM轻量级监控工具采用心跳机制实时监测训练过程中的各
         ),
     )
 
-- enable_feishu_alert：是否启用飞书告警
-- feishu_alert_address：飞书告警的 Webhook 地址
-- light_monitor_address：轻量监控的地址
+- enable_feishu_alert (bool)：是否启用飞书告警。默认值：False。
+- feishu_alert_address (str)：飞书告警的 Webhook 地址。默认值：None。
+- light_monitor_address (str)：轻量监控的地址。默认值：None。
 
 InternLM 使用 ``internlm.monitor.alert.initialize_light_monitor`` 来初始化轻量监控客户端。一旦初始化完成，它会建立与监控服务器的连接。在训练过程中，使用 ``internlm.monitor.alert.send_heartbeat`` 来发送不同类型的心跳信息至监控服务器。监控服务器会根据这些心跳信息来检测训练是否出现异常，并在需要时发送警报消息。
 

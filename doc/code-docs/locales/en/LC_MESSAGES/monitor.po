@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: InternLM \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-09-25 13:32+0800\n"
+"POT-Creation-Date: 2023-09-25 13:44+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -189,10 +189,9 @@ msgstr ""
 "The InternLM light monitoring tool employs a heartbeat mechanism to real-"
 "time monitor various metrics during the training process, such as loss, "
 "grad_norm, and training phase duration. Additionally, InternLM can "
-"present these metric details through a "
-"`grafana dashboard <https://grafana.com/grafana/dashboards/>`_, allowing users to "
-"conduct more comprehensive and in-depth training analysis in an intuitive"
-" manner."
+"present these metric details through a `grafana dashboard "
+"<https://grafana.com/grafana/dashboards/>`_, allowing users to conduct "
+"more comprehensive and in-depth training analysis in an intuitive manner."
 
 #: ../../source/monitor.rst:29
 msgid ""
@@ -207,16 +206,16 @@ msgstr ""
 "Here is an example of a monitoring configuration:"
 
 #: ../../source/monitor.rst:41
-msgid "enable_feishu_alert：是否启用飞书告警"
-msgstr "enable_feishu_alert: Whether to enable Feishu alerts."
+msgid "enable_feishu_alert (bool)：是否启用飞书告警。默认值：False。"
+msgstr "enable_feishu_alert: Whether to enable Feishu alerts. Defaults: False."
 
 #: ../../source/monitor.rst:42
-msgid "feishu_alert_address：飞书告警的 Webhook 地址"
-msgstr "feishu_alert_address: The webhook address for Feishu alerts."
+msgid "feishu_alert_address (str)：飞书告警的 Webhook 地址。默认值：None。"
+msgstr "feishu_alert_address: The webhook address for Feishu alerts. Defaults: None."
 
 #: ../../source/monitor.rst:43
-msgid "light_monitor_address：轻量监控的地址"
-msgstr "light_monitor_address: The address for lightweight monitoring."
+msgid "light_monitor_address (str)：轻量监控的地址。默认值：None。"
+msgstr "light_monitor_address: The address for lightweight monitoring. Defaults: None."
 
 #: ../../source/monitor.rst:45
 msgid ""
