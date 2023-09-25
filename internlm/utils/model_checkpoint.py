@@ -78,8 +78,8 @@ class CheckpointLoadMethod:
 
     @staticmethod
     def register_ckpt_load_type(load_type: Union[str, CheckpointLoadType], load_func: Callable):
-        if load_type in CheckpointLoadMethod.LOAD_TYPE_FUNC:
-            logger.warning(f"{load_type} has aleady been registed!")
+        if load_type in CheckpointLoadMethod.LOAD_TYPE_FUNC and gpc.is_rank_for_log():
+            logger.warning(f"{load_type} has already been registered!")
             return
 
         CheckpointLoadMethod.LOAD_TYPE_FUNC.update({load_type: load_func})
@@ -87,9 +87,9 @@ class CheckpointLoadMethod:
         if load_type == CheckpointLoadType.INTERNLM:
             CheckpointLoadMethod.LOAD_FUNC_SIG = inspect.signature(load_func)
         else:
-            if inspect.signature(load_func) != CheckpointLoadMethod.LOAD_FUNC_SIG:
+            if inspect.signature(load_func) != CheckpointLoadMethod.LOAD_FUNC_SIG and gpc.is_rank_for_log():
                 logger.warning(
-                    f"registe load model ckpt signature is not same with: {CheckpointLoadMethod.LOAD_FUNC_SIG}"
+                    f"The registered signature of the loaded model is not same as: {CheckpointLoadMethod.LOAD_FUNC_SIG}"
                 )
 
     @staticmethod
@@ -370,10 +370,11 @@ def load_optimizer_checkpoint(folder, optim):
             zero_devide_optim_plan = llm_load(fp_meta)
             states.update({"zero_devide_optim_plan": zero_devide_optim_plan})
         except Exception as e:
-            logger.warning(
-                f"Read zero optimzer split file '{fp_meta}', for '{e}'"
-                f"Please check whether loading ckpts are saved with the HybridZeroOptimizer."
-            )
+            if gpc.is_rank_for_log():
+                logger.warning(
+                    f"Read zero optimzer split file '{fp_meta}', for '{e}'"
+                    f"Please check whether loading ckpts are saved with the HybridZeroOptimizer."
+                )
 
     optim.load_state_dict(states)
     del states
@@ -635,9 +636,12 @@ now step_count is {train_state.step_count}",
         # Here we only try to find the ckpt folder named after step, ignoring snapshot and other folders.
         ckpt_list = [int(fn.strip("/")) for fn in ckpt_list if fn.strip("/").isdigit()]
         if len(ckpt_list) == 0:
-            logger.warning("Not found avaliable normal checkpoint!")
+            if gpc.is_rank_for_log():
+                logger.warning("No available normal checkpoint found. Check your checkpoint path.")
         else:
-            logger.info(f"Found avaliable normal checkpoint: {ckpt_list}!")
+            if gpc.is_rank_for_log():
+                logger.info(f"Found available normal checkpoint: {ckpt_list}")
+
             ckpt_list.sort(reverse=True)
             for ckpt in ckpt_list:
                 fns_list = self.storage_manager.get_fns(os.path.join(self.save_ckpt_folder, str(ckpt)))
