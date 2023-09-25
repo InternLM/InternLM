@@ -89,7 +89,8 @@ class CheckpointLoadMethod:
         else:
             if inspect.signature(load_func) != CheckpointLoadMethod.LOAD_FUNC_SIG and gpc.is_rank_for_log():
                 logger.warning(
-                    f"The registered signature of the loaded model is not same as: {CheckpointLoadMethod.LOAD_FUNC_SIG}"
+                    f"The registered signature {inspect.signature(load_func)} of the loaded model is not same as: "
+                    f"{CheckpointLoadMethod.LOAD_FUNC_SIG}"
                 )
 
     @staticmethod
@@ -386,8 +387,8 @@ def load_sampler(ckpt_path: str, sampler):
     sampler.load_state_dict(sampler_states)
     if gpc.is_rank_for_log():
         pstate = copy.deepcopy(sampler_states)
-        pstate.pop("indices")
-        pstate.pop("rng_state")
+        pstate.pop("indices", None)
+        pstate.pop("rng_state", None)
         logger.info(f"reload sampler_states:{pstate}")
     torch.cuda.empty_cache()
 

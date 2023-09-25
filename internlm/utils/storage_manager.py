@@ -501,7 +501,7 @@ class StorageManager(metaclass=SingletonMeta):
                 or "HTTP_PROXY" in os.environ
                 or "HTTPS_PROXY" in os.environ
             ):
-                if not self.has_warning:
+                if not self.has_warning and gpc.is_rank_for_log():
                     logger.warning(
                         "HTTP/HTTPS proxy is detected when using boto3, incorrectly setting \
     the proxy may make boto3 unavailable or affect performance."
