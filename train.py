@@ -111,7 +111,7 @@ def main(args):
     # initialize and resume train state
     train_state = TrainState(gpc.config, train_dl.batch_sampler)
 
-    # if fsdp enabled, warp the model
+    # if fsdp enabled, wrap the model
     model = wrap_FSDP_model(model)
 
     optimizer, beta2_scheduler, lr_scheduler = initialize_optimizer(model=model)
