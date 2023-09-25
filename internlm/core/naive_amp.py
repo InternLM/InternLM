@@ -155,11 +155,13 @@ class NaiveAMPModel(nn.Module):
                 return x.to(dtype)
             return x
 
-        def _pre_forward_hook(model: nn.Module, inputs: tuple):  # pylint: disable=W0613
+        def _pre_forward_hook_for_fp32(model: nn.Module, inputs: tuple):  # pylint: disable=W0613
             assert isinstance(inputs, tuple)
             return tuple(map(to_fp32, inputs))
 
-        def _post_forward_hook(model: nn.Module, inputs: tuple, outputs: Union[tuple, Tensor]):  # pylint: disable=W0613
+        def _post_forward_hook_for_fp32(
+            model: nn.Module, inputs: tuple, outputs: Union[tuple, Tensor]
+        ):  # pylint: disable=W0613
             assert isinstance(inputs, Union[tuple, Tensor])
             if isinstance(outputs, tuple):
                 return tuple(map(to_fp32, outputs, self.dtype))
@@ -175,22 +177,11 @@ class NaiveAMPModel(nn.Module):
         modules = []
         # record the modules to transformer/embeding/head/norm block
         for _chunk in model:
-            if isinstance(_chunk, NaiveAMPModel):
-                _chunk = _chunk.model
-
-            for child in _chunk.children():
-                # should be the transformer block definaton in modeling_xxx.py
-                if isinstance(child, nn.ModuleList):
-                    for _, block in enumerate(child):
-                        # TODO special case for MoE
-                        modules.extend(list(block.children()))
-                else:
-                    # embedding, head, etc that out of the transformer block
-                    modules.append(child)
+            modules.extend([sub_module for _, sub_module in _chunk.named_modules()])
 
         # register_forward_pre_hook for transformer/embeding/norm/xxx block
         for sub_module in modules:
             if module_has_fp32_attr(sub_module):
                 sub_module.to(dtype)
-                sub_module.register_forward_pre_hook(partial(_pre_forward_hook))
-                sub_module.register_forward_hook(partial(_post_forward_hook))
+                sub_module.register_forward_pre_hook(partial(_pre_forward_hook_for_fp32))
+                sub_module.register_forward_hook(partial(_post_forward_hook_for_fp32))

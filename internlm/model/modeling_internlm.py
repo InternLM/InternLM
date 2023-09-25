@@ -11,7 +11,6 @@ from torch import nn
 
 from internlm.core.context import IS_TENSOR_PARALLEL, ParallelMode
 from internlm.core.context.parallel_context import global_context as gpc
-from internlm.core.naive_amp import set_fp32_attr_to_module
 from internlm.initialize.initialize_tensor import normal_, scaled_init_method_normal
 from internlm.model.embedding import Embedding1D
 from internlm.model.linear import (
@@ -102,8 +101,6 @@ class PackedFlashBaseLayer1D(nn.Module):
         else:
             self.norm1 = nn.LayerNorm(hidden_size, eps=layer_norm_epsilon)
             self.norm2 = nn.LayerNorm(hidden_size, eps=layer_norm_epsilon)
-        set_fp32_attr_to_module(self.norm1)
-        set_fp32_attr_to_module(self.norm2)
 
         if use_swiglu:
             self.mlp = FeedForward(
@@ -337,7 +334,6 @@ class PackedFlashInternLm1D(nn.Module):
                 self.norm = RMSNorm(hidden_size, eps=layer_norm_epsilon)
             else:
                 self.norm = nn.LayerNorm(hidden_size, eps=layer_norm_epsilon)
-            set_fp32_attr_to_module(self.norm)
             self.head = head_cls(
                 in_features=hidden_size,
                 out_features=gpc.get_world_size(ParallelMode.TENSOR) if is_reward else vocab_size,
