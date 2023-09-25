@@ -2,6 +2,7 @@
 # -*- encoding: utf-8 -*-
 
 import argparse
+import gc
 import os
 from pathlib import Path
 from typing import Dict, Union
@@ -261,6 +262,12 @@ def args_sanity_check():
             gpc.config.parallel.sequence_parallel is True and gpc.config.model.use_flash_attn is False
         ), "sequence parallel does not support use_flash_attn=False"
 
+    # currently only interleaved pipeline scheduler with overlap can guarantee loss accuracy
+    if hasattr(gpc.config.model, "num_chunks") and gpc.config.model.num_chunks > 1:
+        assert (
+            gpc.config.parallel["pipeline"].get("interleaved_overlap", False) is True
+        ), "only support interleaved pipeline scheduler with overlap"
+
     # monitoring default config
     monitor_default_config = {
         "alert_address": None,  # compatible with old alert config
@@ -440,6 +447,8 @@ def initialize_distributed_env(
         master_port (str): The master port for distributed training. 8888 by default.
         seed (int, optional): Specified random seed for every process. 1024 by default.
     """
+    # close automatic garbage collection
+    gc.disable()
 
     torch.cuda.empty_cache()
 

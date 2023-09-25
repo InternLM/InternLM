@@ -207,3 +207,10 @@ def try_import_RMSNorm():
         from internlm.model.norm import RMSNormTorch as RMSNorm
 
         return RMSNorm
+
+
+def Silu(w1_o, w2_o):
+    return F.silu(w1_o) * w2_o
+
+
+Silu = torch.jit.script(Silu)
