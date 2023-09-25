@@ -148,6 +148,10 @@ class NaiveAMPModel(nn.Module):
         return out
 
     def _register_fp32_parameters_hook(self) -> None:
+        """
+        Set module to fp32 and register automatic conversion hook in the forward pass.
+        The fp32 modules are marked by set_fp32_attr_to_module(.)
+        """
         dtype = torch.float32
 
         def to_fp32(x, dtype=dtype):

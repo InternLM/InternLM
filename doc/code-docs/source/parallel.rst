@@ -133,7 +133,7 @@ ZeRO1.5 的实现使用了分层分片的概念，通过配置值 ``parallel.zer
 
     hybrid_zero_optimizer = dict(
         # Enable low_level_optimzer overlap_communication
-        overlap_sync_grad=True,  
+        overlap_sync_grad=True,
         overlap_sync_param=True,
         # bucket size for nccl communication params
         reduce_bucket_size=512 * 1024 * 1024,
@@ -150,3 +150,40 @@ ZeRO1.5 的实现使用了分层分片的概念，通过配置值 ``parallel.zer
 
 .. autoclass:: internlm.solver.optimizer.hybrid_zero_optim.HybridZeroOptimizer
     :members:
+
+混合精度
+-----------------
+混合精度是指在模型训练的过程中同时使用16位和32位浮点类型，是一种在最小化精度损失的前提下加速模型训练的方法。
+混合精度通过让模型的某些部分使用32位浮点数以保持数值稳定性，并在其余部分利用半精度浮点数加速训练并减少内存使用，在评估指标（如准确率）方面仍可以获得同等的训练效果。
+
+.. autoclass:: internlm.core.naive_amp.NaiveAMPModel
+
+InternLM默认将模型转换为16位精度进行训练（在配置文件中可以设置默认类型为其他数据类型）。在使用混合精度时，需要在构建模型时使用
+
+.. code-block:: python
+
+    set_fp32_attr_to_module(/*fp32 module*/)
+
+将模型的某个子模块设置为32精度进行训练，InternLM会在模型训练时自动将数据类型转换成需要的精度。
+
+例如：
+
+.. code-block:: python
+
+    class MlpModel(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear1 = nn.Linear(4, 1, bias=False)
+            self.linear2 = nn.Linear(1, 4, bias=False)
+
+    model = MlpModel()
+    # 将model.linear2设置为fp32模块
+    set_fp32_attr_to_module(model.linear2)
+
+    # 混合精度模型
+    model = NaiveAMPModel(
+        model=model,
+        output_to_fp32=True,
+        dtype=torch.bfloat16(),
+        sync_buffer=False,
+    )
