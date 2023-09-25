@@ -42,7 +42,6 @@ def get_default_parser():
     parser.add_argument("--backend", type=str, default="nccl", help="backend for distributed communication")
     parser.add_argument("--seed", type=int, default=1024)
     parser.add_argument("--profiling", default=False, action="store_true", help="enable/disable profiling.")
-    parser.add_argument("--bind_numa", default=False, action="store_true", help="enable/disable bind_numa.")
     return parser
 
 
@@ -441,7 +440,7 @@ def initialize_distributed_env(
         master_port (str): The master port for distributed training. 8888 by default.
         seed (int, optional): Specified random seed for every process. 1024 by default.
     """
-
+    try_bind_numa(launcher)
     torch.cuda.empty_cache()
 
     if launcher == "torch":
