@@ -47,6 +47,14 @@ InternLM
 
    parallel
 
+TF32训练
+-------------------
+
+.. toctree::
+   :maxdepth: 2
+
+   tf32
+
 模型备份
 --------------------
 
