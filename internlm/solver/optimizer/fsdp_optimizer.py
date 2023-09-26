@@ -100,7 +100,8 @@ class FSDPadaptOptimizer(BaseOptimizer):
             params = self._fp16_param_groups[group_idx]
             for param in params:
                 if param.requires_grad:
-                    reduce_tensor(tensor=param.grad, parallel_mode=ParallelMode.ZERO3_DP)
+                    handle = reduce_tensor(tensor=param.grad, parallel_mode=ParallelMode.ZERO3_DP)
+                    handle.wait()
 
         # compute norm
         found_inf = False

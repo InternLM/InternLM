@@ -309,7 +309,7 @@ def load_model_checkpoint(folder, model):
     """
     There should be weights with names similar to the following under the folder.
     - folder
-        - model_tp{tp_rank}_pp{pp_rank}.pt\
+        - model_tp{tp_rank}_pp{pp_rank}.pt
 
     If fsdp is activated, the saved weight is named:
     - folder
@@ -346,14 +346,15 @@ def load_model_checkpoint(folder, model):
                 max_tp = max(max_tp, int(segements[-2][2:]))
 
     assert (
-        zo_size == max_zo + 1
-    ), f"The weights are save for {max_zo+1} FSDP shards , while current has {zo_size} FSDP shards"
-    assert (
         pp_size == max_pp + 1
     ), f"The weights are save for {max_pp+1} pipelines, while current has {pp_size} pipelines"
     assert (
         tp_size == max_tp + 1
     ), f"The weights are save for {max_tp+1} parallelism, while current has {tp_size} tensor parallelism"
+    if gpc.config.parallel.use_fsdp:
+        assert (
+            zo_size == max_zo + 1
+        ), f"The weights are save for {max_zo+1} FSDP shards , while current has {zo_size} FSDP shards"
 
     if gpc.config.parallel.use_fsdp:
         should_load_name = f"model_tp{tp_rank}_pp{pp_rank}_zo{zo_rank}.pt"
