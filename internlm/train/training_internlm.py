@@ -110,11 +110,7 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
         param_bcast_sync_handler = None
 
     adam_cfg = gpc.config.adam
-    # split the moe parameters into different groups
-    if hasattr(gpc.config.model, "num_experts") and gpc.config.model.num_experts > 1:
-        params = create_param_groups(model, adam_cfg.weight_decay)
-    else:
-        params = [{"params": model.parameters(), "weight_decay": adam_cfg.weight_decay}]
+    params = create_param_groups(model, adam_cfg.weight_decay)
     naive_optimizer = torch.optim.AdamW(
         params=params,
         lr=adam_cfg.lr,

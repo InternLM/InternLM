@@ -11,6 +11,7 @@ from torch import nn
 
 from internlm.core.context import IS_TENSOR_PARALLEL, ParallelMode
 from internlm.core.context.parallel_context import global_context as gpc
+from internlm.core.naive_amp import set_fp32_attr_to_module
 from internlm.initialize.initialize_tensor import normal_, scaled_init_method_normal
 from internlm.model.embedding import Embedding1D
 from internlm.model.linear import (
@@ -131,6 +132,8 @@ class PackedFlashBaseLayer1D(nn.Module):
             param.is_norm = True
         for param in self.norm2.parameters():
             param.is_norm = True
+        set_fp32_attr_to_module(self.norm1)
+        set_fp32_attr_to_module(self.norm2)
 
         self.num_experts = num_experts
         self.moe_gate_k = moe_gate_k
@@ -191,6 +194,7 @@ class PackedFlashBaseLayer1D(nn.Module):
             for _, param in self.mlp.moe_layer.experts.named_parameters():
                 if gpc.get_world_size(ParallelMode.TENSOR) > 1:
                     setattr(param, IS_TENSOR_PARALLEL, True)
+            set_fp32_attr_to_module(self.mlp.moe_layer.gate)
 
         self.dropout2 = nn.Dropout(drop_rate)
         self.use_swiglu = use_swiglu
@@ -433,6 +437,7 @@ class PackedFlashInternLm1D(nn.Module):
                 self.norm = RMSNorm(hidden_size, eps=layer_norm_epsilon)
             else:
                 self.norm = nn.LayerNorm(hidden_size, eps=layer_norm_epsilon)
+            set_fp32_attr_to_module(self.norm)
             self.head = head_cls(
                 in_features=hidden_size,
                 out_features=gpc.get_world_size(ParallelMode.TENSOR) if is_reward else vocab_size,

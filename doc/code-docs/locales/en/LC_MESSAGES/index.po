@@ -43,39 +43,42 @@ msgstr "Training API"
 msgid "并行训练"
 msgstr "Parallel Training"
 
-#: ../../source/index.rst:51 9234725f3c464731993d73607608c874
+#: ../../source/index.rst:51
+msgid "混合精度"
+msgstr "Mixed Precision"
+
+#: ../../source/index.rst:59 9234725f3c464731993d73607608c874
 msgid "模型备份"
 msgstr "Model Checkpointing"
 
-#: ../../source/index.rst:59 8e4ce037017f4510b2892a66003877fa
+#: ../../source/index.rst:67 8e4ce037017f4510b2892a66003877fa
 msgid "性能分析"
 msgstr "Profiler"
 
-#: ../../source/index.rst:67 a36e02819ecd4b448a8cb4ebbecb6600
+#: ../../source/index.rst:75 a36e02819ecd4b448a8cb4ebbecb6600
 msgid "训练监控"
 msgstr "Monitor"
 
-#: ../../source/index.rst:75 b912e292486f455c8b5cdd75962e8ac2
+#: ../../source/index.rst:83 b912e292486f455c8b5cdd75962e8ac2
 msgid "训练样例"
 msgstr "Example"
 
-#: ../../source/index.rst:83 ea9e9281720941a1830e5df7a2badf7a
+#: ../../source/index.rst:91 ea9e9281720941a1830e5df7a2badf7a
 msgid "常见问题"
 msgstr "Q&A"
 
-#: ../../source/index.rst:91 e08edc5aa1c74965b10084b393b88fae
+#: ../../source/index.rst:99 e08edc5aa1c74965b10084b393b88fae
 msgid "索引和表格"
 msgstr "Indices and tables"
 
-#: ../../source/index.rst:93 f3fdca059caa49dcad09aa44be7f02d6
+#: ../../source/index.rst:101 f3fdca059caa49dcad09aa44be7f02d6
 msgid ":ref:`genindex`"
 msgstr ""
 
-#: ../../source/index.rst:94 b3791e811315435097bb507edc3f4b9b
+#: ../../source/index.rst:102 b3791e811315435097bb507edc3f4b9b
 msgid ":ref:`modindex`"
 msgstr ""
 
-#: ../../source/index.rst:95 a164b772960f4ab8b18c7e8820f69f55
+#: ../../source/index.rst:103 a164b772960f4ab8b18c7e8820f69f55
 msgid ":ref:`search`"
 msgstr ""
-
