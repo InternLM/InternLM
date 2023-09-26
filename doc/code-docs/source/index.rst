@@ -47,6 +47,14 @@ InternLM
 
    parallel
 
+混合精度
+-------------------
+
+.. toctree::
+   :maxdepth: 2
+
+   mixed_precision
+
 模型备份
 --------------------
 
