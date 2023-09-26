@@ -371,7 +371,32 @@ $ torchrun --nnodes=1 --nproc_per_node=8 train.py --config ./configs/7B_sft.py -
 
 ### 长文本生成
 
-在推理阶段，您可以在模型配置中通过设置 `use_dynamic_ntk_rope=True` 开启 RoPE 的 Dynamic NTK 选项，从而使得模型适应长文本输入输出，达到 16K 的外推效果。
+在推理阶段，您可以在模型配置中通过设置 `use_dynamic_ntk_rope=True` 开启 RoPE 的 Dynamic NTK 选项，从而使得模型适应长文本输入输出，达到 16K 的外推效果:
+```python #21
+model_type = "INTERNLM"  # 模型类型，默认值为 "INTERNLM"，对应模型结构初始化接口函数
+NUM_ATTENTION_HEAD = 32
+VOCAB_SIZE = 103168
+HIDDEN_SIZE = 4096
+NUM_LAYER = 32
+MLP_RATIO = 8 / 3
+model = dict(
+    checkpoint=False,   # 进行重计算的模型层数比例，可选值为 True/False/[0-1]
+    num_attention_heads=NUM_ATTENTION_HEAD,
+    embed_split_hidden=True,
+    vocab_size=VOCAB_SIZE,
+    embed_grad_scale=1,
+    parallel_output=True,
+    hidden_size=HIDDEN_SIZE,
+    num_layers=NUM_LAYER,
+    mlp_ratio=MLP_RATIO,
+    apply_post_layer_norm=False,
+    dtype="torch.bfloat16",
+    norm_type="rmsnorm",
+    layer_norm_epsilon=1e-5,
+    use_dynamic_ntk_rope=True
+)
+```
+
 关于 Dyanmic NTK 的原理，详细请参考
 
 1. https://www.reddit.com/r/LocalLLaMA/comments/14mrgpr/dynamically_scaled_rope_further_increases
