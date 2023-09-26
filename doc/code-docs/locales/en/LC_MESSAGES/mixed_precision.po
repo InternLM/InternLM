@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: InternLM \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-09-26 15:24+0800\n"
+"POT-Creation-Date: 2023-09-26 17:04+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -25,11 +25,16 @@ msgstr "Mixed Precision"
 
 #: ../../source/mixed_precision.rst:3
 msgid ""
-"混合精度是指在模型训练的过程中同时使用16位和32位浮点数类型，是一种在最小化精度损失的前提下加速模型训练的方法。"
+"混合精度是指在模型训练的过程中同时使用16位和32位浮点数类型，是一种在最小化精度损失的前提下加速模型训练的方法。 "
 "混合精度通过让模型的某些部分使用32位浮点数以保持数值稳定性，并在其余部分利用半精度浮点数加速训练并可以减少内存使用，在评估指标（如准确率）方面仍可以获得同等的训练效果。"
 msgstr ""
-"Mixed precision refers to using both 16-bit and 32-bit floating-point types to train model, which can accelerate the model training while minimizing the accuracy loss. "
-"Mixed precision training uses 32-bit floating-point types in certain parts of the model to maintain numerical stability, and accelerate training and reduce memory usage by using 16-bit floating-point types in other parts. Mixed precision can achieve the same training effect in evaluating indicators such as accuracy."
+"Mixed precision refers to using both 16-bit and 32-bit floating-point "
+"types to train model, which can accelerate the model training while "
+"minimizing the accuracy loss. Mixed precision training uses 32-bit "
+"floating-point types in certain parts of the model to maintain numerical "
+"stability, and accelerate training and reduce memory usage by using "
+"16-bit floating-point types in other parts. Mixed precision can achieve "
+"the same training effect in evaluating indicators such as accuracy."
 
 #: internlm.core.naive_amp.NaiveAMPModel:1 of
 msgid ""
@@ -62,11 +67,18 @@ msgstr ""
 
 #: ../../source/mixed_precision.rst:8
 msgid "InternLM默认将模型转换为16位浮点数类型进行训练（在配置文件中可以设置默认类型为其他数据类型）。在使用混合精度时，需要在构建模型时使用"
-msgstr "InternLM converts the model to 16-bit floating-point types for model training by default (the default type can be set to other data types in the configuration file). When using mixed precision, it is necessary to use "
+msgstr ""
+"InternLM converts the model to 16-bit floating-point types for model "
+"training by default (the default type can be set to other data types in "
+"the configuration file). When using mixed precision, it is necessary to "
+"use "
 
 #: ../../source/mixed_precision.rst:14
 msgid "将模型的某个子模块设置为32位浮点数类型进行训练，InternLM会在模型训练时自动将数据类型转换成需要的精度。"
-msgstr "to set a sub-module of the model to 16-bit floating-point types for training, and InternLM will automatically convert the data type to the required precision during model training."
+msgstr ""
+"to set a sub-module of the model to 16-bit floating-point types for "
+"training, and InternLM will automatically convert the data type to the "
+"required precision during model training."
 
 #: ../../source/mixed_precision.rst:16
 msgid "例如："
