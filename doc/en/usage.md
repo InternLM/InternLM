@@ -388,7 +388,32 @@ Taking the configuration of the demo training on a single machine with 8 GPUs on
 
 ### Long Text Generation
 
-During the inference phase, you can turn on the Dynamic NTK option of RoPE by setting `use_dynamic_ntk_rope=True` in the model configuration, so that the model can adapt to long text input and output and achieve an extrapolation effect of 16K.
+During the inference phase, you can turn on the Dynamic NTK option of RoPE by setting `use_dynamic_ntk_rope=True` in the model configuration, so that the model can adapt to long text input and output and achieve an extrapolation effect of 16K:
+```python #21
+model_type = "INTERNLM"  # 模型类型，默认值为 "INTERNLM"，对应模型结构初始化接口函数
+NUM_ATTENTION_HEAD = 32
+VOCAB_SIZE = 103168
+HIDDEN_SIZE = 4096
+NUM_LAYER = 32
+MLP_RATIO = 8 / 3
+model = dict(
+    checkpoint=False,   # 进行重计算的模型层数比例，可选值为 True/False/[0-1]
+    num_attention_heads=NUM_ATTENTION_HEAD,
+    embed_split_hidden=True,
+    vocab_size=VOCAB_SIZE,
+    embed_grad_scale=1,
+    parallel_output=True,
+    hidden_size=HIDDEN_SIZE,
+    num_layers=NUM_LAYER,
+    mlp_ratio=MLP_RATIO,
+    apply_post_layer_norm=False,
+    dtype="torch.bfloat16",
+    norm_type="rmsnorm",
+    layer_norm_epsilon=1e-5,
+    use_dynamic_ntk_rope=True
+)
+```
+
 Regarding the principle of Dyanmic NTK, please refer to
 
 1. https://www.reddit.com/r/LocalLLaMA/comments/14mrgpr/dynamically_scaled_rope_further_increases
