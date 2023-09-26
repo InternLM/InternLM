@@ -186,11 +186,20 @@ def train(
         # do forward and backward
         timer("fwd-bwd").start()
 
-        _, _, loss, moe_loss = trainer.execute_schedule(batch, forward_only=False, return_loss=True, return_output_label=False)
+        # Compatible for old code
+        moe_loss = None
+        if gpc.config.get("model_type") == "INTERNLM":
+            _, _, loss = trainer.execute_schedule(
+                batch, forward_only=False, return_loss=True, return_output_label=False
+            )
+        elif gpc.config.get("model_type") == "INTERNLM_MoE":
+            _, _, loss, moe_loss = trainer.execute_schedule(
+                batch, forward_only=False, return_loss=True, return_output_label=False
+            )
         if gpc.is_rank_for_log():
             assert loss is not None and not math.isnan(loss.item())
             global cur_loss_list
-            cur_loss_list.append(loss.item() - moe_loss.item())
+            cur_loss_list.append((loss.item() - moe_loss.item() if moe_loss is not None else loss.item()))
         timer("fwd-bwd").stop()
 
         # update parameters, and returns (success_update, grad_norm)

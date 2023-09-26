@@ -18,6 +18,7 @@ from internlm.model.linear import (
     RewardModelLinear,
     ScaleColumnParallelLinear,
 )
+from internlm.model.moe import MoE
 from internlm.model.multi_head_attention import MHA
 from internlm.model.utils import gather_forward_split_backward, try_import_RMSNorm
 from internlm.solver.pipeline_utils import partition_uniform
@@ -26,7 +27,7 @@ from internlm.utils.common import filter_kwargs
 from internlm.utils.logger import get_logger
 from internlm.utils.registry import MODEL_INITIALIZER
 
-MODEL_TYPE = "INTERNLM"
+MODEL_TYPE = "INTERNLM_MoE"
 
 logger = get_logger(__file__)
 RMSNorm = try_import_RMSNorm()
@@ -50,6 +51,17 @@ class PackedFlashBaseLayer1D(nn.Module):
         device (Optional[Union[str, torch.device]]): The device will be used.
         norm_type (str): Use RMS norm or layernorm."rmsnorm" by default.
         use_flash_attn (bool): Whether use flash-attn. True by default.
+        num_experts (int): The number of experts. <=1 means dense, >1 means MoE. 1 by default.
+        moe_gate_k (int, optional): default=1, top-k gating value, only supports k=1 or k=2.
+        moe_capacity_factor (float, optional): default=1.0, the capacity of the expert at training time.
+        moe_eval_capacity_factor (float, optional): default=1.0, the capacity of the expert at eval time.
+        moe_min_capacity (int, optional): default=4, the minimum capacity per expert regardless of the capacity_factor.
+        moe_noisy_gate_policy (str, optional): default=None, noisy gate policy, valid options are 'Jitter', 'RSample'.
+        moe_drop_tokens (bool, optional): default=True, whether to drop tokens - (setting to False is equivalent to
+                                          infinite capacity).
+        moe_use_rts (bool, optional): default=True, whether to use Random Token Selection.
+        moe_use_residual (bool, optional): default=False, make this MoE layer a Residual MoE
+                                          (https://arxiv.org/abs/2201.05596) layer.
     """
 
     def __init__(
@@ -72,6 +84,15 @@ class PackedFlashBaseLayer1D(nn.Module):
         use_scaled_init: bool = True,
         use_swiglu: bool = True,
         use_flash_attn: bool = True,
+        num_experts: int = 1,
+        moe_gate_k: int = 1,
+        moe_capacity_factor: float = 1.0,
+        moe_eval_capacity_factor: float = 1.0,
+        moe_min_capacity: int = 4,
+        moe_noisy_gate_policy: str = None,
+        moe_drop_tokens: bool = True,
+        moe_use_rts: bool = True,
+        moe_use_residual: bool = False,
     ):
         super().__init__()
         self.checkpoint = checkpoint
@@ -106,41 +127,77 @@ class PackedFlashBaseLayer1D(nn.Module):
             self.norm1 = nn.LayerNorm(hidden_size, eps=layer_norm_epsilon)
             self.norm2 = nn.LayerNorm(hidden_size, eps=layer_norm_epsilon)
 
-        if use_swiglu:
-            self.mlp = FeedForward(
-                hidden_size,
-                int(hidden_size * mlp_ratio),
-                out_features=hidden_size,
-                process_group=gpc.get_group(ParallelMode.TENSOR),
-                bias=False,
-                device=device,
-                dtype=dtype,
-            )
+        for param in self.norm1.parameters():
+            param.is_norm = True
+        for param in self.norm2.parameters():
+            param.is_norm = True
+
+        self.num_experts = num_experts
+        self.moe_gate_k = moe_gate_k
+        self.moe_capacity_factor = moe_capacity_factor
+        self.moe_eval_capacity_factor = moe_eval_capacity_factor
+        self.moe_min_capacity = moe_min_capacity
+        self.moe_noisy_gate_policy = moe_noisy_gate_policy
+        self.moe_drop_tokens = moe_drop_tokens
+        self.moe_use_rts = moe_use_rts
+        self.moe_use_residual = moe_use_residual
+        ep_size = gpc.get_world_size(ParallelMode.EXPERT)
+        if num_experts <= 1:  # dense, not MoE
+            if use_swiglu:
+                self.mlp = FeedForward(
+                    hidden_size,
+                    int(hidden_size * mlp_ratio),
+                    out_features=hidden_size,
+                    process_group=gpc.get_group(ParallelMode.TENSOR),
+                    bias=False,
+                    device=device,
+                    dtype=dtype,
+                )
+            else:
+                self.mlp = ParallelFusedMLP(
+                    hidden_size,
+                    int(hidden_size * mlp_ratio),
+                    out_features=hidden_size,
+                    activation="gelu_approx",
+                    process_group=gpc.get_group(ParallelMode.TENSOR),
+                    bias1=False,
+                    bias2=False,
+                    sequence_parallel=gpc.config.model.sequence_parallel,
+                    checkpoint_lvl=0,
+                    heuristic="auto",
+                    device=device,
+                    dtype=dtype,
+                )
+            for _, param in self.mlp.named_parameters():
+                if gpc.get_world_size(ParallelMode.TENSOR) > 1:
+                    setattr(param, IS_TENSOR_PARALLEL, True)
         else:
-            self.mlp = ParallelFusedMLP(
-                hidden_size,
-                int(hidden_size * mlp_ratio),
-                out_features=hidden_size,
-                activation="gelu_approx",
-                process_group=gpc.get_group(ParallelMode.TENSOR),
-                bias1=False,
-                bias2=False,
-                sequence_parallel=gpc.config.parallel.sequence_parallel,
-                checkpoint_lvl=0,
-                heuristic="auto",
+            # replace mlp by MoE module. The expert in MoE is a FeedForward module.
+            self.mlp = MoE(
+                hidden_size=hidden_size,
+                num_experts=num_experts,
+                ep_size=ep_size,
+                k=moe_gate_k,
+                capacity_factor=moe_capacity_factor,
+                eval_capacity_factor=moe_eval_capacity_factor,
+                min_capacity=moe_min_capacity,
+                noisy_gate_policy=moe_noisy_gate_policy,
+                drop_tokens=moe_drop_tokens,
+                use_rts=moe_use_rts,
+                use_residual=moe_use_residual,
                 device=device,
                 dtype=dtype,
             )
-        for _, param in self.mlp.named_parameters():
-            if gpc.get_world_size(ParallelMode.TENSOR) > 1:
-                setattr(param, IS_TENSOR_PARALLEL, True)
+            for _, param in self.mlp.moe_layer.experts.named_parameters():
+                if gpc.get_world_size(ParallelMode.TENSOR) > 1:
+                    setattr(param, IS_TENSOR_PARALLEL, True)
 
         self.dropout2 = nn.Dropout(drop_rate)
         self.use_swiglu = use_swiglu
         self.use_scaled_init = use_scaled_init
         self.residual_in_fp32 = residual_in_fp32  # only make sense when using prenorm
         self.return_residual = False
-        self.reset_parameters()
+        self.reset_parameters()  # TODO: check this should be changed when moe is added
 
     def reset_parameters(self):
         with torch.no_grad():
@@ -172,7 +229,7 @@ class PackedFlashBaseLayer1D(nn.Module):
         if self.checkpoint and self.training:
             return activation_checkpoint(
                 self._forward, False, hidden_states, cu_seqlens, indexes, inference_params, max_seqlen
-            )
+            )  # TODO: check whether this will be affected by moe
         else:
             return self._forward(hidden_states, cu_seqlens, indexes, inference_params, max_seqlen)
 
@@ -222,9 +279,14 @@ class PackedFlashBaseLayer1D(nn.Module):
         if self.residual_in_fp32:
             residual = residual.to(torch.float32)
 
-        hidden_states = self.mlp(hidden_states)
+        # MLP.
+        moe_loss = torch.tensor(0.0, device=hidden_states.device, dtype=hidden_states.dtype)
+        if self.num_experts <= 1:  # dense mlp output
+            hidden_states = self.mlp(hidden_states)
+        else:  # MoE output
+            hidden_states, moe_loss, _ = self.mlp(hidden_states)
 
-        return hidden_states + residual
+        return hidden_states + residual, moe_loss
 
 
 class PackedFlashInternLm1D(nn.Module):
@@ -254,7 +316,17 @@ class PackedFlashInternLm1D(nn.Module):
         residual_in_fp32 (bool): Whether to use residual in fp32. False by default.
         norm_type (str): Normalization type. Use RMSNorm or LayerNorm. "rmsnorm" by default.
         use_flash_attn (bool): Whether to use flash-attn. True by default.
-
+        num_experts (int): The number of experts. <=1 means dense, >1 means MoE. 1 by default.
+        moe_gate_k (int, optional): default=1, top-k gating value, only supports k=1 or k=2.
+        moe_capacity_factor (float, optional): default=1.0, the capacity of the expert at training time.
+        moe_eval_capacity_factor (float, optional): default=1.0, the capacity of the expert at eval time.
+        moe_min_capacity (int, optional): default=4, the minimum capacity per expert regardless of the capacity_factor.
+        moe_noisy_gate_policy (str, optional): default=None, noisy gate policy, valid options are 'Jitter', 'RSample'.
+        moe_drop_tokens (bool, optional): default=True, whether to drop tokens - (setting to False is equivalent
+                                          to infinite capacity).
+        moe_use_rts (bool, optional): default=True, whether to use Random Token Selection.
+        moe_use_residual (bool, optional): default=False, make this MoE layer a Residual MoE
+                                          (https://arxiv.org/abs/2201.05596) layer.
     """
 
     def __init__(
@@ -285,6 +357,15 @@ class PackedFlashInternLm1D(nn.Module):
         use_scaled_init: bool = True,
         use_swiglu: bool = True,
         use_flash_attn: bool = True,
+        num_experts: bool = 1,
+        moe_gate_k: int = 1,
+        moe_capacity_factor: float = 1.0,
+        moe_eval_capacity_factor: float = 1.0,
+        moe_min_capacity: int = 4,
+        moe_noisy_gate_policy: str = None,
+        moe_drop_tokens: bool = True,
+        moe_use_rts: bool = True,
+        moe_use_residual: bool = False,
     ):
         super().__init__()
 
@@ -334,6 +415,15 @@ class PackedFlashInternLm1D(nn.Module):
                     use_scaled_init=use_scaled_init,
                     use_swiglu=use_swiglu,
                     use_flash_attn=use_flash_attn,
+                    num_experts=num_experts,
+                    moe_gate_k=moe_gate_k,
+                    moe_capacity_factor=moe_capacity_factor,
+                    moe_eval_capacity_factor=moe_eval_capacity_factor,
+                    moe_min_capacity=moe_min_capacity,
+                    moe_noisy_gate_policy=moe_noisy_gate_policy,
+                    moe_drop_tokens=moe_drop_tokens,
+                    moe_use_rts=moe_use_rts,
+                    moe_use_residual=moe_use_residual,
                 )
                 for lid in range(num_layers)
             ]
@@ -360,7 +450,8 @@ class PackedFlashInternLm1D(nn.Module):
 
     def forward(self, hidden_states=None, cu_seqlens=None, input_ids=None, indexes=None, inference_params=None):
         # attention_mask: compute attention on the places where the value is 1
-        if hasattr(self, "embedding"):
+        # old condition may fail when use shared embedding
+        if gpc.is_pipeline_first_stage():
             hidden_states = self.embedding(input_ids)
             if self.embed_grad_scale != 1:
                 hidden_states = (
@@ -381,14 +472,16 @@ class PackedFlashInternLm1D(nn.Module):
             indexes = indexes[0]
         max_seqlen = (cu_seqlens[1:] - cu_seqlens[:-1]).max().item() if cu_seqlens is not None else None
 
+        moe_losses = []
         for _, block in enumerate(self.blocks):
-            hidden_states = block(
+            hidden_states, mos_loss = block(
                 hidden_states,
                 cu_seqlens=cu_seqlens,
                 indexes=indexes,
                 inference_params=inference_params,
                 max_seqlen=max_seqlen,
             )
+            moe_losses.append(mos_loss)
 
         if hasattr(self, "norm"):
             hidden_states = self.norm(hidden_states.float())
@@ -397,7 +490,7 @@ class PackedFlashInternLm1D(nn.Module):
 
         if not self.parallel_output:
             hidden_states = gather_forward_split_backward(hidden_states, ParallelMode.TENSOR, dim=-1)
-        return hidden_states
+        return hidden_states, moe_losses
 
 
 def _build_generic_model_1d(num_layers, num_chunks, device=torch.device("cuda"), **kwargs):
@@ -440,7 +533,7 @@ def _build_generic_model_1d(num_layers, num_chunks, device=torch.device("cuda"),
 
 
 @MODEL_INITIALIZER.register_module(module_name=MODEL_TYPE)
-def build_model_with_cfg(
+def build_model_with_moe_cfg(
     num_chunks=1,
     checkpoint=0.0,
     dtype=torch.float,
@@ -465,6 +558,15 @@ def build_model_with_cfg(
     use_scaled_init: bool = True,
     use_swiglu: bool = True,
     use_flash_attn: bool = True,
+    num_experts: int = 1,
+    moe_gate_k: int = 1,
+    moe_capacity_factor: float = 1.0,
+    moe_eval_capacity_factor: float = 1.0,
+    moe_min_capacity: int = 4,
+    moe_noisy_gate_policy: str = None,
+    moe_drop_tokens: bool = True,
+    moe_use_rts: bool = True,
+    moe_use_residual: bool = False,
 ):
     """
     Build model with config.
@@ -495,7 +597,17 @@ def build_model_with_cfg(
         use_scaled_init (bool): Whether to use scaled init. True by default.
         use_swiglu (bool): Whether to use swiglu. True by default.
         use_flash_attn (bool): Whether to use flash-attn. True by default.
-
+        num_experts (int): The number of experts. <=1 means dense, >1 means MoE. 1 by default.
+        moe_gate_k (int, optional): default=1, top-k gating value, only supports k=1 or k=2.
+        moe_capacity_factor (float, optional): default=1.0, the capacity of the expert at training time.
+        moe_eval_capacity_factor (float, optional): default=1.0, the capacity of the expert at eval time.
+        moe_min_capacity (int, optional): default=4, the minimum capacity per expert regardless of the capacity_factor.
+        moe_noisy_gate_policy (str, optional): default=None, noisy gate policy, valid options are 'Jitter', 'RSample'.
+        moe_drop_tokens (bool, optional): default=True, whether to drop tokens - (setting to False is equivalent
+                                          to infinite capacity).
+        moe_use_rts (bool, optional): default=True, whether to use Random Token Selection.
+        moe_use_residual (bool, optional): default=False, make this MoE layer a Residual MoE
+                                           (https://arxiv.org/abs/2201.05596) layer.
     """
 
     cfg = dict(
@@ -520,6 +632,15 @@ def build_model_with_cfg(
         use_scaled_init=use_scaled_init,
         use_swiglu=use_swiglu,
         use_flash_attn=use_flash_attn,
+        num_experts=num_experts,
+        moe_gate_k=moe_gate_k,
+        moe_capacity_factor=moe_capacity_factor,
+        moe_eval_capacity_factor=moe_eval_capacity_factor,
+        moe_min_capacity=moe_min_capacity,
+        moe_noisy_gate_policy=moe_noisy_gate_policy,
+        moe_drop_tokens=moe_drop_tokens,
+        moe_use_rts=moe_use_rts,
+        moe_use_residual=moe_use_residual,
     )
 
     return _build_generic_model_1d(num_layers=num_layers, num_chunks=num_chunks, **cfg)

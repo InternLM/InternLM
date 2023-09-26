@@ -276,7 +276,10 @@ class PipelineScheduler(BaseScheduler):
 
         self._call_hooks("before_forward", data)
         # moe_losses contains the loss of each layer in current stage
-        output_obj, moe_losses = self._call_engine(engine.model, data)
+        if gpc.config.get("model_type") == "INTERNLM":
+            output_obj = self._call_engine(engine.model, data)
+        if gpc.config.get("model_type") == "INTERNLM_MoE":
+            output_obj, moe_losses = self._call_engine(engine.model, data)
         self._call_hooks("after_forward", output_obj)
 
         if gpc.is_last_rank(ParallelMode.PIPELINE):
@@ -292,7 +295,11 @@ class PipelineScheduler(BaseScheduler):
                 accum_loss.add_(loss_reduced.detach())
                 output_obj = loss_reduced
 
-        moe_loss = sum(moe_losses) * gpc.config.loss.moe_loss_coeff
+        moe_loss = (
+            sum(moe_losses) * gpc.config.loss.moe_loss_coeff
+            if gpc.config.get("model_type") == "INTERNLM_MoE"
+            else torch.tensor(0.0, device=torch.cuda.current_device(), dtype=gpc.config.model.get("dtype"))
+        )
         moe_loss /= self.num_microbatches
         accum_moe_loss.add_(moe_loss.detach())
 
@@ -658,9 +665,19 @@ class PipelineScheduler(BaseScheduler):
         self.load_batch(engine, data_iter)
 
         if forward_only:
-            return self._forward_only_step(engine, return_loss, return_output_label)
+            output, label, accum_loss, accum_moe_loss = self._forward_only_step(
+                engine, return_loss, return_output_label
+            )
         else:
-            return self._forward_backward_step(engine, return_loss, return_output_label)
+            output, label, accum_loss, accum_moe_loss = self._forward_backward_step(
+                engine, return_loss, return_output_label
+            )
+
+        # Compatible for old code
+        if gpc.config.get("model_type") == "INTERNLM":
+            return output, label, accum_loss
+        if gpc.config.get("model_type") == "INTERNLM_MoE":
+            return output, label, accum_loss, accum_moe_loss
 
 
 class InterleavedPipelineScheduler(PipelineScheduler):
@@ -799,7 +816,10 @@ class InterleavedPipelineScheduler(PipelineScheduler):
         data, label = self._get_data_label_for_current_step(input_obj, micro_batch_data)
 
         self._call_hooks("before_forward", data)
-        output_obj, moe_losses = self._call_engine(engine.model[chunk_id], data)
+        if gpc.config.get("model_type") == "INTERNLM":
+            output_obj = self._call_engine(engine.model[chunk_id], data)
+        if gpc.config.get("model_type") == "INTERNLM_MoE":
+            output_obj, moe_losses = self._call_engine(engine.model[chunk_id], data)
         # Convert output_obj to fp32 when last model chunk of last stage
         if gpc.is_pipeline_last_stage(ignore_virtual=False) and isinstance(engine.model[chunk_id], NaiveAMPModel):
             output_obj = engine.model[chunk_id].convert_to_fp32(output_obj)
@@ -819,7 +839,11 @@ class InterleavedPipelineScheduler(PipelineScheduler):
                 self._accum_loss.add_(loss_reduced.detach())
                 output_obj = loss_reduced
 
-        moe_loss = sum(moe_losses) * gpc.config.loss.moe_loss_coeff
+        moe_loss = (
+            sum(moe_losses) * gpc.config.loss.moe_loss_coeff
+            if gpc.config.get("model_type") == "INTERNLM_MoE"
+            else torch.tensor(0.0, device=torch.cuda.current_device(), dtype=gpc.config.model.get("dtype"))
+        )
         moe_loss /= self.num_microbatches
 
         if self._accum_moe_loss is not None:
@@ -1354,4 +1378,8 @@ class InterleavedPipelineScheduler(PipelineScheduler):
 
         self._clear_state()
 
-        return output, label, accum_loss, accum_moe_loss
+        # Compatible for old code
+        if gpc.config.get("model_type") == "INTERNLM":
+            return output, label, accum_loss
+        if gpc.config.get("model_type") == "INTERNLM_MoE":
+            return output, label, accum_loss, accum_moe_loss

@@ -253,8 +253,14 @@ def args_sanity_check():
     # process the model config
     if "use_flash_attn" not in gpc.config.model:
         gpc.config.model._add_item("use_flash_attn", True)
-    if "num_experts" not in model:
-        model._add_item("num_experts", 1)
+
+    if gpc.config.get("model_type") == "INTERNLM_MoE":
+        if "num_experts" not in model:
+            model._add_item("num_experts", 1)
+        if "moe_use_residual" not in model:
+            model._add_item("moe_use_residual", False)
+        if "moe_gate_k" not in model:
+            model._add_item("moe_gate_k", 2)
 
     # process the parallel config
     if "sequence_parallel" not in gpc.config.parallel:
