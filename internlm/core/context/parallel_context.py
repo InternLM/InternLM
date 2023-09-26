@@ -423,6 +423,16 @@ class ParallelContext(metaclass=SingletonMeta):
         assert self.zero1_parallel_size > 0
         assert self.data_parallel_size % self.zero1_parallel_size == 0
 
+        # check for fsdp:
+        # if zo_size < dp_size, ckpts saving will introduce redundent storage for model weights
+        # because pytorch "ShardTensor" need to ensure current global rank equals to saved shard's global rank
+        # pytorch vision: 1.13.1+cu117
+        if self.data_parallel_size > self.zero1_parallel_size:
+            logger.warning(
+                f"zo size: {self.zero1_parallel_size} < dp size: {self.data_parallel_size}, \
+                           will introduce redundancy when saving ckpts, recommend setting them to same value"
+            )
+
     def _set_parallel_size_from_config(self, config: dict, key: str, attr_name: str):
         if key in config:
             ele = config[key]
