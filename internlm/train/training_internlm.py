@@ -100,6 +100,9 @@ def initialize_model():
     # state in the same dp group are all the same.
     set_mode(ParallelMode.DATA)
 
+    # if fsdp enabled, wrap the model
+    model = wrap_FSDP_model(model)
+
     return model
 
 
