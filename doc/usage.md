@@ -368,3 +368,36 @@ $ torchrun --nnodes=1 --nproc_per_node=8 train.py --config ./configs/7B_sft.py -
 2023-07-07 12:29:13,147	INFO train.py:323 in record_current_batch_training_metrics -- tflops=189.65918563194305,step=4,loss=10.149517059326172,tgs (tokens/gpu/second)=4270.52,lr=1.2000000000000002e-06,loss_scale=65536.0,grad_norm=51.582841631508145,micro_num=4,num_consumed_tokens=655360,inf_nan_skip_batches=0,num_samples_in_batch=19,largest_length=2048,largest_batch=6,smallest_batch=3,adam_beta2=0.95,fwd_bwd_time=3.68
 2023-07-07 12:29:16,994	INFO train.py:323 in record_current_batch_training_metrics -- tflops=189.3109313713174,step=5,loss=9.822169303894043,tgs (tokens/gpu/second)=4262.67,lr=1.4000000000000001e-06,loss_scale=65536.0,grad_norm=47.10386835560855,micro_num=4,num_consumed_tokens=786432,inf_nan_skip_batches=0,num_samples_in_batch=17,largest_length=2048,largest_batch=6,smallest_batch=3,adam_beta2=0.95,fwd_bwd_time=3.69
 ```
+
+### 长文本生成
+
+在推理阶段，您可以在模型配置中通过设置 `use_dynamic_ntk_rope=True` 开启 RoPE 的 Dynamic NTK 选项，从而使得模型适应长文本输入输出，达到 16K 的外推效果:
+```python #21
+model_type = "INTERNLM"  # 模型类型，默认值为 "INTERNLM"，对应模型结构初始化接口函数
+NUM_ATTENTION_HEAD = 32
+VOCAB_SIZE = 103168
+HIDDEN_SIZE = 4096
+NUM_LAYER = 32
+MLP_RATIO = 8 / 3
+model = dict(
+    checkpoint=False,   # 进行重计算的模型层数比例，可选值为 True/False/[0-1]
+    num_attention_heads=NUM_ATTENTION_HEAD,
+    embed_split_hidden=True,
+    vocab_size=VOCAB_SIZE,
+    embed_grad_scale=1,
+    parallel_output=True,
+    hidden_size=HIDDEN_SIZE,
+    num_layers=NUM_LAYER,
+    mlp_ratio=MLP_RATIO,
+    apply_post_layer_norm=False,
+    dtype="torch.bfloat16",
+    norm_type="rmsnorm",
+    layer_norm_epsilon=1e-5,
+    use_dynamic_ntk_rope=True
+)
+```
+
+关于 Dyanmic NTK 的原理，详细请参考
+
+1. https://www.reddit.com/r/LocalLLaMA/comments/14mrgpr/dynamically_scaled_rope_further_increases
+2. https://kexue.fm/archives/9675
