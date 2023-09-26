@@ -27,7 +27,6 @@ from internlm.train import (
     initialize_optimizer,
     load_new_batch,
     record_current_batch_training_metrics,
-    wrap_FSDP_model,
 )
 from internlm.utils.common import (
     BatchSkipper,
