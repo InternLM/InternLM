@@ -86,7 +86,7 @@ msgstr "For example:"
 
 #: ../../source/mixed_precision.rst:40
 msgid "TF32训练"
-msgstr ""
+msgstr "TF32 Training"
 
 #: ../../source/mixed_precision.rst:41
 msgid "TensorFloat-32（TF32）是Nvidia在Ampere架构GPU上推出的专门运用于TensorCore的一种计算格式。其与其他常用数据格式的比较如下图："
