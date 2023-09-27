@@ -3,12 +3,11 @@
 # This file is distributed under the same license as the InternLM package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
 #
-#, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: InternLM \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-09-11 14:25+0800\n"
+"POT-Creation-Date: 2023-09-27 11:14+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -175,7 +174,6 @@ msgid "训练配置"
 msgstr "Training Configuration"
 
 #: ../../../usage.md:70
-#, fuzzy
 msgid "以 7B Demo 的配置文件`configs/7B_sft.py`为例："
 msgstr ""
 "Taking the configuration file `configs/7B_sft.py` for the 7B demo as an "
@@ -359,6 +357,29 @@ msgid "以 slurm 上单机 8 卡的 Demo 训练配置为例，训练结果日志
 msgstr ""
 "Taking the configuration of the demo training on a single machine with 8 "
 "GPUs on slurm as an example, the training result log is shown below:"
+
+#: ../../../usage.md:373
+msgid "长文本生成"
+msgstr "Long Text Generation"
+
+#: ../../../usage.md:375
+msgid ""
+"在推理阶段，您可以在模型配置中通过设置 `use_dynamic_ntk_rope=True` 开启 RoPE 的 Dynamic NTK "
+"选项，从而使得模型适应长文本输入输出，达到 16K 的外推效果:"
+msgstr "During the inference phase, you can turn on the Dynamic NTK option of RoPE by setting `use_dynamic_ntk_rope=True` in the model configuration, "
+"so that the model can adapt to long text input and output and achieve an extrapolation effect of 16K:"
+
+#: ../../../usage.md:401
+msgid "关于 Dyanmic NTK 的原理，详细请参考"
+msgstr "Regarding the principle of Dyanmic NTK, please refer to"
+
+#: ../../../usage.md:403
+msgid "https://www.reddit.com/r/LocalLLaMA/comments/14mrgpr/dynamically_scaled_rope_further_increases"
+msgstr ""
+
+#: ../../../usage.md:404
+msgid "https://kexue.fm/archives/9675"
+msgstr ""
 
 #~ msgid "`load_model_only_folder`与`load_ckpt_folder`不能同时设置"
 #~ msgstr ""
