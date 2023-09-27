@@ -3,7 +3,6 @@
 # This file is distributed under the same license as the InternLM package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
 #
-#, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: InternLM \n"
@@ -175,7 +174,6 @@ msgid "训练配置"
 msgstr "Training Configuration"
 
 #: ../../../usage.md:70
-#, fuzzy
 msgid "以 7B Demo 的配置文件`configs/7B_sft.py`为例："
 msgstr ""
 "Taking the configuration file `configs/7B_sft.py` for the 7B demo as an "
