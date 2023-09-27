@@ -186,14 +186,14 @@ def train(
         # do forward and backward
         timer("fwd-bwd").start()
 
-        # Compatible for old code
+        # Compatible for non-moe
         moe_loss = None
-        if gpc.config.get("model_type") == "INTERNLM":
-            _, _, loss = trainer.execute_schedule(
+        if hasattr(gpc.config.model, "num_experts"):
+            _, _, loss, moe_loss = trainer.execute_schedule(
                 batch, forward_only=False, return_loss=True, return_output_label=False
             )
-        elif gpc.config.get("model_type") == "INTERNLM_MoE":
-            _, _, loss, moe_loss = trainer.execute_schedule(
+        else:
+            _, _, loss = trainer.execute_schedule(
                 batch, forward_only=False, return_loss=True, return_output_label=False
             )
         if gpc.is_rank_for_log():

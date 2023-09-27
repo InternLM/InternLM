@@ -38,7 +38,7 @@ def split_params_into_different_groups_for_optimizer(param_groups: Tuple[Dict]) 
     # create new groups for fp32, norm, moe gate and moe expert
     new_groups = {}
     new_groups["fp32"] = {"name": "fp32", "params": []}
-    if gpc.config.get("model_type") == "INTERNLM_MoE" and gpc.config.model.num_experts > 1:
+    if gpc.config.model.get("num_experts", 0) > 1:
         # norm and gate are special group to force sync (when enable MoE).
         for key in ["gate", "norm"]:
             new_groups[key] = {"name": key, key: True, "params": []}
@@ -57,11 +57,7 @@ def split_params_into_different_groups_for_optimizer(param_groups: Tuple[Dict]) 
         # first split the norm and gate groups, which are special case to force sync (when enable MoE),
         # then fp32 group and the moe group.
         for param in pgroup["params"]:
-            if (
-                gpc.config.get("model_type") == "INTERNLM_MoE"
-                and gpc.config.model.num_experts > 1
-                and is_norm_param(param)
-            ):
+            if gpc.config.model.get("num_experts", 0) > 1 and is_norm_param(param):
                 new_groups["norm"]["params"].append(param)
             # gate param means MoE is enabled
             elif is_gate_param(param):
