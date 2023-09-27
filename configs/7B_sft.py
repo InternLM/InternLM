@@ -34,9 +34,8 @@ ckpt = dict(
     # training interruptions/hangs caused by hardware failures, using a scheduling system (such as k8s/slurm) 
     # with an automatic restart mechanism upon training reboot.
     # Please be aware that if `auto_resume` is not set (its default value is True), it will not load the checkpoint 
-    # path specified in `load_ckpt_info` by default. If you wish to initialize your model weights from another model, 
-    # you must set `auto_resume` to False.
-    # To initialize from another pre-trained model, set 'auto_resume' to False. 
+    # path specified in `load_ckpt_info` by default. 
+    # If you want to initialize your model weights from another model, you must set `auto_resume` to False.
     # If you want to train from scratch, please set load_ckpt_info=None.
     auto_resume=False,  
     checkpoint_every=CHECKPOINT_EVERY,
