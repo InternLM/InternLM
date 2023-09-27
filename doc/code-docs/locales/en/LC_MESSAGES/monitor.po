@@ -3,7 +3,6 @@
 # This file is distributed under the same license as the InternLM package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
 #
-#, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: InternLM \n"
@@ -272,7 +271,6 @@ msgid "A dictionary containing message data to be included in the heartbeat."
 msgstr ""
 
 #: internlm.monitor.alert.send_heartbeat:10 of
-#, fuzzy
 msgid ""
 "Sending a heartbeat message for training metrics "
 "``send_heartbeat(\"train_metrics\", {\"loss\": 0.1, \"accuracy\": "
