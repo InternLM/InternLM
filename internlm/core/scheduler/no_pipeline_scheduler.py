@@ -106,11 +106,11 @@ class NonPipelineScheduler(BaseScheduler):
         # forward
         with conditional_context(torch.no_grad(), enable=forward_only):
             self._call_hooks("before_forward", data)
-            # moe_losses contains the loss of each layer
-            if gpc.config.get("model_type") == "INTERNLM":
-                output = self._call_engine(engine, data)
-            if gpc.config.get("model_type") == "INTERNLM_MoE":
+            if hasattr(gpc.config.model, "num_experts"):
+                # moe is used
                 output, moe_losses = self._call_engine(engine, data)
+            else:
+                output = self._call_engine(engine, data)
             self._call_hooks("after_forward", output)
 
             self._call_hooks("post_helper_func", output, label)
@@ -121,7 +121,7 @@ class NonPipelineScheduler(BaseScheduler):
                 self._call_hooks("after_criterion", loss)
                 moe_loss = (
                     sum(moe_losses) * gpc.config.loss.moe_loss_coeff
-                    if gpc.config.get("model_type") == "INTERNLM_MoE"
+                    if hasattr(gpc.config.model, "num_experts")
                     else torch.tensor(0.0, device=torch.cuda.current_device(), dtype=gpc.config.model.get("dtype"))
                 )
                 moe_loss /= scale_loss
@@ -206,8 +206,8 @@ class NonPipelineScheduler(BaseScheduler):
         if not return_output_label:
             outputs, labels = None, None
 
-        # Compatible for old code
-        if gpc.config.get("model_type") == "INTERNLM":
-            return outputs, labels, loss
-        if gpc.config.get("model_type") == "INTERNLM_MoE":
+        # Compatible for non-moe
+        if hasattr(gpc.config.model, "num_experts"):
             return outputs, labels, loss, moe_loss
+        else:
+            return outputs, labels, loss

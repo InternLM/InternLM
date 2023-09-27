@@ -267,7 +267,7 @@ def args_sanity_check():
     if "use_flash_attn" not in gpc.config.model:
         gpc.config.model._add_item("use_flash_attn", True)
 
-    if gpc.config.get("model_type") == "INTERNLM_MoE":
+    if "MoE" in gpc.config.get("model_type", "INTERNLM"):
         if "num_experts" not in model:
             model._add_item("num_experts", 1)
         if "moe_use_residual" not in model:

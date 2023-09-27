@@ -220,15 +220,15 @@ def main(args):
             timer("fwd-bwd").start()
 
             moe_loss = None
-            if gpc.config.get("model_type") == "INTERNLM":
-                _, _, loss = trainer.execute_schedule(
+            if hasattr(gpc.config.model, "num_experts"):
+                _, _, loss, moe_loss = trainer.execute_schedule(
                     batch,
                     forward_only=False,
                     return_loss=True,
                     return_output_label=False,
                 )
-            if gpc.config.get("model_type") == "INTERNLM_MoE":
-                _, _, loss, moe_loss = trainer.execute_schedule(
+            else:
+                _, _, loss = trainer.execute_schedule(
                     batch,
                     forward_only=False,
                     return_loss=True,

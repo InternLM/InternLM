@@ -113,13 +113,13 @@ def evaluate_on_val_dls(
                             tensor_shape=tensor_shape,
                             metric_hook_list=[val_sche_metric_hook],
                         ):
-                            # Compatible for old code
-                            if gpc.config.get("model_type") == "INTERNLM":
-                                _, _, loss = trainer.execute_schedule(
+                            # Compatible for non-moe
+                            if hasattr(gpc.config.model, "num_experts"):
+                                _, _, loss, moe_loss = trainer.execute_schedule(
                                     batch, forward_only=True, return_loss=True, return_output_label=False
                                 )
-                            elif gpc.config.get("model_type") == "INTERNLM_MoE":
-                                _, _, loss, moe_loss = trainer.execute_schedule(
+                            else:
+                                _, _, loss = trainer.execute_schedule(
                                     batch, forward_only=True, return_loss=True, return_output_label=False
                                 )
                     else:
@@ -133,12 +133,12 @@ def evaluate_on_val_dls(
                             grad_accum_batch_size=grad_accum_batch_size,
                             metric_hook_list=[val_sche_metric_hook],
                         ):
-                            if gpc.config.get("model_type") == "INTERNLM":
-                                _, _, loss = trainer.execute_schedule(
+                            if hasattr(gpc.config.model, "num_experts"):
+                                _, _, loss, moe_loss = trainer.execute_schedule(
                                     batch, forward_only=True, return_loss=True, return_output_label=False
                                 )
-                            elif gpc.config.get("model_type") == "INTERNLM_MoE":
-                                _, _, loss, moe_loss = trainer.execute_schedule(
+                            else:
+                                _, _, loss = trainer.execute_schedule(
                                     batch, forward_only=True, return_loss=True, return_output_label=False
                                 )
                 if verbose:
