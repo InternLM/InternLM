@@ -152,9 +152,9 @@ class NaiveAMPModel(nn.Module):
         Set module to fp32 and register automatic conversion hook in the forward pass.
         The fp32 modules are marked by set_fp32_attr_to_module(.)
         """
-        dtype = torch.float32
+        fp32_dtype = torch.float32
 
-        def to_dtype(x, dtype=dtype):
+        def to_dtype(x, dtype=fp32_dtype):
             if isinstance(x, Tensor) and x.dtype != dtype:
                 return x.to(dtype)
             return x
@@ -186,6 +186,6 @@ class NaiveAMPModel(nn.Module):
         # register_forward_pre_hook for transformer/embeding/norm/xxx block
         for sub_module in modules:
             if module_has_fp32_attr(sub_module):
-                sub_module.to(dtype)
+                sub_module.to(fp32_dtype)
                 sub_module.register_forward_pre_hook(partial(_pre_forward_hook_for_fp32))
                 sub_module.register_forward_hook(partial(_post_forward_hook_for_fp32))
