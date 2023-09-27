@@ -36,7 +36,7 @@ ckpt = dict(
     # Please be aware that if `auto_resume` is not set (its default value is True), it will not load the checkpoint 
     # path specified in `load_ckpt_info` by default. 
     # If you want to initialize your model weights from another model, you must set `auto_resume` to False.
-    # If you want to train from scratch, please set load_ckpt_info=None.
+    # If you want to train from scratch, please set `auto_resume` to False and 'load_ckpt_info' to None.
     auto_resume=False,  
     checkpoint_every=CHECKPOINT_EVERY,
     async_upload=True,  # async ckpt upload. (only work for boto3 ckpt)
