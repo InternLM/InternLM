@@ -47,13 +47,13 @@ InternLM
 
    parallel
 
-TF32训练
+混合精度
 -------------------
 
 .. toctree::
    :maxdepth: 2
 
-   tf32
+   mixed_precision
 
 模型备份
 --------------------
