@@ -455,6 +455,7 @@ class ParallelContext(metaclass=SingletonMeta):
             self._set_parallel_size_from_config(parallel_config, "pipeline", "pipeline_parallel_size")
             self._set_parallel_size_from_config(parallel_config, "tensor", "tensor_parallel_size")
             self._set_parallel_size_from_config(parallel_config, "zero1", "zero1_parallel_size")
+            self._set_parallel_size_from_config(parallel_config, "expert", "expert_parallel_size")
 
         # the user should not set the data parallel size manually
         # instead, it should be calculated based on other parallel config
@@ -463,11 +464,16 @@ class ParallelContext(metaclass=SingletonMeta):
         # the recommended nettest_parallel_size is 32 GPUs
         self.nettest_parallel_size = 32
 
-        # TODO : data parallel size can be different with expert parallel size
-        self.expert_parallel_size = self.data_parallel_size
-
         if self.zero1_parallel_size <= 0:
             self.zero1_parallel_size = self.data_parallel_size
+
+        # if not set expert_parallel_size in parallel config
+        if self.expert_parallel_size <= 0:
+            # by default, expert_parallel_size equals to data_parallel_size, but if the number of experts is smaller
+            # than data_parallel_size, set expert_parallel_size to be the number of experts to make sure each device
+            # has one expert.
+            self.expert_parallel_size = min(self.data_parallel_size, self.config.model.get("num_experts", 1))
+            logger.warning(f"not set expert parallel size, set it as {self.expert_parallel_size}")
 
         self.check_sanity()
 
@@ -492,7 +498,7 @@ class ParallelContext(metaclass=SingletonMeta):
         if self.pipeline_parallel_size > 1:
             initializers.append(pgroup_initializer.Initializer_Pipeline(*initializer_args))
         if self.config.model.get("num_experts", 1) > 1:
-            initializers.append(pgroup_initializer.Initializer_Expert(*initializer_args))
+            initializers.append(pgroup_initializer.Initializer_Expert_Data(*initializer_args))
         for initializer in initializers:
             parallel_setting = initializer.init_dist_group()
             if isinstance(parallel_setting, list):

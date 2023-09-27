@@ -73,6 +73,9 @@ def args_sanity_check():
     if "tensor" not in gpc.config.parallel:
         gpc.config.parallel._add_item("tensor", 1)
 
+    if "expert" not in gpc.config.parallel:
+        gpc.config.parallel._add_item("expert", -1)
+
     # processing the data config in gpc
     data = gpc.config.data
 
