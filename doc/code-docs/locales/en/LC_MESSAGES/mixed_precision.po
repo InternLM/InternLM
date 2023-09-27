@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: InternLM \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-09-26 17:04+0800\n"
+"POT-Creation-Date: 2023-09-27 10:59+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -82,3 +82,35 @@ msgstr ""
 #: ../../source/mixed_precision.rst:16
 msgid "例如："
 msgstr "For example:"
+
+#: ../../source/mixed_precision.rst:40
+msgid "TF32训练"
+msgstr "TF32 Training"
+
+#: ../../source/mixed_precision.rst:41
+msgid "TensorFloat-32（TF32）是Nvidia在Ampere架构GPU上推出的专门运用于TensorCore的一种计算格式。其与其他常用数据格式的比较如下图："
+msgstr "TensorFloat-32 (TF32) is a computational format introduced by Nvidia on Ampere Architecture GPUs for TensorCore. A comparison with other data formats is shown below."
+
+#: ../../source/mixed_precision.rst:47
+msgid "使用TF32的前置条件："
+msgstr "Prerequisites for using TF32."
+
+#: ../../source/mixed_precision.rst:49
+msgid "输入数据类型为FP32，且计算为矩阵乘法及卷积相关运算，才可以使用TF32作为TensorCore的中间计算类型。"
+msgstr "The input data type should be FP32 and TF32 is designed for matrix multiplication, convolutions, and other relative computations."
+
+#: ../../source/mixed_precision.rst:51
+msgid "Ampere架构的GPU。"
+msgstr "Ampere Architecture GPU"
+
+#: ../../source/mixed_precision.rst:53
+msgid "InternLM支持使用TF32训练模型，允许用户在config文件中将 ``dtype`` 设置为 ``torch.tf32``。"
+msgstr "InternLM supports training model in TF32 and allows user to set the ``dtype`` in config as ``torch.tf32``."
+
+#: ../../source/mixed_precision.rst:75
+msgid ""
+"值得注意的是，TF32仅仅是在使用TensorCore时的一种中间计算格式，并不是一个完全的数据类型。因此，在InternLM中，尽管用户将 "
+"``dtype`` 设置成了 ``torch.tf32``，模型的数据类型依旧是 ``torch.float32``。InternLM会针对 "
+"``dtype`` 为 ``torch.tf32`` 的情况，设置以下变量来开启TF32训练。"
+msgstr "It is noticed that TF32 is an intermediate format in TensorCore instead of a data type. Therefore, InternLM could set the following environment variables to enable TF32 when the ``dtype`` is  ``torch.tf32``, which is actually ``torch.float32``."
+
