@@ -203,7 +203,6 @@ class Trainer:
             **kwargs: Additional keyword arguments.
 
         Returns:
-            Tuple[:class:`torch.Tensor`]: A tuple of (output, label, loss).
+            Tuple[:class:`torch.Tensor`]: A tuple of (output, label, loss, moe_loss).
         """
-        output, label, loss = self._schedule.forward_backward_step(self._engine, data_iter, **kwargs)
-        return output, label, loss
+        return self._schedule.forward_backward_step(self._engine, data_iter, **kwargs)

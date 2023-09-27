@@ -264,6 +264,14 @@ def args_sanity_check():
     if "use_flash_attn" not in gpc.config.model:
         gpc.config.model._add_item("use_flash_attn", True)
 
+    if "MoE" in gpc.config.get("model_type", "INTERNLM"):
+        if "num_experts" not in model:
+            model._add_item("num_experts", 1)
+        if "moe_use_residual" not in model:
+            model._add_item("moe_use_residual", False)
+        if "moe_gate_k" not in model:
+            model._add_item("moe_gate_k", 2)
+
     # process the parallel config
     if "sequence_parallel" not in gpc.config.parallel:
         gpc.config.parallel._add_item("sequence_parallel", False)
@@ -307,6 +315,9 @@ def args_sanity_check():
         logger.info(
             f"overlap_sync_grad:{optim_ckpt.overlap_sync_grad}, overlap_sync_param:{optim_ckpt.overlap_sync_param}"
         )
+
+    if "moe_loss_coeff" not in gpc.config.loss:
+        gpc.config.loss._add_item("moe_loss_coeff", 1.0)
 
 
 def launch(
@@ -370,6 +381,12 @@ def launch(
             f"data parallel size: {gpc.data_parallel_size}, pipeline parallel size: {gpc.pipeline_parallel_size}, "
             f"tensor parallel size: {gpc.tensor_parallel_size}",
         )
+        if hasattr(gpc.config.model, "num_experts") and gpc.config.model.num_experts > 1:
+            logger.info(
+                f"Creating MoE with num_experts: {gpc.config.model.num_experts} | "
+                f"expert parallel size: {gpc.expert_parallel_size} | "
+                f"number of local experts: {gpc.config.model.num_experts//gpc.expert_parallel_size}"
+            )
 
 
 def launch_from_slurm(

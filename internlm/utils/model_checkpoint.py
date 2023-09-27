@@ -4,8 +4,10 @@
 import copy
 import inspect
 import os
+import re
 import socket
 import time
+from collections import defaultdict
 from enum import Enum
 from typing import Callable, Dict, Union
 
@@ -19,6 +21,7 @@ from internlm.initialize.legacy.launch import (
     auto_resume_sanity_check,
     ckpt_info_sanity_check,
 )
+from internlm.model.moe import MoE
 from internlm.monitor import send_alert_message
 from internlm.solver.optimizer import HybridZeroOptimizer, reload_zero_fp32_buff
 from internlm.utils.common import get_current_device
@@ -229,6 +232,8 @@ def save_model_checkpoint(folder, model):
     """
 
     states = model.state_dict()
+    # get non-expert parameters
+    states = get_non_moe_state_dict(states)
     topo = get_model_topology(model)
 
     if folder is not None:
@@ -251,6 +256,9 @@ def save_model_checkpoint(folder, model):
             topo_fn = f"topo_tp{tp_rank}_pp{pp_rank}.json"
             topo_fp = os.path.join(folder, topo_fn)
             llm_save(topo_fp, saved_obj=topo)
+
+        # try to save expert parameter to separate files if model have moe layer
+        try_save_moe_checkpoint(folder, model, tp_rank, pp_rank)
 
     torch.distributed.barrier()
 
@@ -288,6 +296,19 @@ def load_model_checkpoint(folder, model):
     fp = os.path.join(folder, should_load_name)
     states = llm_load(fp, map_location=get_current_device())
 
+    """
+    # need convert the gate parameters to float32 (to fit deepspeed style mechanism), it may cause round-off in
+    # gate.weight. The conversion will also be done when doing forward. so we can just comment it out. this make
+    # the gate parameters to be float16 before forward.
+    for key in list(states.keys()):
+        if 'moe_layer.gate.wg.weight' in key:
+            states[key] = states[key].float()
+            print("load: ", states[key].float(),flush=True)
+    """
+
+    # try to load expert parameter to separate files if model have moe layer
+    try_load_moe_checkpoint(folder, model, states, tp_rank, pp_rank)
+
     missing_k, unexpected_keys = model.load_state_dict(states, strict=False)
     if len(missing_k) != 0:
         logger.warning(f"Warning: missing keys {missing_k}")
@@ -297,6 +318,59 @@ def load_model_checkpoint(folder, model):
     # avoid to cuda oom, Ref: https://discuss.pytorch.org/t/load-state-dict-causes-memory-leak/36189/11
     del states
     torch.cuda.empty_cache()
+
+
+def try_save_moe_checkpoint(folder, model, tp_rank, pp_rank):
+    # Using layer_#_expert_# to save the model's expert state_dict，a hack.
+    pipeline_stage_size = gpc.config.model.num_layers // gpc.get_world_size(ParallelMode.PIPELINE)
+    moe_layer_id = pp_rank * pipeline_stage_size
+    for n_module, module in model.named_modules():
+        if isinstance(module, MoE):  # and deepspeed.comm.get_rank() == 0:
+            num_local_experts = module.num_local_experts
+            expp_rank = gpc.get_local_rank(ParallelMode.EXPERT)
+
+            # get all moe parameters
+            moe_state_dict = {}
+            for n, p in module.state_dict().items():
+                if "expert" in n and "moe_layer.gate.wg.weight" not in n:
+                    moe_state_dict[n_module + "." + n] = p
+            moe_str_prefix = ".moe_layer.experts.experts."
+            # Reorder the moe name rank, so that each checkpoint only has one expert
+            experts_state_dict = defaultdict(dict)
+            for key in list(moe_state_dict.keys()):
+                m = re.match(f".*{moe_str_prefix}([0-9]+).*", key)
+
+                local_expert_id = None
+                if not m:
+                    logger.warning(f"No expert found in key {key}.")
+                else:
+                    local_expert_id = m.group(1)
+
+                global_expert_id = expp_rank * num_local_experts + int(local_expert_id)
+                expert_key = key.replace(f"{moe_str_prefix}{local_expert_id}", f"{moe_str_prefix}{global_expert_id}")
+
+                # truncating extra tensor (shared) storage
+                truncated = moe_state_dict.pop(key).clone().detach()
+                experts_state_dict[str(global_expert_id)][expert_key] = truncated
+
+            # let save the moe parameters
+            for global_expert_id, expert_state_dict in experts_state_dict.items():
+                # save the moe parameters
+                fn = f"model_moe_layer{moe_layer_id}_expert{global_expert_id}_tp{tp_rank}.pt"
+                fp = os.path.join(folder, fn)
+                llm_save(fp, saved_obj=expert_state_dict)
+            moe_layer_id += 1
+
+
+def get_non_moe_state_dict(full_state_dict):
+    """
+    Get the state dict of the non-moe layers
+    """
+    for key in list(full_state_dict.keys()):
+        if "expert" in key and "moe_layer.gate.wg.weight" not in key:
+            full_state_dict.pop(key)
+
+    return full_state_dict
 
 
 def save_optimizer_checkpoint(optim, state_path):
@@ -325,6 +399,28 @@ def save_optimizer_checkpoint(optim, state_path):
                 llm_save(fp_meta, params_per_rank_id_dict)
     else:
         llm_save(os.path.join(state_path, fp), states)
+
+
+def try_load_moe_checkpoint(folder, model, state_dict, tp_rank, pp_rank):
+    pipeline_stage_size = gpc.config.model.num_layers // gpc.get_world_size(ParallelMode.PIPELINE)
+    moe_layer_id = pp_rank * pipeline_stage_size
+    for _, module in model.named_modules():
+        if isinstance(module, MoE):  # and deepspeed.comm.get_rank() == 0:
+            num_local_experts = module.num_local_experts
+            expp_rank = gpc.get_local_rank(ParallelMode.EXPERT)
+            # loop all local_experts
+            for local_expert_id in range(num_local_experts):
+                global_expert_id = expp_rank * num_local_experts + local_expert_id
+                fn = f"model_moe_layer{moe_layer_id}_expert{global_expert_id}_tp{tp_rank}.pt"
+                fp = os.path.join(folder, fn)
+                expert_state_dict = llm_load(fp, map_location=get_current_device())
+                # Updating global -> local expert ids
+                moe_str_prefix = ".moe_layer.experts.experts."
+                for key in list(expert_state_dict.keys()):
+                    local_key = key.replace(f"{moe_str_prefix}{global_expert_id}", f"{moe_str_prefix}{local_expert_id}")
+                    expert_state_dict[local_key] = expert_state_dict.pop(key)
+                state_dict.update(expert_state_dict)
+            moe_layer_id += 1
 
 
 def load_optimizer_checkpoint(folder, optim):

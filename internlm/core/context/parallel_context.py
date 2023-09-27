@@ -145,13 +145,19 @@ class ParallelContext(metaclass=SingletonMeta):
         self.tensor_parallel_size = 1
         self.zero1_parallel_size = -1
         self.nettest_parallel_size = 1
+        self.expert_parallel_size = -1
         self.num_processes_on_current_node = -1
         self.virtual_pipeline_parallel_size = None
         self.virtual_pipeline_parallel_rank = None
+        self._expert_parallel_group_names = []
 
     @property
     def config(self):
         return self._config
+
+    @property
+    def expert_parallel_group_names(self):
+        return self._expert_parallel_group_names
 
     def load_config(self, config: Union[dict, str]):
         """Loads the configuration from either a dict or a file.
@@ -457,6 +463,9 @@ class ParallelContext(metaclass=SingletonMeta):
         # the recommended nettest_parallel_size is 32 GPUs
         self.nettest_parallel_size = 32
 
+        # TODO : data parallel size can be different with expert parallel size
+        self.expert_parallel_size = self.data_parallel_size
+
         if self.zero1_parallel_size <= 0:
             self.zero1_parallel_size = self.data_parallel_size
 
@@ -470,6 +479,7 @@ class ParallelContext(metaclass=SingletonMeta):
             self.tensor_parallel_size,
             self.zero1_parallel_size,
             self.nettest_parallel_size,
+            self.expert_parallel_size,
         ]
 
         # run initialization of different process groups
@@ -481,6 +491,8 @@ class ParallelContext(metaclass=SingletonMeta):
         initializers.append(pgroup_initializer.Initializer_Nettest(*initializer_args))
         if self.pipeline_parallel_size > 1:
             initializers.append(pgroup_initializer.Initializer_Pipeline(*initializer_args))
+        if self.config.model.get("num_experts", 1) > 1:
+            initializers.append(pgroup_initializer.Initializer_Expert(*initializer_args))
         for initializer in initializers:
             parallel_setting = initializer.init_dist_group()
             if isinstance(parallel_setting, list):

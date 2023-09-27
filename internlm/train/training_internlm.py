@@ -346,6 +346,7 @@ def record_current_batch_training_metrics(
     trainer,
     start_time,
     loss,
+    moe_loss,
     grad_norm,
     metric,
     update_panel,
@@ -430,7 +431,7 @@ def record_current_batch_training_metrics(
         infos = {
             "tflops": tflops,
             "step": batch_count,
-            "loss": loss.item(),
+            "loss": loss.item() - moe_loss.item() if moe_loss is not None else loss.item(),
             "tgs (tokens/gpu/second)": tgs_origin,
             "tgs/last_tgs_1": last_tgs_1,
             "tgs/tgs_all": tgs_all,
@@ -442,6 +443,8 @@ def record_current_batch_training_metrics(
             "loss_scale": scaler,
             "grad_norm": grad_norm,
         }
+        if moe_loss is not None:
+            infos["moe_loss"] = moe_loss.item()
 
         infos["micro_num"] = len(batch[1])
         infos["num_consumed_tokens"] = train_state.num_consumed_tokens
@@ -475,13 +478,14 @@ def record_current_batch_training_metrics(
                 "step": batch_count,
                 "lr": lr,
                 "num_consumed_tokens": train_state.num_consumed_tokens,
-                "loss": loss.item(),
+                "loss": loss.item() - moe_loss.item() if moe_loss is not None else loss.item(),
                 "flops": tflops,
                 "tgs": last_tgs_1,
                 "acc": acc_perplex["acc"],
                 "perplexity": acc_perplex["perplexity"],
                 "fwd_bwd_time": fwd_bwd_time,
             }
+            panel_metrics["moe_loss"] = moe_loss.item()
             for norm_key, norm_value in grad_norm.items():
                 panel_metrics[norm_key] = norm_value
 

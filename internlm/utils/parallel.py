@@ -5,6 +5,7 @@ import torch.distributed as dist
 
 from internlm.core.context import IS_TENSOR_PARALLEL, ParallelMode
 from internlm.core.context import global_context as gpc
+from internlm.model.utils import is_moe_param
 
 
 def is_model_parallel_parameter(p):
@@ -20,8 +21,39 @@ def sync_model_param(model, parallel_mode):
     """
     if gpc.is_initialized(parallel_mode) and gpc.get_world_size(parallel_mode) > 1:
         for param in model.parameters():
-            ranks = gpc.get_ranks_in_group(parallel_mode)
-            dist.broadcast(param, src=ranks[0], group=gpc.get_group(parallel_mode))
+            if is_moe_param(param):
+                # TODO: moe expert param need to sync in expert data parallel group
+                # now we do not support expert data parallel
+                pass
+            else:
+                ranks = gpc.get_ranks_in_group(parallel_mode)
+                dist.broadcast(param, src=ranks[0], group=gpc.get_group(parallel_mode))
+
+
+def sync_tensor(tensor, parallel_mode):
+    r"""Make sure data tensor(parameters) are consistent during Data and Expert Parallel Mode.
+
+    Args:
+        tensor (:class:`torch.Tensor`): A parameters you check the consistency.
+        parallel_mode (:class:`internlm.core.context.ParallelMode`): Parallel mode to be checked.
+    """
+    if gpc.is_initialized(parallel_mode) and gpc.get_world_size(parallel_mode) > 1:
+        ranks = gpc.get_ranks_in_group(parallel_mode)
+        dist.broadcast(tensor, src=ranks[0], group=gpc.get_group(parallel_mode))
+
+
+# TODO: will be used in expert data parallel, may can also used in sync_model_param_within_tp
+def sync_model_param_with_ep(model):
+    r"""Make sure data parameters are consistent during Data Parallel Mode.
+
+    Args:
+        model (:class:`torch.nn.Module`): A pyTorch model on whose parameters you check the consistency.
+    """
+    for param in model.parameters():
+        if is_moe_param(param):
+            sync_tensor(param, ParallelMode.EXPERT_DATA)
+        else:
+            sync_tensor(param, ParallelMode.DATA)
 
 
 def sync_model_param_within_tp(model):
