@@ -3,7 +3,8 @@
 
 # adopted from https://github.com/hpcaitech/ColossalAI/tree/main/colossalai/amp
 
-from typing import Any
+from functools import partial
+from typing import Any, Union
 
 import torch
 import torch.distributed as dist
@@ -13,6 +14,14 @@ from torch.distributed import ReduceOp
 
 from internlm.core.context import ParallelMode
 from internlm.core.context.parallel_context import global_context as gpc
+
+
+def set_fp32_attr_to_module(module: nn.Module):
+    setattr(module, "is_fp32_module", True)
+
+
+def module_has_fp32_attr(module: nn.Module):
+    return hasattr(module, "is_fp32_module") and getattr(module, "is_fp32_module")
 
 
 class NaiveAMPModel(nn.Module):
@@ -50,6 +59,9 @@ class NaiveAMPModel(nn.Module):
             self._world_size = 1
             self._sync_buf = False
         self._first_eval_run = False
+
+        # register hook for fp32 module
+        self._register_fp32_parameters_hook()
 
     @property
     def sync_buffer(self):
@@ -134,3 +146,46 @@ class NaiveAMPModel(nn.Module):
         if self._output_to_fp32:
             out = self.convert_to_fp32(out)
         return out
+
+    def _register_fp32_parameters_hook(self) -> None:
+        """
+        Set module to fp32 and register automatic conversion hook in the forward pass.
+        The fp32 modules are marked by set_fp32_attr_to_module(.)
+        """
+        fp32_dtype = torch.float32
+
+        def to_dtype(x, dtype=fp32_dtype):
+            if isinstance(x, Tensor) and x.dtype != dtype:
+                return x.to(dtype)
+            return x
+
+        def _pre_forward_hook_for_fp32(model: nn.Module, inputs: tuple):  # pylint: disable=W0613
+            assert isinstance(inputs, tuple)
+            return tuple(map(to_dtype, inputs))
+
+        def _post_forward_hook_for_fp32(
+            model: nn.Module, inputs: tuple, outputs: Union[tuple, Tensor]
+        ):  # pylint: disable=W0613
+            assert isinstance(inputs, Union[tuple, Tensor])
+            if isinstance(outputs, tuple):
+                return tuple(map(to_dtype, outputs, [self.dtype] * len(outputs)))
+            else:
+                return to_dtype(outputs, self.dtype)
+
+        # just want to share same for loop for ModuleList and Module
+        if isinstance(self.model, nn.ModuleList):
+            model = self.model
+        else:
+            model = [self.model]
+
+        modules = []
+        # record the modules to transformer/embeding/head/norm block
+        for _chunk in model:
+            modules.extend([sub_module for _, sub_module in _chunk.named_modules()])
+
+        # register_forward_pre_hook for transformer/embeding/norm/xxx block
+        for sub_module in modules:
+            if module_has_fp32_attr(sub_module):
+                sub_module.to(fp32_dtype)
+                sub_module.register_forward_pre_hook(partial(_pre_forward_hook_for_fp32))
+                sub_module.register_forward_hook(partial(_post_forward_hook_for_fp32))

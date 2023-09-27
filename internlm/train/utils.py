@@ -1,19 +1,19 @@
 from typing import Dict, Tuple
 
+import torch
+
 from internlm.core.context.parallel_context import global_context as gpc
 from internlm.model.utils import is_gate_param, is_moe_param, is_norm_param
 
 
 def split_params_into_different_groups_for_optimizer(param_groups: Tuple[Dict]) -> Tuple[Dict]:
-    """Split parameters into different MoE groups for optimizer
-    Compatiable with muiltiple param groups, each should have a name
+    """Split parameters into different groups for optimizer
 
     Args:
         param_groups (Tuple[Dict]): The list of parameter groups to split
         Input Example:
         >>> (
         >>>     {'name': 'default', 'params': [tensor], 'weight_decay' :xxx},
-        >>>     ...,
         >>> )
 
     Returns:
@@ -21,12 +21,13 @@ def split_params_into_different_groups_for_optimizer(param_groups: Tuple[Dict]) 
         Output Example:
         >>> (
         >>>     {'name': 'default','params': [tensor],'weight_decay' :xxx},
+        >>>     {'name': 'fp32', 'params': [tensor],'weight_decay' :xxx},
         >>>     {'name': 'norm', 'norm': True, 'params': [tensor],'weight_decay' :xxx},
         >>>     {'name': 'gate', 'gate': True, 'params': [tensor],'weight_decay' :xxx},
         >>>     {'name': 'moe_ep_size_4', 'moe': True, 'params':  [tensor],'weight_decay' :xxx},
-        >>>     ...,
         >>> )
     """
+
     if isinstance(param_groups, tuple):
         param_groups = list(param_groups)  # Tuple cannot be modified
     elif isinstance(param_groups, dict):
@@ -34,51 +35,55 @@ def split_params_into_different_groups_for_optimizer(param_groups: Tuple[Dict]) 
     elif not isinstance(param_groups, list):
         raise ValueError(f"Unknown param group type of {type(param_groups)}")
 
+    # create new groups for fp32, norm, moe gate and moe expert
     new_groups = {}
-    for pgroup in param_groups:
-        new_groups[pgroup["name"]] = {}
-
-        # create new groups for gate and norm
+    new_groups["fp32"] = {"name": "fp32", "params": []}
+    if gpc.config.get("model_type") == "INTERNLM_MoE" and gpc.config.model.num_experts > 1:
+        # norm and gate are special group to force sync (when enable MoE).
         for key in ["gate", "norm"]:
-            new_groups[pgroup["name"]][key] = {}
-            new_groups[pgroup["name"]][key]["name"] = key
-            new_groups[pgroup["name"]][key][key] = True
-        # create moe groups
+            new_groups[key] = {"name": key, key: True, "params": []}
         for key in gpc.expert_parallel_group_names:
-            new_groups[pgroup["name"]][key] = {}
-            new_groups[pgroup["name"]][key]["name"] = key
-            new_groups[pgroup["name"]][key]["moe"] = True
+            new_groups[key] = {"name": key, "moe": True, "params": []}
 
-        # copy attribute from origin group
+    for pgroup in param_groups:
+        # copy attribute from origin group, we assume the input param_groups only
+        # have one group, so the attribute will not be copyed multiple times.
         for ori_key in pgroup.keys():
-            for key in new_groups[pgroup["name"]].keys():
-                if ori_key != "name":
-                    if ori_key == "params":
-                        new_groups[pgroup["name"]][key][ori_key] = []
-                    else:
-                        new_groups[pgroup["name"]][key][ori_key] = pgroup[ori_key]
-        # Assign param
+            if ori_key not in ("name", "params"):
+                for _, group in new_groups.items():
+                    group[ori_key] = pgroup[ori_key]
+        # assign param
         origin_params = []
+        # first split the norm and gate groups, which are special case to force sync (when enable MoE),
+        # then fp32 group and the moe group.
         for param in pgroup["params"]:
-            if is_moe_param(param):
-                new_groups[pgroup["name"]][param.group_name]["params"].append(param)
-            elif is_norm_param(param):
-                new_groups[pgroup["name"]]["norm"]["params"].append(param)
+            if (
+                gpc.config.get("model_type") == "INTERNLM_MoE"
+                and gpc.config.model.num_experts > 1
+                and is_norm_param(param)
+            ):
+                new_groups["norm"]["params"].append(param)
+            # gate param means MoE is enabled
             elif is_gate_param(param):
-                new_groups[pgroup["name"]]["gate"]["params"].append(param)
+                new_groups["gate"]["params"].append(param)
+            elif param.dtype == torch.float32:
+                new_groups["fp32"]["params"].append(param)
+            # moe param means MoE is enabled
+            elif is_moe_param(param):
+                new_groups[param.group_name]["params"].append(param)
             else:
                 origin_params.append(param)
 
+        # bf16 param group, which is the first group in the param groups
         pgroup["params"] = origin_params
 
-    for _, v in new_groups.items():
-        for _, v1 in v.items():
-            param_groups.append(v1)
+    for _, g in new_groups.items():
+        if g["params"]:
+            param_groups.append(g)
 
     return tuple(param_groups)
 
 
 def create_param_groups(model, weight_decay):
     parameters = {"params": list(model.parameters()), "name": "default", "weight_decay": weight_decay}
-
     return split_params_into_different_groups_for_optimizer(parameters)

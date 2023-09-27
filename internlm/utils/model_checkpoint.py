@@ -81,8 +81,8 @@ class CheckpointLoadMethod:
 
     @staticmethod
     def register_ckpt_load_type(load_type: Union[str, CheckpointLoadType], load_func: Callable):
-        if load_type in CheckpointLoadMethod.LOAD_TYPE_FUNC:
-            logger.warning(f"{load_type} has aleady been registed!")
+        if load_type in CheckpointLoadMethod.LOAD_TYPE_FUNC and gpc.is_rank_for_log():
+            logger.warning(f"{load_type} has already been registered!")
             return
 
         CheckpointLoadMethod.LOAD_TYPE_FUNC.update({load_type: load_func})
@@ -90,9 +90,10 @@ class CheckpointLoadMethod:
         if load_type == CheckpointLoadType.INTERNLM:
             CheckpointLoadMethod.LOAD_FUNC_SIG = inspect.signature(load_func)
         else:
-            if inspect.signature(load_func) != CheckpointLoadMethod.LOAD_FUNC_SIG:
+            if inspect.signature(load_func) != CheckpointLoadMethod.LOAD_FUNC_SIG and gpc.is_rank_for_log():
                 logger.warning(
-                    f"registe load model ckpt signature is not same with: {CheckpointLoadMethod.LOAD_FUNC_SIG}"
+                    f"The registered signature {inspect.signature(load_func)} of the loaded model is not same as: "
+                    f"{CheckpointLoadMethod.LOAD_FUNC_SIG}"
                 )
 
     @staticmethod
@@ -257,7 +258,7 @@ def save_model_checkpoint(folder, model):
             llm_save(topo_fp, saved_obj=topo)
 
         # try to save expert parameter to separate files if model have moe layer
-        try_save_moe_checkpoint(folder, model)
+        try_save_moe_checkpoint(folder, model, tp_rank, pp_rank)
 
     torch.distributed.barrier()
 
@@ -306,7 +307,7 @@ def load_model_checkpoint(folder, model):
     """
 
     # try to load expert parameter to separate files if model have moe layer
-    try_load_moe_checkpoint(folder, model, states)
+    try_load_moe_checkpoint(folder, model, states, tp_rank, pp_rank)
 
     missing_k, unexpected_keys = model.load_state_dict(states, strict=False)
     if len(missing_k) != 0:
@@ -319,9 +320,10 @@ def load_model_checkpoint(folder, model):
     torch.cuda.empty_cache()
 
 
-def try_save_moe_checkpoint(folder, model):
+def try_save_moe_checkpoint(folder, model, tp_rank, pp_rank):
     # Using layer_#_expert_# to save the model's expert state_dict，a hack.
-    moe_layer_id = 0
+    pipeline_stage_size = gpc.config.model.num_layers // gpc.get_world_size(ParallelMode.PIPELINE)
+    moe_layer_id = pp_rank * pipeline_stage_size
     for n_module, module in model.named_modules():
         if isinstance(module, MoE):  # and deepspeed.comm.get_rank() == 0:
             num_local_experts = module.num_local_experts
@@ -354,7 +356,7 @@ def try_save_moe_checkpoint(folder, model):
             # let save the moe parameters
             for global_expert_id, expert_state_dict in experts_state_dict.items():
                 # save the moe parameters
-                fn = f"model_moe_layer{moe_layer_id}_expert{global_expert_id}.pt"
+                fn = f"model_moe_layer{moe_layer_id}_expert{global_expert_id}_tp{tp_rank}.pt"
                 fp = os.path.join(folder, fn)
                 llm_save(fp, saved_obj=expert_state_dict)
             moe_layer_id += 1
@@ -399,8 +401,9 @@ def save_optimizer_checkpoint(optim, state_path):
         llm_save(os.path.join(state_path, fp), states)
 
 
-def try_load_moe_checkpoint(folder, model, state_dict):
-    moe_layer_id = 0
+def try_load_moe_checkpoint(folder, model, state_dict, tp_rank, pp_rank):
+    pipeline_stage_size = gpc.config.model.num_layers // gpc.get_world_size(ParallelMode.PIPELINE)
+    moe_layer_id = pp_rank * pipeline_stage_size
     for _, module in model.named_modules():
         if isinstance(module, MoE):  # and deepspeed.comm.get_rank() == 0:
             num_local_experts = module.num_local_experts
@@ -408,7 +411,7 @@ def try_load_moe_checkpoint(folder, model, state_dict):
             # loop all local_experts
             for local_expert_id in range(num_local_experts):
                 global_expert_id = expp_rank * num_local_experts + local_expert_id
-                fn = f"model_moe_layer{moe_layer_id}_expert{global_expert_id}.pt"
+                fn = f"model_moe_layer{moe_layer_id}_expert{global_expert_id}_tp{tp_rank}.pt"
                 fp = os.path.join(folder, fn)
                 expert_state_dict = llm_load(fp, map_location=get_current_device())
                 # Updating global -> local expert ids
@@ -464,10 +467,11 @@ def load_optimizer_checkpoint(folder, optim):
             zero_devide_optim_plan = llm_load(fp_meta)
             states.update({"zero_devide_optim_plan": zero_devide_optim_plan})
         except Exception as e:
-            logger.warning(
-                f"Read zero optimzer split file '{fp_meta}', for '{e}'"
-                f"Please check whether loading ckpts are saved with the HybridZeroOptimizer."
-            )
+            if gpc.is_rank_for_log():
+                logger.warning(
+                    f"Read zero optimzer split file '{fp_meta}', for '{e}'"
+                    f"Please check whether loading ckpts are saved with the HybridZeroOptimizer."
+                )
 
     optim.load_state_dict(states)
     del states
@@ -479,8 +483,8 @@ def load_sampler(ckpt_path: str, sampler):
     sampler.load_state_dict(sampler_states)
     if gpc.is_rank_for_log():
         pstate = copy.deepcopy(sampler_states)
-        pstate.pop("indices")
-        pstate.pop("rng_state")
+        pstate.pop("indices", None)
+        pstate.pop("rng_state", None)
         logger.info(f"reload sampler_states:{pstate}")
     torch.cuda.empty_cache()
 
@@ -729,9 +733,12 @@ now step_count is {train_state.step_count}",
         # Here we only try to find the ckpt folder named after step, ignoring snapshot and other folders.
         ckpt_list = [int(fn.strip("/")) for fn in ckpt_list if fn.strip("/").isdigit()]
         if len(ckpt_list) == 0:
-            logger.warning("Not found avaliable normal checkpoint!")
+            if gpc.is_rank_for_log():
+                logger.warning("No available normal checkpoint found. Check your checkpoint path.")
         else:
-            logger.info(f"Found avaliable normal checkpoint: {ckpt_list}!")
+            if gpc.is_rank_for_log():
+                logger.info(f"Found available normal checkpoint: {ckpt_list}")
+
             ckpt_list.sort(reverse=True)
             for ckpt in ckpt_list:
                 fns_list = self.storage_manager.get_fns(os.path.join(self.save_ckpt_folder, str(ckpt)))

@@ -97,6 +97,7 @@ def evaluate_on_val_dls(
                 disable=not verbose,
                 leave=False,
             ):
+                moe_loss = None
                 with torch.inference_mode():
                     if gpc.is_using_pp():
                         total_val_bsz = len(batch[1])
@@ -112,9 +113,15 @@ def evaluate_on_val_dls(
                             tensor_shape=tensor_shape,
                             metric_hook_list=[val_sche_metric_hook],
                         ):
-                            _, _, loss, _ = trainer.execute_schedule(
-                                batch, forward_only=True, return_loss=True, return_output_label=False
-                            )
+                            # Compatible for old code
+                            if gpc.config.get("model_type") == "INTERNLM":
+                                _, _, loss = trainer.execute_schedule(
+                                    batch, forward_only=True, return_loss=True, return_output_label=False
+                                )
+                            elif gpc.config.get("model_type") == "INTERNLM_MoE":
+                                _, _, loss, moe_loss = trainer.execute_schedule(
+                                    batch, forward_only=True, return_loss=True, return_output_label=False
+                                )
                     else:
                         total_val_bsz = len(batch[1])
                         assert total_val_bsz % data_cfg.micro_bsz == 0
@@ -126,11 +133,16 @@ def evaluate_on_val_dls(
                             grad_accum_batch_size=grad_accum_batch_size,
                             metric_hook_list=[val_sche_metric_hook],
                         ):
-                            _, _, loss, _ = trainer.execute_schedule(
-                                batch, forward_only=True, return_loss=True, return_output_label=False
-                            )
+                            if gpc.config.get("model_type") == "INTERNLM":
+                                _, _, loss = trainer.execute_schedule(
+                                    batch, forward_only=True, return_loss=True, return_output_label=False
+                                )
+                            elif gpc.config.get("model_type") == "INTERNLM_MoE":
+                                _, _, loss, moe_loss = trainer.execute_schedule(
+                                    batch, forward_only=True, return_loss=True, return_output_label=False
+                                )
                 if verbose:
-                    val_loss += loss.item()
+                    val_loss += loss.item() - moe_loss.item() if moe_loss is not None else loss.item()
 
             assert val_idx != -1
             dist.barrier()
