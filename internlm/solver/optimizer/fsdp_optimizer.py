@@ -66,7 +66,7 @@ class FSDPadaptOptimizer(BaseOptimizer):
             self._fp16_param_groups[group_idx] = group_params
 
             # create copy of fp32 weight
-            fp32_tensor_param = [param.data.float().requires_grad_(True) for param in group_params]
+            fp32_tensor_param = [param.data.float() for param in group_params]
             self._fp32_param_tensor_groups[group_idx] = fp32_tensor_param
 
             # replace

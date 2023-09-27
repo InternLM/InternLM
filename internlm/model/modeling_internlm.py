@@ -450,7 +450,7 @@ def build_model_with_cfg(
     apply_post_layer_norm=False,  # pylint: disable=W0613
     layer_norm_epsilon=1e-5,
     is_reward=False,
-    dropout_selective_checkpoint=True,
+    dropout_selective_checkpoint=False,
     use_scaled_init: bool = True,
     use_swiglu: bool = True,
     use_flash_attn: bool = True,
