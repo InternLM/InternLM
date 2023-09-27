@@ -150,7 +150,6 @@ parallel = dict(
     tensor=1,
     pipeline=dict(size=1, interleaved_overlap=True),
     sequence_parallel=False,
-    expert=2,
 )
 
 cudnn_deterministic = False
