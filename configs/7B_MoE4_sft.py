@@ -43,7 +43,7 @@ data = dict(
     # micro_num means the number of micro_batch contained in one gradient update
     micro_num=4,
     # packed_length = micro_bsz * SEQ_LEN
-    micro_bsz=2,
+    micro_bsz=1,
     # defaults to the value of micro_num
     valid_micro_num=4,
     # defaults to 0, means disable evaluate
@@ -133,7 +133,7 @@ model = dict(
     layer_norm_epsilon=1e-5,
     use_flash_attn=True,
     num_chunks=1,  # if num_chunks > 1, interleaved pipeline scheduler is used.
-    num_experts=2,
+    num_experts=4,
     moe_use_residual=False,
     moe_gate_k=2,
 )
@@ -151,7 +151,7 @@ tensor parallel: tensor parallel size, usually the number of GPUs per node.
 """
 parallel = dict(
     zero1=-1,
-    tensor=4,
+    tensor=2,
     pipeline=dict(size=1, interleaved_overlap=True),
     sequence_parallel=False,
 )
