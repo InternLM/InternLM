@@ -463,11 +463,18 @@ class ParallelContext(metaclass=SingletonMeta):
         # the recommended nettest_parallel_size is 32 GPUs
         self.nettest_parallel_size = 32
 
-        # TODO : data parallel size can be different with expert parallel size
-        self.expert_parallel_size = self.data_parallel_size
-
         if self.zero1_parallel_size <= 0:
             self.zero1_parallel_size = self.data_parallel_size
+
+        assert (
+            self.data_parallel_size % self.config.model.get("num_experts", 1) == 0
+            or self.config.model.get("num_experts", 1) % self.data_parallel_size == 0
+        ), "can not place the experts evenly"
+
+        # by default, expert_parallel_size equals to data_parallel_size, but if the number of experts is smaller
+        # than data_parallel_size, set expert_parallel_size to be the number of experts to make sure each device
+        # has one expert.
+        self.expert_parallel_size = min(self.data_parallel_size, self.config.model.get("num_experts", 1))
 
         self.check_sanity()
 
@@ -492,7 +499,7 @@ class ParallelContext(metaclass=SingletonMeta):
         if self.pipeline_parallel_size > 1:
             initializers.append(pgroup_initializer.Initializer_Pipeline(*initializer_args))
         if self.config.model.get("num_experts", 1) > 1:
-            initializers.append(pgroup_initializer.Initializer_Expert(*initializer_args))
+            initializers.append(pgroup_initializer.Initializer_Expert_Data(*initializer_args))
         for initializer in initializers:
             parallel_setting = initializer.init_dist_group()
             if isinstance(parallel_setting, list):
