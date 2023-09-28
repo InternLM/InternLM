@@ -578,7 +578,7 @@ class HybridZeroOptimizer(BaseOptimizer):
             if gpc.is_rank_for_log():
                 logger.warning("Overflow occurs, please check it.")
                 send_alert_message(
-                    address=gpc.config.alert_address,
+                    address=gpc.config.monitor.alert.feishu_alert_address,
                     message="Overflow occurs, please check it.",
                 )
             self._grad_store._averaged_gradients = dict()

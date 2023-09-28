@@ -253,9 +253,22 @@ def args_sanity_check():
             gpc.config.parallel.sequence_parallel is True and gpc.config.model.use_flash_attn is False
         ), "sequence parallel does not support use_flash_attn=False"
 
-    # feishu webhook address for alerting
-    if "alert_address" not in gpc.config:
-        gpc.config._add_item("alert_address", None)
+    # monitoring default config
+    monitor_default_config = {
+        "alert_address": None,  # compatible with old alert config
+        "monitor": {  # new monitoring config
+            "alert": {"enable_feishu_alert": False, "feishu_alert_address": None, "light_monitor_address": None}
+        },
+    }
+
+    for key, value in monitor_default_config.items():
+        if key not in gpc.config:
+            gpc.config._add_item(key, value)
+
+    alert = gpc.config.monitor.alert
+
+    if alert.enable_feishu_alert and not alert.feishu_alert_address and gpc.is_rank_for_log():
+        logger.warning("alert is enable but alert_address is not set")
 
     optim_ckpt = gpc.config.hybrid_zero_optimizer
     if "zero_overlap_communication" in optim_ckpt:
@@ -332,14 +345,6 @@ def launch(
             f"data parallel size: {gpc.data_parallel_size}, pipeline parallel size: {gpc.pipeline_parallel_size}, "
             f"tensor parallel size: {gpc.tensor_parallel_size}",
         )
-
-    # init light monitor client
-    light_monitor_address = gpc.config.get("light_monitor_address", None)
-    if light_monitor_address is None:
-        if gpc.is_rank_for_log():
-            logger.warning("monitor address is none, monitor could not be used!")
-    else:
-        initialize_light_monitor(light_monitor_address)
 
 
 def launch_from_slurm(
@@ -443,6 +448,15 @@ def initialize_distributed_env(
 
     if args_check:
         args_sanity_check()
+
+    # init light monitor client
+    alert_config = gpc.config.monitor.alert
+    if alert_config.enable_feishu_alert and gpc.is_rank_for_log():
+        light_monitor_address = alert_config.light_monitor_address
+        if light_monitor_address:
+            initialize_light_monitor(light_monitor_address)
+        else:
+            logger.warning("monitor address is none, monitor could not be used!")
 
 
 def get_config_value(config, key, defalut):
