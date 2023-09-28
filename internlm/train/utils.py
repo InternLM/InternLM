@@ -1,7 +1,9 @@
 from typing import Dict, Tuple
 
 import torch
+import torch.distributed as dist
 
+from internlm.core.context.parallel_context import ParallelMode
 from internlm.core.context.parallel_context import global_context as gpc
 from internlm.model.utils import is_gate_param, is_moe_param, is_norm_param
 
@@ -74,7 +76,10 @@ def split_params_into_different_groups_for_optimizer(param_groups: Tuple[Dict]) 
         pgroup["params"] = origin_params
 
     for _, g in new_groups.items():
-        if g["params"]:
+        # remove empty group, especially for fp32 group
+        is_empty = torch.tensor(bool(g["params"]), device=torch.cuda.current_device())
+        dist.all_reduce(is_empty, group=gpc.get_group(ParallelMode.MODEL))
+        if is_empty:
             param_groups.append(g)
 
     return tuple(param_groups)
