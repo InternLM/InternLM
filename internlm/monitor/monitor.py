@@ -53,6 +53,7 @@ class MonitorTracker(Thread):
         self.last_active_time = -1
         self.last_loss_value = -1
         self.stopped = False
+        self.daemon = True
         self.start()
 
     def run(self):
