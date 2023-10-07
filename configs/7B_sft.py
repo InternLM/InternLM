@@ -146,10 +146,10 @@ pipeline parallel (dict):
 tensor parallel: tensor parallel size, usually the number of GPUs per node.
 """
 parallel = dict(
-    zero1=8,
-    tensor=1,
+    zero1=-1,
+    tensor=2,
     pipeline=dict(size=1, interleaved_overlap=True),
-    sequence_parallel=False,
+    sequence_parallel=True,
 )
 
 cudnn_deterministic = False

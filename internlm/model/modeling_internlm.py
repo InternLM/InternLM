@@ -17,9 +17,11 @@ from internlm.model.linear import (
     FeedForward,
     RewardModelLinear,
     ScaleColumnParallelLinear,
+    FSDPScaleLinear,
+    FSDPFeedForward,
 )
 from internlm.model.multi_head_attention import MHA
-from internlm.model.utils import gather_forward_split_backward, try_import_RMSNorm
+from internlm.model.utils import gather_forward_split_backward, try_import_RMSNorm, split_forward_gather_backward
 from internlm.solver.pipeline_utils import partition_uniform
 from internlm.utils.checkpoint import activation_checkpoint
 from internlm.utils.common import filter_kwargs
@@ -107,7 +109,16 @@ class PackedFlashBaseLayer1D(nn.Module):
             self.norm2 = nn.LayerNorm(hidden_size, eps=layer_norm_epsilon)
 
         if use_swiglu:
-            self.mlp = FeedForward(
+            # self.mlp = FeedForward(
+            #     hidden_size,
+            #     int(hidden_size * mlp_ratio),
+            #     out_features=hidden_size,
+            #     process_group=gpc.get_group(ParallelMode.TENSOR),
+            #     bias=False,
+            #     device=device,
+            #     dtype=dtype,
+            # )
+            self.mlp = FSDPFeedForward(
                 hidden_size,
                 int(hidden_size * mlp_ratio),
                 out_features=hidden_size,
@@ -293,7 +304,8 @@ class PackedFlashInternLm1D(nn.Module):
         if is_reward:
             head_cls = RewardModelLinear
         else:
-            head_cls = ScaleColumnParallelLinear
+            # head_cls = ScaleColumnParallelLinear
+            head_cls = FSDPScaleLinear
         if first:
             if embed_split_hidden:
                 self.embedding = Embedding1D(num_embeddings=vocab_size, embedding_dim=hidden_size)
@@ -379,6 +391,9 @@ class PackedFlashInternLm1D(nn.Module):
             assert len(indexes) == 1
             # The indexes are used to indicate the actual position IDs of each token in the packed input.
             indexes = indexes[0]
+            if gpc.config.parallel.sequence_parallel:
+                indexes = split_forward_gather_backward(indexes, ParallelMode.TENSOR, dim=0)
+        
         max_seqlen = (cu_seqlens[1:] - cu_seqlens[:-1]).max().item() if cu_seqlens is not None else None
 
         for _, block in enumerate(self.blocks):
@@ -394,6 +409,7 @@ class PackedFlashInternLm1D(nn.Module):
             hidden_states = self.norm(hidden_states.float())
         if hasattr(self, "head"):
             hidden_states = self.head(hidden_states)
+            hidden_states = gather_forward_split_backward(hidden_states, ParallelMode.TENSOR, dim=0)
 
         if not self.parallel_output:
             hidden_states = gather_forward_split_backward(hidden_states, ParallelMode.TENSOR, dim=-1)

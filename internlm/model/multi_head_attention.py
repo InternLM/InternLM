@@ -18,7 +18,114 @@ from torch import nn
 from internlm.core.context import IS_TENSOR_PARALLEL, ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.model.embedding import DynamicNTKScalingRotaryEmbedding, RotaryEmbedding
-from internlm.model.linear import ColumnParallelLinearTorch, RowParallelLinearTorch
+from internlm.model.linear import ColumnParallelLinearTorch, RowParallelLinearTorch, FSDPLinear
+
+import torch
+
+from typing import Any, Tuple
+from torch import Tensor
+from torch.nn import Module
+
+import torch.distributed as dist
+
+
+class _SeqAllToAll(torch.autograd.Function):
+
+    @staticmethod
+    def forward(ctx: Any, group: dist.ProcessGroup, input: Tensor, scatter_idx: int, gather_idx: int) -> Tensor:
+
+        ctx.group = group
+        ctx.scatter_idx = scatter_idx
+        ctx.gather_idx = gather_idx
+
+        seq_world_size = dist.get_world_size(group)
+
+        input_list = [t.contiguous() for t in torch.tensor_split(input, seq_world_size, scatter_idx)]
+        output_list = [torch.empty_like(input_list[0]) for _ in range(seq_world_size)]
+        # TODO Use all_to_all_single instead
+        dist.all_to_all(output_list, input_list, group=group)
+        return torch.cat(output_list, dim=gather_idx).contiguous()
+
+    @staticmethod
+    def backward(ctx: Any, *grad_output: Tensor) -> Tuple[None, Tensor, None, None]:
+        return (None, _SeqAllToAll.apply(ctx.group, *grad_output, ctx.gather_idx, ctx.scatter_idx), None, None)
+
+
+class DistributedAttention(torch.nn.Module):
+    """Initialization.
+
+    Arguments:
+        local_attention (Module): local attention with q,k,v
+        sequence_process_group (ProcessGroup): sequence parallel process group
+        scatter_idx (int): scatter_idx for all2all comm
+        gather_idx (int): gather_idx for all2all comm
+    """
+
+    def __init__(
+        self,
+        local_attention: Module,
+        sequence_process_group: dist.ProcessGroup,
+        scatter_idx: int = 2,
+        gather_idx: int = 0,
+    ) -> None:
+
+        super(DistributedAttention, self).__init__()
+        self.local_attn = local_attention
+        self.spg = sequence_process_group
+        self.scatter_idx = scatter_idx
+        self.gather_idx = gather_idx
+
+    # def forward(self, query: Tensor, key: Tensor, value: Tensor, *args: Any) -> Tensor:
+    #     """ forward
+
+    #     Arguments:
+    #         query (Tensor): query input to the layer
+    #         key (Tensor): key input to the layer
+    #         value (Tensor): value input to the layer
+    #         args: other args
+
+    #     Returns:
+    #         * output (Tensor): context output
+    #     """
+    #     # TODO Merge three alltoall calls into one
+    #     #in shape : e.g.,  [s/p:h:]
+    #     query_layer = _SeqAllToAll.apply(self.spg, query, self.scatter_idx, self.gather_idx)
+    #     key_layer = _SeqAllToAll.apply(self.spg, key, self.scatter_idx, self.gather_idx)
+    #     value_layer = _SeqAllToAll.apply(self.spg, value, self.scatter_idx, self.gather_idx)
+
+    #     #out shape : e.g., [s:h/p:]
+    #     context_layer = self.local_attn(query_layer, key_layer, value_layer, *args)
+
+    #     output = _SeqAllToAll.apply(self.spg, context_layer, self.gather_idx, self.scatter_idx)
+
+    #     #out e.g., [s/p::h]
+    #     return output
+    
+    def forward(self, qkv: Tensor, **kwargs: Any) -> Tensor:
+        """ forward
+
+        Arguments:
+            query (Tensor): query input to the layer
+            key (Tensor): key input to the layer
+            value (Tensor): value input to the layer
+            args: other args
+
+        Returns:
+            * output (Tensor): context output
+        """
+        # TODO Merge three alltoall calls into one
+        #in shape : e.g.,  [s/p:h:]
+        qkv = _SeqAllToAll.apply(self.spg, qkv, self.scatter_idx, self.gather_idx)
+        # key_layer = _SeqAllToAll.apply(self.spg, key, self.scatter_idx, self.gather_idx)
+        # value_layer = _SeqAllToAll.apply(self.spg, value, self.scatter_idx, self.gather_idx)
+
+        #out shape : e.g., [s:h/p:]
+        context_layer = self.local_attn(qkv, **kwargs)
+
+        output = _SeqAllToAll.apply(self.spg, context_layer, 0, 2)
+
+        #out e.g., [s/p::h]
+        return output
 
 
 class MHA(nn.Module):
@@ -91,7 +198,16 @@ class MHA(nn.Module):
                 self.rotary_emb = RotaryEmbedding(self.rotary_emb_dim, scale_base=rotary_emb_scale_base, device=device)
 
         # notice here should change bias=True
-        self.Wqkv = ColumnParallelLinearTorch(
+        # self.Wqkv = ColumnParallelLinearTorch(
+        #     embed_dim,
+        #     3 * embed_dim,
+        #     process_group,
+        #     bias=True,
+        #     sequence_parallel=gpc.config.parallel.sequence_parallel,
+        #     **factory_kwargs,
+        # )  # according to https://spaces.ac.cn/archives/9577
+        
+        self.Wqkv = FSDPLinear(
             embed_dim,
             3 * embed_dim,
             process_group,
@@ -106,9 +222,19 @@ class MHA(nn.Module):
         self.inner_cross_attn = inner_cross_attn_cls(
             causal=causal, softmax_scale=softmax_scale, attention_dropout=dropout
         )
+        
+        self.inner_attn_sp = DistributedAttention(self.inner_attn, sequence_process_group=process_group, scatter_idx=3, gather_idx=0)
+        self.inner_cross_attn_sp = DistributedAttention(self.inner_cross_attn, sequence_process_group=process_group, scatter_idx=3, gather_idx=0)
 
         # output projection always have the bias (for now)
-        self.out_proj = RowParallelLinearTorch(
+        # self.out_proj = RowParallelLinearTorch(
+        #     embed_dim,
+        #     embed_dim,
+        #     process_group,
+        #     sequence_parallel=gpc.config.parallel.sequence_parallel,
+        #     **factory_kwargs,
+        # )
+        self.out_proj = FSDPLinear(
             embed_dim,
             embed_dim,
             process_group,
@@ -211,15 +337,17 @@ class MHA(nn.Module):
         qkv = rearrange(qkv, "t (three h d) -> t three h d", three=3, d=self.head_dim)  # total x 3 x n_head x d
         qkv = self.rotary_emb(qkv, **kwargs)
         kwargs.pop("indexes")
-
+        
         if inference_params is None:
             if gpc.config.model.dtype is torch.float32 and gpc.config.model.use_flash_attn:
                 with torch.cuda.amp.autocast(dtype=torch.bfloat16):
                     if qkv.dtype not in [torch.float16, torch.bfloat16]:
                         qkv = qkv.to(torch.bfloat16)
-                    context = self.inner_attn(qkv, **kwargs).to(x.dtype)
+                    # context = self.inner_attn(qkv, **kwargs).to(x.dtype)
+                    context = self.inner_attn_sp(qkv, **kwargs).to(x.dtype)
             else:
-                context = self.inner_attn(qkv, **kwargs)
+                # context = self.inner_attn(qkv, **kwargs)
+                context = self.inner_attn_sp(qkv, **kwargs)
 
         else:
             raise RuntimeError("Not support this right now")
