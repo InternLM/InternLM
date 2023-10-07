@@ -87,3 +87,24 @@ def test_storage_mm_save_load(ckpt_config, init_dist_and_model):  # noqa # pylin
     assert get_fns(ckpt_config.save_folder)[0] == "test.pt"
     load_obj = llm_load(save_fn, map_location="cpu")
     assert 0 == ((load_obj != tobj).sum())
+
+
+internlm_ckpt_path = [
+    ("local:/mnt/ckpt/", "local", "/mnt/ckpt/"),
+    ("local:./ckpt/", "local", "./ckpt/"),
+    ("boto3:s3://oss_bucket/", "boto3", "s3://oss_bucket/"),
+    ("boto3:oss_bucket/", "boto3", "oss_bucket/"),
+    ("/mnt/ckpt/", "local", "/mnt/ckpt/"),
+    ("./ckpt/", "local", "./ckpt/"),
+    ("s3://oss_bucket/", "boto3", "s3://oss_bucket/"),
+]
+
+
+@pytest.mark.parametrize("ckpt_path", internlm_ckpt_path)
+def test_try_get_storage_backend(ckpt_path):
+    from internlm.utils.storage_manager import try_get_storage_backend
+
+    ipath, a_prefix, a_cut_path = ckpt_path
+    b_prefix, b_cut_path = try_get_storage_backend(ipath)
+    assert a_prefix == b_prefix, f"{a_prefix} == {b_prefix}"
+    assert a_cut_path == b_cut_path, f"{a_cut_path} == {b_cut_path}"

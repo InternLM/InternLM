@@ -145,13 +145,19 @@ class ParallelContext(metaclass=SingletonMeta):
         self.tensor_parallel_size = 1
         self.zero1_parallel_size = -1
         self.nettest_parallel_size = 1
+        self.expert_parallel_size = -1
         self.num_processes_on_current_node = -1
         self.virtual_pipeline_parallel_size = None
         self.virtual_pipeline_parallel_rank = None
+        self._expert_parallel_group_names = []
 
     @property
     def config(self):
         return self._config
+
+    @property
+    def expert_parallel_group_names(self):
+        return self._expert_parallel_group_names
 
     def load_config(self, config: Union[dict, str]):
         """Loads the configuration from either a dict or a file.
@@ -460,6 +466,16 @@ class ParallelContext(metaclass=SingletonMeta):
         if self.zero1_parallel_size <= 0:
             self.zero1_parallel_size = self.data_parallel_size
 
+        assert (
+            self.data_parallel_size % self.config.model.get("num_experts", 1) == 0
+            or self.config.model.get("num_experts", 1) % self.data_parallel_size == 0
+        ), "can not place the experts evenly"
+
+        # by default, expert_parallel_size equals to data_parallel_size, but if the number of experts is smaller
+        # than data_parallel_size, set expert_parallel_size to be the number of experts to make sure each device
+        # has one expert.
+        self.expert_parallel_size = min(self.data_parallel_size, self.config.model.get("num_experts", 1))
+
         self.check_sanity()
 
         initializer_args = [
@@ -470,6 +486,7 @@ class ParallelContext(metaclass=SingletonMeta):
             self.tensor_parallel_size,
             self.zero1_parallel_size,
             self.nettest_parallel_size,
+            self.expert_parallel_size,
         ]
 
         # run initialization of different process groups
@@ -481,6 +498,8 @@ class ParallelContext(metaclass=SingletonMeta):
         initializers.append(pgroup_initializer.Initializer_Nettest(*initializer_args))
         if self.pipeline_parallel_size > 1:
             initializers.append(pgroup_initializer.Initializer_Pipeline(*initializer_args))
+        if self.config.model.get("num_experts", 1) > 1:
+            initializers.append(pgroup_initializer.Initializer_Expert_Data(*initializer_args))
         for initializer in initializers:
             parallel_setting = initializer.init_dist_group()
             if isinstance(parallel_setting, list):

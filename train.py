@@ -219,9 +219,21 @@ def main(args):
             # do forward and backward
             timer("fwd-bwd").start()
 
-            _, _, loss = trainer.execute_schedule(
-                batch, forward_only=False, return_loss=True, return_output_label=False
-            )
+            moe_loss = None
+            if hasattr(gpc.config.model, "num_experts"):
+                _, _, loss, moe_loss = trainer.execute_schedule(
+                    batch,
+                    forward_only=False,
+                    return_loss=True,
+                    return_output_label=False,
+                )
+            else:
+                _, _, loss = trainer.execute_schedule(
+                    batch,
+                    forward_only=False,
+                    return_loss=True,
+                    return_output_label=False,
+                )
             timer("fwd-bwd").stop()
 
             # update parameters, and returns (success_update, grad_norm)
@@ -254,6 +266,7 @@ def main(args):
                 trainer=trainer,
                 start_time=start_time,
                 loss=loss,
+                moe_loss=moe_loss,
                 grad_norm=grad_norm_groups,
                 metric=metric,
                 update_panel=uniscale_logger is not None,

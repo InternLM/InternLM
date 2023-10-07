@@ -107,3 +107,29 @@ InternLM performance in the GSM8K dataset with and without tools:
 | -------- | -------------------- |
 | w/o tool | 34.5                 |
 | w tool   | 39.2                 |
+
+# openai_api.py
+
+`openai_api.py` implements stream deployment with OpenAI APIs which an be used on any applications based on ChatGPT. Below is the command to deploy `internlm`:
+
+```bash
+python openai_api.py
+```
+
+Then it is able to call the deployed API using the following python code:
+
+```python
+import openai
+if __name__ == "__main__":
+    openai.api_base = "http://localhost:8000/internlm"
+    openai.api_key = "none"
+    for chunk in openai.ChatCompletion.create(
+        model="internlm-chat-7b",
+        messages=[
+            {"role": "user", "content": "Hello!"},
+        ],
+        stream=True
+    ):
+        if hasattr(chunk.choices[0].delta, "content"):
+            print(chunk.choices[0].delta.content, end="", flush=True)
+```

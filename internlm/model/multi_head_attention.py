@@ -2,6 +2,7 @@
 # -*- encoding: utf-8 -*-
 
 import math
+import warnings
 from typing import Optional
 
 import torch
@@ -19,7 +20,7 @@ from torch import nn
 
 from internlm.core.context import IS_TENSOR_PARALLEL, ParallelMode
 from internlm.core.context import global_context as gpc
-from internlm.model.embedding import RotaryEmbedding
+from internlm.model.embedding import DynamicNTKScalingRotaryEmbedding, RotaryEmbedding
 from internlm.model.linear import ColumnParallelLinearTorch, RowParallelLinearTorch
 
 
@@ -55,10 +56,12 @@ class MHA(nn.Module):
         embed_dim: int,
         num_heads: int,
         process_group: Optional[torch.distributed.ProcessGroup],
+        max_position_embeddings: int = 2048,
         dropout: float = 0.0,
         softmax_scale: float = None,
         causal: bool = False,
         layer_idx: int = None,
+        use_dynamic_ntk_rope: bool = False,
         rotary_emb_dim: int = 0,
         rotary_emb_scale_base: int = 0,
         use_flash_attn: bool = True,
@@ -70,6 +73,8 @@ class MHA(nn.Module):
         self.embed_dim = embed_dim
         self.causal = causal
         self.layer_idx = layer_idx
+        self.max_position_embeddings = max_position_embeddings
+        self.use_dynamic_ntk_rope = use_dynamic_ntk_rope
         self.rotary_emb_dim = rotary_emb_dim
         self.use_flash_attn = use_flash_attn
         self.num_heads = num_heads
@@ -77,7 +82,16 @@ class MHA(nn.Module):
         self.head_dim = self.embed_dim // num_heads
 
         if self.rotary_emb_dim > 0:
-            self.rotary_emb = RotaryEmbedding(self.rotary_emb_dim, scale_base=rotary_emb_scale_base, device=device)
+            if self.use_dynamic_ntk_rope:
+                self.rotary_emb = DynamicNTKScalingRotaryEmbedding(
+                    self.rotary_emb_dim,
+                    scale_base=rotary_emb_scale_base,
+                    device=device,
+                    max_position_embeddings=max_position_embeddings,
+                    scaling_factor=1.0,  # Currently do not support dynamic scaling.
+                )
+            else:
+                self.rotary_emb = RotaryEmbedding(self.rotary_emb_dim, scale_base=rotary_emb_scale_base, device=device)
 
         # notice here should change bias=True
         self.Wqkv = ColumnParallelLinearTorch(
