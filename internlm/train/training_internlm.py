@@ -80,7 +80,7 @@ def initialize_model():
     # This sync is very important, cause the model weights kept in optimizer are copied
     # from the origin parameters in the memory, so we should make sure the dp sync
     # does not influence the model weights in optimizer be different with the origin parameters.
-    sync_model_param(model, parallel_mode=ParallelMode.DATA)
+    sync_model_param(model)
 
     # This function is needed to make sure parameters that are not splitted by tensor parallelism are
     # the same across tensor parallelism.
@@ -485,7 +485,8 @@ def record_current_batch_training_metrics(
                 "perplexity": acc_perplex["perplexity"],
                 "fwd_bwd_time": fwd_bwd_time,
             }
-            panel_metrics["moe_loss"] = moe_loss.item()
+            if moe_loss is not None:
+                panel_metrics["moe_loss"] = moe_loss.item()
             for norm_key, norm_value in grad_norm.items():
                 panel_metrics[norm_key] = norm_value
 
