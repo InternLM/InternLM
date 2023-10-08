@@ -11,6 +11,7 @@ from torch.optim import Optimizer
 
 from internlm.core.context import Config, ParallelMode
 from internlm.core.context import global_context as gpc
+from internlm.model.utils import is_moe_param
 from internlm.monitor import send_alert_message
 from internlm.solver.optimizer.store import (
     BucketStore,
@@ -84,7 +85,8 @@ class HybridZeroOptimizer(BaseOptimizer):
         # it will not manage the tensors used by mixed precision training
         self._param_store = ParameterStore(ParallelMode.ZERO1)
         self._grad_store = GradientStore(ParallelMode.DATA)
-        self._bucket_store = BucketStore(ParallelMode.DATA)
+        self._non_moe_bucket_store = BucketStore(ParallelMode.DATA)
+        self._moe_bucket_store = BucketStore(ParallelMode.EXPERT_DATA)
         self._bucket_in_progress = []
 
         # fp16 and fp32 params for mixed precision training
@@ -139,11 +141,14 @@ class HybridZeroOptimizer(BaseOptimizer):
             self._fp16_param_groups[group_id] = group_params
 
             # assign parameters to ranks the params in the list are sorted
-            params_per_rank, no_params_ranks = self._partition_param_list(group_params)
+            params_per_rank, no_params_ranks = self._partition_param_list(param_group)
             self.param_group_no_params_ranks.append(no_params_ranks)
             self.param_group_has_params.append(self._zero_local_rank not in no_params_ranks)
 
-            # store the mapping between param to rank each param should belong to only one rank
+            # store the mapping between param to rank each param should belong to only one rank.
+            # we can skip the moe param and do not keep them in _param_store to save memory
+            # (means we need to deal with moe param in a different way), but it will increase
+            # complexity and reduce code readablity.
             for rank, params in enumerate(params_per_rank):
                 # check whether any rank is not assigned params.
                 if len(params) != 0:
@@ -220,34 +225,55 @@ class HybridZeroOptimizer(BaseOptimizer):
     def num_param_groups(self):
         return len(self._fp16_param_groups)
 
-    def _partition_param_list(self, param_list):
+    def _partition_param_list(self, param_group):
         no_params_ranks = []
         params_per_rank = [[] for _ in range(self._zero_world_size)]
         numel_per_rank = [0 for _ in range(self._zero_world_size)]
         self.params_per_rank_id_dict.append([[] for _ in range(self._zero_world_size)])
+        param_list = param_group["params"]
 
-        sorted_params = sorted(param_list, key=lambda x: x.numel(), reverse=True)
-        for i, param in enumerate(sorted_params):
-            global_id = str(i)
-            for j in range(len(param.size())):
-                global_id = "_".join([global_id, str(param.size()[j])])
-            if self._overlap_sync_param:
-                rank_to_go = self._param_bcast_sync_handler.get_rank_by_param(param)
-            else:
-                rank_to_go = numel_per_rank.index(min(numel_per_rank))
-            params_per_rank[rank_to_go].append(param)
-            self.params_per_rank_id_dict[-1][rank_to_go].append(global_id)
-            numel_per_rank[rank_to_go] += param.numel()
+        if self._is_moe_group(param_group):
+            # for moe group, we do not need to partition the params, just add current
+            # params to params_per_rank[_zero_local_rank]
+            params_per_rank[self._zero_local_rank] = list(param_list)
+            self.params_per_rank_id_dict[-1][self._zero_local_rank].append(None)
+            no_params_ranks = list(range(self._zero_world_size))
+            no_params_ranks.pop(self._zero_local_rank)
 
-        # check whether any rank is not assigned to parameters.
-        for rank, params in enumerate(params_per_rank):
-            if len(params) == 0:
-                no_params_ranks.append(rank)
+        else:
+            sorted_params = sorted(param_list, key=lambda x: x.numel(), reverse=True)
+            for i, param in enumerate(sorted_params):
+                global_id = str(i)
+                for j in range(len(param.size())):
+                    global_id = "_".join([global_id, str(param.size()[j])])
+                if self._overlap_sync_param:
+                    rank_to_go = self._param_bcast_sync_handler.get_rank_by_param(param)
+                else:
+                    rank_to_go = numel_per_rank.index(min(numel_per_rank))
+                params_per_rank[rank_to_go].append(param)
+                self.params_per_rank_id_dict[-1][rank_to_go].append(global_id)
+                numel_per_rank[rank_to_go] += param.numel()
 
-        if gpc.is_rank_for_log():
-            logger.info(f"Number of elements on ranks: {numel_per_rank}, rank:{gpc.get_global_rank()}")
+            # check whether any rank is not assigned to parameters.
+            for rank, params in enumerate(params_per_rank):
+                if len(params) == 0:
+                    no_params_ranks.append(rank)
+
+            if gpc.is_rank_for_log():
+                logger.info(  # pylint: disable=W1203
+                    f"Number of elements on ranks: {numel_per_rank}, rank:{gpc.get_global_rank()}"
+                )
 
         return params_per_rank, set(no_params_ranks)
+
+    def _is_moe_group(self, param_group):
+        return "moe" in param_group.keys() and param_group["moe"]
+
+    def _is_norm_group(self, param_group):
+        return "norm" in param_group.keys() and param_group["norm"]
+
+    def _is_gate_group(self, param_group):
+        return "gate" in param_group.keys() and param_group["gate"]
 
     def _attach_reduction_hook(self):
         # we iterate over the fp16 params
@@ -255,6 +281,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         for group_id in range(self.num_param_groups):
             param_group = self._fp16_param_groups[group_id]
             for param in param_group:
+                # we should not reduce the param in moe
                 if param.requires_grad:
                     reduce_rank = None
 
@@ -287,8 +314,13 @@ class HybridZeroOptimizer(BaseOptimizer):
         # check if the bucket is full
         # if full, will reduce the grads already in the bucket
         # after reduction, the bucket will be empty
-        if self._bucket_store.num_elements_in_bucket(reduce_rank) + param_size > self._reduce_bucket_size:
-            self._reduce_grads_stored_in_bucket(reduce_rank, last_bucket=False)
+        if is_moe_param(param):
+            current_bucket = self._moe_bucket_store
+        else:
+            current_bucket = self._non_moe_bucket_store
+
+        if current_bucket.num_elements_in_bucket(reduce_rank) + param_size > self._reduce_bucket_size:
+            self._reduce_grads_stored_in_bucket(current_bucket, reduce_rank, last_bucket=False)
 
         # the param must not be reduced to ensure correctness
         is_param_reduced = self._param_store.is_param_reduced(param)
@@ -302,19 +334,20 @@ class HybridZeroOptimizer(BaseOptimizer):
         # the param must have grad for reduction
         assert param.grad is not None, f"Parameter of size ({param.size()}) has None grad, cannot be reduced"
 
-        self._bucket_store.add_num_elements_in_bucket(param_size, reduce_rank)
-        self._bucket_store.add_grad(param.grad, reduce_rank)
-        self._bucket_store.add_param(param, reduce_rank)
+        current_bucket.add_num_elements_in_bucket(param_size, reduce_rank)
+        current_bucket.add_grad(param.grad, reduce_rank)
+        current_bucket.add_param(param, reduce_rank)
 
-    def _reduce_grads_stored_in_bucket(self, reduce_rank=None, last_bucket=False):
+    def _reduce_grads_stored_in_bucket(self, current_bucket, reduce_rank=None, last_bucket=False):
         # reduce grads
         self._reduce_grads_by_rank(
             reduce_rank=reduce_rank,
-            grads=self._bucket_store.get_grad(reduce_rank=reduce_rank),
-            bucket_size=self._bucket_store.num_elements_in_bucket(reduce_rank),
+            grads=current_bucket.get_grad(reduce_rank=reduce_rank),
+            bucket_size=current_bucket.num_elements_in_bucket(reduce_rank),
+            dp_parallel_mode=current_bucket.get_dp_parallel_mode(),
         )
 
-        params_in_bucket = self._bucket_store.get_param(reduce_rank=reduce_rank)
+        params_in_bucket = current_bucket.get_param(reduce_rank=reduce_rank)
 
         for param in params_in_bucket:
             # the is_param_reduced flag should be False showing that
@@ -336,9 +369,9 @@ class HybridZeroOptimizer(BaseOptimizer):
             else:
                 self._param_store.add_previous_reduced_param(param)
 
-        self._bucket_store.reset_by_rank(reduce_rank)
+        current_bucket.reset_by_rank(reduce_rank)
 
-    def _reduce_grads_by_rank(self, reduce_rank, grads, bucket_size):
+    def _reduce_grads_by_rank(self, reduce_rank, grads, bucket_size, dp_parallel_mode):
         grad_buckets_by_dtype = split_half_float_double(grads)
         next_bucket_list = []
         # add parameters into bucket for reduction
@@ -347,7 +380,7 @@ class HybridZeroOptimizer(BaseOptimizer):
             for tensor in tensor_list:
                 param_bucket.add_to_bucket(tensor, allow_oversize=True)
             if not param_bucket.is_empty():
-                self._reduce_and_copy(bucket=param_bucket, reduce_rank=reduce_rank)
+                self._reduce_and_copy(bucket=param_bucket, reduce_rank=reduce_rank, dp_parallel_mode=dp_parallel_mode)
             next_bucket_list.append(param_bucket)
 
         # wait for the completion of previouce bucket list reduction, and do unflatten_and_copy()
@@ -362,14 +395,14 @@ class HybridZeroOptimizer(BaseOptimizer):
         # after the completion of bucket list reduction, add new buckets into _bucket_in_progress
         self._bucket_in_progress = next_bucket_list.copy()
 
-    def _reduce_and_copy(self, bucket: TensorBucket, reduce_rank):
+    def _reduce_and_copy(self, bucket: TensorBucket, reduce_rank, dp_parallel_mode):
         # flatten the tensors and do allreduce
         bucket.flatten()
         bucket.commu_handle = reduce_tensor(
             tensor=bucket.get_flat_tensor(),
             dtype=None,
             dst_rank=reduce_rank,
-            parallel_mode=ParallelMode.DATA,
+            parallel_mode=dp_parallel_mode,
         )
 
         # update the reduced tensor
@@ -470,6 +503,33 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         return norm
 
+    def _compute_norm_with_moe_group(self, group_id):
+        params = self._param_store.get_fp16_params_by_rank_group(group_id=group_id, rank=self._zero_local_rank)
+        # we do not get the average grad for moe parameters, so we have to constuct the gradients list here.
+        grads = [p.grad for p in params]
+
+        if len(params) == 0:
+            grads = [self.padding_grad]
+            params = [self.padding_tensor]
+
+        norm = 0
+        if self._clip_grad_norm > 0:
+            norm = compute_norm(
+                gradients=grads,
+                parameters=params,
+                last_stage=True,
+                is_moe_group=True,
+            )
+
+        # Need to allreduce(avg) the norms across different ranks because moe params will not be synced during allreduce
+        # model and zero have been reduced!!!
+        pg = gpc.get_group(ParallelMode.DATA)
+        scaled_norm = norm * 1.0 / float(gpc.get_world_size(ParallelMode.DATA))
+        scaled_norm_tensor = torch.tensor(scaled_norm, device=get_current_device(), dtype=torch.float)
+        dist.all_reduce(scaled_norm_tensor, group=pg)
+        all_groups_norm = scaled_norm_tensor.item()
+        return all_groups_norm
+
     @llm_timeout(func_name="optim_step")
     def step(self, closure=None):
         """Performs a single optimization step.
@@ -487,16 +547,21 @@ class HybridZeroOptimizer(BaseOptimizer):
         if not self._overlap_sync_grad:
             for group_id in range(len(self._fp16_param_groups)):
                 for param in self._fp16_param_groups[group_id]:
+                    # we should not reduce the param in moe
                     if param.grad is not None:
                         self._store_and_try_reduce_grads_by_bucket(param)
 
         # we need to reduce the gradients left in the communication bucket
-        self._reduce_grads_stored_in_bucket(reduce_rank=None, last_bucket=True)
+        self._reduce_grads_stored_in_bucket(self._non_moe_bucket_store, reduce_rank=None, last_bucket=True)
+        self._reduce_grads_stored_in_bucket(self._moe_bucket_store, reduce_rank=None, last_bucket=True)
 
         # compute norm for gradients in the before bucket
         groups_norms = []
         for group_id in range(self.num_param_groups):
-            groups_norms.append(self._compute_norm_with_stage(group_id=group_id))
+            if self._is_moe_group(self.optim.param_groups[group_id]):
+                groups_norms.append(None)
+            else:
+                groups_norms.append(self._compute_norm_with_stage(group_id=group_id))
 
         # clear reduced grads
         # grads in the last bucket is reduced
@@ -512,12 +577,15 @@ class HybridZeroOptimizer(BaseOptimizer):
         for group_id in range(self.num_param_groups):
             group_name = self.param_groups[group_id]["name"] if "name" in self.param_groups[group_id] else "default"
             group_name = f"{group_id}_{group_name}"
-            total_norms[group_name] = self._compute_norm_with_stage(
-                group_id=group_id,
-                last_bucket=True,
-                last_stage=True,
-                previous_norm=groups_norms[group_id],
-            )
+            if self._is_moe_group(self.optim.param_groups[group_id]):
+                total_norms[group_name] = self._compute_norm_with_moe_group(group_id=group_id)
+            else:
+                total_norms[group_name] = self._compute_norm_with_stage(
+                    group_id=group_id,
+                    last_bucket=True,
+                    last_stage=True,
+                    previous_norm=groups_norms[group_id],
+                )
 
         timer("sync_grad").start()
         self._sync_grad()
@@ -530,6 +598,7 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         # check for overflow
         found_inf = False
+        found_nan = False
         # if there is INF values in grades, compute_norm func would also returns -1
         # thus, we try to avoid call _check_overflow here
         # found_inf = self._check_overflow()
@@ -538,9 +607,13 @@ class HybridZeroOptimizer(BaseOptimizer):
         if -1 in norms.values():
             found_inf = True
 
+        if -2 in norms.values():
+            found_nan = True
+
         loss_scale = float(self.loss_scale.item())  # backup
         if gpc.config.model.dtype is not torch.float32:
             self.grad_scaler.update(found_inf)
+
         # update loss scale if overflow occurs
         if found_inf:
             if gpc.is_rank_for_log():
@@ -548,6 +621,17 @@ class HybridZeroOptimizer(BaseOptimizer):
                 send_alert_message(
                     address=gpc.config.monitor.alert.feishu_alert_address,
                     message="Overflow occurs, please check it.",
+                )
+            self._grad_store._averaged_gradients = dict()
+            self.zero_grad()
+            return False, norms
+
+        if found_nan:
+            if gpc.is_rank_for_log():
+                logger.warning("Nan grad norm occurs, please check it.")
+                send_alert_message(
+                    address=gpc.config.monitor.alert.feishu_alert_address,
+                    message="Nan grad norm  occurs, please check it.",
                 )
             self._grad_store._averaged_gradients = dict()
             self.zero_grad()
@@ -576,6 +660,19 @@ class HybridZeroOptimizer(BaseOptimizer):
             assert (
                 param_shape == flat_fp32_avg_grads.shape
             ), f"fp32 param and grad have different shape {param_shape} vs {flat_fp32_avg_grads.shape}"
+
+            # Parameters shared within a TP group, such as norm and moe gate, have precision inconsistency in gradients.
+            # Therefore, it is recommended to synchronize gradients within the TP group to eliminate accumulated errors.
+            is_tp_sync_groups = (
+                self._is_norm_group(self.optim.param_groups[group_id]),
+                self._is_gate_group(self.optim.param_groups[group_id]),
+            )
+            if any(is_tp_sync_groups):
+                dist.all_reduce(
+                    flat_fp32_avg_grads,
+                    op=dist.ReduceOp.AVG,
+                    group=gpc.get_group(ParallelMode.TENSOR),
+                )
 
             single_grad_partition_groups.append(flat_fp32_avg_grads)
             device = self._fp32_flat_param_groups_of_current_rank[group_id].device
@@ -631,6 +728,8 @@ class HybridZeroOptimizer(BaseOptimizer):
         handles = []
 
         for rank, group_id in product(range(self._zero_world_size), range(self.num_param_groups)):
+            if self._is_moe_group(self.optim.param_groups[group_id]):
+                continue
             # The following operations are performed only on the rank to which parameters are assigned.
             if rank in self.param_group_no_params_ranks[group_id]:
                 continue

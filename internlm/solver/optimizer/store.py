@@ -38,11 +38,15 @@ class BucketStore(BaseStore):
         self._grads = dict()
         self._params = dict()
         self._num_elements_in_bucket = dict()
+        self._dp_parallel_mode = dp_parallel_mode
 
         self.reset()
 
     def num_elements_in_bucket(self, reduce_rank: int = None):
         return self._num_elements_in_bucket[reduce_rank]
+
+    def get_dp_parallel_mode(self):
+        return self._dp_parallel_mode
 
     def add_num_elements_in_bucket(self, num_elements, reduce_rank: int = None):
         self._num_elements_in_bucket[reduce_rank] += num_elements

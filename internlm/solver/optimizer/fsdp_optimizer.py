@@ -50,9 +50,6 @@ class FSDPadaptOptimizer(BaseOptimizer):
         self._clip_grad_norm = zero_cfg.clip_grad_norm
         self.use_fsdp = gpc.config.parallel.use_fsdp
 
-        # mark whether a module is part of TP or not
-        # TODO: is_tensor_parallel_dict = dict()
-
         # fp16 and fp32 params
         # fp16 share mem space with model.FlatParam, fp32 share mem space with optim.param_group
         self._fp16_param_groups = dict()
@@ -81,8 +78,8 @@ class FSDPadaptOptimizer(BaseOptimizer):
         loss.backward(retain_graph=retain_graph)
 
     def _compute_norm_with_fsdp_flatten(self, group_id):
-        params = self._fp16_param_groups[group_id]
-        gradients = [p.grad for p in params]
+        params = [p for p in self._fp16_param_groups[group_id] if p.storage().size() != 0]
+        gradients = [p.grad for p in params if p.storage().size() != 0]
         norm_group = compute_norm(gradients=gradients, parameters=params, last_stage=True)
 
         return norm_group
@@ -99,7 +96,7 @@ class FSDPadaptOptimizer(BaseOptimizer):
         for group_idx in range(len(self.param_groups)):
             params = self._fp16_param_groups[group_idx]
             for param in params:
-                if param.requires_grad:
+                if param.requires_grad and param.grad is not None:
                     handle = reduce_tensor(tensor=param.grad, parallel_mode=ParallelMode.ZERO3_DP)
                     handle.wait()
 
@@ -131,11 +128,12 @@ class FSDPadaptOptimizer(BaseOptimizer):
         # create gradient for fp32 params
         for group_idx in range(len(self.param_groups)):
             dtype = self._fp32_param_tensor_groups[group_idx][0].dtype
-            fp16_params = self._fp16_param_groups[group_idx]
+            fp16_params = [p for p in self._fp16_param_groups[group_idx] if p.storage().size() != 0]
             grad_fp32 = [p.grad.to(dtype) for p in fp16_params]
 
             device = self._fp32_param_tensor_groups[group_idx][0].device
-            for p, g in zip(self._fp32_param_tensor_groups[group_idx], grad_fp32):
+            nonzero_fp32 = [p for p in self._fp32_param_tensor_groups[group_idx] if p.storage().size() != 0]
+            for p, g in zip(nonzero_fp32, grad_fp32):
                 p.grad = g.to(device)
 
         # unscale
@@ -145,8 +143,8 @@ class FSDPadaptOptimizer(BaseOptimizer):
         self.zero_grad()
 
         for group_idx in range(len(self._fp16_param_groups)):
-            fp16_params = self._fp16_param_groups[group_idx]
-            fp32_tensor_params = self._fp32_param_tensor_groups[group_idx]
+            fp16_params = [p for p in self._fp16_param_groups[group_idx] if p.storage().size() != 0]
+            fp32_tensor_params = [p for p in self._fp32_param_tensor_groups[group_idx] if p.storage().size() != 0]
             # release fp32 grad
             release_param_grad(fp32_tensor_params)
             # update fp16 param
@@ -177,9 +175,10 @@ class FSDPadaptOptimizer(BaseOptimizer):
                 if clip > 1.0:
                     combined_scale_groups[group_id] = clip * loss_scale
 
-        for group_id, grads in self._fp32_param_tensor_groups.items():
-            for g in grads:
-                g.grad.data.mul_(1.0 / combined_scale_groups[group_id])
+        for group_id, param in self._fp32_param_tensor_groups.items():
+            for p in param:
+                if p.storage().size() != 0:
+                    p.grad.data.mul_(1.0 / combined_scale_groups[group_id])
 
     def state_dict(self):
         states = {}

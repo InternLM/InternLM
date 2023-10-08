@@ -66,7 +66,7 @@ def try_get_gpc_rank():
         from internlm.core.context import global_context as gpc
 
         rank = gpc.get_global_rank()
-    except:  # noqa  # pylint: disable=bare-except
+    except:  # noqa: E722  # pylint: disable=bare-except
         rank = "unknown"
 
     return f"host-{socket.gethostname()}-rank-{rank}"

@@ -3,7 +3,6 @@
 # This file is distributed under the same license as the InternLM package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
 #
-#, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: InternLM \n"
@@ -37,8 +36,8 @@ msgstr "Start Training"
 
 #: ../../source/example/30B_demo.rst:166 24974384d5ab42e68266aeb67ae222ce
 msgid "完成以上训练配置后，可启动模型训练，以在 ``slurm`` 平台上为例，启动两节点 16GPU 的训练命令如下所示："
-msgstr "After completing the data preparation and relevant training configurations, you can start the demo training.
-The following example shows how to start distributed training in ``slurm`` environments with 16 GPUs."
+msgstr "After completing the data preparation and relevant training configurations, you can start the demo training. "
+"The following example shows how to start distributed training in ``slurm`` environments with 16 GPUs."
 
 #: ../../source/example/30B_demo.rst:173 948ac71ed53848f9bad07f69d956c4bb
 msgid "训练结果"

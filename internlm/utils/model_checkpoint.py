@@ -2,11 +2,12 @@
 # -*- encoding: utf-8 -*-
 
 import copy
-import fcntl
 import inspect
 import os
+import re
 import socket
 import time
+from collections import defaultdict
 from enum import Enum
 from typing import Callable, Dict, Union
 
@@ -23,6 +24,7 @@ from internlm.initialize.legacy.launch import (
     auto_resume_sanity_check,
     ckpt_info_sanity_check,
 )
+from internlm.model.moe import MoE
 from internlm.monitor import send_alert_message
 from internlm.solver.optimizer import HybridZeroOptimizer, reload_zero_fp32_buff
 from internlm.utils.common import get_current_device
@@ -82,8 +84,8 @@ class CheckpointLoadMethod:
 
     @staticmethod
     def register_ckpt_load_type(load_type: Union[str, CheckpointLoadType], load_func: Callable):
-        if load_type in CheckpointLoadMethod.LOAD_TYPE_FUNC:
-            logger.warning(f"{load_type} has aleady been registed!")
+        if load_type in CheckpointLoadMethod.LOAD_TYPE_FUNC and gpc.is_rank_for_log():
+            logger.warning(f"{load_type} has already been registered!")
             return
 
         CheckpointLoadMethod.LOAD_TYPE_FUNC.update({load_type: load_func})
@@ -91,9 +93,10 @@ class CheckpointLoadMethod:
         if load_type == CheckpointLoadType.INTERNLM:
             CheckpointLoadMethod.LOAD_FUNC_SIG = inspect.signature(load_func)
         else:
-            if inspect.signature(load_func) != CheckpointLoadMethod.LOAD_FUNC_SIG:
+            if inspect.signature(load_func) != CheckpointLoadMethod.LOAD_FUNC_SIG and gpc.is_rank_for_log():
                 logger.warning(
-                    f"registe load model ckpt signature is not same with: {CheckpointLoadMethod.LOAD_FUNC_SIG}"
+                    f"The registered signature {inspect.signature(load_func)} of the loaded model is not same as: "
+                    f"{CheckpointLoadMethod.LOAD_FUNC_SIG}"
                 )
 
     @staticmethod
@@ -171,8 +174,8 @@ def get_shard_state_dict(shard_model):
     # with FSDP.state_dict_type(model, StateDictType.FULL_STATE_DICT, save_policy):
     #     states = model.state_dict()
 
-    # in this version, FSDP model can only save with sharded shape
-    with FSDP.state_dict_type(shard_model, StateDictType.LOCAL_STATE_DICT):
+    # in this version, FSDP model can only save with sharded shapeLOCAL_STATE_DICT
+    with FSDP.state_dict_type(shard_model, StateDictType.SHARDED_STATE_DICT):
         shard_states = shard_model.state_dict()
 
     return shard_states
@@ -184,7 +187,7 @@ def load_shard_state_dict(shard_model, shard_state, **kwargs):
 
     """
 
-    with FSDP.state_dict_type(shard_model, StateDictType.LOCAL_STATE_DICT):
+    with FSDP.state_dict_type(shard_model, StateDictType.SHARDED_STATE_DICT):
         missing_k, unexpected_keys = shard_model.load_state_dict(shard_state, kwargs)
 
     return (missing_k, unexpected_keys)
@@ -272,6 +275,8 @@ def save_model_checkpoint(folder, model):
     else:
         states = model.state_dict()
 
+    # get non-expert parameters
+    states = get_non_moe_state_dict(states)
     topo = get_model_topology(model)
 
     if folder is not None:
@@ -300,6 +305,16 @@ def save_model_checkpoint(folder, model):
                     topo_fn = f"topo_tp{tp_rank}_pp{pp_rank}.json"
                     topo_fp = os.path.join(folder, topo_fn)
                     llm_save(topo_fp, saved_obj=topo)
+
+        # try to save expert parameter to separate files if model have moe layer
+        expert_dp_size = gpc.get_world_size(ParallelMode.EXPERT_DATA)
+        expert_dp_rank = gpc.get_local_rank(ParallelMode.EXPERT_DATA)
+        should_save_rank_pair.clear()
+        for i in range(tp_size):
+            should_save_rank_pair.add((i, i % expert_dp_size))
+
+        if (tp_rank, expert_dp_rank) in should_save_rank_pair:
+            try_save_moe_checkpoint(folder, model, tp_rank, pp_rank)
 
     torch.distributed.barrier()
 
@@ -365,6 +380,19 @@ def load_model_checkpoint(folder, model):
     with load_with_process_group(gpc.get_group(ParallelMode.ZERO1)):
         states = llm_load(fp, map_location=get_current_device())
 
+    """
+    # need convert the gate parameters to float32 (to fit deepspeed style mechanism), it may cause round-off in
+    # gate.weight. The conversion will also be done when doing forward. so we can just comment it out. this make
+    # the gate parameters to be float16 before forward.
+    for key in list(states.keys()):
+        if 'moe_layer.gate.wg.weight' in key:
+            states[key] = states[key].float()
+            print("load: ", states[key].float(),flush=True)
+    """
+
+    # try to load expert parameter to separate files if model have moe layer
+    try_load_moe_checkpoint(folder, model, states, tp_rank, pp_rank)
+
     if gpc.config.parallel.use_fsdp:
         missing_k, unexpected_keys = load_shard_state_dict(model, states, strict=False)
     else:
@@ -377,6 +405,59 @@ def load_model_checkpoint(folder, model):
     # avoid to cuda oom, Ref: https://discuss.pytorch.org/t/load-state-dict-causes-memory-leak/36189/11
     del states
     torch.cuda.empty_cache()
+
+
+def try_save_moe_checkpoint(folder, model, tp_rank, pp_rank):
+    # Using layer_#_expert_# to save the model's expert state_dict，a hack.
+    pipeline_stage_size = gpc.config.model.num_layers // gpc.get_world_size(ParallelMode.PIPELINE)
+    moe_layer_id = pp_rank * pipeline_stage_size
+    for n_module, module in model.named_modules():
+        if isinstance(module, MoE):  # and deepspeed.comm.get_rank() == 0:
+            num_local_experts = module.num_local_experts
+            expp_rank = gpc.get_local_rank(ParallelMode.EXPERT)
+
+            # get all moe parameters
+            moe_state_dict = {}
+            for n, p in module.state_dict().items():
+                if "expert" in n and "moe_layer.gate.wg.weight" not in n:
+                    moe_state_dict[n_module + "." + n] = p
+            moe_str_prefix = ".moe_layer.experts.experts."
+            # Reorder the moe name rank, so that each checkpoint only has one expert
+            experts_state_dict = defaultdict(dict)
+            for key in list(moe_state_dict.keys()):
+                m = re.match(f".*{moe_str_prefix}([0-9]+).*", key)
+
+                local_expert_id = None
+                if not m:
+                    logger.warning(f"No expert found in key {key}.")
+                else:
+                    local_expert_id = m.group(1)
+
+                global_expert_id = expp_rank * num_local_experts + int(local_expert_id)
+                expert_key = key.replace(f"{moe_str_prefix}{local_expert_id}", f"{moe_str_prefix}{global_expert_id}")
+
+                # truncating extra tensor (shared) storage
+                truncated = moe_state_dict.pop(key).clone().detach()
+                experts_state_dict[str(global_expert_id)][expert_key] = truncated
+
+            # let save the moe parameters
+            for global_expert_id, expert_state_dict in experts_state_dict.items():
+                # save the moe parameters
+                fn = f"model_moe_layer{moe_layer_id}_expert{global_expert_id}_tp{tp_rank}.pt"
+                fp = os.path.join(folder, fn)
+                llm_save(fp, saved_obj=expert_state_dict)
+            moe_layer_id += 1
+
+
+def get_non_moe_state_dict(full_state_dict):
+    """
+    Get the state dict of the non-moe layers
+    """
+    for key in list(full_state_dict.keys()):
+        if "expert" in key and "moe_layer.gate.wg.weight" not in key:
+            full_state_dict.pop(key)
+
+    return full_state_dict
 
 
 def save_optimizer_checkpoint(optim, state_path):
@@ -405,6 +486,28 @@ def save_optimizer_checkpoint(optim, state_path):
                 llm_save(fp_meta, params_per_rank_id_dict)
     else:
         llm_save(os.path.join(state_path, fp), states)
+
+
+def try_load_moe_checkpoint(folder, model, state_dict, tp_rank, pp_rank):
+    pipeline_stage_size = gpc.config.model.num_layers // gpc.get_world_size(ParallelMode.PIPELINE)
+    moe_layer_id = pp_rank * pipeline_stage_size
+    for _, module in model.named_modules():
+        if isinstance(module, MoE):  # and deepspeed.comm.get_rank() == 0:
+            num_local_experts = module.num_local_experts
+            expp_rank = gpc.get_local_rank(ParallelMode.EXPERT)
+            # loop all local_experts
+            for local_expert_id in range(num_local_experts):
+                global_expert_id = expp_rank * num_local_experts + local_expert_id
+                fn = f"model_moe_layer{moe_layer_id}_expert{global_expert_id}_tp{tp_rank}.pt"
+                fp = os.path.join(folder, fn)
+                expert_state_dict = llm_load(fp, map_location=get_current_device())
+                # Updating global -> local expert ids
+                moe_str_prefix = ".moe_layer.experts.experts."
+                for key in list(expert_state_dict.keys()):
+                    local_key = key.replace(f"{moe_str_prefix}{global_expert_id}", f"{moe_str_prefix}{local_expert_id}")
+                    expert_state_dict[local_key] = expert_state_dict.pop(key)
+                state_dict.update(expert_state_dict)
+            moe_layer_id += 1
 
 
 def load_optimizer_checkpoint(folder, optim):
@@ -451,10 +554,11 @@ def load_optimizer_checkpoint(folder, optim):
             zero_devide_optim_plan = llm_load(fp_meta)
             states.update({"zero_devide_optim_plan": zero_devide_optim_plan})
         except Exception as e:
-            logger.warning(
-                f"Read zero optimzer split file '{fp_meta}', for '{e}'"
-                f"Please check whether loading ckpts are saved with the HybridZeroOptimizer."
-            )
+            if gpc.is_rank_for_log():
+                logger.warning(
+                    f"Read zero optimzer split file '{fp_meta}', for '{e}'"
+                    f"Please check whether loading ckpts are saved with the HybridZeroOptimizer."
+                )
 
     optim.load_state_dict(states)
     del states
@@ -466,8 +570,8 @@ def load_sampler(ckpt_path: str, sampler):
     sampler.load_state_dict(sampler_states)
     if gpc.is_rank_for_log():
         pstate = copy.deepcopy(sampler_states)
-        pstate.pop("indices")
-        pstate.pop("rng_state")
+        pstate.pop("indices", None)
+        pstate.pop("rng_state", None)
         logger.info(f"reload sampler_states:{pstate}")
     torch.cuda.empty_cache()
 
@@ -528,8 +632,8 @@ class CheckpointManager:
 
         Args:
             ckpt_config (dict): model checkpoint config.
-            model (nn.module): model obj
-            optimizer (object): optimzier obj.
+            model (nn.module): model obj.
+            optimizer (object): optimizer obj.
             lr_scheduler (object): lr_scheduler obj.
             model_config (dict): model config.
         """
@@ -625,12 +729,17 @@ class CheckpointManager:
         if self.stop_file_path is None:
             return now_break, now_save_ckpt, save_type
 
-        with open(self.stop_file_path, "a+", encoding="utf-8") as f:
-            fcntl.flock(f, fcntl.LOCK_EX)
-            f.seek(0)
-            msg = f.read()
-            fcntl.flock(f, fcntl.LOCK_UN)
-            action_step = int(msg)
+        with torch.no_grad():
+            action_step_t = torch.zeros((1,), dtype=torch.int64).cuda()
+            if gpc.get_global_rank() == 0:
+                with open(self.stop_file_path, "r+", encoding="utf-8") as f:
+                    f.seek(0)
+                    msg = f.read()
+                    action_step_t.fill_(int(msg))
+
+            torch.distributed.broadcast(action_step_t, src=0)
+            action_step = action_step_t.item()
+            del action_step_t
 
         if action_step < 0 and abs(action_step) == train_state.step_count:
             now_save_ckpt = True
@@ -707,41 +816,53 @@ now step_count is {train_state.step_count}",
             return None, None
 
         max_normal_step = 0
-        ckpt_list = list(map(lambda a: int(a.strip("/")) if a.strip("/").isdigit() else 0, ckpt_list))
-        ckpt_list.sort(reverse=True)
-        for ckpt in ckpt_list:
-            fns_list = self.storage_manager.get_fns(os.path.join(self.save_ckpt_folder, str(ckpt)))
-            for fn in fns_list:
-                if fn.endswith(".step"):
-                    max_normal_step = ckpt
-                    break
-            if max_normal_step != 0:
-                break
+        # Return ckpt_list look like: ['pings', 'snapshot', '4']
+        # Here we only try to find the ckpt folder named after step, ignoring snapshot and other folders.
+        ckpt_list = [int(fn.strip("/")) for fn in ckpt_list if fn.strip("/").isdigit()]
+        if len(ckpt_list) == 0:
+            if gpc.is_rank_for_log():
+                logger.warning("No available normal checkpoint found. Check your checkpoint path.")
+        else:
+            if gpc.is_rank_for_log():
+                logger.info(f"Found available normal checkpoint: {ckpt_list}")
 
-        max_normal_step = ckpt_list[0]
-        load_normal_ckpt_path = os.path.join(self.save_ckpt_folder, str(max_normal_step))
+            ckpt_list.sort(reverse=True)
+            for ckpt in ckpt_list:
+                fns_list = self.storage_manager.get_fns(os.path.join(self.save_ckpt_folder, str(ckpt)))
+                for fn in fns_list:
+                    if fn.endswith(".step"):
+                        max_normal_step = ckpt
+                        break
+                if max_normal_step != 0:
+                    break
+
+            max_normal_step = ckpt_list[0]
+            load_normal_ckpt_path = os.path.join(self.save_ckpt_folder, str(max_normal_step))
 
         snapshot_path_0 = os.path.join(self.save_ckpt_folder, "snapshot", "0")
         snapshot_path_1 = os.path.join(self.save_ckpt_folder, "snapshot", "1")
-        ckpt_list_1 = self.storage_manager.get_fns(snapshot_path_0)
-        ckpt_list_2 = self.storage_manager.get_fns(snapshot_path_1)
-        max_step_0, max_step_1 = 0, 0
-        if ckpt_list_1:
-            for ckpt in ckpt_list_1:
-                ckpt = ckpt.strip("/")
-                if ckpt.endswith(".step"):
-                    max_step_0 = max(max_step_0, int(ckpt.split(".")[0]))
-        if ckpt_list_2:
-            for ckpt in ckpt_list_2:
-                ckpt = ckpt.strip("/")
-                if ckpt.endswith(".step"):
-                    max_step_1 = max(max_step_1, int(ckpt.split(".")[0]))
+        ckpt_list_0 = self.storage_manager.get_fns(snapshot_path_0)
+        ckpt_list_1 = self.storage_manager.get_fns(snapshot_path_1)
 
-        snap_load_path = snapshot_path_0 if max_step_0 > max_step_1 else snapshot_path_1
-        snap_step = max(max_step_0, max_step_1)
-        load_path = snap_load_path if snap_step > max_normal_step else load_normal_ckpt_path
-        load_step = max(snap_step, max_normal_step)
-        return load_path, load_step
+        def found_latest_snapshot(_ckpt_list):
+            _max_step_snapshot = 0
+            if _ckpt_list:
+                for ckpt in _ckpt_list:
+                    ckpt = ckpt.strip("/")
+                    if ckpt.endswith(".step"):
+                        _max_step_snapshot = max(_max_step_snapshot, int(ckpt.split(".")[0]))
+            return _max_step_snapshot
+
+        max_step_0 = found_latest_snapshot(ckpt_list_0)
+        max_step_1 = found_latest_snapshot(ckpt_list_1)
+
+        if sum([max_step_0, max_step_1, max_normal_step]) == 0:
+            return None, None
+        else:
+            snap_load_path = snapshot_path_0 if max_step_0 > max_step_1 else snapshot_path_1
+            snap_step = max(max_step_0, max_step_1)
+            load_path = snap_load_path if snap_step > max_normal_step else load_normal_ckpt_path
+            return load_path, max(snap_step, max_normal_step)
 
     def query_latest_snapshot_step_local(self):
         max_step, max_step_path = 0, None
@@ -779,7 +900,6 @@ now step_count is {train_state.step_count}",
         return dict(path=latest_ckpt, content=("all",), ckpt_type="internlm")
 
     def try_resume_training(self, train_state: TrainState, current_time=""):
-
         if self.load_ckpt_info is None or self.load_ckpt_info["path"] is None:
             if gpc.is_rank_for_log():
                 logger.info(

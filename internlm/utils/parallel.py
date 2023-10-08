@@ -5,23 +5,30 @@ import torch.distributed as dist
 
 from internlm.core.context import IS_TENSOR_PARALLEL, ParallelMode
 from internlm.core.context import global_context as gpc
+from internlm.model.utils import is_moe_param
 
 
 def is_model_parallel_parameter(p):
     return hasattr(p, IS_TENSOR_PARALLEL) and getattr(p, IS_TENSOR_PARALLEL)
 
 
-def sync_model_param(model, parallel_mode):
+def sync_model_param(model):
     r"""Make sure data parameters are consistent during Data Parallel Mode.
 
     Args:
         model (:class:`torch.nn.Module`): A pyTorch model on whose parameters you check the consistency.
-        parallel_mode (:class:`internlm.core.context.ParallelMode`): Parallel mode to be checked.
     """
-    if gpc.is_initialized(parallel_mode) and gpc.get_world_size(parallel_mode) > 1:
+    if gpc.is_initialized(ParallelMode.DATA) and gpc.get_world_size(ParallelMode.DATA) > 1:
+        sync_moe_param = (
+            gpc.is_initialized(ParallelMode.EXPERT_DATA) and gpc.get_world_size(ParallelMode.EXPERT_DATA) > 1
+        )
         for param in model.parameters():
-            ranks = gpc.get_ranks_in_group(parallel_mode)
-            dist.broadcast(param, src=ranks[0], group=gpc.get_group(parallel_mode))
+            if sync_moe_param and is_moe_param(param):
+                ranks = gpc.get_ranks_in_group(ParallelMode.EXPERT_DATA)
+                dist.broadcast(param, src=ranks[0], group=gpc.get_group(ParallelMode.EXPERT_DATA))
+            else:
+                ranks = gpc.get_ranks_in_group(ParallelMode.DATA)
+                dist.broadcast(param, src=ranks[0], group=gpc.get_group(ParallelMode.DATA))
 
 
 def sync_model_param_within_tp(model):

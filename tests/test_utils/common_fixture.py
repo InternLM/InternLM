@@ -50,6 +50,8 @@ init_config = Config(
         ),
         resume_tb_folder="",
         tensorboard_folder="",
+        alert_address=None,
+        monitor=dict(alert=dict(enable_feishu_alert=False, feishu_alert_address=None, light_monitor_address=None)),
     )
 )
 
@@ -57,6 +59,7 @@ init_config = Config(
 def init_naive_model():
     # let MODEL_INITIALIZER to work
     import internlm.model.modeling_internlm  # noqa # pylint: disable=unused-import
+    import internlm.model.modeling_moe  # noqa # pylint: disable=unused-import
     from internlm.core.naive_amp import NaiveAMPModel
     from internlm.utils.registry import MODEL_INITIALIZER
 
@@ -177,5 +180,5 @@ def del_tmp_file():
                 results += str(line.rstrip())
                 presults += line.rstrip().decode() + "\n"
         print(presults, flush=True)
-    except FileNotFoundError:
+    except:  # noqa # pylint: disable=bare-except
         pass
