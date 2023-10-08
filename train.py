@@ -289,6 +289,8 @@ def main(args):
 
 
 if __name__ == "__main__":
+    assert torch.__version__ >= "2.0.1", f"requires torch>=2.0.1 but current version is {torch.__version__}"
+
     args = parse_args()
     hostname = socket.gethostname()
 

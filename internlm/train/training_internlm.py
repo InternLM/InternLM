@@ -17,7 +17,7 @@ from torch.distributed.fsdp.fully_sharded_data_parallel import (
 from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 from torch.utils.data import ConcatDataset, DataLoader
 
-from internlm.core.context import ParallelMode
+from internlm.core.context import IS_TENSOR_PARALLEL, ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.core.context.random import set_mode
 from internlm.core.naive_amp import NaiveAMPModel
@@ -36,16 +36,8 @@ from internlm.model.modeling_internlm import (
     PackedFlashBaseLayer1D,
     PackedFlashInternLm1D,
 )
-
 from internlm.model.multi_head_attention import MHA
-from flash_attn.modules.mha import (
-    CrossAttention,
-    FlashCrossAttention,
-    FlashSelfAttention,
-    SelfAttention,
-    _update_kv_cache,
-)
-
+from internlm.model.utils import try_import_RMSNorm
 from internlm.monitor import send_heartbeat, set_env_var
 from internlm.monitor.monitor import monitor_manager as mm
 from internlm.solver.beta2_scheduler import Beta2Scheduler
@@ -117,18 +109,23 @@ def initialize_model():
 
 
 def wrap_FSDP_model(model: Union[nn.Module, nn.ModuleList]):
-    from internlm.model.utils import gather_forward_split_backward, try_import_RMSNorm
     RMSNorm = try_import_RMSNorm()
     if gpc.config.parallel.use_fsdp:
+        # pre-save info for tensor parallel
+        tp_dict = dict()
+        for name, param in model.named_parameters():
+            if hasattr(param, IS_TENSOR_PARALLEL) and getattr(param, IS_TENSOR_PARALLEL):
+                tp_dict.update({name.replace("model.", ""): True})
+            else:
+                tp_dict.update({name.replace("model.", ""): False})
+
+        # set wrap_policy for fsdp wrap
         transformer_wrap_policy = functools.partial(
-            transformer_auto_wrap_policy, transformer_layer_cls={
-                PackedFlashBaseLayer1D, 
-                PackedFlashInternLm1D, 
-                MHA, 
-                FlashCrossAttention, 
-                FlashSelfAttention, 
-                RMSNorm}
+            transformer_auto_wrap_policy,
+            transformer_layer_cls={PackedFlashBaseLayer1D, PackedFlashInternLm1D, MHA, RMSNorm},
         )
+
+        # wrap the model
         grp = gpc.get_group(ParallelMode.ZERO1)
         model = FSDP(
             module=model,
@@ -138,7 +135,13 @@ def wrap_FSDP_model(model: Union[nn.Module, nn.ModuleList]):
             forward_prefetch=True,
             backward_prefetch=BackwardPrefetch.BACKWARD_PRE,
             limit_all_gathers=True,
+            use_orig_params=True,
         )
+
+        # re-set attribute for fsdp module
+        for (name, param), pre in zip(model.named_parameters(), tp_dict):
+            if pre in name and tp_dict[pre]:
+                setattr(param, IS_TENSOR_PARALLEL, True)
 
     return model
 

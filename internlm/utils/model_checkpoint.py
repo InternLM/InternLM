@@ -171,8 +171,8 @@ def get_shard_state_dict(shard_model):
     # with FSDP.state_dict_type(model, StateDictType.FULL_STATE_DICT, save_policy):
     #     states = model.state_dict()
 
-    # in this version, FSDP model can only save with sharded shape
-    with FSDP.state_dict_type(shard_model, StateDictType.LOCAL_STATE_DICT):
+    # in this version, FSDP model can only save with sharded shapeLOCAL_STATE_DICT
+    with FSDP.state_dict_type(shard_model, StateDictType.SHARDED_STATE_DICT):
         shard_states = shard_model.state_dict()
 
     return shard_states
@@ -184,7 +184,7 @@ def load_shard_state_dict(shard_model, shard_state, **kwargs):
 
     """
 
-    with FSDP.state_dict_type(shard_model, StateDictType.LOCAL_STATE_DICT):
+    with FSDP.state_dict_type(shard_model, StateDictType.SHARDED_STATE_DICT):
         missing_k, unexpected_keys = shard_model.load_state_dict(shard_state, kwargs)
 
     return (missing_k, unexpected_keys)
