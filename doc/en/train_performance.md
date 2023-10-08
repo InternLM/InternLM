@@ -91,3 +91,15 @@ When `Activation Ckpt` is turned off, the test results are as shown in the table
     <img src="../imgs/flops.png" width="580"/>
 </div>
 
+### Extreme GPU Number Testing
+#### Minimum number of 80GB GPU required for training
+| Model | GPU num | zero | tp | pp | GPU memory (GB) |
+|-|-|-|-|-|-|
+| 7B | 3 | -1 | 1 | 3 | 75 |
+| 20B | 8 | -1 | 8 | 1 | 64 |
+#### Minimum number of 40GB GPU required for training
+| Model | GPU num | zero | tp | pp | GPU memory (GB) |
+|-|-|-|-|-|-|
+| 7B | 6 | -1 | 2 | 1 | 40 |
+| 20B | 16 | -1 | 8 | 1 | 38 |
+
