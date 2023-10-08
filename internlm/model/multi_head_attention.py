@@ -115,14 +115,14 @@ class DistributedAttention(torch.nn.Module):
         """
         # TODO Merge three alltoall calls into one
         #in shape : e.g.,  [s/p:h:]
-        qkv = _SeqAllToAll.apply(self.spg, qkv, self.scatter_idx, self.gather_idx)
+        qkv = _SeqAllToAll.apply(self.spg, qkv, 2, 0)
         # key_layer = _SeqAllToAll.apply(self.spg, key, self.scatter_idx, self.gather_idx)
         # value_layer = _SeqAllToAll.apply(self.spg, value, self.scatter_idx, self.gather_idx)
 
         #out shape : e.g., [s:h/p:]
         context_layer = self.local_attn(qkv, **kwargs)
 
-        output = _SeqAllToAll.apply(self.spg, context_layer, 0, 2)
+        output = _SeqAllToAll.apply(self.spg, context_layer, 0, 1)
 
         #out e.g., [s/p::h]
         return output
