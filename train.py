@@ -35,6 +35,7 @@ from internlm.utils.common import (
     parse_args,
 )
 from internlm.utils.evaluation import evaluate_on_val_dls
+from internlm.utils.gputest import empty_cache_and_diag
 from internlm.utils.logger import get_logger, initialize_uniscale_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
 from internlm.utils.model_checkpoint import CheckpointManager
@@ -193,9 +194,7 @@ def main(args):
     with initialize_llm_profile(profiling=args.profiling, start_time=current_time) as prof:
         # start iterating the train data and begin training
         for batch_count in range(train_state.batch_count, total_steps):
-            if batch_count % 50 == 0:
-                torch.cuda.empty_cache()
-
+            empty_cache_and_diag(batch_count, interval=gpc.config.data.empty_cache_and_diag_interval)
             start_time = time.time()
             timer("one-batch").start()
 
@@ -220,9 +219,21 @@ def main(args):
             # do forward and backward
             timer("fwd-bwd").start()
 
-            _, _, loss = trainer.execute_schedule(
-                batch, forward_only=False, return_loss=True, return_output_label=False
-            )
+            moe_loss = None
+            if hasattr(gpc.config.model, "num_experts"):
+                _, _, loss, moe_loss = trainer.execute_schedule(
+                    batch,
+                    forward_only=False,
+                    return_loss=True,
+                    return_output_label=False,
+                )
+            else:
+                _, _, loss = trainer.execute_schedule(
+                    batch,
+                    forward_only=False,
+                    return_loss=True,
+                    return_output_label=False,
+                )
             timer("fwd-bwd").stop()
 
             # update parameters, and returns (success_update, grad_norm)
@@ -255,6 +266,7 @@ def main(args):
                 trainer=trainer,
                 start_time=start_time,
                 loss=loss,
+                moe_loss=moe_loss,
                 grad_norm=grad_norm_groups,
                 metric=metric,
                 update_panel=uniscale_logger is not None,

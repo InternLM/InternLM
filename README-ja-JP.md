@@ -16,11 +16,13 @@
 
 [![license](./doc/imgs/license.svg)](./LICENSE)
 [![evaluation](./doc/imgs/compass_support.svg)](https://github.com/internLM/OpenCompass/)
+[![Documentation Status](https://readthedocs.org/projects/internlm/badge/?version=latest)](https://internlm.readthedocs.io/zh_CN/latest/?badge=latest)
 
 [📘使用法](./doc/en/usage.md) |
 [🛠️インストール](./doc/en/install.md) |
 [📊トレーニングパフォーマンス](./doc/en/train_performance.md) |
 [👀モデル](#model-zoo) |
+[🤗HuggingFace](https://huggingface.co/internlm) |
 [🆕更新ニュース](./CHANGE_LOG.md) |
 [🤔Issues 報告](https://github.com/InternLM/InternLM/issues/new)
 

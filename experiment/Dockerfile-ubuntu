@@ -114,6 +114,7 @@ RUN /opt/conda/bin/pip --no-cache-dir install \
     botocore \
     torch-scatter \
     pyecharts \
+    py-libnuma \
     -f https://data.pyg.org/whl/torch-${PYTORCH_VERSION}+cu117.html \
     && /opt/conda/bin/pip --no-cache-dir install \
     --extra-index-url https://download.pytorch.org/whl/cu117 \
