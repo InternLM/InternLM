@@ -16,7 +16,7 @@ from internlm.utils.common import get_master_node
 from internlm.utils.logger import get_logger
 from internlm.utils.timeout import llm_timeout
 
-# check pacakge
+# check package
 try:
     import numa
     from numa import memory, schedule
@@ -78,10 +78,16 @@ def args_sanity_check():
     else:
         pp = gpc.config.parallel.pipeline.size
 
+    # check fsdp config
     if "use_fsdp" not in gpc.config.parallel:
         gpc.config.parallel._add_item("use_fsdp", False)
-
-    assert not (gpc.config.parallel.use_fsdp and pp > 1), "FSDP not support when pipeline size > 1, please set pipeline size to 1 or close FSDP"
+    assert not (
+        gpc.config.parallel.use_fsdp and pp > 1
+    ), "FSDP not support when pipeline size > 1, please set pipeline size to 1 or close FSDP"
+    if gpc.config.parallel.use_fsdp:
+        assert (
+            torch.__version__ >= "2.0.1"
+        ), f"requires torch>=2.0.1 when using fsdp but current version is {torch.__version__}"
 
     # processing the data config in gpc
     data = gpc.config.data

@@ -48,11 +48,7 @@ from internlm.train.utils import create_param_groups
 from internlm.utils.common import DummyProfile
 from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
-from internlm.utils.parallel import (
-    is_no_pp_or_last_stage,
-    sync_model_param,
-    sync_model_param_within_tp,
-)
+from internlm.utils.parallel import sync_model_param, sync_model_param_within_tp
 from internlm.utils.registry import MODEL_INITIALIZER
 from internlm.utils.timeout import llm_timeout
 
@@ -85,7 +81,7 @@ def initialize_model():
     else:
         model = NaiveAMPModel(
             model=model,
-            output_to_fp32=is_no_pp_or_last_stage(),
+            output_to_fp32=gpc.is_no_pp_or_last_stage(),
             dtype=gpc.config.model.get("dtype", torch.half),
             sync_buffer=False,
         )
@@ -113,12 +109,13 @@ def wrap_FSDP_model(model: Union[nn.Module, nn.ModuleList]):
     RMSNorm = try_import_RMSNorm()
     if gpc.config.parallel.use_fsdp:
         # pre-save info for tensor parallel
-        tp_dict = dict()
-        for name, param in model.named_parameters():
-            if hasattr(param, IS_TENSOR_PARALLEL) and getattr(param, IS_TENSOR_PARALLEL):
-                tp_dict.update({name.replace("model.", ""): True})
-            else:
-                tp_dict.update({name.replace("model.", ""): False})
+        if gpc.get_world_size(ParallelMode.TENSOR) > 1:
+            tp_dict = dict()
+            for name, param in model.named_parameters():
+                if hasattr(param, IS_TENSOR_PARALLEL) and getattr(param, IS_TENSOR_PARALLEL):
+                    tp_dict.update({name.replace("model.", ""): True})
+                else:
+                    tp_dict.update({name.replace("model.", ""): False})
 
         # set wrap_policy for fsdp wrap
         transformer_wrap_policy = functools.partial(
@@ -136,13 +133,14 @@ def wrap_FSDP_model(model: Union[nn.Module, nn.ModuleList]):
             forward_prefetch=True,
             backward_prefetch=BackwardPrefetch.BACKWARD_PRE,
             limit_all_gathers=True,
-            use_orig_params=True,
+            use_orig_params=False,
         )
 
-        # re-set attribute for fsdp module
-        for (name, param), pre in zip(model.named_parameters(), tp_dict):
-            if pre in name and tp_dict[pre]:
-                setattr(param, IS_TENSOR_PARALLEL, True)
+        # re-set attribute for fsdp module with tensor parallel
+        if gpc.get_world_size(ParallelMode.TENSOR) > 1:
+            for (name, param), pre in zip(model.named_parameters(), tp_dict):
+                if pre in name and tp_dict[pre]:
+                    setattr(param, IS_TENSOR_PARALLEL, True)
 
     return model
 
@@ -421,7 +419,7 @@ def record_current_batch_training_metrics(
     timer.store_last_timers()
     if success_update in (0, True):
         train_state.num_consumed_tokens += batch[1].nelement() * gpc.get_world_size(ParallelMode.DATA)
-    if is_no_pp_or_last_stage():
+    if gpc.is_no_pp_or_last_stage():
         acc_perplex = metric.get_metric()
 
     if success_update and gpc.is_rank_for_log():

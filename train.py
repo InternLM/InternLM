@@ -307,9 +307,6 @@ if __name__ == "__main__":
     # initialize distributed environment
     initialize_distributed_env(config=args.config, launcher=args.launcher, master_port=args.port, seed=args.seed)
     assert hasattr(gpc, "config") and gpc.config is not None
-    if gpc.config.parallel.use_fsdp:
-        assert torch.__version__ >= "2.0.1", f"requires torch>=2.0.1 but current version is {torch.__version__}"
-
 
     # initialize monitor manager context
     with initialize_monitor_manager(

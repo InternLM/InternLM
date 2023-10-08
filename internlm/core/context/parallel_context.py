@@ -328,6 +328,9 @@ class ParallelContext(metaclass=SingletonMeta):
                 return False
         return self.is_last_rank(ParallelMode.PIPELINE)
 
+    def is_no_pp_or_last_stage(self):
+        return not self.is_initialized(ParallelMode.PIPELINE) or self.is_pipeline_last_stage()
+
     def get_world_size(self, parallel_mode: ParallelMode):
         """Returns the world size for `parallel_mode`.
 
