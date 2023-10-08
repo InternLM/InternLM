@@ -254,6 +254,7 @@ def main(args):
                 trainer=trainer,
                 start_time=start_time,
                 loss=loss,
+                moe_loss=None,
                 grad_norm=grad_norm_groups,
                 metric=metric,
                 update_panel=uniscale_logger is not None,

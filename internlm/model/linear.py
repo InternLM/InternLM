@@ -28,9 +28,20 @@ from torch.cuda.amp import custom_bwd, custom_fwd
 import fused_dense_lib as fused_dense_cuda
 
 from flash_attn.ops.activations import gelu_bwd, relu_bwd, sqrelu_fwd, sqrelu_bwd
-from flash_attn.utils.distributed import all_gather_raw, reduce_scatter_raw, all_reduce_raw
+from flash_attn.utils.distributed import all_gather_raw, all_reduce_raw 
+# reduce_scatter_raw
 from flash_attn.utils.distributed import reduce_scatter, all_reduce
 
+def reduce_scatter_raw(input_: Tensor, process_group: ProcessGroup, async_op: bool = False, op=torch.distributed.ReduceOp.SUM):
+    world_size = torch.distributed.get_world_size(process_group)
+    assert input_.shape[0] % world_size == 0
+    output = torch.empty(
+        input_.shape[0] // world_size, *input_.shape[1:], dtype=input_.dtype, device=input_.device
+    )
+    handle = torch.distributed.reduce_scatter_tensor(
+        output, input_.contiguous(), op=op, group=process_group, async_op=async_op
+    )
+    return output, handle
 
 class ScaleColumnParallelLinear(nn.Linear):
     """
@@ -279,15 +290,15 @@ class FusedDenseFunc_fsdp(torch.autograd.Function):
         grad_output = grad_output.reshape(batch_dim, grad_output.shape[-1])
         
         # do all-gather for weight before backward
-        weight, handle_weight = all_gather_raw(weight, process_group, async_op=True)
+        total_weight, handle_weight = all_gather_raw(weight, process_group, async_op=True)
         handle_weight.wait()
         
         if ctx.needs_input_grad[0]:
             if not ctx.return_residual:
-                grad_input = F.linear(grad_output, weight.t())
+                grad_input = F.linear(grad_output, total_weight.t())
             else:
                 grad_input = torch.addmm(grad_input.reshape(batch_dim, grad_input.shape[-1]),
-                                         grad_output, weight)
+                                         grad_output, total_weight)
             grad_input = grad_input.reshape(*batch_shape, grad_input.shape[-1])
             # if process_group is not None:
                 # import pdb; pdb.set_trace()
