@@ -108,15 +108,6 @@ def initialize_model():
 def wrap_FSDP_model(model: Union[nn.Module, nn.ModuleList]):
     RMSNorm = try_import_RMSNorm()
     if gpc.config.parallel.use_fsdp:
-        # pre-save info for tensor parallel
-        if gpc.get_world_size(ParallelMode.TENSOR) > 1:
-            tp_dict = dict()
-            for name, param in model.named_parameters():
-                if hasattr(param, IS_TENSOR_PARALLEL) and getattr(param, IS_TENSOR_PARALLEL):
-                    tp_dict.update({name.replace("model.", ""): True})
-                else:
-                    tp_dict.update({name.replace("model.", ""): False})
-
         # set wrap_policy for fsdp wrap
         transformer_wrap_policy = functools.partial(
             transformer_auto_wrap_policy,
@@ -133,14 +124,8 @@ def wrap_FSDP_model(model: Union[nn.Module, nn.ModuleList]):
             forward_prefetch=True,
             backward_prefetch=BackwardPrefetch.BACKWARD_PRE,
             limit_all_gathers=True,
-            use_orig_params=False,
+            use_orig_params=True,
         )
-
-        # re-set attribute for fsdp module with tensor parallel
-        if gpc.get_world_size(ParallelMode.TENSOR) > 1:
-            for (name, param), pre in zip(model.named_parameters(), tp_dict):
-                if pre in name and tp_dict[pre]:
-                    setattr(param, IS_TENSOR_PARALLEL, True)
 
     return model
 
