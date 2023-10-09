@@ -109,7 +109,7 @@ def compare_optim_state(optim1, optim2):
         fp32_buff2 = optim2._fp32_flat_param_groups_of_current_rank
         for group_id_1, group_id_2 in zip(fp32_buff1, fp32_buff2):
             re &= group_id_1 == group_id_2
-            if optim1.zero_local_rank not in optim1.param_group_no_params_ranks[group_id_1]:
+            if optim1.zero_local_rank[group_id_1] not in optim1.param_group_no_params_ranks[group_id_1]:
                 re &= torch.equal(fp32_buff1[group_id_1], fp32_buff1[group_id_2])
     else:
         for group1, group2 in zip(optim1.param_groups, optim2.param_groups):

@@ -319,6 +319,13 @@ def args_sanity_check():
     if "moe_loss_coeff" not in gpc.config.loss:
         gpc.config.loss._add_item("moe_loss_coeff", 1.0)
 
+    # moe not support overlap and zero1.5 for now
+    if hasattr(gpc.config.model, "num_experts"):
+        assert (
+            not optim_ckpt.overlap_sync_grad & optim_ckpt.overlap_sync_param
+        ), "not support overlap and moe at the same time"
+        assert gpc.config.parallel.zero1 == -1, "moe only support zero1, set zero1=-1 can fix this"
+
 
 def launch(
     config: Union[str, Path, Config, Dict],

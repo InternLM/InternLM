@@ -288,7 +288,6 @@ class HybridZeroOptimizer(BaseOptimizer):
             for j in range(len(param.size())):
                 global_id = "_".join([global_id, str(param.size()[j])])
             if self._overlap_sync_param:
-                assert not hasattr(gpc.config.model, "num_experts")
                 rank_to_go = self._param_bcast_sync_handler.get_rank_by_param(param)
             else:
                 rank_to_go = numel_per_rank.index(min(numel_per_rank))
