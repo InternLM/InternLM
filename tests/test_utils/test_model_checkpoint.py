@@ -86,13 +86,13 @@ ckpt_config_list = [
 def overwrite_optim_state(optim, set_value):
     if isinstance(optim, HybridZeroOptimizer):
         for group_id, p in optim._fp32_flat_param_groups_of_current_rank.items():
-            if optim._zero_local_rank not in optim.param_group_no_params_ranks[group_id]:
+            if optim._zero_local_rank[group_id] not in optim.param_group_no_params_ranks[group_id]:
                 # p.copy_(torch.full_like(p, set_value, dtype=p.dtype))
                 p.data.fill_(set_value)
         for group_id in range(len(optim._fp16_param_groups)):
-            if optim._zero_local_rank not in optim.param_group_no_params_ranks[group_id]:
+            if optim._zero_local_rank[group_id] not in optim.param_group_no_params_ranks[group_id]:
                 fp16_p = optim._param_store.get_flat_fp16_param_by_rank_group(
-                    rank=optim._zero_local_rank, group_id=group_id
+                    rank=optim._zero_local_rank[group_id], group_id=group_id
                 )
                 fp16_p.fill_(set_value)
     else:
@@ -122,12 +122,12 @@ def compare_optim_value(optim, value):
     re = True
     if isinstance(optim, HybridZeroOptimizer):
         for group_id, p in optim._fp32_flat_param_groups_of_current_rank.items():
-            if optim._zero_local_rank not in optim.param_group_no_params_ranks[group_id]:
+            if optim._zero_local_rank[group_id] not in optim.param_group_no_params_ranks[group_id]:
                 re &= torch.equal(p, torch.full_like(p, value, dtype=p.dtype))
         for group_id in range(len(optim._fp16_param_groups)):
-            if optim._zero_local_rank not in optim.param_group_no_params_ranks[group_id]:
+            if optim._zero_local_rank[group_id] not in optim.param_group_no_params_ranks[group_id]:
                 fp16_p = optim._param_store.get_flat_fp16_param_by_rank_group(
-                    rank=optim._zero_local_rank, group_id=group_id
+                    rank=optim._zero_local_rank[group_id], group_id=group_id
                 )
                 re &= torch.equal(fp16_p, torch.full_like(fp16_p, value, dtype=fp16_p.dtype))
     else:
