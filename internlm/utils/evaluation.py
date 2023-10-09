@@ -54,7 +54,10 @@ def switch_evaluation_pipeline_scheduler(trainer, num_microbatches, tensor_shape
 def switch_sequence_parallel_mode():
     prev_mode = gpc.config.parallel.sequence_parallel
     try:
-        gpc.config.parallel.sequence_parallel = False
+        if gpc.config.parallel["tensor"]["mode"] == 'fstp':
+            gpc.config.parallel.sequence_parallel = True
+        else:
+            gpc.config.parallel.sequence_parallel = False
         yield
     finally:
         gpc.config.parallel.sequence_parallel = prev_mode

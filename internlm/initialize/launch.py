@@ -279,6 +279,12 @@ def args_sanity_check():
         assert not (
             gpc.config.parallel.sequence_parallel is True and gpc.config.model.use_flash_attn is False
         ), "sequence parallel does not support use_flash_attn=False"
+    
+    if gpc.config.parallel["tensor"].get("mode", None) is None:
+        gpc.config.parallel["tensor"]["mode"] = "origin_tp"
+    
+    if gpc.config.parallel["tensor"].get("mode", None) is 'fstp':
+        assert gpc.config.parallel.sequence_parallel is True, "when the tp_mode is fstp, the sequence_parallel should be True."
 
     # currently only interleaved pipeline scheduler with overlap can guarantee loss accuracy
     if hasattr(gpc.config.model, "num_chunks") and gpc.config.model.num_chunks > 1:

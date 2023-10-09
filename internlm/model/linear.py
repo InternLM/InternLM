@@ -4,44 +4,20 @@
 from typing import Optional
 
 import torch
+import torch.nn.functional as F
 from flash_attn.ops.fused_dense import ColumnParallelLinear, RowParallelLinear
 from flash_attn.utils.distributed import all_reduce, reduce_scatter, all_gather_raw, reduce_scatter_raw
 from torch import Tensor
 from torch import nn
 from torch.cuda.amp import custom_bwd, custom_fwd
 
+# import fused_dense_cuda  # from apex
+import fused_dense_lib as fused_dense_cuda
+
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.model.utils import Silu, fused_dense_func_torch
 
-from typing import Optional
-from functools import partial
-
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch import Tensor
-from torch.distributed import ProcessGroup
-from torch.cuda.amp import custom_bwd, custom_fwd
-
-# import fused_dense_cuda  # from apex
-import fused_dense_lib as fused_dense_cuda
-
-from flash_attn.ops.activations import gelu_bwd, relu_bwd, sqrelu_fwd, sqrelu_bwd
-from flash_attn.utils.distributed import all_gather_raw, all_reduce_raw 
-# reduce_scatter_raw
-from flash_attn.utils.distributed import reduce_scatter, all_reduce
-
-def reduce_scatter_raw(input_: Tensor, process_group: ProcessGroup, async_op: bool = False, op=torch.distributed.ReduceOp.SUM):
-    world_size = torch.distributed.get_world_size(process_group)
-    assert input_.shape[0] % world_size == 0
-    output = torch.empty(
-        input_.shape[0] // world_size, *input_.shape[1:], dtype=input_.dtype, device=input_.device
-    )
-    handle = torch.distributed.reduce_scatter_tensor(
-        output, input_.contiguous(), op=op, group=process_group, async_op=async_op
-    )
-    return output, handle
 
 class ScaleColumnParallelLinear(nn.Linear):
     """
@@ -231,7 +207,7 @@ class FeedForward(nn.Module):
         out = self.w3(Silu(w1_o, w2_o))
         return out
 
-class FusedDenseFunc_fsdp(torch.autograd.Function):
+class FSDPFusedDenseFunc(torch.autograd.Function):
 
     @staticmethod
     @custom_fwd
@@ -243,21 +219,26 @@ class FusedDenseFunc_fsdp(torch.autograd.Function):
 
         if torch.is_autocast_enabled():
             x = x.to(dtype=torch.get_autocast_gpu_dtype())
-        x = x.contiguous()
-        total_x = x
+        total_x = x.contiguous()
         
-        # do all_gather for weight and bias before actual computation
-        total_weight, handle_weight = all_gather_raw(weight, process_group, async_op=True)
-        if bias is not None:
-            total_bias, handle_bias = all_gather_raw(bias, process_group, async_op=True)
-            handle_bias.wait()
+        world_size = gpc.get_world_size(ParallelMode.TENSOR)
+        if world_size > 1:
+            # do all_gather for weight and bias before actual computation
+            total_weight, handle_weight = all_gather_raw(weight, process_group, async_op=True)
+            if bias is not None:
+                total_bias, handle_bias = all_gather_raw(bias, process_group, async_op=True)
+                handle_bias.wait()
+            else:
+                total_bias = bias
+            handle_weight.wait()
         else:
+            total_weight = weight
             total_bias = bias
 
         if torch.is_autocast_enabled():
             total_weight = total_weight.to(dtype=torch.get_autocast_gpu_dtype())
             total_bias = total_bias.to(dtype=torch.get_autocast_gpu_dtype()) if bias is not None else None
-        handle_weight.wait()
+       
         total_weight = total_weight.contiguous()
         batch_shape, n = total_x.shape[:-1], total_x.shape[-1]
         batch_dim = batch_shape.numel()
@@ -289,9 +270,13 @@ class FusedDenseFunc_fsdp(torch.autograd.Function):
         batch_dim = batch_shape.numel()
         grad_output = grad_output.reshape(batch_dim, grad_output.shape[-1])
         
-        # do all-gather for weight before backward
-        total_weight, handle_weight = all_gather_raw(weight, process_group, async_op=True)
-        handle_weight.wait()
+        world_size = gpc.get_world_size(ParallelMode.TENSOR)
+        if world_size > 1:
+            # do all-gather for weight before backward
+            total_weight, handle_weight = all_gather_raw(weight, process_group, async_op=True)
+            handle_weight.wait()
+        else:
+            total_weight = weight
         
         if ctx.needs_input_grad[0]:
             if not ctx.return_residual:
@@ -300,32 +285,24 @@ class FusedDenseFunc_fsdp(torch.autograd.Function):
                 grad_input = torch.addmm(grad_input.reshape(batch_dim, grad_input.shape[-1]),
                                          grad_output, total_weight)
             grad_input = grad_input.reshape(*batch_shape, grad_input.shape[-1])
-            # if process_group is not None:
-                # import pdb; pdb.set_trace()
-                # grad_input, handle_grad_input = reduce_scatter_raw(grad_input, process_group, async_op=True)
-                # grad_input, handle_grad_input = all_reduce_raw(grad_input, process_group, async_op=True)
-                
         else:
             grad_input = None
-        # import pdb; pdb.set_trace()
+
         if ctx.needs_input_grad[1]:
             assert ctx.compute_weight_gradient
 
             grad_weight, grad_bias = fused_dense_cuda.linear_bias_wgrad(
                 total_x.reshape(batch_dim, total_x.shape[-1]), grad_output, ctx.needs_input_grad[2]
             )
-            grad_weight, handle_grad_weight = reduce_scatter_raw(grad_weight, process_group, async_op=True)
-            if grad_bias is not None:
-                grad_bias, handle_grad_bias = reduce_scatter_raw(grad_bias, process_group, async_op=True)
-                handle_grad_bias.wait()
-            handle_grad_weight.wait()
-            
+            if world_size > 1:
+                grad_weight, handle_grad_weight = reduce_scatter_raw(grad_weight, process_group, async_op=True)
+                if grad_bias is not None:
+                    grad_bias, handle_grad_bias = reduce_scatter_raw(grad_bias, process_group, async_op=True) 
+                    handle_grad_bias.wait()
+                handle_grad_weight.wait()
         else:
             grad_weight = None
             grad_bias = grad_output if ctx.needs_input_grad[2] else None
-        # if process_group is not None and ctx.needs_input_grad[0]:
-            # handle_grad_input.wait()
-        # import pdb; pdb.set_trace()
         return grad_input, grad_weight, grad_bias, None, None, None
 
 
@@ -334,7 +311,7 @@ def fsdp_fused_dense_func(x: Tensor, weight: Tensor, bias: Optional[Tensor] = No
     dtype_eligible = (x.dtype in [torch.float16, torch.bfloat16]
                       or (x.dtype == torch.float32 and torch.is_autocast_enabled()))
     if x.is_cuda and weight.is_cuda and (bias is None or bias.is_cuda) and dtype_eligible:
-        return FusedDenseFunc_fsdp.apply(x, weight, bias, return_residual, process_group)
+        return FSDPFusedDenseFunc.apply(x, weight, bias, return_residual, process_group)
     else:
         assert process_group is None
         out = F.linear(x, weight, bias)
@@ -426,5 +403,5 @@ class FSDPFeedForward(nn.Module):
     def forward(self, x):
         w1_o = self.w1(x)
         w2_o = self.w2(x)
-        out = self.w3(Silu(w1_o, w2_o))
+        out = self.w3(F.silu(w1_o) * w2_o)
         return out
