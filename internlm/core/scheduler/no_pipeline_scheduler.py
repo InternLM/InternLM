@@ -7,8 +7,10 @@ from typing import Any, Callable, Iterable, List, Optional
 
 import torch
 
+from internlm.core.context import global_context as gpc
 from internlm.core.engine import Engine
 from internlm.utils.common import conditional_context
+from internlm.utils.timeout import llm_timeout
 
 from .base_scheduler import BaseScheduler, SchedulerHook
 
@@ -25,13 +27,13 @@ class NonPipelineScheduler(BaseScheduler):
         gradient_accumulation_steps(int, optional): the steps of gradient accumulation, 1 for disable
             gradient accumulation.
 
-    Example:
-        # this shows an example of customized data_process_func
-        def data_process_func(dataloader_output):
-            item1, item2, item3 = dataloader_output
-            data = (item1, item2)
-            label = item3
-            return data, label
+    Examples:
+        >>> # this shows an example of customized data_process_func
+        >>> def data_process_func(dataloader_output):
+        >>>     item1, item2, item3 = dataloader_output
+        >>>     data = (item1, item2)
+        >>>     label = item3
+        >>>     return data, label
     """
 
     def __init__(
@@ -104,7 +106,11 @@ class NonPipelineScheduler(BaseScheduler):
         # forward
         with conditional_context(torch.no_grad(), enable=forward_only):
             self._call_hooks("before_forward", data)
-            output = self._call_engine(engine, data)
+            if hasattr(gpc.config.model, "num_experts"):
+                # moe is used
+                output, moe_losses = self._call_engine(engine, data)
+            else:
+                output = self._call_engine(engine, data)
             self._call_hooks("after_forward", output)
 
             self._call_hooks("post_helper_func", output, label)
@@ -113,7 +119,14 @@ class NonPipelineScheduler(BaseScheduler):
                 self._call_hooks("before_criterion", output, label)
                 loss = self._call_engine_criterion(engine, output, label)
                 self._call_hooks("after_criterion", loss)
+                moe_loss = (
+                    sum(moe_losses) * gpc.config.loss.moe_loss_coeff
+                    if hasattr(gpc.config.model, "num_experts")
+                    else torch.tensor(0.0, device=torch.cuda.current_device(), dtype=gpc.config.model.get("dtype"))
+                )
+                moe_loss /= scale_loss
                 loss /= scale_loss
+                loss += moe_loss
 
         # backward
         if not forward_only:
@@ -124,8 +137,9 @@ class NonPipelineScheduler(BaseScheduler):
         if not return_loss:
             loss = None
 
-        return output, loss
+        return output, loss, moe_loss
 
+    @llm_timeout(func_name="nopp_forward_backward_step")
     def forward_backward_step(
         self,
         engine: Engine,
@@ -162,6 +176,7 @@ class NonPipelineScheduler(BaseScheduler):
         data, label = batch_data
 
         loss = 0 if return_loss else None
+        moe_loss = 0 if return_loss else None
         outputs = []
         labels = []
 
@@ -176,12 +191,14 @@ class NonPipelineScheduler(BaseScheduler):
 
             _data, _label = self._load_accum_batch(data, label)
 
-            _output, _loss = self._train_one_batch(
+            _output, _loss, _moe_loss = self._train_one_batch(
                 _data, _label, engine, forward_only, return_loss, self._grad_accum_size
             )
 
             if return_loss:
                 loss += _loss
+                moe_loss += _moe_loss
+
             if return_output_label:
                 outputs.append(_output)
                 labels.append(_label)
@@ -189,4 +206,8 @@ class NonPipelineScheduler(BaseScheduler):
         if not return_output_label:
             outputs, labels = None, None
 
-        return outputs, labels, loss
+        # Compatible for non-moe
+        if hasattr(gpc.config.model, "num_experts"):
+            return outputs, labels, loss, moe_loss
+        else:
+            return outputs, labels, loss

@@ -1,0 +1,296 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, InternLM Team
+# This file is distributed under the same license as the InternLM package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: InternLM \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-09-25 13:44+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: en\n"
+"Language-Team: en <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.12.1\n"
+
+#: ../../source/monitor.rst:2
+msgid "监控和告警"
+msgstr "Monitor and Alert"
+
+#: ../../source/monitor.rst:5
+msgid "监控"
+msgstr "Monitoring"
+
+#: ../../source/monitor.rst:7
+msgid ""
+"InternLM 使用 ``internlm.monitor.monitor.initialize_monitor_manager()`` "
+"来初始化上下文监控管理。其中，一个实例化的单例对象 ``internlm.monitor.monitor.MonitorManager`` "
+"将管理监控线程并使用 ``internlm.monitor.monitor.MonitorTracker`` 来跟踪模型训练生命周期和训练状态。"
+msgstr ""
+"InternLM uses ``internlm.monitor.monitor.initialize_monitor_manager()`` "
+"to initialize context monitor. During this time, a singleton "
+"``internlm.monitor.monitor.MonitorManager`` will manage monitoring thread"
+" and track training status with "
+"``internlm.monitor.monitor.MonitorTracker``."
+
+#: internlm.monitor.monitor.initialize_monitor_manager:1 of
+msgid ""
+"Initialize monitor manager for monitoring training lifetime and alerting "
+"exception info to Feishu."
+msgstr ""
+
+#: internlm.monitor.alert.initialize_light_monitor
+#: internlm.monitor.alert.send_feishu_msg_with_webhook
+#: internlm.monitor.alert.send_heartbeat
+#: internlm.monitor.monitor.MonitorManager.start_monitor
+#: internlm.monitor.monitor.MonitorTracker
+#: internlm.monitor.monitor.initialize_monitor_manager of
+msgid "参数"
+msgstr ""
+
+#: internlm.monitor.monitor.MonitorManager.start_monitor:3
+#: internlm.monitor.monitor.initialize_monitor_manager:3 of
+msgid "The training job name."
+msgstr ""
+
+#: internlm.monitor.monitor.MonitorManager.start_monitor:5
+#: internlm.monitor.monitor.initialize_monitor_manager:5 of
+msgid "The Feishu webhook address for sending alert messages."
+msgstr ""
+
+#: internlm.monitor.monitor.MonitorManager:1 of
+msgid ""
+"Monitor Manager for managing monitor thread and monitoring training "
+"status."
+msgstr ""
+
+#: internlm.monitor.monitor.MonitorManager.monitor_loss_spike:1 of
+msgid "Check loss value, if loss spike occurs, send alert message to Feishu."
+msgstr ""
+
+#: internlm.monitor.monitor.MonitorManager.monitor_exception:1 of
+msgid "Catch and format exception information, send alert message to Feishu."
+msgstr ""
+
+#: internlm.monitor.monitor.MonitorManager.handle_sigterm:1 of
+msgid "Catch SIGTERM signal, and send alert message to Feishu."
+msgstr ""
+
+#: internlm.monitor.monitor.MonitorManager.start_monitor:1 of
+msgid ""
+"Initialize and start monitor thread for checking training job status, "
+"loss spike and so on."
+msgstr ""
+
+#: internlm.monitor.monitor.MonitorManager.start_monitor:7 of
+msgid "The time of monitor interval in seconds, defaults to 300."
+msgstr ""
+
+#: internlm.monitor.monitor.MonitorManager.start_monitor:9 of
+msgid ""
+"The limit multiple of current loss to previous loss value, which means "
+"loss spike may be occurs, defaults to 1.5."
+msgstr ""
+
+#: internlm.monitor.monitor.MonitorManager.stop_monitor:1 of
+msgid "Stop the monitor and alert thread."
+msgstr ""
+
+#: internlm.monitor.monitor.MonitorTracker:1 of
+msgid "Track job status and alert to Feishu during job training."
+msgstr ""
+
+#: internlm.monitor.monitor.MonitorTracker:3 of
+msgid "The Feishu webhook address for sending alerting messages."
+msgstr ""
+
+#: internlm.monitor.monitor.MonitorTracker:5 of
+msgid "The interval in seconds for monitoring checks. Defaults to 300."
+msgstr ""
+
+#: internlm.monitor.monitor.MonitorTracker:7 of
+msgid "The threshold for detecting loss value spikes. Defaults to 1.5."
+msgstr ""
+
+#: internlm.monitor.monitor.MonitorTracker.run:1 of
+msgid "start the monitor tracker."
+msgstr ""
+
+#: internlm.monitor.monitor.MonitorTracker.stop:1 of
+msgid "Stop the monitor tracker."
+msgstr ""
+
+#: ../../source/monitor.rst:18
+msgid "告警"
+msgstr "Alerting"
+
+#: ../../source/monitor.rst:20
+msgid ""
+"InternLM 监控线程会周期性地检查模型训练过程中是否出现 loss spike、潜在的 training stuck、运行时异常等，并捕获 "
+"SIGTERM 异常信号。当出现上述情况时，将触发警报，并通过调用 "
+"``internlm.monitor.alert.send_feishu_msg_with_webhook()`` 向飞书的 Webhook "
+"地址发送报警消息。"
+msgstr ""
+"InternLM monitor thread periodically tracks loss spike, potential stuck "
+"condition, runtime exception, and SIGTERM signal. When above situation "
+"occurs, an alert will be triggered and a message will be sent to the "
+"Feishu webhook address by calling "
+"``internlm.monitor.alert.send_feishu_msg_with_webhook()``."
+
+#: internlm.monitor.alert.send_feishu_msg_with_webhook:1 of
+msgid "Use Feishu robot to send messages with the given webhook."
+msgstr ""
+
+#: internlm.monitor.alert.send_feishu_msg_with_webhook:3 of
+msgid "The webhook to be used to send message."
+msgstr ""
+
+#: internlm.monitor.alert.send_feishu_msg_with_webhook:5 of
+msgid "The message title."
+msgstr ""
+
+#: internlm.monitor.alert.send_feishu_msg_with_webhook:7 of
+msgid "The message body."
+msgstr ""
+
+#: internlm.monitor.alert.send_feishu_msg_with_webhook of
+msgid "返回"
+msgstr ""
+
+#: internlm.monitor.alert.send_feishu_msg_with_webhook:10 of
+msgid "The response from the request. Or catch the exception and return None."
+msgstr ""
+
+#: internlm.monitor.alert.initialize_light_monitor
+#: internlm.monitor.alert.send_feishu_msg_with_webhook of
+msgid "抛出"
+msgstr ""
+
+#: internlm.monitor.alert.send_feishu_msg_with_webhook:12 of
+msgid "An exception rasied by the HTTP post request."
+msgstr ""
+
+#: ../../source/monitor.rst:25
+msgid "轻量监控"
+msgstr "Light Monitoring"
+
+#: ../../source/monitor.rst:27
+msgid ""
+"InternLM轻量级监控工具采用心跳机制实时监测训练过程中的各项指标，如loss、grad_norm、训练阶段的耗时等。同时，InternLM还可以通过"
+" `grafana dashboard <https://grafana.com/grafana/dashboards/>`_ "
+"直观地呈现这些指标信息，以便用户进行更加全面和深入的训练分析。"
+msgstr ""
+"The InternLM light monitoring tool employs a heartbeat mechanism to real-"
+"time monitor various metrics during the training process, such as loss, "
+"grad_norm, and training phase duration. Additionally, InternLM can "
+"present these metric details through a `grafana dashboard "
+"<https://grafana.com/grafana/dashboards/>`_, allowing users to conduct "
+"more comprehensive and in-depth training analysis in an intuitive manner."
+
+#: ../../source/monitor.rst:29
+msgid ""
+"轻量监控的配置由配置文件中的 ``monitor`` 字段指定， 用户可以通过修改配置文件 `config file "
+"<https://github.com/InternLM/InternLM/blob/main/configs/7B_sft.py>`_ "
+"来更改监控配置。以下是一个监控配置的示例："
+msgstr ""
+"The configuration for light monitoring is specified by the ``monitor`` "
+"field in the configuration file. Users can modify monitoring settings by "
+"editing the configuration file `config file "
+"<https://github.com/InternLM/InternLM/blob/main/configs/7B_sft.py>`_. "
+"Here is an example of a monitoring configuration:"
+
+#: ../../source/monitor.rst:41
+msgid "enable_feishu_alert (bool)：是否启用飞书告警。默认值：False。"
+msgstr "enable_feishu_alert: Whether to enable Feishu alerts. Defaults: False."
+
+#: ../../source/monitor.rst:42
+msgid "feishu_alert_address (str)：飞书告警的 Webhook 地址。默认值：None。"
+msgstr "feishu_alert_address: The webhook address for Feishu alerts. Defaults: None."
+
+#: ../../source/monitor.rst:43
+msgid "light_monitor_address (str)：轻量监控的地址。默认值：None。"
+msgstr "light_monitor_address: The address for lightweight monitoring. Defaults: None."
+
+#: ../../source/monitor.rst:45
+msgid ""
+"InternLM 使用 ``internlm.monitor.alert.initialize_light_monitor`` "
+"来初始化轻量监控客户端。一旦初始化完成，它会建立与监控服务器的连接。在训练过程中，使用 "
+"``internlm.monitor.alert.send_heartbeat`` "
+"来发送不同类型的心跳信息至监控服务器。监控服务器会根据这些心跳信息来检测训练是否出现异常，并在需要时发送警报消息。"
+msgstr ""
+"InternLM uses ``internlm.monitor.alert.initialize_light_monitor`` to "
+"initialize the lightweight monitoring client. Once initialization is "
+"complete, it establishes a connection with the monitoring server. During "
+"the training process, it uses ``internlm.monitor.alert.send_heartbeat`` "
+"to send various types of heartbeat messages to the monitoring server. The"
+" monitoring server uses these heartbeat messages to detect if the "
+"training encounters any abnormalities and sends alert messages as needed."
+
+#: internlm.monitor.alert.initialize_light_monitor:1 of
+msgid "Initialize the lightweight monitoring module."
+msgstr ""
+
+#: internlm.monitor.alert.initialize_light_monitor:3 of
+msgid "The address of the monitor. Defaults to 'MONITOR_SERVER' environment."
+msgstr ""
+
+#: internlm.monitor.alert.initialize_light_monitor:6 of
+msgid ""
+"If any exceptions occur during initialization, they will be caught and "
+"logged as warnings."
+msgstr ""
+
+#: internlm.monitor.alert.initialize_light_monitor:9
+#: internlm.monitor.alert.send_heartbeat:9 of
+msgid "示例"
+msgstr "Example"
+
+#: internlm.monitor.alert.initialize_light_monitor:10 of
+msgid ""
+"Initialize the monitoring module with the default address "
+"``initialize_light_monitor()``"
+msgstr ""
+
+#: internlm.monitor.alert.send_heartbeat:1 of
+msgid "Send a heartbeat message to a monitoring server."
+msgstr ""
+
+#: internlm.monitor.alert.send_heartbeat:3 of
+msgid ""
+"The type of heartbeat message, e.g., \"train_metrics\", \"init_time\", "
+"\"stage_time\"."
+msgstr ""
+
+#: internlm.monitor.alert.send_heartbeat:5 of
+msgid "A dictionary containing message data to be included in the heartbeat."
+msgstr ""
+
+#: internlm.monitor.alert.send_heartbeat:10 of
+msgid ""
+"Sending a heartbeat message for training metrics "
+"``send_heartbeat(\"train_metrics\", {\"loss\": 0.1, \"accuracy\": "
+"0.95})``"
+msgstr ""
+
+#: internlm.monitor.alert.send_heartbeat:13 of
+msgid ""
+"Sending a heartbeat message for initialization time "
+"``send_heartbeat(\"init_time\", {\"import_time\": 0.25})``"
+msgstr ""
+
+#: internlm.monitor.alert.send_heartbeat:16 of
+msgid ""
+"Sending a heartbeat message for stage time "
+"``send_heartbeat(\"stage_time\", {\"fwd_time\": 2.3, \"bwd_time\": "
+"6.2})``"
+msgstr ""
+
+#~ msgid ""
+#~ "InternLM轻量监控基于心跳机制来监控训练过程中是否出现 "
+#~ "loss、grad_norm异常、训练各阶段时间超时等异常，并通过dashboard展示训练指标信息等。"
+#~ msgstr ""

@@ -76,7 +76,7 @@ def evaluate_on_val_dls(
         data_cfg = gpc.config.data
 
         for val_name, val_dl in val_dls.items():
-            if len(val_dl) == 0 and verbose and not streaming:
+            if not streaming and len(val_dl) == 0 and verbose:
                 logger.info(f"Validation dataset: {val_name} is empty")
                 continue
 
@@ -97,6 +97,7 @@ def evaluate_on_val_dls(
                 disable=not verbose,
                 leave=False,
             ):
+                moe_loss = None
                 with torch.inference_mode():
                     if gpc.is_using_pp():
                         total_val_bsz = len(batch[1])
@@ -112,9 +113,15 @@ def evaluate_on_val_dls(
                             tensor_shape=tensor_shape,
                             metric_hook_list=[val_sche_metric_hook],
                         ):
-                            _, _, loss = trainer.execute_schedule(
-                                batch, forward_only=True, return_loss=True, return_output_label=False
-                            )
+                            # Compatible for non-moe
+                            if hasattr(gpc.config.model, "num_experts"):
+                                _, _, loss, moe_loss = trainer.execute_schedule(
+                                    batch, forward_only=True, return_loss=True, return_output_label=False
+                                )
+                            else:
+                                _, _, loss = trainer.execute_schedule(
+                                    batch, forward_only=True, return_loss=True, return_output_label=False
+                                )
                     else:
                         total_val_bsz = len(batch[1])
                         assert total_val_bsz % data_cfg.micro_bsz == 0
@@ -126,17 +133,22 @@ def evaluate_on_val_dls(
                             grad_accum_batch_size=grad_accum_batch_size,
                             metric_hook_list=[val_sche_metric_hook],
                         ):
-                            _, _, loss = trainer.execute_schedule(
-                                batch, forward_only=True, return_loss=True, return_output_label=False
-                            )
+                            if hasattr(gpc.config.model, "num_experts"):
+                                _, _, loss, moe_loss = trainer.execute_schedule(
+                                    batch, forward_only=True, return_loss=True, return_output_label=False
+                                )
+                            else:
+                                _, _, loss = trainer.execute_schedule(
+                                    batch, forward_only=True, return_loss=True, return_output_label=False
+                                )
                 if verbose:
-                    val_loss += loss.item()
+                    val_loss += loss.item() - moe_loss.item() if moe_loss is not None else loss.item()
 
             assert val_idx != -1
             dist.barrier()
 
             val_res = val_metric.get_metric()
-            if verbose and len(val_dl) != 0:
+            if verbose and (streaming or len(val_dl) != 0):
                 val_loss = val_loss / (val_idx + 1 + 1e-6)
                 infos = {
                     "step": step_count,

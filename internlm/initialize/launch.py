@@ -2,6 +2,7 @@
 # -*- encoding: utf-8 -*-
 
 import argparse
+import gc
 import os
 from pathlib import Path
 from typing import Dict, Union
@@ -10,9 +11,20 @@ import torch
 
 from internlm.core.context import Config
 from internlm.core.context import global_context as gpc
+from internlm.monitor import initialize_light_monitor
 from internlm.utils.common import get_master_node
 from internlm.utils.logger import get_logger
-from internlm.utils.storage_manager import init_storage_manager
+from internlm.utils.timeout import llm_timeout
+
+# check pacakge
+try:
+    import numa
+    from numa import memory, schedule
+    from pynvml.smi import nvidia_smi
+except (AttributeError, ImportError):
+    get_numa = False
+else:
+    get_numa = True
 
 logger = get_logger(__file__)
 
@@ -22,7 +34,7 @@ def get_default_parser():
     Input arguments include configuration, host, port, world size, local rank, backend for torch.distributed.
 
     Returns:
-       Namespace: Returns the parser with the default arguments, the user may add customized arguments into this parser.
+       Parser: Returns the parser with the default arguments, the user may add customized arguments into this parser.
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, help="path to the config file")
@@ -97,6 +109,13 @@ def args_sanity_check():
     if "valid_every" not in data:
         data._add_item("valid_every", 0)
 
+    if "empty_cache_and_diag_interval" not in data:
+        data._add_item("empty_cache_and_diag_interval", 50)
+
+    if "diag_outlier_ratio" not in data:
+        data._add_item("diag_outlier_ratio", 1.1)
+    data.diag_outlier_ratio = max(1, data.diag_outlier_ratio)
+
     if gpc.is_rank_for_log():
         logger.info("+" * 15 + " Data Info " + "+" * 15)  # pylint: disable=W1201
         logger.info(f"seq_len: {data.seq_len}")
@@ -111,7 +130,7 @@ def args_sanity_check():
     # processing the checkpoint config
     ckpt = gpc.config.ckpt
     if "enable_save_ckpt" not in ckpt:
-        ckpt._add_item("enable_save_ckpt", False)
+        ckpt._add_item("enable_save_ckpt", True)
 
     # Saving checkpoint args.
     if ckpt.enable_save_ckpt:
@@ -137,9 +156,6 @@ def args_sanity_check():
         if not ckpt.async_upload:
             ckpt._add_item("async_upload_tmp_folder", None)
 
-        if "snapshot_ckpt_folder" not in ckpt:
-            ckpt._add_item("snapshot_ckpt_folder", os.path.join(ckpt.save_ckpt_folder, "snapshot"))
-
         if "oss_snapshot_freq" not in ckpt:
             ckpt._add_item("oss_snapshot_freq", float("inf"))  # if oss_snapshot_freq not given, we disable.
     else:
@@ -149,44 +165,23 @@ def args_sanity_check():
         ckpt._add_item("async_upload", False)
         ckpt._add_item("async_upload_tmp_folder", None)
         ckpt._add_item("snapshot_ckpt_folder", None)
-        ckpt._add_item("snapshot_ckpt_folder", None)
-
-    # Loading checkpoint args.
-    if "load_model_only_folder" not in ckpt:
-        ckpt._add_item("load_model_only_folder", None)
 
     if "load_ckpt_folder" not in ckpt:
         ckpt._add_item("load_ckpt_folder", None)
 
-    if "load_optimizer" not in ckpt:
-        ckpt._add_item("load_optimizer", True)
-
     if "stop_file_path" not in ckpt:
         ckpt._add_item("stop_file_path", None)
 
-    if "load_given_ckpt" not in ckpt:
-        # If 'load_given_ckpt' is not given, we set it to False, so internlm can have opportunity
+    if "auto_resume" not in ckpt:
+        # If 'auto_resume' is not given, we set it to True, so internlm can have opportunity
         # to auto-load latest checkpoint.
-        ckpt._add_item("load_given_ckpt", False)
-
-    if ckpt.load_given_ckpt:
-        # Priority: load_given_ckpt(True) > latest_checkpoint > load_model_only_folder
-        if ckpt.load_ckpt_folder and ckpt.load_model_only_folder:
-            logger.warning(
-                "Detect 'load_ckpt_folder' and 'load_model_only_folder' set at the same time, \
-and 'load_given_ckpt' is True, so internlm will load from 'load_ckpt_folder'"
-            )
-            ckpt.load_model_only_folder = None
+        ckpt._add_item("auto_resume", True)
 
     if gpc.is_rank_for_log():
         logger.info("+" * 15 + " Ckpt Info " + "+" * 15)  # pylint: disable=W1201
         logger.info(f"is enable save ckpt: {ckpt.enable_save_ckpt}")
         logger.info(f"save_ckpt_folder: {ckpt.save_ckpt_folder}")
         logger.info(f"checkpoint_every: {ckpt.checkpoint_every}")
-        logger.info(f"load_given_ckpt: {ckpt.load_given_ckpt}")
-
-    # initialization storage manager
-    init_storage_manager(ckpt)
 
     # tensorboard writer config
     if "enable_tb" not in gpc.config:
@@ -269,6 +264,14 @@ and 'load_given_ckpt' is True, so internlm will load from 'load_ckpt_folder'"
     if "use_flash_attn" not in gpc.config.model:
         gpc.config.model._add_item("use_flash_attn", True)
 
+    if "MoE" in gpc.config.get("model_type", "INTERNLM"):
+        if "num_experts" not in model:
+            model._add_item("num_experts", 1)
+        if "moe_use_residual" not in model:
+            model._add_item("moe_use_residual", False)
+        if "moe_gate_k" not in model:
+            model._add_item("moe_gate_k", 2)
+
     # process the parallel config
     if "sequence_parallel" not in gpc.config.parallel:
         gpc.config.parallel._add_item("sequence_parallel", False)
@@ -277,9 +280,28 @@ and 'load_given_ckpt' is True, so internlm will load from 'load_ckpt_folder'"
             gpc.config.parallel.sequence_parallel is True and gpc.config.model.use_flash_attn is False
         ), "sequence parallel does not support use_flash_attn=False"
 
-    # feishu webhook address for alerting
-    if "alert_address" not in gpc.config:
-        gpc.config._add_item("alert_address", None)
+    # currently only interleaved pipeline scheduler with overlap can guarantee loss accuracy
+    if hasattr(gpc.config.model, "num_chunks") and gpc.config.model.num_chunks > 1:
+        assert (
+            gpc.config.parallel["pipeline"].get("interleaved_overlap", False) is True
+        ), "only support interleaved pipeline scheduler with overlap"
+
+    # monitoring default config
+    monitor_default_config = {
+        "alert_address": None,  # compatible with old alert config
+        "monitor": {  # new monitoring config
+            "alert": {"enable_feishu_alert": False, "feishu_alert_address": None, "light_monitor_address": None}
+        },
+    }
+
+    for key, value in monitor_default_config.items():
+        if key not in gpc.config:
+            gpc.config._add_item(key, value)
+
+    alert = gpc.config.monitor.alert
+
+    if alert.enable_feishu_alert and not alert.feishu_alert_address and gpc.is_rank_for_log():
+        logger.warning("alert is enable but alert_address is not set")
 
     optim_ckpt = gpc.config.hybrid_zero_optimizer
     if "zero_overlap_communication" in optim_ckpt:
@@ -293,6 +315,9 @@ and 'load_given_ckpt' is True, so internlm will load from 'load_ckpt_folder'"
         logger.info(
             f"overlap_sync_grad:{optim_ckpt.overlap_sync_grad}, overlap_sync_param:{optim_ckpt.overlap_sync_param}"
         )
+
+    if "moe_loss_coeff" not in gpc.config.loss:
+        gpc.config.loss._add_item("moe_loss_coeff", 1.0)
 
 
 def launch(
@@ -356,6 +381,12 @@ def launch(
             f"data parallel size: {gpc.data_parallel_size}, pipeline parallel size: {gpc.pipeline_parallel_size}, "
             f"tensor parallel size: {gpc.tensor_parallel_size}",
         )
+        if hasattr(gpc.config.model, "num_experts") and gpc.config.model.num_experts > 1:
+            logger.info(
+                f"Creating MoE with num_experts: {gpc.config.model.num_experts} | "
+                f"expert parallel size: {gpc.expert_parallel_size} | "
+                f"number of local experts: {gpc.config.model.num_experts//gpc.expert_parallel_size}"
+            )
 
 
 def launch_from_slurm(
@@ -380,6 +411,8 @@ def launch_from_slurm(
         world_size = int(os.environ["SLURM_NPROCS"])
     except KeyError as e:
         raise RuntimeError(f"Could not find {e} in the SLURM environment")
+
+    try_bind_numa(global_rank=rank, world_size=world_size)
 
     launch(
         config=config,
@@ -414,6 +447,8 @@ def launch_from_torch(
     except KeyError as e:
         raise RuntimeError(f"Could not find {e} in the torch environment")
 
+    try_bind_numa(global_rank=rank, world_size=world_size, local_rank=local_rank)
+
     launch(
         config=config,
         local_rank=local_rank,
@@ -426,6 +461,7 @@ def launch_from_torch(
     )
 
 
+@llm_timeout(func_name="initialize_distributed_env")
 def initialize_distributed_env(
     config: str,
     launcher: str = "slurm",
@@ -443,6 +479,9 @@ def initialize_distributed_env(
         seed (int, optional): Specified random seed for every process. 1024 by default.
     """
 
+    # close automatic garbage collection
+    gc.disable()
+
     torch.cuda.empty_cache()
 
     if launcher == "torch":
@@ -459,3 +498,63 @@ def initialize_distributed_env(
 
     if args_check:
         args_sanity_check()
+
+    # init light monitor client
+    if gpc.config.get("monitor") and gpc.config.monitor.get("alert"):
+        alert_config = gpc.config.monitor.alert
+        if alert_config.enable_feishu_alert and gpc.is_rank_for_log():
+            light_monitor_address = alert_config.light_monitor_address
+            if light_monitor_address:
+                initialize_light_monitor(light_monitor_address)
+            else:
+                logger.warning("monitor address is none, monitor could not be used!")
+
+
+def get_config_value(config, key, defalut):
+    try:
+        value = config[key]
+    except KeyError:
+        value = defalut
+    return value
+
+
+def try_bind_numa(global_rank, world_size, local_rank=None):
+    # Early return if numa module not available
+    if not get_numa:
+        if global_rank == 0:
+            logger.info(
+                "Try bind numa failed! Package import error, if numa is not installed, "
+                "please implement: pip install --upgrade py-libnuma, Ref: https://pypi.org/project/py-libnuma/"
+            )
+
+    # get numa node number
+    try:
+        numa_node_num = numa.info.get_max_node() + 1
+        # get total gpu number of current node
+        nvsmi = nvidia_smi.getInstance()
+        total_GPU_per_node = len(nvsmi.DeviceQuery("memory.total")["gpu"])
+
+        # return while total_GPU_per_node is larger than numa_node_num or is not divisible by numa_node_num
+        if total_GPU_per_node <= numa_node_num:
+            return
+        if total_GPU_per_node % numa_node_num != 0:
+            return
+        # return while the number of processes is smaller than one node GPUs num
+        if world_size < total_GPU_per_node:
+            return
+
+        if local_rank is None:
+            devices_per_node = torch.cuda.device_count()
+            local_rank = global_rank % devices_per_node
+
+        # compute numa id for each locak rank
+        per_numa = total_GPU_per_node // numa_node_num
+        numa_id = local_rank // per_numa
+
+        # bind numa node
+        schedule.run_on_nodes(numa_id)
+        memory.set_membind_nodes(numa_id)
+    except Exception:
+        return  # try_bind_numa should not raise exception
+    else:
+        logger.info(f"Rank: {global_rank} success bind process to numa node: {numa_id}")

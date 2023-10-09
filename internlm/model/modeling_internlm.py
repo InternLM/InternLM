@@ -59,10 +59,12 @@ class PackedFlashBaseLayer1D(nn.Module):
         mlp_ratio: int = 4,
         attn_drop_rate: float = 0,
         drop_rate: float = 0.0,
+        max_position_embeddings: int = 2048,
         dtype: torch.dtype = torch.float,
         layer_norm_epsilon: float = 1e-6,
         checkpoint: bool = False,
         layer_idx: int = 0,
+        use_dynamic_ntk_rope: bool = False,
         residual_in_fp32: bool = False,
         device: Optional[torch.device] = None,
         norm_type: str = "rmsnorm",
@@ -84,9 +86,11 @@ class PackedFlashBaseLayer1D(nn.Module):
             num_heads=num_attention_heads,
             process_group=gpc.get_group(ParallelMode.TENSOR),
             dropout=attn_drop_rate,
+            max_position_embeddings=max_position_embeddings,
             softmax_scale=1 / math.sqrt(head_dim),
             causal=True,
             layer_idx=layer_idx,
+            use_dynamic_ntk_rope=use_dynamic_ntk_rope,
             rotary_emb_dim=head_dim,
             rotary_emb_scale_base=0,
             use_flash_attn=use_flash_attn,
@@ -127,6 +131,10 @@ class PackedFlashBaseLayer1D(nn.Module):
                 device=device,
                 dtype=dtype,
             )
+        for _, param in self.mlp.named_parameters():
+            if gpc.get_world_size(ParallelMode.TENSOR) > 1:
+                setattr(param, IS_TENSOR_PARALLEL, True)
+
         self.dropout2 = nn.Dropout(drop_rate)
         self.use_swiglu = use_swiglu
         self.use_scaled_init = use_scaled_init
@@ -258,6 +266,7 @@ class PackedFlashInternLm1D(nn.Module):
         mlp_ratio: int = 4.0,
         attn_drop_rate: float = 0.0,
         drop_rate: float = 0.0,
+        max_position_embeddings: int = 2048,
         dtype: torch.dtype = torch.float,
         checkpoint: float = 0.0,
         layer_norm_epsilon: float = 1e-5,
@@ -267,6 +276,7 @@ class PackedFlashInternLm1D(nn.Module):
         embed_grad_scale: float = 0.1,
         parallel_output: bool = True,
         start_layer_idx: int = 0,
+        use_dynamic_ntk_rope: bool = False,
         device: Optional[torch.device] = None,
         residual_in_fp32: bool = False,
         norm_type: str = "rmsnorm",
@@ -311,10 +321,12 @@ class PackedFlashInternLm1D(nn.Module):
                     mlp_ratio=mlp_ratio,
                     attn_drop_rate=attn_drop_rate,
                     drop_rate=drop_rate,
+                    max_position_embeddings=max_position_embeddings,
                     dtype=dtype,
                     layer_norm_epsilon=layer_norm_epsilon,
                     checkpoint=lid < checkpoint_layer_num,
                     layer_idx=lid + start_layer_idx,  # This parameter is used for caching during generation
+                    use_dynamic_ntk_rope=use_dynamic_ntk_rope,
                     residual_in_fp32=residual_in_fp32,
                     device=device,
                     norm_type=norm_type,
@@ -439,8 +451,10 @@ def build_model_with_cfg(
     embed_grad_scale=1,
     parallel_output=True,
     num_attention_heads=32,
+    max_position_embeddings=2048,
     mlp_ratio=4.0,
     residual_in_fp32=False,
+    use_dynamic_ntk_rope=False,
     norm_type="rmsnorm",
     drop_rate=0,
     attn_drop_rate=0,
@@ -451,10 +465,9 @@ def build_model_with_cfg(
     use_scaled_init: bool = True,
     use_swiglu: bool = True,
     use_flash_attn: bool = True,
-    sequence_parallel: bool = False,  # pylint: disable=W0613
 ):
     """
-    Builde model with config
+    Build model with config.
 
     Args:
         num_chunks (int): The number of partitions in pipeline parallel. 1 by default.
@@ -496,6 +509,8 @@ def build_model_with_cfg(
         parallel_output=parallel_output,
         mlp_ratio=mlp_ratio,
         residual_in_fp32=residual_in_fp32,
+        max_position_embeddings=max_position_embeddings,
+        use_dynamic_ntk_rope=use_dynamic_ntk_rope,
         norm_type=norm_type,
         drop_rate=drop_rate,
         attn_drop_rate=attn_drop_rate,

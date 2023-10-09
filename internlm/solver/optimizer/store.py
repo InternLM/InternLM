@@ -38,11 +38,15 @@ class BucketStore(BaseStore):
         self._grads = dict()
         self._params = dict()
         self._num_elements_in_bucket = dict()
+        self._dp_parallel_mode = dp_parallel_mode
 
         self.reset()
 
     def num_elements_in_bucket(self, reduce_rank: int = None):
         return self._num_elements_in_bucket[reduce_rank]
+
+    def get_dp_parallel_mode(self):
+        return self._dp_parallel_mode
 
     def add_num_elements_in_bucket(self, num_elements, reduce_rank: int = None):
         self._num_elements_in_bucket[reduce_rank] += num_elements
@@ -249,11 +253,17 @@ class ParameterStore(BaseStore):
         if not last_bucket:
             if group_id not in self._former_bucket_reduced_param:
                 return [], []
-            return self._former_bucket_reduced_param[group_id], self._former_bucket_reduced_grad[group_id]
+            return (
+                self._former_bucket_reduced_param[group_id],
+                self._former_bucket_reduced_grad[group_id],
+            )
         else:
             if group_id not in self._last_bucket_reduced_param:
                 return [], []
-            return self._last_bucket_reduced_param[group_id], self._last_bucket_reduced_grad[group_id]
+            return (
+                self._last_bucket_reduced_param[group_id],
+                self._last_bucket_reduced_grad[group_id],
+            )
 
     def reset_reduced_data_for_compute_norm(self):
         self._former_bucket_reduced_param = {}
@@ -277,6 +287,9 @@ class TensorBucket:
         self._max_size = size
         self._current_size = 0
         self._bucket = []
+        self._flat_tensor = None
+        self._unflatten_and_copy_flag = False
+        self.commu_handle = None
 
     @property
     def max_size(self):
@@ -291,6 +304,15 @@ class TensorBucket:
 
     def is_empty(self):
         return len(self._bucket) == 0
+
+    def set_unflatten_and_copy_flag(self, flag):
+        self._unflatten_and_copy_flag = flag
+
+    def get_unflatten_and_copy_flag(self):
+        return self._unflatten_and_copy_flag
+
+    def get_flat_tensor(self):
+        return self._flat_tensor
 
     def add_to_bucket(self, tensor, allow_oversize=False):
         tensor_size = tensor.numel()
@@ -312,11 +334,14 @@ class TensorBucket:
     def empty(self):
         self._bucket = []
         self._size = 0
+        self._flat_tensor = None
+        self.commu_handle = None
 
     def flatten(self):
-        return _flatten_dense_tensors(self._bucket)
+        self._flat_tensor = _flatten_dense_tensors(self._bucket)
 
-    def unflatten_and_copy(self, flat_tensor):
-        unflattened_tensor_list = _unflatten_dense_tensors(flat_tensor, self._bucket)
-        for old, new in zip(self._bucket, unflattened_tensor_list):
-            old.copy_(new)
+    def unflatten_and_copy(self):
+        if self._unflatten_and_copy_flag:
+            unflattened_tensor_list = _unflatten_dense_tensors(self._flat_tensor, self._bucket)
+            for old, new in zip(self._bucket, unflattened_tensor_list):
+                old.copy_(new)

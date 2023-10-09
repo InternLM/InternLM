@@ -2,36 +2,138 @@
 # -*- encoding: utf-8 -*-
 
 import copy
-import fcntl
+import inspect
 import os
+import re
 import socket
 import time
+from collections import defaultdict
 from enum import Enum
-from typing import Dict
+from typing import Callable, Dict, Union
 
 import torch
 
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.core.trainer import TrainState
+from internlm.initialize.launch import get_config_value
+from internlm.initialize.legacy.launch import (
+    auto_resume_sanity_check,
+    ckpt_info_sanity_check,
+)
+from internlm.model.moe import MoE
 from internlm.monitor import send_alert_message
-from internlm.solver.optimizer import HybridZeroOptimizer
+from internlm.solver.optimizer import HybridZeroOptimizer, reload_zero_fp32_buff
 from internlm.utils.common import get_current_device
 from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
 from internlm.utils.storage_manager import (
     get_fns,
     get_storage_manager,
+    init_storage_manager,
     llm_load,
     llm_save,
+    try_get_storage_backend,
 )
+from internlm.utils.timeout import llm_timeout
 
 logger = get_logger(__file__)
 
 
-class CheckpointType(Enum):
+class CheckpointSaveType(Enum):
     NORMAL_CHECKPOINT = 1
     SNAPSHOT_CHECKPOINT = 2
+
+
+class CheckpointLoadType(Enum):
+    INTERNLM = "internlm"
+
+
+# The load method implemented by internlm by default does not use string representation types,
+# but uses enumeration types defined in advance.
+LOAD_TYPE_DICT = {
+    "internlm": CheckpointLoadType.INTERNLM,
+}
+
+
+class CheckpointLoadContent:
+    MODEL = "model"
+    SAMPLER = "sampler"
+    OPIMIZER = "optimizer"
+    SCHEDULAER = "scheduler"
+
+
+class CheckpointLoadMethod:
+    """The registration class of the checkpoint loading method,
+    users can define their own custom ckpt loading methods."""
+
+    LOAD_FUNC_SIG = None
+    LOAD_TYPE_FUNC = {}
+
+    @staticmethod
+    def convet_load_type(load_type: str) -> Union[CheckpointLoadType, str]:
+        if load_type.lower() in LOAD_TYPE_DICT:
+            # The ckpt load method implemented by internlm by default.
+            return LOAD_TYPE_DICT[load_type.lower()]
+        else:
+            # If it is a user-defined field, we do not do any conversion and represent it as a string.
+            return load_type
+
+    @staticmethod
+    def register_ckpt_load_type(load_type: Union[str, CheckpointLoadType], load_func: Callable):
+        if load_type in CheckpointLoadMethod.LOAD_TYPE_FUNC and gpc.is_rank_for_log():
+            logger.warning(f"{load_type} has already been registered!")
+            return
+
+        CheckpointLoadMethod.LOAD_TYPE_FUNC.update({load_type: load_func})
+
+        if load_type == CheckpointLoadType.INTERNLM:
+            CheckpointLoadMethod.LOAD_FUNC_SIG = inspect.signature(load_func)
+        else:
+            if inspect.signature(load_func) != CheckpointLoadMethod.LOAD_FUNC_SIG and gpc.is_rank_for_log():
+                logger.warning(
+                    f"The registered signature {inspect.signature(load_func)} of the loaded model is not same as: "
+                    f"{CheckpointLoadMethod.LOAD_FUNC_SIG}"
+                )
+
+    @staticmethod
+    def get_ckpt_load_type_func(load_type: Union[str, CheckpointLoadType]):
+        return CheckpointLoadMethod.LOAD_TYPE_FUNC[load_type]
+
+
+class CheckpointLoadMask:
+    """
+    According to the content field in the incoming ckpt_info, decide which components to load.
+    """
+
+    LOAD_CONTENT_DICT = {
+        "model": CheckpointLoadContent.MODEL,
+        "sampler": CheckpointLoadContent.SAMPLER,
+        "optimizer": CheckpointLoadContent.OPIMIZER,
+        "scheduler": CheckpointLoadContent.SCHEDULAER,
+    }
+
+    def __init__(self, content: tuple) -> None:
+        self.load_set = set(map(lambda x: x.lower(), content))
+        if "all" in self.load_set:
+            self.load_set = set(CheckpointLoadMask.LOAD_CONTENT_DICT.values())
+        else:
+            self.load_set = set(map(lambda x: CheckpointLoadMask.LOAD_CONTENT_DICT[x.lower()], content))
+
+    def need_load(self, content: CheckpointLoadContent):
+        return content in self.load_set
+
+    def not_only_load(self, content: CheckpointLoadContent):
+        return content in self.load_set and len(self.load_set) > 1
+
+    def only_load(self, content: CheckpointLoadContent):
+        return set((content,)) == self.load_set
+
+    def __str__(self) -> str:
+        return f"{self.load_set}."
+
+    def __repr__(self) -> str:
+        return f"{self.load_set}."
 
 
 def get_model_topology(model):
@@ -55,6 +157,66 @@ def get_model_topology(model):
     return topos
 
 
+def try_load_internlm_ckpt(ckpt_mm, load_info, train_state: TrainState):
+    load_content_str = ""
+    load_ckpt_folder = load_info["path"]
+    load_content: CheckpointLoadMask = load_info["content"]
+
+    if gpc.is_rank_for_log():
+        logger.info(f"Try load_ckpt_folder: {load_ckpt_folder}")
+
+    if load_content.need_load(CheckpointLoadContent.MODEL):
+        load_model_checkpoint(folder=load_ckpt_folder, model=ckpt_mm.model)
+        load_content_str += f"{CheckpointLoadContent.MODEL}, "
+
+    if load_content.not_only_load(CheckpointLoadContent.MODEL):
+        # load training states.
+        load_context(load_ckpt_folder, train_state)
+
+        # load optimzier states.
+        if load_content.need_load(CheckpointLoadContent.OPIMIZER):
+            load_optimizer_checkpoint(load_ckpt_folder, ckpt_mm.optimizer)
+            load_content_str += f"{CheckpointLoadContent.OPIMIZER}, "
+        else:
+            if gpc.is_rank_for_log():
+                logger.warning("CheckpointManager has no 'optimizer', skip reload optim checkpoint!")
+
+        # load lr scheduler states.
+        if load_content.need_load(CheckpointLoadContent.SCHEDULAER):
+            if ckpt_mm.lr_scheduler:
+                load_scheduler(load_ckpt_folder, ckpt_mm.lr_scheduler, ckpt_mm.optimizer, train_state)
+                load_content_str += f"{CheckpointLoadContent.SCHEDULAER}, "
+            else:
+                if gpc.is_rank_for_log():
+                    logger.warning("CheckpointManager has no 'lr_scheduler', skip reload lr_scheduler checkpoint!")
+
+        # load dataloader sampler states.
+        if load_content.need_load(CheckpointLoadContent.SAMPLER):
+            if hasattr(train_state, "batch_sampler") and not isinstance(
+                train_state.batch_sampler, torch.utils.data.sampler.BatchSampler
+            ):
+                load_sampler(load_ckpt_folder, ckpt_mm.train_dl.batch_sampler)
+                # track the actual updates of sampler when using weighted sampling
+                train_state.init_batch_sampler(ckpt_mm.train_dl.batch_sampler)
+                load_content_str += f"{CheckpointLoadContent.SAMPLER}, "
+            else:
+                if gpc.is_rank_for_log():
+                    logger.warning("CheckpointManager skip reload 'batch_sampler'")
+
+            # reload data state dict.
+            if hasattr(train_state, "data_state_dict"):
+                ckpt_mm.train_dl.dataset.load_state_dict(
+                    llm_load(os.path.join(load_ckpt_folder, "sampler_0.pt")), ckpt_path=load_ckpt_folder
+                )
+                load_content_str += f"{CheckpointLoadContent.SAMPLER}, "
+            else:
+                if gpc.is_rank_for_log():
+                    logger.warning(
+                        "CheckpointManager has no 'data_state_dict', skip reload data_state_dict checkpoint!"
+                    )
+    return load_content_str
+
+
 def save_model_checkpoint(folder, model):
     """
     Save the model according to the relationship between tp and dp. The principle is that the data of each tp
@@ -70,6 +232,8 @@ def save_model_checkpoint(folder, model):
     """
 
     states = model.state_dict()
+    # get non-expert parameters
+    states = get_non_moe_state_dict(states)
     topo = get_model_topology(model)
 
     if folder is not None:
@@ -92,6 +256,16 @@ def save_model_checkpoint(folder, model):
             topo_fn = f"topo_tp{tp_rank}_pp{pp_rank}.json"
             topo_fp = os.path.join(folder, topo_fn)
             llm_save(topo_fp, saved_obj=topo)
+
+        # try to save expert parameter to separate files if model have moe layer
+        expert_dp_size = gpc.get_world_size(ParallelMode.EXPERT_DATA)
+        expert_dp_rank = gpc.get_local_rank(ParallelMode.EXPERT_DATA)
+        should_save_rank_pair.clear()
+        for i in range(tp_size):
+            should_save_rank_pair.add((i, i % expert_dp_size))
+
+        if (tp_rank, expert_dp_rank) in should_save_rank_pair:
+            try_save_moe_checkpoint(folder, model, tp_rank, pp_rank)
 
     torch.distributed.barrier()
 
@@ -129,6 +303,19 @@ def load_model_checkpoint(folder, model):
     fp = os.path.join(folder, should_load_name)
     states = llm_load(fp, map_location=get_current_device())
 
+    """
+    # need convert the gate parameters to float32 (to fit deepspeed style mechanism), it may cause round-off in
+    # gate.weight. The conversion will also be done when doing forward. so we can just comment it out. this make
+    # the gate parameters to be float16 before forward.
+    for key in list(states.keys()):
+        if 'moe_layer.gate.wg.weight' in key:
+            states[key] = states[key].float()
+            print("load: ", states[key].float(),flush=True)
+    """
+
+    # try to load expert parameter to separate files if model have moe layer
+    try_load_moe_checkpoint(folder, model, states, tp_rank, pp_rank)
+
     missing_k, unexpected_keys = model.load_state_dict(states, strict=False)
     if len(missing_k) != 0:
         logger.warning(f"Warning: missing keys {missing_k}")
@@ -138,6 +325,59 @@ def load_model_checkpoint(folder, model):
     # avoid to cuda oom, Ref: https://discuss.pytorch.org/t/load-state-dict-causes-memory-leak/36189/11
     del states
     torch.cuda.empty_cache()
+
+
+def try_save_moe_checkpoint(folder, model, tp_rank, pp_rank):
+    # Using layer_#_expert_# to save the model's expert state_dict，a hack.
+    pipeline_stage_size = gpc.config.model.num_layers // gpc.get_world_size(ParallelMode.PIPELINE)
+    moe_layer_id = pp_rank * pipeline_stage_size
+    for n_module, module in model.named_modules():
+        if isinstance(module, MoE):  # and deepspeed.comm.get_rank() == 0:
+            num_local_experts = module.num_local_experts
+            expp_rank = gpc.get_local_rank(ParallelMode.EXPERT)
+
+            # get all moe parameters
+            moe_state_dict = {}
+            for n, p in module.state_dict().items():
+                if "expert" in n and "moe_layer.gate.wg.weight" not in n:
+                    moe_state_dict[n_module + "." + n] = p
+            moe_str_prefix = ".moe_layer.experts.experts."
+            # Reorder the moe name rank, so that each checkpoint only has one expert
+            experts_state_dict = defaultdict(dict)
+            for key in list(moe_state_dict.keys()):
+                m = re.match(f".*{moe_str_prefix}([0-9]+).*", key)
+
+                local_expert_id = None
+                if not m:
+                    logger.warning(f"No expert found in key {key}.")
+                else:
+                    local_expert_id = m.group(1)
+
+                global_expert_id = expp_rank * num_local_experts + int(local_expert_id)
+                expert_key = key.replace(f"{moe_str_prefix}{local_expert_id}", f"{moe_str_prefix}{global_expert_id}")
+
+                # truncating extra tensor (shared) storage
+                truncated = moe_state_dict.pop(key).clone().detach()
+                experts_state_dict[str(global_expert_id)][expert_key] = truncated
+
+            # let save the moe parameters
+            for global_expert_id, expert_state_dict in experts_state_dict.items():
+                # save the moe parameters
+                fn = f"model_moe_layer{moe_layer_id}_expert{global_expert_id}_tp{tp_rank}.pt"
+                fp = os.path.join(folder, fn)
+                llm_save(fp, saved_obj=expert_state_dict)
+            moe_layer_id += 1
+
+
+def get_non_moe_state_dict(full_state_dict):
+    """
+    Get the state dict of the non-moe layers
+    """
+    for key in list(full_state_dict.keys()):
+        if "expert" in key and "moe_layer.gate.wg.weight" not in key:
+            full_state_dict.pop(key)
+
+    return full_state_dict
 
 
 def save_optimizer_checkpoint(optim, state_path):
@@ -166,6 +406,28 @@ def save_optimizer_checkpoint(optim, state_path):
                 llm_save(fp_meta, params_per_rank_id_dict)
     else:
         llm_save(os.path.join(state_path, fp), states)
+
+
+def try_load_moe_checkpoint(folder, model, state_dict, tp_rank, pp_rank):
+    pipeline_stage_size = gpc.config.model.num_layers // gpc.get_world_size(ParallelMode.PIPELINE)
+    moe_layer_id = pp_rank * pipeline_stage_size
+    for _, module in model.named_modules():
+        if isinstance(module, MoE):  # and deepspeed.comm.get_rank() == 0:
+            num_local_experts = module.num_local_experts
+            expp_rank = gpc.get_local_rank(ParallelMode.EXPERT)
+            # loop all local_experts
+            for local_expert_id in range(num_local_experts):
+                global_expert_id = expp_rank * num_local_experts + local_expert_id
+                fn = f"model_moe_layer{moe_layer_id}_expert{global_expert_id}_tp{tp_rank}.pt"
+                fp = os.path.join(folder, fn)
+                expert_state_dict = llm_load(fp, map_location=get_current_device())
+                # Updating global -> local expert ids
+                moe_str_prefix = ".moe_layer.experts.experts."
+                for key in list(expert_state_dict.keys()):
+                    local_key = key.replace(f"{moe_str_prefix}{global_expert_id}", f"{moe_str_prefix}{local_expert_id}")
+                    expert_state_dict[local_key] = expert_state_dict.pop(key)
+                state_dict.update(expert_state_dict)
+            moe_layer_id += 1
 
 
 def load_optimizer_checkpoint(folder, optim):
@@ -212,10 +474,11 @@ def load_optimizer_checkpoint(folder, optim):
             zero_devide_optim_plan = llm_load(fp_meta)
             states.update({"zero_devide_optim_plan": zero_devide_optim_plan})
         except Exception as e:
-            logger.warning(
-                f"Read zero optimzer split file '{fp_meta}', for '{e}'"
-                f"Please check whether loading ckpts are saved with the HybridZeroOptimizer."
-            )
+            if gpc.is_rank_for_log():
+                logger.warning(
+                    f"Read zero optimzer split file '{fp_meta}', for '{e}'"
+                    f"Please check whether loading ckpts are saved with the HybridZeroOptimizer."
+                )
 
     optim.load_state_dict(states)
     del states
@@ -227,21 +490,22 @@ def load_sampler(ckpt_path: str, sampler):
     sampler.load_state_dict(sampler_states)
     if gpc.is_rank_for_log():
         pstate = copy.deepcopy(sampler_states)
-        pstate.pop("indices")
-        pstate.pop("rng_state")
+        pstate.pop("indices", None)
+        pstate.pop("rng_state", None)
         logger.info(f"reload sampler_states:{pstate}")
     torch.cuda.empty_cache()
 
 
-def load_context(ckpt_path: str, train_dl, train_state: TrainState):
+def load_context(ckpt_path: str, train_state: TrainState):
     context_stuffs = llm_load(os.path.join(ckpt_path, "context.pt"))
-    train_state.load_state_dict(context_stuffs, train_dl)
+    train_state.load_state_dict(context_stuffs)
     if gpc.is_rank_for_log():
         logger.info(f"reload train_state:{train_state}")
     torch.cuda.empty_cache()
 
 
-def load_scheduler(ckpt_path: str, lr_scheduler, optimizer, learning_rate, train_state: TrainState):
+def load_scheduler(ckpt_path: str, lr_scheduler, optimizer, train_state: TrainState):
+    learning_rate = train_state.lr
     scheduler_states = llm_load(os.path.join(ckpt_path, "schedulder.pt"))
     if learning_rate != scheduler_states["base_lrs"][0] and gpc.is_rank_for_log():
         logger.warning(
@@ -270,7 +534,17 @@ def load_scheduler(ckpt_path: str, lr_scheduler, optimizer, learning_rate, train
 class CheckpointManager:
     """StorageManagerContext"""
 
-    def __init__(self, ckpt_config, model, model_config=None, model_config_file=None, feishu_address=None) -> None:
+    def __init__(
+        self,
+        ckpt_config,
+        model,
+        train_dl=None,
+        optimizer=None,
+        lr_scheduler=None,
+        model_config=None,
+        model_config_file=None,
+        feishu_address=None,
+    ) -> None:
         """
         CheckpointManager is used to decide when to store ckpt. If it is an asynchronous
         upload mode, you must call wait_async_upload_finish at the end of the program to wait
@@ -278,27 +552,49 @@ class CheckpointManager:
 
         Args:
             ckpt_config (dict): model checkpoint config.
-            model (nn.module): model obj
-            optimizer (object): optimzier obj.
+            model (nn.module): model obj.
+            optimizer (object): optimizer obj.
             lr_scheduler (object): lr_scheduler obj.
             model_config (dict): model config.
         """
-        self.enable_save_ckpt = ckpt_config.enable_save_ckpt
-        self.checkpoint_every = ckpt_config.checkpoint_every
-        self.save_ckpt_folder = ckpt_config.save_ckpt_folder
-        self.snapshot_ckpt_folder = ckpt_config.snapshot_ckpt_folder
-        self.oss_snapshot_freq: int = ckpt_config.oss_snapshot_freq
-        self.stop_file_path = ckpt_config.stop_file_path
-        self.load_model_only_folder = ckpt_config.load_model_only_folder
+        self.enable_save_ckpt = get_config_value(ckpt_config, "enable_save_ckpt", False)
+        self.checkpoint_every = get_config_value(ckpt_config, "checkpoint_every", 100)
+        self.save_ckpt_folder = get_config_value(ckpt_config, "save_ckpt_folder", None)
+        self.oss_snapshot_freq: int = get_config_value(ckpt_config, "oss_snapshot_freq", 50)
+        self.stop_file_path = get_config_value(ckpt_config, "stop_file_path", None)
+        if self.save_ckpt_folder:
+            self.snapshot_ckpt_folder = get_config_value(
+                ckpt_config, "snapshot_ckpt_folder", os.path.join(self.save_ckpt_folder, "snapshot")
+            )
+            self.async_upload_tmp_folder = get_config_value(
+                ckpt_config, "async_upload_tmp_folder", "/dev/shm/internlm_tmp_ckpt/"
+            )
+        else:
+            self.snapshot_ckpt_folder = None
+            self.async_upload_tmp_folder = None
+
+        self.async_upload = get_config_value(ckpt_config, "async_upload", False)
+
+        # initialization storage manager
+        init_storage_manager(self.enable_save_ckpt, self.async_upload_tmp_folder, self.async_upload)
+
         self.feishu_address = feishu_address
         self.storage_manager = get_storage_manager()
         self.snapshot_counter = 0
-        self.load_optimizer = gpc.config.ckpt.load_optimizer
 
         self.model = model
+        self.optimizer = optimizer
+        self.lr_scheduler = lr_scheduler
+        self.train_dl = train_dl
         self.model_config = model_config
         self.model_config_file = model_config_file
 
+        # Register defalut internlm ckpt load type.
+        self.defalut_load_type_func = {CheckpointLoadType.INTERNLM: try_load_internlm_ckpt}
+        for ckpt_load_type in CheckpointLoadType:
+            CheckpointLoadMethod.register_ckpt_load_type(ckpt_load_type, self.defalut_load_type_func[ckpt_load_type])
+
+        # Init alter file.
         if self.stop_file_path and gpc.get_global_rank() == 0:
             dir_path = os.path.dirname(self.stop_file_path)
             if dir_path != "" and not os.path.exists(dir_path):
@@ -306,21 +602,35 @@ class CheckpointManager:
             with open(self.stop_file_path, "w", encoding="utf-8") as f:
                 f.write("0")
 
-        if ckpt_config.load_given_ckpt is False:
-            # Priority: load_given_ckpt(True) > latest_checkpoint > load_model_only_folder
-            latest_ckpt_path = self.query_lastest_ckpt()
-            if latest_ckpt_path:
-                self.load_ckpt_folder = latest_ckpt_path
-            else:
-                # At this time, we have to load model init weights and train from step 0.
-                self.load_ckpt_folder = self.load_model_only_folder
-        else:
-            self.load_ckpt_folder = ckpt_config.load_ckpt_folder
+        self.load_ckpt_info = get_config_value(ckpt_config, "load_ckpt_info", None)
+        if self.load_ckpt_info is None:  # (legacy): Try Compatible with old interfaces
+            self.load_ckpt_info = ckpt_info_sanity_check(ckpt_config)
 
-        if gpc.is_rank_for_log():
-            logger.info(f"load_ckpt_folder will set to :'{self.load_ckpt_folder}'")
-            if self.stop_file_path is None:
-                logger.warning("no set stop_file_path, quit_signal_handler is disable")
+        # Auto-reload latest checkpoint, it will overwrite the setting of 'load_ckpt_info'.
+        self.auto_resume = get_config_value(ckpt_config, "auto_resume", None)
+        if self.auto_resume is None:  # (legacy): Try Compatible with old interfaces
+            self.auto_resume = auto_resume_sanity_check(ckpt_config)
+        if self.auto_resume:
+            self.load_ckpt_info = self.query_lastest_ckpt()
+
+        if self.stop_file_path is None and gpc.is_rank_for_log():
+            logger.warning("no set stop_file_path, quit_signal_handler is disable")
+
+        # convert to internal representation
+        if self.load_ckpt_info:
+            assert (
+                "path" in self.load_ckpt_info
+                and "content" in self.load_ckpt_info
+                and "ckpt_type" in self.load_ckpt_info
+            ), "please set content in ckpt setting, eg: ckpt = dict(path='', content=['model'], ckpt_type='internlm')"
+
+            # replace load_ckpt
+            self.load_ckpt_info["content"] = CheckpointLoadMask(self.load_ckpt_info["content"])
+            self.load_ckpt_info["ckpt_type"] = CheckpointLoadMethod.convet_load_type(self.load_ckpt_info["ckpt_type"])
+
+        # test storage setting is ok.
+        if self.enable_save_ckpt:
+            self.try_ping_storage()
 
     def quit_signal_handler(self, train_state) -> bool:
         """
@@ -334,17 +644,22 @@ class CheckpointManager:
         Returns:
             bool: whether to quit.
         """
-        now_break, now_save_ckpt, save_type = False, False, CheckpointType.NORMAL_CHECKPOINT
+        now_break, now_save_ckpt, save_type = False, False, CheckpointSaveType.NORMAL_CHECKPOINT
 
         if self.stop_file_path is None:
             return now_break, now_save_ckpt, save_type
 
-        with open(self.stop_file_path, "a+", encoding="utf-8") as f:
-            fcntl.flock(f, fcntl.LOCK_EX)
-            f.seek(0)
-            msg = f.read()
-            fcntl.flock(f, fcntl.LOCK_UN)
-            action_step = int(msg)
+        with torch.no_grad():
+            action_step_t = torch.zeros((1,), dtype=torch.int64).cuda()
+            if gpc.get_global_rank() == 0:
+                with open(self.stop_file_path, "r+", encoding="utf-8") as f:
+                    f.seek(0)
+                    msg = f.read()
+                    action_step_t.fill_(int(msg))
+
+            torch.distributed.broadcast(action_step_t, src=0)
+            action_step = action_step_t.item()
+            del action_step_t
 
         if action_step < 0 and abs(action_step) == train_state.step_count:
             now_save_ckpt = True
@@ -365,24 +680,29 @@ now step_count is {train_state.step_count}",
 
         return now_break, now_save_ckpt, save_type
 
-    def try_save_checkpoint(self, train_state):
-        if not self.enable_save_ckpt:
-            return False
-
-        save_ckpts, save_type = False, CheckpointType.NORMAL_CHECKPOINT
+    def is_now_to_save_ckpt(self, train_state) -> (bool, CheckpointSaveType, bool):
+        save_ckpts, save_type, now_break = False, CheckpointSaveType.NORMAL_CHECKPOINT, False
         if self.oss_snapshot_freq > 1 and train_state.step_count % self.oss_snapshot_freq == 0:
-            save_ckpts, save_type = True, CheckpointType.SNAPSHOT_CHECKPOINT
+            save_ckpts, save_type = True, CheckpointSaveType.SNAPSHOT_CHECKPOINT
         if train_state.step_count % self.checkpoint_every == 0:
-            save_ckpts, save_type = True, CheckpointType.NORMAL_CHECKPOINT
+            save_ckpts, save_type = True, CheckpointSaveType.NORMAL_CHECKPOINT
         now_break, singal_save_ckpts, singal_save_type = self.quit_signal_handler(train_state)
         if save_ckpts is False:
             save_ckpts = singal_save_ckpts
             save_type = singal_save_type
 
+        return save_ckpts, save_type, now_break
+
+    def try_save_checkpoint(self, train_state):
+        if not self.enable_save_ckpt:
+            return False
+
+        save_ckpts, save_type, now_break = self.is_now_to_save_ckpt(train_state)
+
         if save_ckpts:
             # Wait for the previous round of asynchronous upload storage to complete.
             self.storage_manager.wait()
-            if save_type == CheckpointType.SNAPSHOT_CHECKPOINT:
+            if save_type == CheckpointSaveType.SNAPSHOT_CHECKPOINT:
                 # Snapshot number, with only two snapshots written alternately.
                 self.snapshot_counter = (self.snapshot_counter + 1) % 2
                 save_ckpt_folder = os.path.join(self.snapshot_ckpt_folder, f"{self.snapshot_counter}")
@@ -412,51 +732,66 @@ now step_count is {train_state.step_count}",
             Tuple(str, int): path of latest ckpt and ckpt step, if not found, None will return.
         """
         ckpt_list = self.storage_manager.get_fns(self.save_ckpt_folder)
-        if len(ckpt_list) == 0:
+        if ckpt_list is None or len(ckpt_list) == 0:
             return None, None
 
         max_normal_step = 0
-        ckpt_list = list(map(lambda a: int(a.strip("/")) if a.strip("/").isdigit() else 0, ckpt_list))
-        ckpt_list.sort(reverse=True)
-        for ckpt in ckpt_list:
-            fns_list = self.storage_manager.get_fns(os.path.join(self.save_ckpt_folder, str(ckpt)))
-            for fn in fns_list:
-                if fn.endswith(".step"):
-                    max_normal_step = ckpt
-                    break
-            if max_normal_step != 0:
-                break
+        # Return ckpt_list look like: ['pings', 'snapshot', '4']
+        # Here we only try to find the ckpt folder named after step, ignoring snapshot and other folders.
+        ckpt_list = [int(fn.strip("/")) for fn in ckpt_list if fn.strip("/").isdigit()]
+        if len(ckpt_list) == 0:
+            if gpc.is_rank_for_log():
+                logger.warning("No available normal checkpoint found. Check your checkpoint path.")
+        else:
+            if gpc.is_rank_for_log():
+                logger.info(f"Found available normal checkpoint: {ckpt_list}")
 
-        max_normal_step = ckpt_list[0]
-        load_normal_ckpt_path = os.path.join(self.save_ckpt_folder, str(max_normal_step))
+            ckpt_list.sort(reverse=True)
+            for ckpt in ckpt_list:
+                fns_list = self.storage_manager.get_fns(os.path.join(self.save_ckpt_folder, str(ckpt)))
+                for fn in fns_list:
+                    if fn.endswith(".step"):
+                        max_normal_step = ckpt
+                        break
+                if max_normal_step != 0:
+                    break
+
+            max_normal_step = ckpt_list[0]
+            load_normal_ckpt_path = os.path.join(self.save_ckpt_folder, str(max_normal_step))
 
         snapshot_path_0 = os.path.join(self.save_ckpt_folder, "snapshot", "0")
         snapshot_path_1 = os.path.join(self.save_ckpt_folder, "snapshot", "1")
-        ckpt_list_1 = self.storage_manager.get_fns(snapshot_path_0)
-        ckpt_list_2 = self.storage_manager.get_fns(snapshot_path_1)
-        max_step_0, max_step_1 = 0, 0
-        for ckpt in ckpt_list_1:
-            ckpt = ckpt.strip("/")
-            if ckpt.endswith(".step"):
-                max_step_0 = max(max_step_0, int(ckpt.split(".")[0]))
-        for ckpt in ckpt_list_2:
-            ckpt = ckpt.strip("/")
-            if ckpt.endswith(".step"):
-                max_step_1 = max(max_step_1, int(ckpt.split(".")[0]))
+        ckpt_list_0 = self.storage_manager.get_fns(snapshot_path_0)
+        ckpt_list_1 = self.storage_manager.get_fns(snapshot_path_1)
 
-        snap_load_path = snapshot_path_0 if max_step_0 > max_step_1 else snapshot_path_1
-        snap_step = max(max_step_0, max_step_1)
-        load_path = snap_load_path if snap_step > max_normal_step else load_normal_ckpt_path
-        load_step = max(snap_step, max_normal_step)
-        return load_path, load_step
+        def found_latest_snapshot(_ckpt_list):
+            _max_step_snapshot = 0
+            if _ckpt_list:
+                for ckpt in _ckpt_list:
+                    ckpt = ckpt.strip("/")
+                    if ckpt.endswith(".step"):
+                        _max_step_snapshot = max(_max_step_snapshot, int(ckpt.split(".")[0]))
+            return _max_step_snapshot
+
+        max_step_0 = found_latest_snapshot(ckpt_list_0)
+        max_step_1 = found_latest_snapshot(ckpt_list_1)
+
+        if sum([max_step_0, max_step_1, max_normal_step]) == 0:
+            return None, None
+        else:
+            snap_load_path = snapshot_path_0 if max_step_0 > max_step_1 else snapshot_path_1
+            snap_step = max(max_step_0, max_step_1)
+            load_path = snap_load_path if snap_step > max_normal_step else load_normal_ckpt_path
+            return load_path, max(snap_step, max_normal_step)
 
     def query_latest_snapshot_step_local(self):
         max_step, max_step_path = 0, None
-        for root, _, files in os.walk(self.save_ckpt_folder, followlinks=True):
+        save_ckpt_folder = self.save_ckpt_folder.split(":")[1]
+        for root, _, files in os.walk(save_ckpt_folder, followlinks=True):
             for fn in files:
                 fn = fn.strip("/")
                 if fn.endswith(".step"):
-                    # We assume that both normal ckpt and snapshot ckpt will store the '.step' file
+                    # We assume that both internlm ckpt and snapshot ckpt will store the '.step' file
                     # as an integrity flag.
                     step = int(fn.rsplit(".", maxsplit=1)[0])
                     if max_step < step:
@@ -466,100 +801,54 @@ now step_count is {train_state.step_count}",
         return max_step_path, max_step
 
     def query_lastest_ckpt(self):
-        latest_checkpoint = None
+        latest_ckpt, step = None, -1
         # Training was automatically restarted by the process, forcing the latest snapshot to be read.
         if self.save_ckpt_folder:
-            if self.save_ckpt_folder.startswith("boto3"):
-                latest_checkpoint, step = self.query_latest_snapshot_step_boto3()
-            elif self.save_ckpt_folder.startswith("local"):
-                latest_checkpoint, step = self.query_latest_snapshot_step_local()
-            else:
-                latest_checkpoint, step = None, 0
+            backend, _ = try_get_storage_backend(self.save_ckpt_folder)
+            if backend == "boto3":
+                latest_ckpt, step = self.query_latest_snapshot_step_boto3()
+                if latest_ckpt and not latest_ckpt.startswith("boto3:"):
+                    latest_ckpt = ":".join(["boto3", latest_ckpt])
+            elif backend == "local":
+                latest_ckpt, step = self.query_latest_snapshot_step_local()
+                if latest_ckpt and not latest_ckpt.startswith("local:"):
+                    latest_ckpt = ":".join(["local", latest_ckpt])
 
-            if latest_checkpoint is not None:
-                if gpc.is_rank_for_log():
-                    logger.info(f"Found latest ckpt : {latest_checkpoint}, step: {step}")
-                    send_alert_message(
-                        address=self.feishu_address,
-                        message=f"Auto restart resume from ckpt-path: '{latest_checkpoint}', step : {step}",
-                    )
-            else:
-                if gpc.is_rank_for_log():
-                    send_alert_message(
-                        address=self.feishu_address,
-                        message=f"Can't find snapshot checkpoint, use default load-ckpt path: {latest_checkpoint}",
-                    )
+        if gpc.is_rank_for_log():
+            logger.info(f"Found latest ckpt {latest_ckpt if latest_ckpt else 'None'}, step: {step}...")
 
-        return latest_checkpoint
+        return dict(path=latest_ckpt, content=("all",), ckpt_type="internlm")
 
-    def try_load_model(self, current_time=""):
-        model_load_path = None
-
-        if self.load_ckpt_folder and self.load_model_only_folder:
-            raise ValueError(
-                "Error, try to use both load_ckpt_folder and load_model_only_folder paths, \
-if you only need to load model weights (for example starting an SFT task for the first time), \
-set load_model_only_folder path, if you need to resume training from ckpt, \
-set load_ckpt_folder or use default value \
-(if is the default value, internlm will try to load the latest ckpt from save_ckpt_folder)"
-            )
-
-        if self.load_ckpt_folder:
-            if gpc.is_rank_for_log():
-                logger.info(
-                    f"===========Resume training from `{self.load_ckpt_folder}` {current_time} on host:"
-                    f"{socket.gethostname()}==========="
-                )
-            model_load_path = self.load_ckpt_folder
-        elif self.load_model_only_folder:
-            if gpc.is_rank_for_log():
-                logger.info(
-                    f"===========Load Model from `{self.load_model_only_folder}` {current_time} on host:"
-                    f"{socket.gethostname()}==========="
-                )
-            model_load_path = self.load_model_only_folder
-        else:
+    def try_resume_training(self, train_state: TrainState, current_time=""):
+        if self.load_ckpt_info is None or self.load_ckpt_info["path"] is None:
             if gpc.is_rank_for_log():
                 logger.info(
                     f"===========New Run {current_time} on host:{socket.gethostname()},rank={gpc.get_global_rank()},"
                     f"tp={gpc.get_local_rank(ParallelMode.TENSOR)},pp={gpc.get_local_rank(ParallelMode.PIPELINE)},"
                     f"dp={gpc.get_local_rank(ParallelMode.DATA)}==========="
                 )
+        else:
+            load_path = self.load_ckpt_info["path"]
+            load_content = self.load_ckpt_info["content"]
+            load_type = self.load_ckpt_info["ckpt_type"]
 
-        # Loading model weights must be done before zero is initialized.
-        if model_load_path is not None:
-            load_model_checkpoint(folder=model_load_path, model=self.model)
+            load_func = CheckpointLoadMethod.get_ckpt_load_type_func(load_type)
+            load_content_str = load_func(self, self.load_ckpt_info, train_state)
 
-    def try_resume_training(self, lr_scheduler, optimizer, lr, train_state, train_dl):
-        """Attempt to restore the training state of the last ckpt.
+            # If we only load model weight, we need rewrite zero optim's fp32 buffer.
+            if load_content.only_load(CheckpointLoadContent.MODEL) and isinstance(self.optimizer, HybridZeroOptimizer):
+                reload_zero_fp32_buff(self.optimizer)
 
-        Args:
-            lr_scheduler (_LRScheduler): lr_scheduler object.
-            optimizer (Optimizer): optimizer object.
-            lr (float): learning rate.
-            train_state (dict): traing states.
-            train_dl (DataLoader): traning dataloader object
-        """
-        if self.load_ckpt_folder is not None:
-            # load optimzier states.
-            if self.load_optimizer:
-                load_optimizer_checkpoint(self.load_ckpt_folder, optimizer)
-            # load lr scheduler states.
-            load_scheduler(self.load_ckpt_folder, lr_scheduler, optimizer, lr, train_state)
-            # load training states.
-            load_context(self.load_ckpt_folder, train_dl, train_state)
-            # load dataloader sampler states.
-            if hasattr(train_state, "batch_sampler") and not isinstance(
-                train_state.batch_sampler, torch.utils.data.sampler.BatchSampler
-            ):
-                load_sampler(self.load_ckpt_folder, train_dl.batch_sampler)
-            if hasattr(train_state, "data_state_dict"):
-                train_dl.dataset.load_state_dict(
-                    llm_load(os.path.join(self.load_ckpt_folder, "sampler_0.pt")), ckpt_path=self.load_ckpt_folder
+            if gpc.is_rank_for_log():
+                logger.info(f"load_ckpt_info : {self.load_ckpt_info}")
+                logger.info(
+                    f"===========Resume training from `{load_path}` {current_time} on host:"
+                    f"{socket.gethostname()}==========="
                 )
-        self.optimizer = optimizer
-        self.lr_scheduler = lr_scheduler
+                if load_content_str:
+                    logger.info(f"===========Load contents are: {load_content_str}")
 
+    @llm_timeout(func_name="save_checkpoint")
     def save_checkpoint(
         self,
         folder,
@@ -600,8 +889,10 @@ set load_ckpt_folder or use default value \
             )
 
         if gpc.is_rank_for_log():
-            scheduler_states = scheduler.state_dict()
-            llm_save(os.path.join(folder, "schedulder.pt"), saved_obj=scheduler_states)
+            if scheduler:
+                scheduler_states = scheduler.state_dict()
+                llm_save(os.path.join(folder, "schedulder.pt"), saved_obj=scheduler_states)
+
             if hasattr(train_state, "batch_sampler") and not isinstance(
                 train_state.batch_sampler, torch.utils.data.sampler.BatchSampler
             ):
@@ -631,3 +922,12 @@ set load_ckpt_folder or use default value \
     def set_save_folder(self, folder, step):
         self.storage_manager.latest_save_folder = folder
         self.storage_manager.latest_save_step = step
+
+    def try_ping_storage(self):
+        if gpc.get_global_rank() % 8 == 0:
+            buff = torch.ones((1, 64, 64), dtype=torch.bfloat16)
+            test_fn = os.path.join(self.save_ckpt_folder, f"pings/{socket.gethostname()}.ping")
+            self.storage_manager.save(test_fn, buff)
+            self.storage_manager.wait()
+            self.storage_manager.load(test_fn)
+            del buff

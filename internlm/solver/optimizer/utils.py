@@ -95,37 +95,34 @@ def reduce_tensor(tensor, dtype=None, dst_rank=None, parallel_mode=ParallelMode.
     :type parallel_mode: ParallelMode, optional
     """
     # use the original dtype
-    if dtype is None:
-        dtype = tensor.dtype
+    # if dtype is None:
+    assert dtype is None
+    dtype = tensor.dtype
 
     # cast the data to specified dtype for reduce/all-reduce
-    if tensor.dtype != dtype:
-        tensor_to_reduce = tensor.to(dtype)
-    else:
-        tensor_to_reduce = tensor
+    # if tensor.dtype != dtype:
+    #     tensor_to_reduce = tensor.to(dtype)
+    # else:
+    #     tensor_to_reduce = tensor
 
-    world_size = gpc.get_world_size(parallel_mode)
+    # world_size = gpc.get_world_size(parallel_mode)
+    # tensor.div_(world_size)
     group = gpc.get_group(parallel_mode)
-    tensor_to_reduce.div_(world_size)
 
     # if rank is None, all reduce will be used
     # else, reduce is used
     use_all_reduce = dst_rank is None
 
     if use_all_reduce:
-        dist.all_reduce(tensor_to_reduce, group=group)
+        handle = dist.all_reduce(tensor=tensor, group=group, op=torch.distributed.ReduceOp.AVG, async_op=True)
     else:
         ranks_in_group = gpc.get_ranks_in_group(parallel_mode)
         global_rank = ranks_in_group[dst_rank]
-        dist.reduce(tensor=tensor_to_reduce, dst=global_rank, group=group)
+        handle = dist.reduce(
+            tensor=tensor, dst=global_rank, group=group, op=torch.distributed.ReduceOp.AVG, async_op=True
+        )
 
-    # recover the original dtype
-    if tensor.dtype != dtype and tensor is not tensor_to_reduce:
-        local_rank = gpc.get_local_rank(parallel_mode)
-        if use_all_reduce or dst_rank == local_rank:
-            tensor.copy_(tensor_to_reduce)
-
-    return tensor
+    return handle
 
 
 def has_inf_or_nan(tensor):
@@ -212,7 +209,7 @@ def calc_lp(grads, norm_type):
     return norm
 
 
-def compute_norm(gradients, parameters, last_stage=False, previous_norm=None, norm_type=2):
+def compute_norm(gradients, parameters, last_stage=False, previous_norm=None, norm_type=2, is_moe_group=False):
     """Get the norm
     Arguments:
         gradients (Iterable[Tensor]): The gradient value.
@@ -305,7 +302,8 @@ def compute_norm(gradients, parameters, last_stage=False, previous_norm=None, no
 
         # This is because we use zero1, so we need to use this reduction.
         # TODO: Check zero group to be a subset of dp group.
-        dist.all_reduce(total_norm, op=dist.ReduceOp.SUM, group=gpc.get_group(ParallelMode.ZERO1))
+        if not is_moe_group:
+            dist.all_reduce(total_norm, op=dist.ReduceOp.SUM, group=gpc.get_group(ParallelMode.ZERO1))
 
         if torch.is_tensor(total_norm):
             total_norm = total_norm.item()
@@ -313,6 +311,9 @@ def compute_norm(gradients, parameters, last_stage=False, previous_norm=None, no
     # Scale.
     if total_norm == float("inf") or total_norm == -float("inf"):
         total_norm = -1
+
+    if math.isnan(total_norm):
+        total_norm = -2
 
     return total_norm
 
