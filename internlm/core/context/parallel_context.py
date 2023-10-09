@@ -527,7 +527,8 @@ class ParallelContext(metaclass=SingletonMeta):
             tp_seed = seed + tp_rank + pipeline_offset * 1024
             add_seed(ParallelMode.TENSOR, tp_seed)
 
-        set_mode(ParallelMode.DATA)
+        # set_mode(ParallelMode.DATA)
+        set_mode(ParallelMode.TENSOR)
 
         seeds = get_seeds()
         seed_str = ", ".join([f"{k}: {v}" for k, v in seeds.items()])
