@@ -133,6 +133,7 @@ class VolcMetaInfo:
         handler: StorageClient,
         bucket_name: str,
         endpoint: str,
+        region: str,
         file_path: str,
         async_upload_fn: callable,
         local_nvme_path=None,
@@ -145,11 +146,12 @@ class VolcMetaInfo:
         self.local_nvme_path = local_nvme_path
         self.is_async = is_async
         self.endpoint = endpoint
+        self.region = region
         self.async_upload_fn = async_upload_fn
 
     def __str__(self) -> str:
         return f"is_async: {self.is_async}, bucket_name:{self.bucket_name}, endpoint:{self.endpoint}, \
-local_nvme_path: {self.local_nvme_path}"
+region:{self.region}, local_nvme_path: {self.local_nvme_path}"
 
     @staticmethod
     def unpack_volc_save_meta(meta):
@@ -368,14 +370,16 @@ class VolcClient(StorageClient):
 
     def __init__(
         self,
+        endpoint: str,
+        region: str,
     ) -> None:
         """Volc object/file storage management class
 
-        Env variables:
-            access_key (str): Access key ID get from "VOLC_ACCESS_KEY_ID".
-            secret_key (str): Secret access key get from "VOLC_SECRET_ACCESS_KEY_ID".
-            endpoint (str): Get from "VOLC_ENDPOINT".
-            region (str): Get from "VOLC_REGION".
+        Args:
+            access_key (str): Volc access key ID.
+            secret_key (str): Volc secret access key.
+            endpoint (str): Volc tos endpoint.
+            region (str): Volc tos region.
 
         """
         super().__init__(tos)
@@ -383,12 +387,10 @@ class VolcClient(StorageClient):
         try:
             access_key = os.environ["VOLC_ACCESS_KEY_ID"]
             secret_key = os.environ["VOLC_SECRET_ACCESS_KEY_ID"]
-            endpoint = os.environ["VOLC_ENDPOINT"]
-            region = os.environ["VOLC_REGION"]
         except KeyError as exc:
             raise RuntimeError(
                 "Please set 'VOLC_ACCESS_KEY_ID' and 'VOLC_SECRET_ACCESS_KEY_ID'",
-                "and 'VOLC_ENDPOINT' and 'VOLC_REGION' using environment variable!",
+                "using environment variable!",
             ) from exc
 
         self.client = self.handler.TosClientV2(access_key, secret_key, endpoint, region)
@@ -580,7 +582,11 @@ def get_volc_meta(fp: str, tmp_local_folder: str, is_async: bool) -> VolcMetaInf
     match = volc_url_re.match(parts[0])
     assert match is not None, f"url '{fp}' is not a valid volc url"
     bucket_name, endpoint = match.group(1), match.group(2)
-    endpoint = "http://" + endpoint + ":80"
+    temp_part = endpoint.split(".")
+    endpoint = ".".join(temp_part[1:])
+    region = temp_part[1].split("-")
+    region = "-".join(region[1:])
+
     if is_async:
         tmp_step_file = get_tmp_file_name(tmp_local_folder, fp)
     else:
@@ -590,6 +596,7 @@ def get_volc_meta(fp: str, tmp_local_folder: str, is_async: bool) -> VolcMetaInf
         handler=None,
         bucket_name=bucket_name,
         endpoint=endpoint,
+        region=region,
         file_path=os.path.sep.join(parts[1:]),
         async_upload_fn=VolcClient.async_upload_fileobj,
         local_nvme_path=tmp_step_file,
@@ -720,7 +727,10 @@ class StorageManager(metaclass=SingletonMeta):
         elif backend == "volc":
             meta_info = get_volc_meta(path, self.tmp_local_folder, async_mode)
             backend_key = backend + ":" + meta_info.endpoint
-            init_args = (meta_info.endpoint,)
+            init_args = (
+                meta_info.endpoint,
+                meta_info.region,
+            )
             if (
                 "http_proxy" in os.environ
                 or "https_proxy" in os.environ
