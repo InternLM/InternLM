@@ -73,9 +73,8 @@ def split_params_into_different_groups_for_optimizer(param_groups: Tuple[Dict]) 
         # bf16 param group, which is the first group in the param groups
         pgroup["params"] = origin_params
 
-    for _, g in new_groups.items():
-        if g["params"]:
-            param_groups.append(g)
+    # param groups may contain empty groups, such as fp32
+    param_groups.extend(new_groups.values())
 
     return tuple(param_groups)
 
