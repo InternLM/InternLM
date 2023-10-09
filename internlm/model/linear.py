@@ -54,7 +54,7 @@ class ScaleColumnParallelLinear(nn.Linear):
         self.process_group = process_group
         self.weight_scale = weight_scale
 
-    def forward(self, input):  # pylint: disable=W0622
+    def forward(self, input, gather_dim=0):  # pylint: disable=W0622
         # If self.sequence_parallel is True, we're doing Tensor Parallel with sequence parallelism:
         # we do an all_gather of x before doing the matmul.
         # If not, then the input is already gathered.
@@ -68,6 +68,7 @@ class ScaleColumnParallelLinear(nn.Linear):
             self.bias,
             process_group=self.process_group,
             sequence_parallel=gpc.config.parallel.sequence_parallel,
+            gather_dim=gather_dim,
         )
 
 
@@ -121,13 +122,13 @@ class RewardModelLinear(ScaleColumnParallelLinear):
 
 
 class ColumnParallelLinearTorch(ColumnParallelLinear):
-    def forward(self, x):
+    def forward(self, x, gather_dim=0):
         # If self.sequence_parallel is True, we're doing Tensor Parallel with sequence parallelism:
         # we do an all_gather of x before doing the matmul.
         # If not, then the input is already gathered.
 
         return fused_dense_func_torch(
-            x, self.weight, self.bias, process_group=self.process_group, sequence_parallel=self.sequence_parallel
+            x, self.weight, self.bias, process_group=self.process_group, sequence_parallel=self.sequence_parallel, gather_dim=gather_dim,
         )
 
 

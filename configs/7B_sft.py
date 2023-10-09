@@ -5,7 +5,7 @@ SEQ_LEN = 2048
 HIDDEN_SIZE = 4096
 NUM_ATTENTION_HEAD = 32
 MLP_RATIO = 8 / 3
-NUM_LAYER = 4
+NUM_LAYER = 32
 VOCAB_SIZE = 103168
 
 MODEL_ONLY_FOLDER = "local:llm_ckpts/xxxx"
@@ -155,7 +155,7 @@ tensor parallel: tensor parallel size, usually the number of GPUs per node.
 """
 parallel = dict(
     zero1=-1,
-    tensor=dict(size=2, mode='fstp'), # the mode should be 'origin_tp' or 'fstp'
+    tensor=dict(size=2, mode='origin_tp'), # the mode should be 'origin_tp' or 'fstp'
     pipeline=dict(size=1, interleaved_overlap=True),
     sequence_parallel=True,
 )

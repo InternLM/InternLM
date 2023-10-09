@@ -405,12 +405,10 @@ class PackedFlashInternLm1D(nn.Module):
         if hasattr(self, "norm"):
             hidden_states = self.norm(hidden_states.float())
         if hasattr(self, "head"):
-            # if hidden_states.ndim == 3:
-            #     import pdb; pdb.set_trace()
-            #     hidden_states = self.head(hidden_states, dim=1)
-            # else:
-            #     hidden_states = self.head(hidden_states)
-            hidden_states = self.head(hidden_states)
+            if hidden_states.ndim == 3:
+                hidden_states = self.head(hidden_states, gather_dim=1)
+            else:
+                hidden_states = self.head(hidden_states)
 
         if not self.parallel_output:
             hidden_states = gather_forward_split_backward(hidden_states, ParallelMode.TENSOR, dim=-1)
