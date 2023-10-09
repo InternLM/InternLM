@@ -65,10 +65,14 @@ def args_sanity_check():
 
     # procssing the parallel config in gpc
     if "zero1" not in gpc.config.parallel:
-        gpc.config.parallel._add_item("zero1", -1)
+        gpc.config.parallel._add_item("zero1", dict(size=-1, fsdp=False))
+
+    if isinstance(gpc.config.parallel.zero1, int):
+        zero1_size = gpc.config.parallel.zero1
+        gpc.config.parallel._add_item("zero1", dict(size=zero1_size, fsdp=False))
 
     if "pipeline" not in gpc.config.parallel:
-        gpc.config.parallel._add_item("pipeline", 1)
+        gpc.config.parallel._add_item("pipeline", dict(size=1, interleaved_overlap=False))
 
     if "tensor" not in gpc.config.parallel:
         gpc.config.parallel._add_item("tensor", 1)
