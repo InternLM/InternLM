@@ -283,7 +283,7 @@ def args_sanity_check():
     if gpc.config.parallel["tensor"].get("mode", None) is None:
         gpc.config.parallel["tensor"]["mode"] = "origin_tp"
     
-    if gpc.config.parallel["tensor"].get("mode", None) is 'fstp':
+    if gpc.config.parallel["tensor"].get("mode", None) == 'fstp':
         assert gpc.config.parallel.sequence_parallel is True, "when the tp_mode is fstp, the sequence_parallel should be True."
 
     # currently only interleaved pipeline scheduler with overlap can guarantee loss accuracy

@@ -106,9 +106,15 @@ def evaluate_on_val_dls(
                         total_val_bsz = len(batch[1])
                         assert total_val_bsz % data_cfg.micro_bsz == 0
                         num_microbatches = total_val_bsz // data_cfg.micro_bsz
-                        tensor_shape = torch.Size(
-                            [data_cfg.micro_bsz, batch[0]["input_ids"].shape[1], gpc.config.HIDDEN_SIZE]
-                        )
+                        if gpc.config.parallel['tensor']['mode'] == 'fstp':
+                            sequence_world_size = gpc.get_world_size(ParallelMode.TENSOR)
+                            tensor_shape = torch.Size(
+                                [data_cfg.micro_bsz, batch[0]["input_ids"].shape[1] // sequence_world_size, gpc.config.HIDDEN_SIZE]
+                            )
+                        else:
+                            tensor_shape = torch.Size(
+                                [data_cfg.micro_bsz, batch[0]["input_ids"].shape[1], gpc.config.HIDDEN_SIZE]
+                            )
 
                         with switch_evaluation_pipeline_scheduler(
                             trainer=trainer,
