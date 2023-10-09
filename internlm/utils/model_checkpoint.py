@@ -169,12 +169,7 @@ def get_shard_state_dict(shard_model):
 
     """
 
-    # TODO: rank0_only can save memory for non-rank0 gpu, but when tp is enabled, model saving will left some parameters
-    # save_policy = FullStateDictConfig(offload_to_cpu=True, rank0_only=False)
-    # with FSDP.state_dict_type(model, StateDictType.FULL_STATE_DICT, save_policy):
-    #     states = model.state_dict()
-
-    # in this version, FSDP model can only save with sharded shapeLOCAL_STATE_DICT
+    # FSDP model can only save with sharded shape SHARDED_STATE_DICT when set use_orig_params=True
     with FSDP.state_dict_type(shard_model, StateDictType.SHARDED_STATE_DICT):
         shard_states = shard_model.state_dict()
 
