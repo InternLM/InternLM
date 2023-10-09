@@ -79,12 +79,14 @@ def args_sanity_check():
         pp = gpc.config.parallel.pipeline.size
 
     # check fsdp config
-    if "use_fsdp" not in gpc.config.parallel:
-        gpc.config.parallel._add_item("use_fsdp", False)
+    if "fsdp" not in gpc.config.parallel.zero1:
+        gpc.config.parallel.zero1._add_item("fsdp", False)
+
     assert not (
-        gpc.config.parallel.use_fsdp and pp > 1
-    ), "FSDP not support when pipeline size > 1, please set pipeline size to 1 or close FSDP"
-    if gpc.config.parallel.use_fsdp:
+        gpc.config.parallel.zero1.fsdp and pp > 1
+    ), "FSDP is not supportted when pipeline size > 1, please set pipeline size to 1 or disabled FSDP"
+
+    if gpc.config.parallel.zero1.fsdp:
         assert (
             torch.__version__ >= "2.0.1"
         ), f"requires torch>=2.0.1 when using fsdp but current version is {torch.__version__}"
@@ -288,7 +290,7 @@ def args_sanity_check():
         if "moe_gate_k" not in model:
             model._add_item("moe_gate_k", 2)
         assert not (
-            gpc.config.model.num_experts > 1 and gpc.config.parallel.use_fsdp
+            gpc.config.model.num_experts > 1 and gpc.config.parallel.zero1.fsdp
         ), "FSDP does not support num_experts > 1"
 
     # process the parallel config

@@ -20,7 +20,7 @@ logger = get_logger(__file__)
 
 class FSDPadaptOptimizer(BaseOptimizer):
     """
-    optimizer for Pytorch FSDP if 'use_fsdp' is True in config file
+    optimizer for Pytorch FSDP if 'parallel.zero1.fsdp' is True in config file
     reserve some necessary components of hybird-optim:
         grad_scaler;
         grad_clip and unscale;
@@ -48,7 +48,6 @@ class FSDPadaptOptimizer(BaseOptimizer):
 
         # clip gradient
         self._clip_grad_norm = zero_cfg.clip_grad_norm
-        self.use_fsdp = gpc.config.parallel.use_fsdp
 
         # fp16 and fp32 params
         # fp16 share mem space with model.FlatParam, fp32 share mem space with optim.param_group

@@ -265,7 +265,7 @@ def save_model_checkpoint(folder, model):
         model: The model to be saved
     """
 
-    if gpc.config.parallel.use_fsdp:
+    if gpc.config.parallel.zero1.fsdp:
         states = get_shard_state_dict(model)
     else:
         states = model.state_dict()
@@ -285,18 +285,18 @@ def save_model_checkpoint(folder, model):
         # even if pp is not considered, it will definitely not be written on the same machine.
         should_save_rank_pair = set()  # (tp_rank, dp_rank)
         for i in range(tp_size):
-            if gpc.config.parallel.use_fsdp:
+            if gpc.config.parallel.zero1.fsdp:
                 for j in range(dp_size):
                     should_save_rank_pair.add((i, j))
             else:
                 should_save_rank_pair.add((i, i % dp_size))
 
             if (tp_rank, dp_rank) in should_save_rank_pair:
-                f_dp = f"_dp{dp_rank}" if gpc.config.parallel.use_fsdp else ""
+                f_dp = f"_dp{dp_rank}" if gpc.config.parallel.zero1.fsdp else ""
                 fn = f"model_tp{tp_rank}_pp{pp_rank}{f_dp}.pt"
                 fp = os.path.join(folder, fn)
                 llm_save(fp, saved_obj=states)
-                if not gpc.config.parallel.use_fsdp or dp_rank == tp_rank % dp_size:
+                if not gpc.config.parallel.zero1.fsdp or dp_rank == tp_rank % dp_size:
                     topo_fn = f"topo_tp{tp_rank}_pp{pp_rank}.json"
                     topo_fp = os.path.join(folder, topo_fn)
                     llm_save(topo_fp, saved_obj=topo)
@@ -338,15 +338,15 @@ def load_model_checkpoint(folder, model):
 
     # avoid ckpt misuse between FSDP and no-FSDP
     test_fn = list([f for f in fns if f.startswith("model_t") and not f.endswith(".md5")]).pop()
-    assert ("_dp" in test_fn and gpc.config.parallel.use_fsdp) or (
-        "_dp" not in test_fn and not gpc.config.parallel.use_fsdp
+    assert ("_dp" in test_fn and gpc.config.parallel.zero1.fsdp) or (
+        "_dp" not in test_fn and not gpc.config.parallel.zero1.fsdp
     ), "FSDP model wants to load no-FSDP ckpts or reverse"
 
     max_pp, max_tp, max_zo = 0, 0, 0
     for fn in fns:
         if fn.startswith("model_t") and not fn.endswith(".md5"):
             segements = os.path.splitext(fn)[0].split("_")
-            if gpc.config.parallel.use_fsdp:
+            if gpc.config.parallel.zero1.fsdp:
                 max_zo = max(max_zo, int(segements[-1][2:]))
                 max_pp = max(max_pp, int(segements[-2][2:]))
                 max_tp = max(max_tp, int(segements[-3][2:]))
@@ -360,12 +360,12 @@ def load_model_checkpoint(folder, model):
     assert (
         tp_size == max_tp + 1
     ), f"The weights are save for {max_tp+1} parallelism, while current has {tp_size} tensor parallelism"
-    if gpc.config.parallel.use_fsdp:
+    if gpc.config.parallel.zero1.fsdp:
         assert (
             dp_size == max_zo + 1
         ), f"The weights are save for {max_zo+1} FSDP shards , while current has {dp_size} FSDP shards"
 
-    if gpc.config.parallel.use_fsdp:
+    if gpc.config.parallel.zero1.fsdp:
         should_load_name = f"model_tp{tp_rank}_pp{pp_rank}_dp{dp_rank}.pt"
     else:
         should_load_name = f"model_tp{tp_rank}_pp{pp_rank}.pt"
@@ -388,7 +388,7 @@ def load_model_checkpoint(folder, model):
     # try to load expert parameter to separate files if model have moe layer
     try_load_moe_checkpoint(folder, model, states, tp_rank, pp_rank)
 
-    if gpc.config.parallel.use_fsdp:
+    if gpc.config.parallel.zero1.fsdp:
         missing_k, unexpected_keys = load_shard_state_dict(model, states, strict=False)
     else:
         missing_k, unexpected_keys = model.load_state_dict(states, strict=False)

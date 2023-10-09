@@ -111,7 +111,7 @@ def initialize_model():
 
 
 def wrap_FSDP_model(model: Union[nn.Module, nn.ModuleList]):
-    if gpc.config.parallel.use_fsdp:
+    if gpc.config.parallel.zero1.fsdp:
         # set wrap_policy for fsdp wrap
         transformer_wrap_policy = functools.partial(
             transformer_auto_wrap_policy,
@@ -168,7 +168,7 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
         eps=adam_cfg.adam_eps,
     )
 
-    if not gpc.config.parallel.use_fsdp:
+    if not gpc.config.parallel.zero1.fsdp:
         optimizer = HybridZeroOptimizer(
             naive_optimizer,
             grad_scal_cfg=gpc.config.grad_scaler,
