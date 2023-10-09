@@ -55,7 +55,7 @@ data = dict(
     # defaults to the value of micro_num
     valid_micro_num=4,
     # defaults to 0, means disable evaluate
-    valid_every=10,
+    valid_every=50,
     pack_sample_into_one=False,
     total_steps=50000,
     skip_batches="",
@@ -64,7 +64,7 @@ data = dict(
     min_length=50,
     # train_folder=TRAIN_FOLDER,
     # valid_folder=VALID_FOLDER,
-    empty_cache_and_diag_interval=100,
+    empty_cache_and_diag_interval=10,
     diag_outlier_ratio=1.1,
 )
 
@@ -135,7 +135,7 @@ model = dict(
     num_layers=NUM_LAYER,
     mlp_ratio=MLP_RATIO,
     apply_post_layer_norm=False,
-    dtype="torch.float16",  # Support: "torch.float16", "torch.half", "torch.bfloat16", "torch.float32", "torch.tf32"
+    dtype="torch.bfloat16",  # Support: "torch.float16", "torch.half", "torch.bfloat16", "torch.float32", "torch.tf32"
     norm_type="rmsnorm",
     layer_norm_epsilon=1e-5,
     use_flash_attn=True,
@@ -155,9 +155,9 @@ tensor parallel: tensor parallel size, usually the number of GPUs per node.
 """
 parallel = dict(
     zero1=-1,
-    tensor=dict(size=2, mode='origin_tp'), # the mode should be 'origin_tp' or 'fstp'
+    tensor=dict(size=2, mode='origin_tp'), # the mode should be 'origin_tp' or 'fstp'. if the mode is 'fstp', the sequence_parallel should be True
     pipeline=dict(size=1, interleaved_overlap=True),
-    sequence_parallel=True,
+    sequence_parallel=False,
 )
 
 cudnn_deterministic = False
