@@ -1,13 +1,22 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
+import functools
 import time
 from functools import partial
 from typing import Callable, Iterable, Union
 
 import torch
 import torch.distributed as dist
+from flash_attn.modules.embedding import ParallelGPT2Embeddings
+from flash_attn.modules.mlp import ParallelFusedMLP
 from torch import nn
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.distributed.fsdp.fully_sharded_data_parallel import (
+    BackwardPrefetch,
+    ShardingStrategy,
+)
+from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 from torch.utils.data import ConcatDataset, DataLoader
 
 from internlm.core.context import ParallelMode
@@ -25,24 +34,29 @@ from internlm.data.packed_dataset import (
     get_packed_dataset_without_short_length,
 )
 from internlm.data.utils import DATASET_TYPE_IDS_MAP, unpack_data
+from internlm.model.embedding import Embedding1D
+from internlm.model.linear import (
+    FeedForward,
+    RewardModelLinear,
+    ScaleColumnParallelLinear,
+)
+from internlm.model.multi_head_attention import MHA
+from internlm.model.utils import try_import_RMSNorm
 from internlm.monitor import send_heartbeat, set_env_var
 from internlm.monitor.monitor import monitor_manager as mm
 from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
-from internlm.solver.optimizer import HybridZeroOptimizer
+from internlm.solver.optimizer import FSDPadaptOptimizer, HybridZeroOptimizer
 from internlm.solver.optimizer.utils import ParamBcastSyncHandler
 from internlm.train.utils import create_param_groups
 from internlm.utils.common import DummyProfile
 from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
-from internlm.utils.parallel import (
-    is_no_pp_or_last_stage,
-    sync_model_param,
-    sync_model_param_within_tp,
-)
+from internlm.utils.parallel import sync_model_param, sync_model_param_within_tp
 from internlm.utils.registry import MODEL_INITIALIZER
 from internlm.utils.timeout import llm_timeout
 
+RMSNorm = try_import_RMSNorm()
 logger = get_logger(__file__)
 
 
@@ -72,7 +86,7 @@ def initialize_model():
     else:
         model = NaiveAMPModel(
             model=model,
-            output_to_fp32=is_no_pp_or_last_stage(),
+            output_to_fp32=gpc.is_no_pp_or_last_stage(),
             dtype=gpc.config.model.get("dtype", torch.half),
             sync_buffer=False,
         )
@@ -89,6 +103,42 @@ def initialize_model():
     # Change random state mode to ParallelMode.DATA after model is built, guaranteeing the random
     # state in the same dp group are all the same.
     set_mode(ParallelMode.DATA)
+
+    # if fsdp enabled, wrap the model
+    model = wrap_FSDP_model(model)
+
+    return model
+
+
+def wrap_FSDP_model(model: Union[nn.Module, nn.ModuleList]):
+    if gpc.config.parallel.zero1.fsdp:
+        # set wrap_policy for fsdp wrap
+        transformer_wrap_policy = functools.partial(
+            transformer_auto_wrap_policy,
+            transformer_layer_cls={
+                Embedding1D,
+                ParallelGPT2Embeddings,
+                MHA,
+                RMSNorm,
+                FeedForward,
+                ParallelFusedMLP,
+                RewardModelLinear,
+                ScaleColumnParallelLinear,
+            },
+        )
+
+        # wrap the model
+        grp = gpc.get_group(ParallelMode.ZERO1)
+        model = FSDP(
+            module=model,
+            process_group=grp,
+            sharding_strategy=ShardingStrategy.FULL_SHARD,
+            auto_wrap_policy=transformer_wrap_policy,
+            forward_prefetch=True,
+            backward_prefetch=BackwardPrefetch.BACKWARD_PRE,
+            limit_all_gathers=True,
+            use_orig_params=True,
+        )
 
     return model
 
@@ -118,12 +168,19 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
         eps=adam_cfg.adam_eps,
     )
 
-    optimizer = HybridZeroOptimizer(
-        naive_optimizer,
-        grad_scal_cfg=gpc.config.grad_scaler,
-        zero_cfg=gpc.config.hybrid_zero_optimizer,
-        param_bcast_sync_handler=param_bcast_sync_handler,
-    )
+    if not gpc.config.parallel.zero1.fsdp:
+        optimizer = HybridZeroOptimizer(
+            naive_optimizer,
+            grad_scal_cfg=gpc.config.grad_scaler,
+            zero_cfg=gpc.config.hybrid_zero_optimizer,
+            param_bcast_sync_handler=param_bcast_sync_handler,
+        )
+    else:
+        optimizer = FSDPadaptOptimizer(
+            naive_optimizer,
+            grad_scal_cfg=gpc.config.grad_scaler,
+            zero_cfg=gpc.config.hybrid_zero_optimizer,
+        )
 
     beta2_scheduler = Beta2Scheduler(optimizer=naive_optimizer, **gpc.config.beta2_scheduler)
 
@@ -360,7 +417,7 @@ def record_current_batch_training_metrics(
     timer.store_last_timers()
     if success_update in (0, True):
         train_state.num_consumed_tokens += batch[1].nelement() * gpc.get_world_size(ParallelMode.DATA)
-    if is_no_pp_or_last_stage():
+    if gpc.is_no_pp_or_last_stage():
         acc_perplex = metric.get_metric()
 
     if success_update and gpc.is_rank_for_log():

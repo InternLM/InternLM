@@ -50,10 +50,6 @@ def sync_model_param_within_tp(model):
                 dist.broadcast(param, src=ranks[0], group=gpc.get_group(parallel_mode))
 
 
-def is_no_pp_or_last_stage():
-    return not gpc.is_initialized(ParallelMode.PIPELINE) or gpc.is_last_rank(ParallelMode.PIPELINE)
-
-
 def get_parallel_log_file_name():
     if gpc.is_rank_for_log():
         fn_prefix = "main_"  # Indicates a rank with more output information
