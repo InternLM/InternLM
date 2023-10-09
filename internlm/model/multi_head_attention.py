@@ -2,9 +2,10 @@
 # -*- encoding: utf-8 -*-
 
 import warnings
-from typing import Optional
+from typing import Any, Optional, Tuple
 
 import torch
+import torch.distributed as dist
 from einops import rearrange
 from flash_attn.modules.mha import (
     CrossAttention,
@@ -13,26 +14,25 @@ from flash_attn.modules.mha import (
     SelfAttention,
     _update_kv_cache,
 )
-from torch import nn
+from torch import Tensor, nn
+from torch.nn import Module
 
 from internlm.core.context import IS_TENSOR_PARALLEL, ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.model.embedding import DynamicNTKScalingRotaryEmbedding, RotaryEmbedding
-from internlm.model.linear import ColumnParallelLinearTorch, RowParallelLinearTorch, FSDPLinear
-
-import torch
-
-from typing import Any, Tuple
-from torch import Tensor
-from torch.nn import Module
-
-import torch.distributed as dist
+from internlm.model.linear import (
+    ColumnParallelLinearTorch,
+    FSTPLinear,
+    RowParallelLinearTorch,
+)
 
 
+# adpated from https://github.com/microsoft/DeepSpeed/blob/master/deepspeed/sequence/layer.py
 class _SeqAllToAll(torch.autograd.Function):
+    "sequence alltoall"
 
     @staticmethod
-    def forward(ctx: Any, group: dist.ProcessGroup, input: Tensor, scatter_idx: int, gather_idx: int) -> Tensor:
+    def forward(ctx: Any, group: dist.ProcessGroup, input_: Tensor, scatter_idx: int, gather_idx: int) -> Tensor:
 
         ctx.group = group
         ctx.scatter_idx = scatter_idx
@@ -40,7 +40,7 @@ class _SeqAllToAll(torch.autograd.Function):
 
         seq_world_size = dist.get_world_size(group)
 
-        input_list = [t.contiguous() for t in torch.tensor_split(input, seq_world_size, scatter_idx)]
+        input_list = [t.contiguous() for t in torch.tensor_split(input_, seq_world_size, scatter_idx)]
         output_list = [torch.empty_like(input_list[0]) for _ in range(seq_world_size)]
         # TODO Use all_to_all_single instead
         dist.all_to_all(output_list, input_list, group=group)
@@ -51,6 +51,7 @@ class _SeqAllToAll(torch.autograd.Function):
         return (None, _SeqAllToAll.apply(ctx.group, *grad_output, ctx.gather_idx, ctx.scatter_idx), None, None)
 
 
+# adpated from https://github.com/microsoft/DeepSpeed/blob/master/deepspeed/sequence/layer.py
 class DistributedAttention(torch.nn.Module):
     """Initialization.
 
@@ -73,16 +74,16 @@ class DistributedAttention(torch.nn.Module):
         second_gather_idx: int = 1,
     ) -> None:
 
-        super(DistributedAttention, self).__init__()
+        super().__init__()
         self.local_attn = local_attention
         self.spg = sequence_process_group
         self.first_scatter_idx = first_scatter_idx
         self.first_gather_idx = first_gather_idx
         self.second_scatter_idx = second_scatter_idx
         self.second_gather_idx = second_gather_idx
-    
+
     def forward(self, qkv: Tensor, **kwargs: Any) -> Tensor:
-        """ forward
+        """forward
 
         Arguments:
             query (Tensor): query input to the layer
@@ -93,24 +94,25 @@ class DistributedAttention(torch.nn.Module):
         Returns:
             * output (Tensor): context output
         """
-        # TODO Merge three alltoall calls into one
+        # Evaluation
         if qkv.ndim == 5:
-            # in shape: [seq/tp_size, 3, head, head_dim]
+            # in shape: [batch, seq/tp_size, 3, head, head_dim]
             qkv = _SeqAllToAll.apply(self.spg, qkv, self.first_scatter_idx + 1, self.first_gather_idx + 1)
-            #out shape : [seq, head/tp_size, head_dim]
+            # out shape : [batch, seq, head/tp_size, head_dim]
             context_layer = self.local_attn(qkv, **kwargs)
-            # in shape: [seq, head/tp_size, head_dim]
-            output = _SeqAllToAll.apply(self.spg, context_layer, self.second_scatter_idx + 1, self.second_gather_idx + 1)
-        else:
-            
+            # in shape: [batch, seq, head/tp_size, head_dim]
+            output = _SeqAllToAll.apply(
+                self.spg, context_layer, self.second_scatter_idx + 1, self.second_gather_idx + 1
+            )
+        else:  # training
             # in shape: [seq/tp_size, 3, head, head_dim]
             qkv = _SeqAllToAll.apply(self.spg, qkv, self.first_scatter_idx, self.first_gather_idx)
-            #out shape : [seq, head/tp_size, head_dim]
+            # out shape : [seq, head/tp_size, head_dim]
             context_layer = self.local_attn(qkv, **kwargs)
             # in shape: [seq, head/tp_size, head_dim]
             output = _SeqAllToAll.apply(self.spg, context_layer, self.second_scatter_idx, self.second_gather_idx)
 
-        #out e.g., [s/p::h]
+        # out e.g., [s/p::h]
         return output
 
 
@@ -157,7 +159,7 @@ class MHA(nn.Module):
         use_flash_attn: bool = True,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
-        tp_mode: str = 'origin_tp',
+        tp_mode: str = "origin_tp",
     ) -> None:
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
@@ -185,7 +187,7 @@ class MHA(nn.Module):
                 self.rotary_emb = RotaryEmbedding(self.rotary_emb_dim, scale_base=rotary_emb_scale_base, device=device)
 
         # notice here should change bias=True
-        Wqkv_cls = ColumnParallelLinearTorch if tp_mode == 'origin_tp' else FSDPLinear
+        Wqkv_cls = ColumnParallelLinearTorch if tp_mode == "origin_tp" else FSTPLinear
         self.Wqkv = Wqkv_cls(
             embed_dim,
             3 * embed_dim,
@@ -201,12 +203,12 @@ class MHA(nn.Module):
         self.inner_cross_attn = inner_cross_attn_cls(
             causal=causal, softmax_scale=softmax_scale, attention_dropout=dropout
         )
-        if tp_mode == 'fstp':
+        if tp_mode == "fstp":
             self.inner_attn = DistributedAttention(self.inner_attn, sequence_process_group=process_group)
             self.inner_cross_attn = DistributedAttention(self.inner_cross_attn, sequence_process_group=process_group)
 
         # output projection always have the bias (for now)
-        out_proj_cls = RowParallelLinearTorch if tp_mode == 'origin_tp' else FSDPLinear
+        out_proj_cls = RowParallelLinearTorch if tp_mode == "origin_tp" else FSTPLinear
         self.out_proj = out_proj_cls(
             embed_dim,
             embed_dim,
@@ -214,7 +216,6 @@ class MHA(nn.Module):
             sequence_parallel=gpc.config.parallel.sequence_parallel,
             **factory_kwargs,
         )
-        
         # need to assign tp attribute so that internlm know it is tensor parallel module
         if gpc.get_world_size(ParallelMode.TENSOR) > 1:
             for name in ["out_proj", "Wqkv"]:
@@ -311,7 +312,6 @@ class MHA(nn.Module):
         qkv = rearrange(qkv, "t (three h d) -> t three h d", three=3, d=self.head_dim)  # total x 3 x n_head x d
         qkv = self.rotary_emb(qkv, **kwargs)
         kwargs.pop("indexes")
-        
         if inference_params is None:
             if gpc.config.model.dtype is torch.float32 and gpc.config.model.use_flash_attn:
                 with torch.cuda.amp.autocast(dtype=torch.bfloat16):

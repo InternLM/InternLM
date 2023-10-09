@@ -9,10 +9,9 @@ from flash_attn.ops.fused_dense import ColumnParallelLinear, RowParallelLinear
 from flash_attn.utils.distributed import all_reduce, reduce_scatter
 from torch import nn
 
-
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
-from internlm.model.utils import Silu, fused_dense_func_torch, fsdp_fused_dense_func
+from internlm.model.utils import Silu, fstp_fused_dense_func, fused_dense_func_torch
 
 
 class ScaleColumnParallelLinear(nn.Linear):
@@ -124,7 +123,12 @@ class ColumnParallelLinearTorch(ColumnParallelLinear):
         # If not, then the input is already gathered.
 
         return fused_dense_func_torch(
-            x, self.weight, self.bias, process_group=self.process_group, sequence_parallel=self.sequence_parallel, gather_dim=gather_dim,
+            x,
+            self.weight,
+            self.bias,
+            process_group=self.process_group,
+            sequence_parallel=self.sequence_parallel,
+            gather_dim=gather_dim,
         )
 
 
@@ -204,31 +208,13 @@ class FeedForward(nn.Module):
         out = self.w3(Silu(w1_o, w2_o))
         return out
 
-class FSDPLinear(ColumnParallelLinear):
-    
+
+class FSTPLinear(ColumnParallelLinear):
     def forward(self, x):
-        return fsdp_fused_dense_func(x, self.weight, self.bias, process_group=self.process_group)
+        return fstp_fused_dense_func(x, self.weight, self.bias, process_group=self.process_group)
 
 
-class FSDPScaleLinear(ScaleColumnParallelLinear):
-    
-    def forward(self, input):  # pylint: disable=W0622
-        # If self.sequence_parallel is True, we're doing Tensor Parallel with sequence parallelism:
-        # we do an all_gather of x before doing the matmul.
-        # If not, then the input is already gathered.
-        if self.weight_scale != 1:
-            weight = self.weight * self.weight_scale + (1 - self.weight_scale) * self.weight.detach()
-        else:
-            weight = self.weight
-        return fsdp_fused_dense_func(
-            input,
-            weight,
-            self.bias,
-            process_group=self.process_group,
-        )
-
-
-class FSDPFeedForward(nn.Module):
+class FSTPFeedForward(nn.Module):
     """
     FeedForward.
 
@@ -259,7 +245,7 @@ class FSDPFeedForward(nn.Module):
 
         hidden_features = multiple_of * ((hidden_features + multiple_of - 1) // multiple_of)
 
-        self.w1 = FSDPLinear(
+        self.w1 = FSTPLinear(
             in_features,
             hidden_features,
             process_group,
@@ -268,7 +254,7 @@ class FSDPFeedForward(nn.Module):
             device=device,
             dtype=dtype,
         )
-        self.w2 = FSDPLinear(
+        self.w2 = FSTPLinear(
             in_features,
             hidden_features,
             process_group,
@@ -277,7 +263,7 @@ class FSDPFeedForward(nn.Module):
             device=device,
             dtype=dtype,
         )
-        self.w3 = FSDPLinear(
+        self.w3 = FSTPLinear(
             hidden_features,
             out_features,
             process_group,

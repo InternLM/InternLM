@@ -15,13 +15,16 @@ from internlm.initialize.initialize_tensor import normal_, scaled_init_method_no
 from internlm.model.embedding import Embedding1D
 from internlm.model.linear import (
     FeedForward,
+    FSTPFeedForward,
     RewardModelLinear,
     ScaleColumnParallelLinear,
-    FSDPScaleLinear,
-    FSDPFeedForward,
 )
 from internlm.model.multi_head_attention import MHA
-from internlm.model.utils import gather_forward_split_backward, try_import_RMSNorm, split_forward_gather_backward
+from internlm.model.utils import (
+    gather_forward_split_backward,
+    split_forward_gather_backward,
+    try_import_RMSNorm,
+)
 from internlm.solver.pipeline_utils import partition_uniform
 from internlm.utils.checkpoint import activation_checkpoint
 from internlm.utils.common import filter_kwargs
@@ -74,7 +77,7 @@ class PackedFlashBaseLayer1D(nn.Module):
         use_scaled_init: bool = True,
         use_swiglu: bool = True,
         use_flash_attn: bool = True,
-        tp_mode: str = 'origin_tp',
+        tp_mode: str = "origin_tp",
     ):
         super().__init__()
         self.checkpoint = checkpoint
@@ -111,7 +114,7 @@ class PackedFlashBaseLayer1D(nn.Module):
             self.norm2 = nn.LayerNorm(hidden_size, eps=layer_norm_epsilon)
 
         if use_swiglu:
-            mlp_cls = FeedForward if tp_mode == 'origin_tp' else FSDPFeedForward
+            mlp_cls = FeedForward if tp_mode == "origin_tp" else FSTPFeedForward
             self.mlp = mlp_cls(
                 hidden_size,
                 int(hidden_size * mlp_ratio),
@@ -172,7 +175,6 @@ class PackedFlashBaseLayer1D(nn.Module):
                         scaled_init_method_normal(sigma=0.006, num_layers=self.layer_idx + 1)(param.data)
                     else:
                         normal_(std=0.006 if "fc1" in name else 0.0015)(param.data)
-
 
     def forward(self, hidden_states, cu_seqlens=None, indexes=None, inference_params=None, max_seqlen=None):
         if self.checkpoint and self.training:
@@ -341,7 +343,7 @@ class PackedFlashInternLm1D(nn.Module):
                     use_scaled_init=use_scaled_init,
                     use_swiglu=use_swiglu,
                     use_flash_attn=use_flash_attn,
-                    tp_mode = self.tp_mode,
+                    tp_mode=self.tp_mode,
                 )
                 for lid in range(num_layers)
             ]
@@ -388,9 +390,9 @@ class PackedFlashInternLm1D(nn.Module):
             # The indexes are used to indicate the actual position IDs of each token in the packed input.
             indexes = indexes[0]
             # if the tensor parallel mode is 'fstp', the indexes should also be split in sequence dimension.
-            if gpc.config.parallel.sequence_parallel and self.tp_mode == 'fstp':
+            if gpc.config.parallel.sequence_parallel and self.tp_mode == "fstp":
                 indexes = split_forward_gather_backward(indexes, ParallelMode.TENSOR, dim=0)
-        
+
         max_seqlen = (cu_seqlens[1:] - cu_seqlens[:-1]).max().item() if cu_seqlens is not None else None
 
         for _, block in enumerate(self.blocks):

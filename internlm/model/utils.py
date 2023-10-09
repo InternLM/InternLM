@@ -3,17 +3,13 @@
 
 from typing import Optional
 
+import fused_dense_lib as fused_dense_cuda
 import torch
 import torch.nn.functional as F
-from flash_attn.utils.distributed import (
-    all_reduce_raw,
-    reduce_scatter_raw,
-)
+from flash_attn.utils.distributed import all_reduce_raw, reduce_scatter_raw
 from torch import Tensor
 from torch.cuda.amp import custom_bwd, custom_fwd
 from torch.distributed import ProcessGroup
-
-import fused_dense_lib as fused_dense_cuda
 
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
@@ -123,8 +119,9 @@ def all_gather_raw(input_: Tensor, process_group: ProcessGroup, async_op: bool =
     shape = list(input_.shape)
     shape[gather_dim] = shape[gather_dim] * world_size
     output = torch.empty(shape, dtype=input_.dtype, device=input_.device)
-    handle = torch.distributed.all_gather_into_tensor(output, input_.contiguous(),
-                                                      group=process_group, async_op=async_op)
+    handle = torch.distributed.all_gather_into_tensor(
+        output, input_.contiguous(), group=process_group, async_op=async_op
+    )
     return output, handle
 
 
@@ -137,11 +134,11 @@ def linear_bias_wgrad_torch(my_input, grad_output, has_d_bias):
 
 # adpated from https://github.com/Dao-AILab/flash-attention/blob/main/flash_attn/ops/fused_dense.py
 class FusedDenseFunc(torch.autograd.Function):
+    "tp fused dense function"
 
     @staticmethod
     @custom_fwd
-    def forward(ctx, x, weight, bias, return_residual=False, process_group=None,
-                sequence_parallel=True, gather_dim=0):
+    def forward(ctx, x, weight, bias, return_residual=False, process_group=None, sequence_parallel=True, gather_dim=0):
         """
         If process_group is not None and sequence_parallel=True, we're doing Tensor Parallel
         with sequence parallelism: we do an all_gather_raw of x before doing the matmul.
@@ -171,7 +168,7 @@ class FusedDenseFunc(torch.autograd.Function):
         batch_dim = batch_shape.numel()
         # https://github.com/pytorch/pytorch/blob/5b51849b48a7dbccd297286cc0110def4706f9e7/aten/src/ATen/native/cuda/Blas.cpp#L174
         if min(batch_dim, n, *weight.shape) > 65535 * 32:
-            raise RuntimeError('fused_dense only supports matrix dims <= 2M')
+            raise RuntimeError("fused_dense only supports matrix dims <= 2M")
         output = F.linear(total_x, weight, bias)
         if ctx.compute_weight_gradient:
             ctx.save_for_backward(x, weight)
@@ -184,12 +181,12 @@ class FusedDenseFunc(torch.autograd.Function):
     def backward(ctx, grad_output, *args):
         grad_output = grad_output.contiguous()
         if ctx.return_residual:
-            grad_input, = args
+            (grad_input,) = args
             grad_input = grad_input.contiguous()
         process_group = ctx.process_group
         sequence_parallel = ctx.sequence_parallel
         gather_dim = ctx.gather_dim
-        
+
         if ctx.compute_weight_gradient:
             x, weight = ctx.saved_tensors
             if process_group is not None and sequence_parallel:
@@ -197,7 +194,7 @@ class FusedDenseFunc(torch.autograd.Function):
             else:
                 total_x = x
         else:
-            weight, = ctx.saved_tensors
+            (weight,) = ctx.saved_tensors
             total_x = None
         batch_shape = grad_output.shape[:-1]
         batch_dim = batch_shape.numel()
@@ -206,8 +203,7 @@ class FusedDenseFunc(torch.autograd.Function):
             if not ctx.return_residual:
                 grad_input = F.linear(grad_output, weight.t())
             else:
-                grad_input = torch.addmm(grad_input.reshape(batch_dim, grad_input.shape[-1]),
-                                         grad_output, weight)
+                grad_input = torch.addmm(grad_input.reshape(batch_dim, grad_input.shape[-1]), grad_output, weight)
             grad_input = grad_input.reshape(*batch_shape, grad_input.shape[-1])
             if process_group is not None:
                 reduce_fn = reduce_scatter_raw if sequence_parallel else all_reduce_raw
@@ -282,7 +278,8 @@ class FusedDenseFuncTorch(FusedDenseFunc):
         return grad_input, grad_weight, grad_bias, None, None, None, None
 
 
-class FSDPFusedDenseFunc(torch.autograd.Function):
+class FSTPFusedDenseFunc(torch.autograd.Function):
+    "FSTP fused dense function"
 
     @staticmethod
     @custom_fwd
@@ -295,7 +292,7 @@ class FSDPFusedDenseFunc(torch.autograd.Function):
         if torch.is_autocast_enabled():
             x = x.to(dtype=torch.get_autocast_gpu_dtype())
         total_x = x.contiguous()
-        
+
         world_size = gpc.get_world_size(ParallelMode.TENSOR)
         if world_size > 1:
             # do all_gather for weight and bias before actual computation
@@ -313,13 +310,13 @@ class FSDPFusedDenseFunc(torch.autograd.Function):
         if torch.is_autocast_enabled():
             total_weight = total_weight.to(dtype=torch.get_autocast_gpu_dtype())
             total_bias = total_bias.to(dtype=torch.get_autocast_gpu_dtype()) if bias is not None else None
-       
+
         total_weight = total_weight.contiguous()
         batch_shape, n = total_x.shape[:-1], total_x.shape[-1]
         batch_dim = batch_shape.numel()
         # https://github.com/pytorch/pytorch/blob/5b51849b48a7dbccd297286cc0110def4706f9e7/aten/src/ATen/native/cuda/Blas.cpp#L174
         if min(batch_dim, n, *total_weight.shape) > 65535 * 32:
-            raise RuntimeError('fused_dense only supports matrix dims <= 2M')
+            raise RuntimeError("fused_dense only supports matrix dims <= 2M")
         output = F.linear(total_x, total_weight, total_bias)
         if ctx.compute_weight_gradient:
             ctx.save_for_backward(x, weight)
@@ -332,19 +329,19 @@ class FSDPFusedDenseFunc(torch.autograd.Function):
     def backward(ctx, grad_output, *args):
         grad_output = grad_output.contiguous()
         if ctx.return_residual:
-            grad_input, = args
+            (grad_input,) = args
             grad_input = grad_input.contiguous()
         process_group = ctx.process_group
         if ctx.compute_weight_gradient:
             x, weight = ctx.saved_tensors
             total_x = x
         else:
-            weight, = ctx.saved_tensors
+            (weight,) = ctx.saved_tensors
             total_x = None
         batch_shape = grad_output.shape[:-1]
         batch_dim = batch_shape.numel()
         grad_output = grad_output.reshape(batch_dim, grad_output.shape[-1])
-        
+
         world_size = gpc.get_world_size(ParallelMode.TENSOR)
         if world_size > 1:
             # do all-gather for weight before backward
@@ -352,13 +349,12 @@ class FSDPFusedDenseFunc(torch.autograd.Function):
             handle_weight.wait()
         else:
             total_weight = weight
-        
+
         if ctx.needs_input_grad[0]:
             if not ctx.return_residual:
                 grad_input = F.linear(grad_output, total_weight.t())
             else:
-                grad_input = torch.addmm(grad_input.reshape(batch_dim, grad_input.shape[-1]),
-                                         grad_output, total_weight)
+                grad_input = torch.addmm(grad_input.reshape(batch_dim, grad_input.shape[-1]), grad_output, total_weight)
             grad_input = grad_input.reshape(*batch_shape, grad_input.shape[-1])
         else:
             grad_input = None
@@ -372,7 +368,7 @@ class FSDPFusedDenseFunc(torch.autograd.Function):
             if world_size > 1:
                 grad_weight, handle_grad_weight = reduce_scatter_raw(grad_weight, process_group, async_op=True)
                 if grad_bias is not None:
-                    grad_bias, handle_grad_bias = reduce_scatter_raw(grad_bias, process_group, async_op=True) 
+                    grad_bias, handle_grad_bias = reduce_scatter_raw(grad_bias, process_group, async_op=True)
                     handle_grad_bias.wait()
                 handle_grad_weight.wait()
         else:
@@ -399,12 +395,14 @@ def fused_dense_func_torch(
         return FusedDenseFuncTorch.apply(x, weight, bias, return_residual, process_group, sequence_parallel, gather_dim)
 
 
-def fsdp_fused_dense_func(x: Tensor, weight: Tensor, bias: Optional[Tensor] = None,
-                     return_residual: bool = False, process_group = None):
-    dtype_eligible = (x.dtype in [torch.float16, torch.bfloat16]
-                      or (x.dtype == torch.float32 and torch.is_autocast_enabled()))
+def fstp_fused_dense_func(
+    x: Tensor, weight: Tensor, bias: Optional[Tensor] = None, return_residual: bool = False, process_group=None
+):
+    dtype_eligible = x.dtype in [torch.float16, torch.bfloat16] or (
+        x.dtype == torch.float32 and torch.is_autocast_enabled()
+    )
     if x.is_cuda and weight.is_cuda and (bias is None or bias.is_cuda) and dtype_eligible:
-        return FSDPFusedDenseFunc.apply(x, weight, bias, return_residual, process_group)
+        return FSTPFusedDenseFunc.apply(x, weight, bias, return_residual, process_group)
     else:
         assert process_group is None
         out = F.linear(x, weight, bias)
