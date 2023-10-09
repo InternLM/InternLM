@@ -154,7 +154,7 @@ pipeline parallel (dict):
 tensor parallel: tensor parallel size, usually the number of GPUs per node.
 """
 parallel = dict(
-    zero1=8,
+    zero1=dict(size=8, fsdp=False),
     tensor=dict(size=1, mode='origin_tp'), # the mode should be 'origin_tp' or 'fstp'. if the mode is 'fstp', the sequence_parallel should be True
     pipeline=dict(size=1, interleaved_overlap=True),
     sequence_parallel=False,

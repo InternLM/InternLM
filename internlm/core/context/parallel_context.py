@@ -328,6 +328,9 @@ class ParallelContext(metaclass=SingletonMeta):
                 return False
         return self.is_last_rank(ParallelMode.PIPELINE)
 
+    def is_no_pp_or_last_stage(self):
+        return not self.is_initialized(ParallelMode.PIPELINE) or self.is_pipeline_last_stage()
+
     def get_world_size(self, parallel_mode: ParallelMode):
         """Returns the world size for `parallel_mode`.
 
@@ -429,6 +432,16 @@ class ParallelContext(metaclass=SingletonMeta):
         assert self.zero1_parallel_size > 0
         assert self.data_parallel_size % self.zero1_parallel_size == 0
 
+        # check for fsdp:
+        # if zo_size < dp_size, ckpts saving will introduce redundent storage for model weights
+        # because pytorch "ShardTensor" need to ensure current global rank equals to saved shard's global rank
+        # pytorch vision: 1.13.1+cu117
+        if self.data_parallel_size > self.zero1_parallel_size and self.config.parallel.zero1.get("fsdp", False):
+            logger.warning(
+                f"zo size: {self.zero1_parallel_size} < dp size: {self.data_parallel_size}, "
+                "will introduce redundancy when saving fsdp model ckpts, recommend setting them to same value"
+            )
+
     def _set_parallel_size_from_config(self, config: dict, key: str, attr_name: str):
         if key in config:
             ele = config[key]
@@ -495,6 +508,8 @@ class ParallelContext(metaclass=SingletonMeta):
         initializers.append(pgroup_initializer.Initializer_Model(*initializer_args))
         initializers.append(pgroup_initializer.Initializer_Tensor(*initializer_args))
         initializers.append(pgroup_initializer.Initializer_Zero1(*initializer_args))
+        if isinstance(self.config.parallel.zero1, dict) and self.config.parallel.zero1.get("fsdp", False):
+            initializers.append(pgroup_initializer.Initializer_Zero3_dp(*initializer_args))
         initializers.append(pgroup_initializer.Initializer_Nettest(*initializer_args))
         if self.pipeline_parallel_size > 1:
             initializers.append(pgroup_initializer.Initializer_Pipeline(*initializer_args))

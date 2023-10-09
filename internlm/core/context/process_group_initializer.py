@@ -37,6 +37,11 @@ class ParallelMode(Enum):
     # runntime network test
     NETTEST = "nettest"
 
+    # zero3-dp parallel
+    # if fsdp is activated and size of fsdp-parallel-size is less than dp-parallel-size
+    # then manual communication only happens between inter-fsdp-modules, while intra-modules reduction is done by fsdp
+    ZERO3_DP = "zero3_dp"
+
     # expert parallel
     EXPERT = "expert"
 
@@ -594,3 +599,62 @@ class Initializer_Expert_Data(ProcessGroupInitializer):
                 )
 
         return groups
+
+
+class Initializer_Zero3_dp(ProcessGroupInitializer):
+    """A ProcessGroupInitializer for data parallelism.
+
+    Args:
+        rank (int): The rank of current process.
+        world_size (int): Size of whole communication world.
+        data_parallel_size (int): Size of data parallel.
+        pipeline_parallel_size (int): Size of pipeline parallel.
+        tensor_parallel_size (int): Size of tensor parallel.
+        zero1_parallel_size (int): Size of zero1 parallel.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        assert self.data_parallel_size % self.zero1_parallel_size == 0
+
+        # the only difference between this initializer and DP_initializer
+        # when FSDP is enabled, only corresponding pairs are in the same actual DP group due to parameter sharding
+        # eg: when zero=4 and dp=8
+        #     no fsdp: rank [0-7] share same model paramters, and [0-3], [4-7] are two separate zero group
+        #        fsdp: params of (0, 4), (1, 5), (2, 6), (3, 7) are the same actually
+
+        self.data_parallel_size //= self.zero1_parallel_size
+        self.rank_num_per_dp_group = self.world_size // self.data_parallel_size
+
+        assert self.world_size % self.data_parallel_size == 0
+
+    def init_dist_group(self, use_cpu: bool = False):
+        """Initialize data parallel groups, and assign local_ranks and groups to each gpu.
+
+        Returns:
+            Tuple (local_rank, group_world_size, process_group, ranks_in_group, mode):
+                A Data parallelism's information tuple.
+        """
+        local_rank = None
+        ranks_in_group = None
+        process_group = None
+        cpu_group = None
+        group_world_size = None
+        mode = ParallelMode.ZERO3_DP
+
+        for i in range(self.rank_num_per_dp_group):
+            ranks = [i + j * self.rank_num_per_dp_group for j in range(self.data_parallel_size)]
+            group = dist.new_group(ranks)
+            if use_cpu:
+                group_cpu = dist.new_group(ranks, backend="gloo") if dist.get_backend() != "gloo" else group
+            else:
+                group_cpu = None
+
+            if self.rank in ranks:
+                local_rank = ranks.index(self.rank)
+                group_world_size = len(ranks)
+                process_group = group
+                cpu_group = group_cpu
+                ranks_in_group = ranks
+
+        return local_rank, group_world_size, process_group, cpu_group, ranks_in_group, mode

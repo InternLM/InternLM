@@ -12,6 +12,9 @@ from enum import Enum
 from typing import Callable, Dict, Union
 
 import torch
+from torch.distributed._shard.api import load_with_process_group
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.distributed.fsdp import StateDictType
 
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
@@ -157,11 +160,38 @@ def get_model_topology(model):
     return topos
 
 
+def get_shard_state_dict(shard_model):
+    """
+    Only used for FSDP module saving.
+    It's a warper of model.state_dict() and with the context of 'FSDP.state_dict_type', the sharded parameter
+    (saved as model.flat_param_xx in sharded FSDP module) will be gathered at every gpu.
+    'offload_to_cpu' means that the model states are to be offloaded to cpu chunk by chunk, avoiding OOM in gpu
+
+    """
+
+    # FSDP model can only save with sharded shape SHARDED_STATE_DICT when set use_orig_params=True
+    with FSDP.state_dict_type(shard_model, StateDictType.SHARDED_STATE_DICT):
+        shard_states = shard_model.state_dict()
+
+    return shard_states
+
+
+def load_shard_state_dict(shard_model, shard_state, **kwargs):
+    """
+    Only used for FSDP module loading.
+
+    """
+
+    with FSDP.state_dict_type(shard_model, StateDictType.SHARDED_STATE_DICT):
+        missing_k, unexpected_keys = shard_model.load_state_dict(shard_state, kwargs)
+
+    return (missing_k, unexpected_keys)
+
+
 def try_load_internlm_ckpt(ckpt_mm, load_info, train_state: TrainState):
     load_content_str = ""
     load_ckpt_folder = load_info["path"]
     load_content: CheckpointLoadMask = load_info["content"]
-
     if gpc.is_rank_for_log():
         logger.info(f"Try load_ckpt_folder: {load_ckpt_folder}")
 
@@ -224,6 +254,10 @@ def save_model_checkpoint(folder, model):
     - folder
         - model_tp{tp_rank}_pp{pp_rank}.pt
 
+    If fsdp is activated, the saved weight is named:
+    - folder
+        - model_tp{tp_rank}_pp{pp_rank}_zo{zo_rank}
+
     If the tp is inconsistent with the saved one in the future use, the weight needs to be converted before loading.
 
     Args:
@@ -231,7 +265,11 @@ def save_model_checkpoint(folder, model):
         model: The model to be saved
     """
 
-    states = model.state_dict()
+    if gpc.config.parallel.zero1.fsdp:
+        states = get_shard_state_dict(model)
+    else:
+        states = model.state_dict()
+
     # get non-expert parameters
     states = get_non_moe_state_dict(states)
     topo = get_model_topology(model)
@@ -247,15 +285,21 @@ def save_model_checkpoint(folder, model):
         # even if pp is not considered, it will definitely not be written on the same machine.
         should_save_rank_pair = set()  # (tp_rank, dp_rank)
         for i in range(tp_size):
-            should_save_rank_pair.add((i, i % dp_size))
+            if gpc.config.parallel.zero1.fsdp:
+                for j in range(dp_size):
+                    should_save_rank_pair.add((i, j))
+            else:
+                should_save_rank_pair.add((i, i % dp_size))
 
-        if (tp_rank, dp_rank) in should_save_rank_pair:
-            fn = f"model_tp{tp_rank}_pp{pp_rank}.pt"
-            fp = os.path.join(folder, fn)
-            llm_save(fp, saved_obj=states)
-            topo_fn = f"topo_tp{tp_rank}_pp{pp_rank}.json"
-            topo_fp = os.path.join(folder, topo_fn)
-            llm_save(topo_fp, saved_obj=topo)
+            if (tp_rank, dp_rank) in should_save_rank_pair:
+                f_dp = f"_dp{dp_rank}" if gpc.config.parallel.zero1.fsdp else ""
+                fn = f"model_tp{tp_rank}_pp{pp_rank}{f_dp}.pt"
+                fp = os.path.join(folder, fn)
+                llm_save(fp, saved_obj=states)
+                if not gpc.config.parallel.zero1.fsdp or dp_rank == tp_rank % dp_size:
+                    topo_fn = f"topo_tp{tp_rank}_pp{pp_rank}.json"
+                    topo_fp = os.path.join(folder, topo_fn)
+                    llm_save(topo_fp, saved_obj=topo)
 
         # try to save expert parameter to separate files if model have moe layer
         expert_dp_size = gpc.get_world_size(ParallelMode.EXPERT_DATA)
@@ -276,21 +320,39 @@ def load_model_checkpoint(folder, model):
     - folder
         - model_tp{tp_rank}_pp{pp_rank}.pt
 
+    If fsdp is activated, the saved weight is named:
+    - folder
+        - model_tp{tp_rank}_pp{pp_rank}_zo{zo_rank}
+
     If the tp is inconsistent with the saved one in the future use, the weight needs to be converted before loading.
     """
 
     tp_size = gpc.get_world_size(ParallelMode.TENSOR)
     pp_size = gpc.get_world_size(ParallelMode.PIPELINE)
+    dp_size = gpc.get_world_size(ParallelMode.DATA)
     tp_rank = gpc.get_local_rank(ParallelMode.TENSOR)
     pp_rank = gpc.get_local_rank(ParallelMode.PIPELINE)
+    dp_rank = gpc.get_local_rank(ParallelMode.DATA)
 
     fns = get_fns(folder)
-    max_pp, max_tp = 0, 0
+
+    # avoid ckpt misuse between FSDP and no-FSDP
+    test_fn = list([f for f in fns if f.startswith("model_t") and not f.endswith(".md5")]).pop()
+    assert ("_dp" in test_fn and gpc.config.parallel.zero1.fsdp) or (
+        "_dp" not in test_fn and not gpc.config.parallel.zero1.fsdp
+    ), "FSDP model wants to load no-FSDP ckpts or reverse"
+
+    max_pp, max_tp, max_zo = 0, 0, 0
     for fn in fns:
         if fn.startswith("model_t") and not fn.endswith(".md5"):
             segements = os.path.splitext(fn)[0].split("_")
-            max_pp = max(max_pp, int(segements[-1][2:]))
-            max_tp = max(max_tp, int(segements[-2][2:]))
+            if gpc.config.parallel.zero1.fsdp:
+                max_zo = max(max_zo, int(segements[-1][2:]))
+                max_pp = max(max_pp, int(segements[-2][2:]))
+                max_tp = max(max_tp, int(segements[-3][2:]))
+            else:
+                max_pp = max(max_pp, int(segements[-1][2:]))
+                max_tp = max(max_tp, int(segements[-2][2:]))
 
     assert (
         pp_size == max_pp + 1
@@ -298,10 +360,20 @@ def load_model_checkpoint(folder, model):
     assert (
         tp_size == max_tp + 1
     ), f"The weights are save for {max_tp+1} parallelism, while current has {tp_size} tensor parallelism"
+    if gpc.config.parallel.zero1.fsdp:
+        assert (
+            dp_size == max_zo + 1
+        ), f"The weights are save for {max_zo+1} FSDP shards , while current has {dp_size} FSDP shards"
 
-    should_load_name = f"model_tp{tp_rank}_pp{pp_rank}.pt"
+    if gpc.config.parallel.zero1.fsdp:
+        should_load_name = f"model_tp{tp_rank}_pp{pp_rank}_dp{dp_rank}.pt"
+    else:
+        should_load_name = f"model_tp{tp_rank}_pp{pp_rank}.pt"
     fp = os.path.join(folder, should_load_name)
-    states = llm_load(fp, map_location=get_current_device())
+
+    # for FSDP shards loading, we need to set process group
+    with load_with_process_group(gpc.get_group(ParallelMode.ZERO1)):
+        states = llm_load(fp, map_location=get_current_device())
 
     """
     # need convert the gate parameters to float32 (to fit deepspeed style mechanism), it may cause round-off in
@@ -316,7 +388,10 @@ def load_model_checkpoint(folder, model):
     # try to load expert parameter to separate files if model have moe layer
     try_load_moe_checkpoint(folder, model, states, tp_rank, pp_rank)
 
-    missing_k, unexpected_keys = model.load_state_dict(states, strict=False)
+    if gpc.config.parallel.zero1.fsdp:
+        missing_k, unexpected_keys = load_shard_state_dict(model, states, strict=False)
+    else:
+        missing_k, unexpected_keys = model.load_state_dict(states, strict=False)
     if len(missing_k) != 0:
         logger.warning(f"Warning: missing keys {missing_k}")
     if len(unexpected_keys) != 0:
