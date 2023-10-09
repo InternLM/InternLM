@@ -6,6 +6,7 @@ from typing import Any, Optional, Tuple
 
 import torch
 import torch.distributed as dist
+import torch.nn.functional as F
 from einops import rearrange
 from flash_attn.modules.mha import (
     CrossAttention,
