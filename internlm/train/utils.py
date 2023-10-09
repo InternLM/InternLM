@@ -2,6 +2,7 @@ from typing import Dict, Tuple
 
 import torch
 
+from internlm.core.context.parallel_context import ParallelMode
 from internlm.core.context.parallel_context import global_context as gpc
 from internlm.model.utils import is_gate_param, is_moe_param, is_norm_param
 
@@ -37,13 +38,13 @@ def split_params_into_different_groups_for_optimizer(param_groups: Tuple[Dict]) 
 
     # create new groups for fp32, norm, moe gate and moe expert
     new_groups = {}
-    new_groups["fp32"] = {"name": "fp32", "params": []}
+    new_groups["fp32"] = {"name": "fp32", "params": [], "dp_mode": ParallelMode.DATA}
     if gpc.config.model.get("num_experts", 0) > 1:
         # norm and gate are special group to force sync (when enable MoE).
         for key in ["gate", "norm"]:
-            new_groups[key] = {"name": key, key: True, "params": []}
+            new_groups[key] = {"name": key, key: True, "params": [], "dp_mode": ParallelMode.DATA}
         for key in gpc.expert_parallel_group_names:
-            new_groups[key] = {"name": key, "moe": True, "params": []}
+            new_groups[key] = {"name": key, "moe": True, "params": [], "dp_mode": ParallelMode.EXPERT_DATA}
 
     for pgroup in param_groups:
         # copy attribute from origin group, we assume the input param_groups only
@@ -72,10 +73,10 @@ def split_params_into_different_groups_for_optimizer(param_groups: Tuple[Dict]) 
 
         # bf16 param group, which is the first group in the param groups
         pgroup["params"] = origin_params
+        pgroup["dp_mode"] = ParallelMode.DATA
 
-    for _, g in new_groups.items():
-        if g["params"]:
-            param_groups.append(g)
+    # param groups may contain empty groups, such as fp32
+    param_groups.extend(new_groups.values())
 
     return tuple(param_groups)
 

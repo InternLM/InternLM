@@ -86,13 +86,13 @@ ckpt_config_list = [
 def overwrite_optim_state(optim, set_value):
     if isinstance(optim, HybridZeroOptimizer):
         for group_id, p in optim._fp32_flat_param_groups_of_current_rank.items():
-            if optim._zero_local_rank not in optim.param_group_no_params_ranks[group_id]:
+            if optim._zero_local_rank[group_id] not in optim.param_group_no_params_ranks[group_id]:
                 # p.copy_(torch.full_like(p, set_value, dtype=p.dtype))
                 p.data.fill_(set_value)
         for group_id in range(len(optim._fp16_param_groups)):
-            if optim._zero_local_rank not in optim.param_group_no_params_ranks[group_id]:
+            if optim._zero_local_rank[group_id] not in optim.param_group_no_params_ranks[group_id]:
                 fp16_p = optim._param_store.get_flat_fp16_param_by_rank_group(
-                    rank=optim._zero_local_rank, group_id=group_id
+                    rank=optim._zero_local_rank[group_id], group_id=group_id
                 )
                 fp16_p.fill_(set_value)
     else:
@@ -109,7 +109,7 @@ def compare_optim_state(optim1, optim2):
         fp32_buff2 = optim2._fp32_flat_param_groups_of_current_rank
         for group_id_1, group_id_2 in zip(fp32_buff1, fp32_buff2):
             re &= group_id_1 == group_id_2
-            if optim1.zero_local_rank not in optim1.param_group_no_params_ranks[group_id_1]:
+            if optim1.zero_local_rank[group_id_1] not in optim1.param_group_no_params_ranks[group_id_1]:
                 re &= torch.equal(fp32_buff1[group_id_1], fp32_buff1[group_id_2])
     else:
         for group1, group2 in zip(optim1.param_groups, optim2.param_groups):
@@ -122,12 +122,12 @@ def compare_optim_value(optim, value):
     re = True
     if isinstance(optim, HybridZeroOptimizer):
         for group_id, p in optim._fp32_flat_param_groups_of_current_rank.items():
-            if optim._zero_local_rank not in optim.param_group_no_params_ranks[group_id]:
+            if optim._zero_local_rank[group_id] not in optim.param_group_no_params_ranks[group_id]:
                 re &= torch.equal(p, torch.full_like(p, value, dtype=p.dtype))
         for group_id in range(len(optim._fp16_param_groups)):
-            if optim._zero_local_rank not in optim.param_group_no_params_ranks[group_id]:
+            if optim._zero_local_rank[group_id] not in optim.param_group_no_params_ranks[group_id]:
                 fp16_p = optim._param_store.get_flat_fp16_param_by_rank_group(
-                    rank=optim._zero_local_rank, group_id=group_id
+                    rank=optim._zero_local_rank[group_id], group_id=group_id
                 )
                 re &= torch.equal(fp16_p, torch.full_like(fp16_p, value, dtype=fp16_p.dtype))
     else:
