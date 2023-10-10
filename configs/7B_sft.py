@@ -142,20 +142,27 @@ model = dict(
     num_chunks=1,  # if num_chunks > 1, interleaved pipeline scheduler is used.
 )
 """
-zero1 parallel:
-    1. if zero1 <= 0, The size of the zero process group is equal to the size of the dp process group,
-        so parameters will be divided within the range of dp.
-    2. if zero1 == 1, zero is not used, and all dp groups retain the full amount of model parameters.
-    3. zero1 > 1 and zero1 <= dp world size, the world size of zero is a subset of dp world size.
+zero1 parallel (dict):
+    1. size: int
+        * if size <= 0, the size of the zero process group is equal to the size of the dp process group,
+            so parameters will be divided within the range of dp.
+        * if size == 1, zero is not used, and all dp groups retain the full amount of model parameters.
+        * if size > 1 and size <= dp world size, the world size of zero is a subset of dp world size.
         For smaller models, it is usually a better choice to split the parameters within nodes with a setting <= 8.
+    2. fsdp: bool, enable/disable torch's fully sharded data parallel, defaults to False.
+tensor parallel (dict):
+    1. size: int, the size of tensor parallel.
+    2. mode: str, the mode should be 'origin_tp' or 'fstp', defaults to 'origin_tp'. If the mode is 'fstp',
+        the sequence_parallel should be True.
 pipeline parallel (dict):
     1. size: int, the size of pipeline parallel.
-    2. interleaved_overlap: bool, enable/disable communication overlap when using interleaved pipeline scheduler.
-tensor parallel: tensor parallel size, usually the number of GPUs per node.
+    2. interleaved_overlap: bool, enable/disable communication overlap when using interleaved pipeline scheduler,
+        defaults to False.
+sequence parallel (bool): enable/disable sequence parallel, defaults to False.
 """
 parallel = dict(
     zero1=dict(size=8, fsdp=False),
-    tensor=dict(size=1, mode='origin_tp'), # the mode should be 'origin_tp' or 'fstp'. if the mode is 'fstp', the sequence_parallel should be True
+    tensor=dict(size=1, mode="origin_tp"),
     pipeline=dict(size=1, interleaved_overlap=True),
     sequence_parallel=False,
 )
