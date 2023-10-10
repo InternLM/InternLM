@@ -1,7 +1,7 @@
 JOB_NAME = "7b_train"
 DO_ALERT = False
 
-SEQ_LEN = 2048
+SEQ_LEN = 4096
 HIDDEN_SIZE = 4096
 NUM_ATTENTION_HEAD = 32
 MLP_RATIO = 8 / 3
@@ -154,10 +154,10 @@ pipeline parallel (dict):
 tensor parallel: tensor parallel size, usually the number of GPUs per node.
 """
 parallel = dict(
-    zero1=dict(size=8, fsdp=False),
-    tensor=dict(size=1, mode='origin_tp'), # the mode should be 'origin_tp' or 'fstp'. if the mode is 'fstp', the sequence_parallel should be True
+    zero1=dict(size=1, fsdp=False),
+    tensor=dict(size=8, mode='fstp'), # the mode should be 'origin_tp' or 'fstp'. if the mode is 'fstp', the sequence_parallel should be True
     pipeline=dict(size=1, interleaved_overlap=True),
-    sequence_parallel=False,
+    sequence_parallel=True,
 )
 
 cudnn_deterministic = False

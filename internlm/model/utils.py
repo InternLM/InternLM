@@ -349,16 +349,8 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
             handle_weight.wait()
         else:
             total_weight = weight
-
-        if ctx.needs_input_grad[0]:
-            if not ctx.return_residual:
-                grad_input = F.linear(grad_output, total_weight.t())
-            else:
-                grad_input = torch.addmm(grad_input.reshape(batch_dim, grad_input.shape[-1]), grad_output, total_weight)
-            grad_input = grad_input.reshape(*batch_shape, grad_input.shape[-1])
-        else:
-            grad_input = None
-
+        
+        # compute weight grad
         if ctx.needs_input_grad[1]:
             assert ctx.compute_weight_gradient
 
@@ -369,11 +361,24 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
                 grad_weight, handle_grad_weight = reduce_scatter_raw(grad_weight, process_group, async_op=True)
                 if grad_bias is not None:
                     grad_bias, handle_grad_bias = reduce_scatter_raw(grad_bias, process_group, async_op=True)
-                    handle_grad_bias.wait()
-                handle_grad_weight.wait()
         else:
             grad_weight = None
             grad_bias = grad_output if ctx.needs_input_grad[2] else None
+
+        if ctx.needs_input_grad[0]:
+            if not ctx.return_residual:
+                grad_input = F.linear(grad_output, total_weight.t())
+            else:
+                grad_input = torch.addmm(grad_input.reshape(batch_dim, grad_input.shape[-1]), grad_output, total_weight)
+            grad_input = grad_input.reshape(*batch_shape, grad_input.shape[-1])
+        else:
+            grad_input = None
+        
+        if ctx.needs_input_grad[1]:
+            if world_size > 1:
+                handle_grad_weight.wait()
+                if grad_bias is not None:
+                    handle_grad_bias.wait()
         return grad_input, grad_weight, grad_bias, None, None, None
 
 
