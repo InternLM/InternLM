@@ -6,7 +6,6 @@ from torch_scatter import scatter
 
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
-from internlm.utils.parallel import is_no_pp_or_last_stage
 
 
 class AccPerplex:
@@ -138,7 +137,7 @@ class AccPerplex:
             self.total_log_probs += total_log_probs
 
     def get_metric(self, reset=True):
-        if is_no_pp_or_last_stage() and self.dp_pg is not None:
+        if gpc.is_no_pp_or_last_stage() and self.dp_pg is not None:
             torch.distributed.all_reduce(self.right, op=torch.distributed.ReduceOp.SUM, group=self.dp_pg)
             torch.distributed.all_reduce(self.total, op=torch.distributed.ReduceOp.SUM, group=self.dp_pg)
             torch.distributed.all_reduce(self.total_log_probs, op=torch.distributed.ReduceOp.SUM, group=self.dp_pg)
@@ -236,7 +235,7 @@ class LossWithTypeId:
                 self.ds_token_num += token_num_type
 
     def get_metric(self, reset=True):
-        if is_no_pp_or_last_stage() and self.dp_pg is not None:
+        if gpc.is_no_pp_or_last_stage() and self.dp_pg is not None:
             torch.distributed.all_reduce(self.loss, op=torch.distributed.ReduceOp.SUM, group=self.dp_pg)
             torch.distributed.all_reduce(self.token_num, op=torch.distributed.ReduceOp.SUM, group=self.dp_pg)
             if hasattr(self, "total_type_count"):

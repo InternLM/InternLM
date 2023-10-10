@@ -209,7 +209,9 @@ def calc_lp(grads, norm_type):
     return norm
 
 
-def compute_norm(gradients, parameters, last_stage=False, previous_norm=None, norm_type=2):
+def compute_norm(
+    gradients, parameters, last_stage=False, previous_norm=None, norm_type=2, zero_mode=ParallelMode.ZERO1
+):
     """Get the norm
     Arguments:
         gradients (Iterable[Tensor]): The gradient value.
@@ -302,7 +304,7 @@ def compute_norm(gradients, parameters, last_stage=False, previous_norm=None, no
 
         # This is because we use zero1, so we need to use this reduction.
         # TODO: Check zero group to be a subset of dp group.
-        dist.all_reduce(total_norm, op=dist.ReduceOp.SUM, group=gpc.get_group(ParallelMode.ZERO1))
+        dist.all_reduce(total_norm, op=dist.ReduceOp.SUM, group=gpc.get_group(zero_mode))
 
         if torch.is_tensor(total_norm):
             total_norm = total_norm.item()

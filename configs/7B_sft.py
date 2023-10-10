@@ -30,6 +30,14 @@ ckpt = dict(
     # 2. the 'content‘ means what states will be loaded, support: "model", "sampler", "optimizer", "scheduler", "all"
     # 3. the ’ckpt_type‘ means the type of checkpoint to be loaded, now only 'normal' type is supported.
     load_ckpt_info=dict(path=MODEL_ONLY_FOLDER, content=("model",), ckpt_type="internlm"),
+    # 'auto_resume' is designed to automatically load the latest checkpoint from 'save_ckpt_folder' when encountering
+    # training interruptions/hangs caused by hardware failures, using a scheduling system (such as k8s/slurm)
+    # with an automatic restart mechanism upon training reboot.
+    # Please be aware that if `auto_resume` is not set (its default value is True), it will not load the checkpoint
+    # path specified in `load_ckpt_info` by default.
+    # If you want to initialize your model weights from another model, you must set `auto_resume` to False.
+    # If you want to train from scratch, please set `auto_resume` to False and 'load_ckpt_info' to None.
+    auto_resume=True,
     checkpoint_every=CHECKPOINT_EVERY,
     async_upload=True,  # async ckpt upload. (only work for boto3 ckpt)
     async_upload_tmp_folder="/dev/shm/internlm_tmp_ckpt/",  # path for temporarily files during asynchronous upload.
@@ -146,7 +154,7 @@ pipeline parallel (dict):
 tensor parallel: tensor parallel size, usually the number of GPUs per node.
 """
 parallel = dict(
-    zero1=8,
+    zero1=dict(size=8, fsdp=False),
     tensor=1,
     pipeline=dict(size=1, interleaved_overlap=True),
     sequence_parallel=False,

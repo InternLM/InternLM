@@ -1,4 +1,5 @@
 import math
+import os
 import subprocess
 
 import pytest
@@ -24,7 +25,7 @@ from internlm.utils.gputest import empty_cache_and_diag
 from internlm.utils.megatron_timers import megatron_timer as timer
 from internlm.utils.model_checkpoint import CheckpointManager
 
-CONFIG_FILE_PATH = "./configs/7B_sft.py"
+CONFIG_FILE_PATH = os.getenv("CONFIG_FILE_PATH", "./configs/7B_sft.py")
 TOTAL_STEPS = 10
 LOSS_SPIKE_LIMIT = 1.5
 LOSS_DEVIATION_LIMIT = 0.2
@@ -43,10 +44,39 @@ BASELINE_LOSS_LIST = [
 cur_loss_list = []
 
 
-def train():
+def train(
+    dp_size: int = 1,
+    tp_size: int = 1,
+    pp_size: int = 1,
+    num_chunks: int = 2,
+    interleaved: bool = False,
+    enable_sp: bool = False,
+):
     # initialize distributed environment
     initialize_distributed_env(config=CONFIG_FILE_PATH)
     assert hasattr(gpc, "config") and gpc.config is not None
+
+    # check parallel config
+    assert (
+        gpc.get_world_size(ParallelMode.DATA) == dp_size
+    ), f"data parallel size: {gpc.get_world_size(ParallelMode.DATA)} is not as expected {dp_size}"
+    assert (
+        gpc.get_world_size(ParallelMode.TENSOR) == tp_size
+    ), f"tensor parallel size: {gpc.get_world_size(ParallelMode.TENSOR)} is not as expected {tp_size}"
+    assert (
+        gpc.get_world_size(ParallelMode.PIPELINE) == pp_size
+    ), f"pipeline parallel size: {gpc.get_world_size(ParallelMode.PIPELINE)} is not as expected {pp_size}"
+    if interleaved:
+        assert (
+            gpc.is_using_pp() and hasattr(gpc.config.model, "num_chunks") and gpc.config.model.num_chunks == num_chunks
+        )
+        assert gpc.config.parallel["pipeline"].get(
+            "interleaved_overlap", False
+        ), "interleaved overlap must be enabled when using interleave pipeline scheduler"
+    if enable_sp:
+        assert gpc.config.parallel.get(
+            "sequence_parallel", False
+        ), "sequence_parallel must be True when enable_sp is True"
 
     # init setting
     gpc.config.data.total_steps = TOTAL_STEPS
@@ -156,11 +186,20 @@ def train():
         # do forward and backward
         timer("fwd-bwd").start()
 
-        _, _, loss = trainer.execute_schedule(batch, forward_only=False, return_loss=True, return_output_label=False)
+        # Compatible for non-moe
+        moe_loss = None
+        if hasattr(gpc.config.model, "num_experts"):
+            _, _, loss, moe_loss = trainer.execute_schedule(
+                batch, forward_only=False, return_loss=True, return_output_label=False
+            )
+        else:
+            _, _, loss = trainer.execute_schedule(
+                batch, forward_only=False, return_loss=True, return_output_label=False
+            )
         if gpc.is_rank_for_log():
             assert loss is not None and not math.isnan(loss.item())
             global cur_loss_list
-            cur_loss_list.append(loss.item())
+            cur_loss_list.append((loss.item() - moe_loss.item() if moe_loss is not None else loss.item()))
         timer("fwd-bwd").stop()
 
         # update parameters, and returns (success_update, grad_norm)
@@ -193,198 +232,61 @@ def check_loss_accuracy():
             ), f"The loss accuracy is abnormal, {target}->{cur}, please check it!"
 
 
-class TestCaseTrain8GPU:
-    """
-    Test cases for Model Training with 8 GPUs.
-    Parallel Config:
-        data parallel size = 8.
-    """
+@pytest.mark.training_8GPU
+def test_training_loss_with_dp8():
+    # model training
+    train(dp_size=8)
 
-    @staticmethod
-    def setup_class():
-        # model training
-        train()
+    # print loss value
+    print(f"cur_loss_list: {cur_loss_list}", flush=True)
 
-        # print loss value
-        print(f"cur_loss_list: {cur_loss_list}", flush=True)
-
-    @staticmethod
-    @pytest.mark.training_8GPU
-    def test_loss_spike_with_dp8():
-        check_loss_spike()
-
-    @staticmethod
-    @pytest.mark.training_8GPU
-    def test_loss_accuracy_with_dp8():
-        check_loss_accuracy()
+    check_loss_spike()
+    check_loss_accuracy()
 
 
-class TestCaseTrain16GPUWith8DP2TP:
-    """
-    Test cases for Model Training with 16 GPUs.
-    Parallel Config:
-        data parallel size = 8.
-        tensor parallel size = 2.
-    """
+@pytest.mark.training_16GPU_8DP2TP
+def test_training_loss_with_dp8_tp2():
+    # model training
+    train(dp_size=8, tp_size=2)
 
-    @staticmethod
-    def setup_class():
-        # update config tensor parallel size
-        command = f"sed -i 's/^.*tensor=.*/    tensor=2,/' {CONFIG_FILE_PATH}"
-        subprocess.run(command, shell=True, check=True)
+    # print loss value
+    print(f"cur_loss_list: {cur_loss_list}", flush=True)
 
-        # model training
-        train()
-
-        # print loss value
-        print(f"cur_loss_list: {cur_loss_list}", flush=True)
-
-    @staticmethod
-    @pytest.mark.training_16GPU_8DP2TP
-    def test_loss_spike_with_dp8_tp2():
-        check_loss_spike()
-
-    @staticmethod
-    @pytest.mark.training_16GPU_8DP2TP
-    def test_loss_accuracy_with_dp8_tp2():
-        check_loss_accuracy()
+    check_loss_spike()
+    check_loss_accuracy()
 
 
-class TestCaseTrain16GPUWith8DP2TPSP:
-    """
-    Test cases for Model Training with 16 GPUs.
-    Parallel Config:
-        data parallel size = 8.
-        tensor parallel size = 2.
-        sequence parallel = True.
-    """
+@pytest.mark.training_16GPU_8DP2TPSP
+def test_training_loss_with_dp8_tp2_sp():
+    # model training
+    train(dp_size=8, tp_size=2, enable_sp=True)
 
-    @staticmethod
-    def setup_class():
-        # update config tensor parallel size and sequence parallel
-        command = f"sed -i 's/^.*tensor=.*/    tensor=2,/' {CONFIG_FILE_PATH}"
-        subprocess.run(command, shell=True, check=True)
-        command = f"sed -i 's/^.*sequence_parallel=.*/    sequence_parallel=True,/' {CONFIG_FILE_PATH}"
-        subprocess.run(command, shell=True, check=True)
+    # print loss value
+    print(f"cur_loss_list: {cur_loss_list}", flush=True)
 
-        # model training
-        train()
-
-        # print loss value
-        print(f"cur_loss_list: {cur_loss_list}", flush=True)
-
-    @staticmethod
-    @pytest.mark.training_16GPU_8DP2TPSP
-    def test_loss_spike_with_dp8_tp2_sp():
-        check_loss_spike()
-
-    @staticmethod
-    @pytest.mark.training_16GPU_8DP2TPSP
-    def test_loss_accuracy_with_dp8_tp2_sp():
-        check_loss_accuracy()
+    check_loss_spike()
+    check_loss_accuracy()
 
 
-class TestCaseTrain16GPUWith8DP2PP:
-    """
-    Test cases for Model Training with 16 GPUs.
-    Parallel Config:
-        data parallel size = 8.
-        pipeline parallel size = 2.
-    """
+@pytest.mark.training_16GPU_8DP2PP
+def test_training_loss_with_dp8_pp2():
+    # model training
+    train(dp_size=8, pp_size=2)
 
-    @staticmethod
-    def setup_class():
-        # update config pipeline parallel size
-        command = f"sed -i 's/^.*pipeline=.*/    pipeline=dict(size=2),/' {CONFIG_FILE_PATH}"
-        subprocess.run(command, shell=True, check=True)
-        command = f"sed -i 's/^.*tensor=.*/    tensor=1,/' {CONFIG_FILE_PATH}"
-        subprocess.run(command, shell=True, check=True)
+    # print loss value
+    print(f"cur_loss_list: {cur_loss_list}", flush=True)
 
-        # model training
-        train()
-
-        # print loss value
-        print(f"cur_loss_list: {cur_loss_list}", flush=True)
-
-    @staticmethod
-    @pytest.mark.training_16GPU_8DP2PP
-    def test_loss_spike_with_dp8_pp2():
-        check_loss_spike()
-
-    @staticmethod
-    @pytest.mark.training_16GPU_8DP2PP
-    def test_loss_accuracy_with_dp8_pp2():
-        check_loss_accuracy()
+    check_loss_spike()
+    check_loss_accuracy()
 
 
-class TestCaseTrain16GPUWith8DP2PPInterleaved:
-    """
-    Test cases for Model Training with 16 GPUs.
-    Parallel Config:
-        data parallel size = 8.
-        pipeline parallel size = 2.
-        interleaved scheduler = True.
-    """
+@pytest.mark.training_16GPU_8DP2PP_InterleavedOverlap
+def test_training_loss_with_dp8_pp2_interleaved_overlap():
+    # model training
+    train(dp_size=8, pp_size=2, interleaved=True)
 
-    @staticmethod
-    def setup_class():
-        # update config pipeline parallel size
-        command = f"sed -i 's/^.*pipeline=.*/    pipeline=dict(size=2),/' {CONFIG_FILE_PATH}"
-        subprocess.run(command, shell=True, check=True)
-        command = f"sed -i 's/^.*num_chunks=.*/    num_chunks=2,/' {CONFIG_FILE_PATH}"
-        subprocess.run(command, shell=True, check=True)
-        command = f"sed -i 's/^.*tensor=.*/    tensor=1,/' {CONFIG_FILE_PATH}"
-        subprocess.run(command, shell=True, check=False)
+    # print loss value
+    print(f"cur_loss_list: {cur_loss_list}", flush=True)
 
-        # model training
-        train()
-
-        # print loss value
-        print(f"cur_loss_list: {cur_loss_list}", flush=True)
-
-    @staticmethod
-    @pytest.mark.training_16GPU_8DP2PP_Interleaved
-    def test_loss_spike_with_dp8_pp2_interleaved():
-        check_loss_spike()
-
-    @staticmethod
-    @pytest.mark.training_16GPU_8DP2PP_Interleaved
-    def test_loss_accuracy_with_dp8_pp2_interleaved():
-        check_loss_accuracy()
-
-
-class TestCaseTrain16GPUWith8DP2PPInterleavedOverlap:
-    """
-    Test cases for Model Training with 16 GPUs.
-    Parallel Config:
-        data parallel size = 8.
-        pipeline parallel size = 2.
-        interleaved scheduler = True.
-        interleaved overlap = True.
-    """
-
-    @staticmethod
-    def setup_class():
-        # update config pipeline parallel size
-        command = f"sed -i 's/^.*pipeline=.*/    pipeline=dict(size=2, interleaved_overlap=True),/' {CONFIG_FILE_PATH}"
-        subprocess.run(command, shell=True, check=True)
-        command = f"sed -i 's/^.*num_chunks=.*/    num_chunks=2,/' {CONFIG_FILE_PATH}"
-        subprocess.run(command, shell=True, check=True)
-        command = f"sed -i 's/^.*tensor=.*/    tensor=1,/' {CONFIG_FILE_PATH}"
-        subprocess.run(command, shell=True, check=True)
-
-        # model training
-        train()
-
-        # print loss value
-        print(f"cur_loss_list: {cur_loss_list}", flush=True)
-
-    @staticmethod
-    @pytest.mark.training_16GPU_8DP2PP_InterleavedOverlap
-    def test_loss_spike_with_dp8_pp2_interleaved_overlap():
-        check_loss_spike()
-
-    @staticmethod
-    @pytest.mark.training_16GPU_8DP2PP_InterleavedOverlap
-    def test_loss_accuracy_with_dp8_pp2_interleaved_overlap():
-        check_loss_accuracy()
+    check_loss_spike()
+    check_loss_accuracy()

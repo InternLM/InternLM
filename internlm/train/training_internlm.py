@@ -1,13 +1,22 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
+import functools
 import time
 from functools import partial
 from typing import Callable, Iterable, Union
 
 import torch
 import torch.distributed as dist
+from flash_attn.modules.embedding import ParallelGPT2Embeddings
+from flash_attn.modules.mlp import ParallelFusedMLP
 from torch import nn
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.distributed.fsdp.fully_sharded_data_parallel import (
+    BackwardPrefetch,
+    ShardingStrategy,
+)
+from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 from torch.utils.data import ConcatDataset, DataLoader
 
 from internlm.core.context import ParallelMode
@@ -25,23 +34,29 @@ from internlm.data.packed_dataset import (
     get_packed_dataset_without_short_length,
 )
 from internlm.data.utils import DATASET_TYPE_IDS_MAP, unpack_data
+from internlm.model.embedding import Embedding1D
+from internlm.model.linear import (
+    FeedForward,
+    RewardModelLinear,
+    ScaleColumnParallelLinear,
+)
+from internlm.model.multi_head_attention import MHA
+from internlm.model.utils import try_import_RMSNorm
 from internlm.monitor import send_heartbeat, set_env_var
 from internlm.monitor.monitor import monitor_manager as mm
 from internlm.solver.beta2_scheduler import Beta2Scheduler
 from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
-from internlm.solver.optimizer import HybridZeroOptimizer
+from internlm.solver.optimizer import FSDPadaptOptimizer, HybridZeroOptimizer
 from internlm.solver.optimizer.utils import ParamBcastSyncHandler
+from internlm.train.utils import create_param_groups
 from internlm.utils.common import DummyProfile
 from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
-from internlm.utils.parallel import (
-    is_no_pp_or_last_stage,
-    sync_model_param,
-    sync_model_param_within_tp,
-)
+from internlm.utils.parallel import sync_model_param, sync_model_param_within_tp
 from internlm.utils.registry import MODEL_INITIALIZER
 from internlm.utils.timeout import llm_timeout
 
+RMSNorm = try_import_RMSNorm()
 logger = get_logger(__file__)
 
 
@@ -71,7 +86,7 @@ def initialize_model():
     else:
         model = NaiveAMPModel(
             model=model,
-            output_to_fp32=is_no_pp_or_last_stage(),
+            output_to_fp32=gpc.is_no_pp_or_last_stage(),
             dtype=gpc.config.model.get("dtype", torch.half),
             sync_buffer=False,
         )
@@ -79,7 +94,7 @@ def initialize_model():
     # This sync is very important, cause the model weights kept in optimizer are copied
     # from the origin parameters in the memory, so we should make sure the dp sync
     # does not influence the model weights in optimizer be different with the origin parameters.
-    sync_model_param(model, parallel_mode=ParallelMode.DATA)
+    sync_model_param(model)
 
     # This function is needed to make sure parameters that are not splitted by tensor parallelism are
     # the same across tensor parallelism.
@@ -88,6 +103,42 @@ def initialize_model():
     # Change random state mode to ParallelMode.DATA after model is built, guaranteeing the random
     # state in the same dp group are all the same.
     set_mode(ParallelMode.DATA)
+
+    # if fsdp enabled, wrap the model
+    model = wrap_FSDP_model(model)
+
+    return model
+
+
+def wrap_FSDP_model(model: Union[nn.Module, nn.ModuleList]):
+    if gpc.config.parallel.zero1.fsdp:
+        # set wrap_policy for fsdp wrap
+        transformer_wrap_policy = functools.partial(
+            transformer_auto_wrap_policy,
+            transformer_layer_cls={
+                Embedding1D,
+                ParallelGPT2Embeddings,
+                MHA,
+                RMSNorm,
+                FeedForward,
+                ParallelFusedMLP,
+                RewardModelLinear,
+                ScaleColumnParallelLinear,
+            },
+        )
+
+        # wrap the model
+        grp = gpc.get_group(ParallelMode.ZERO1)
+        model = FSDP(
+            module=model,
+            process_group=grp,
+            sharding_strategy=ShardingStrategy.FULL_SHARD,
+            auto_wrap_policy=transformer_wrap_policy,
+            forward_prefetch=True,
+            backward_prefetch=BackwardPrefetch.BACKWARD_PRE,
+            limit_all_gathers=True,
+            use_orig_params=True,
+        )
 
     return model
 
@@ -109,19 +160,27 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
         param_bcast_sync_handler = None
 
     adam_cfg = gpc.config.adam
+    params = create_param_groups(model, adam_cfg.weight_decay)
     naive_optimizer = torch.optim.AdamW(
-        params=[{"params": model.parameters(), "weight_decay": adam_cfg.weight_decay}],
+        params=params,
         lr=adam_cfg.lr,
         betas=(adam_cfg.adam_beta1, adam_cfg.adam_beta2),
         eps=adam_cfg.adam_eps,
     )
 
-    optimizer = HybridZeroOptimizer(
-        naive_optimizer,
-        grad_scal_cfg=gpc.config.grad_scaler,
-        zero_cfg=gpc.config.hybrid_zero_optimizer,
-        param_bcast_sync_handler=param_bcast_sync_handler,
-    )
+    if not gpc.config.parallel.zero1.fsdp:
+        optimizer = HybridZeroOptimizer(
+            naive_optimizer,
+            grad_scal_cfg=gpc.config.grad_scaler,
+            zero_cfg=gpc.config.hybrid_zero_optimizer,
+            param_bcast_sync_handler=param_bcast_sync_handler,
+        )
+    else:
+        optimizer = FSDPadaptOptimizer(
+            naive_optimizer,
+            grad_scal_cfg=gpc.config.grad_scaler,
+            zero_cfg=gpc.config.hybrid_zero_optimizer,
+        )
 
     beta2_scheduler = Beta2Scheduler(optimizer=naive_optimizer, **gpc.config.beta2_scheduler)
 
@@ -344,6 +403,7 @@ def record_current_batch_training_metrics(
     trainer,
     start_time,
     loss,
+    moe_loss,
     grad_norm,
     metric,
     update_panel,
@@ -357,7 +417,7 @@ def record_current_batch_training_metrics(
     timer.store_last_timers()
     if success_update in (0, True):
         train_state.num_consumed_tokens += batch[1].nelement() * gpc.get_world_size(ParallelMode.DATA)
-    if is_no_pp_or_last_stage():
+    if gpc.is_no_pp_or_last_stage():
         acc_perplex = metric.get_metric()
 
     if success_update and gpc.is_rank_for_log():
@@ -428,7 +488,7 @@ def record_current_batch_training_metrics(
         infos = {
             "tflops": tflops,
             "step": batch_count,
-            "loss": loss.item(),
+            "loss": loss.item() - moe_loss.item() if moe_loss is not None else loss.item(),
             "tgs (tokens/gpu/second)": tgs_origin,
             "tgs/last_tgs_1": last_tgs_1,
             "tgs/tgs_all": tgs_all,
@@ -440,6 +500,8 @@ def record_current_batch_training_metrics(
             "loss_scale": scaler,
             "grad_norm": grad_norm,
         }
+        if moe_loss is not None:
+            infos["moe_loss"] = moe_loss.item()
 
         infos["micro_num"] = len(batch[1])
         infos["num_consumed_tokens"] = train_state.num_consumed_tokens
@@ -473,13 +535,15 @@ def record_current_batch_training_metrics(
                 "step": batch_count,
                 "lr": lr,
                 "num_consumed_tokens": train_state.num_consumed_tokens,
-                "loss": loss.item(),
+                "loss": loss.item() - moe_loss.item() if moe_loss is not None else loss.item(),
                 "flops": tflops,
                 "tgs": last_tgs_1,
                 "acc": acc_perplex["acc"],
                 "perplexity": acc_perplex["perplexity"],
                 "fwd_bwd_time": fwd_bwd_time,
             }
+            if moe_loss is not None:
+                panel_metrics["moe_loss"] = moe_loss.item()
             for norm_key, norm_value in grad_norm.items():
                 panel_metrics[norm_key] = norm_value
 

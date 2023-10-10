@@ -133,7 +133,7 @@ ZeRO1.5 的实现使用了分层分片的概念，通过配置值 ``parallel.zer
 
     hybrid_zero_optimizer = dict(
         # Enable low_level_optimzer overlap_communication
-        overlap_sync_grad=True,  
+        overlap_sync_grad=True,
         overlap_sync_param=True,
         # bucket size for nccl communication params
         reduce_bucket_size=512 * 1024 * 1024,

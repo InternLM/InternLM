@@ -2,6 +2,7 @@
 # -*- encoding: utf-8 -*-
 
 import argparse
+import gc
 import os
 from pathlib import Path
 from typing import Dict, Union
@@ -14,6 +15,16 @@ from internlm.monitor import initialize_light_monitor
 from internlm.utils.common import get_master_node
 from internlm.utils.logger import get_logger
 from internlm.utils.timeout import llm_timeout
+
+# check package
+try:
+    import numa
+    from numa import memory, schedule
+    from pynvml.smi import nvidia_smi
+except (AttributeError, ImportError):
+    get_numa = False
+else:
+    get_numa = True
 
 logger = get_logger(__file__)
 
@@ -54,13 +65,35 @@ def args_sanity_check():
 
     # procssing the parallel config in gpc
     if "zero1" not in gpc.config.parallel:
-        gpc.config.parallel._add_item("zero1", -1)
+        gpc.config.parallel._add_item("zero1", dict(size=-1, fsdp=False))
+
+    if isinstance(gpc.config.parallel.zero1, int):
+        zero1_size = gpc.config.parallel.zero1
+        gpc.config.parallel._add_item("zero1", dict(size=zero1_size, fsdp=False))
 
     if "pipeline" not in gpc.config.parallel:
-        gpc.config.parallel._add_item("pipeline", 1)
+        gpc.config.parallel._add_item("pipeline", dict(size=1, interleaved_overlap=False))
 
     if "tensor" not in gpc.config.parallel:
         gpc.config.parallel._add_item("tensor", 1)
+
+    if isinstance(gpc.config.parallel.pipeline, int):
+        pp = gpc.config.parallel.pipeline
+    else:
+        pp = gpc.config.parallel.pipeline.size
+
+    # check fsdp config
+    if "fsdp" not in gpc.config.parallel.zero1:
+        gpc.config.parallel.zero1._add_item("fsdp", False)
+
+    assert not (
+        gpc.config.parallel.zero1.fsdp and pp > 1
+    ), "FSDP is not supportted when pipeline size > 1, please set pipeline size to 1 or disabled FSDP"
+
+    if gpc.config.parallel.zero1.fsdp:
+        assert (
+            torch.__version__ >= "2.0.1"
+        ), f"requires torch>=2.0.1 when using fsdp but current version is {torch.__version__}"
 
     # processing the data config in gpc
     data = gpc.config.data
@@ -253,6 +286,17 @@ def args_sanity_check():
     if "use_flash_attn" not in gpc.config.model:
         gpc.config.model._add_item("use_flash_attn", True)
 
+    if "MoE" in gpc.config.get("model_type", "INTERNLM"):
+        if "num_experts" not in model:
+            model._add_item("num_experts", 1)
+        if "moe_use_residual" not in model:
+            model._add_item("moe_use_residual", False)
+        if "moe_gate_k" not in model:
+            model._add_item("moe_gate_k", 2)
+        assert not (
+            gpc.config.model.num_experts > 1 and gpc.config.parallel.zero1.fsdp
+        ), "FSDP does not support num_experts > 1"
+
     # process the parallel config
     if "sequence_parallel" not in gpc.config.parallel:
         gpc.config.parallel._add_item("sequence_parallel", False)
@@ -296,6 +340,16 @@ def args_sanity_check():
         logger.info(
             f"overlap_sync_grad:{optim_ckpt.overlap_sync_grad}, overlap_sync_param:{optim_ckpt.overlap_sync_param}"
         )
+
+    if "moe_loss_coeff" not in gpc.config.loss:
+        gpc.config.loss._add_item("moe_loss_coeff", 1.0)
+
+    # moe not support overlap and zero1.5 for now
+    if hasattr(gpc.config.model, "num_experts"):
+        assert (
+            not optim_ckpt.overlap_sync_grad & optim_ckpt.overlap_sync_param
+        ), "not support overlap and moe at the same time"
+        assert gpc.config.parallel.zero1 == -1, "moe only support zero1, set zero1=-1 can fix this"
 
 
 def launch(
@@ -359,6 +413,12 @@ def launch(
             f"data parallel size: {gpc.data_parallel_size}, pipeline parallel size: {gpc.pipeline_parallel_size}, "
             f"tensor parallel size: {gpc.tensor_parallel_size}",
         )
+        if hasattr(gpc.config.model, "num_experts") and gpc.config.model.num_experts > 1:
+            logger.info(
+                f"Creating MoE with num_experts: {gpc.config.model.num_experts} | "
+                f"expert parallel size: {gpc.expert_parallel_size} | "
+                f"number of local experts: {gpc.config.model.num_experts//gpc.expert_parallel_size}"
+            )
 
 
 def launch_from_slurm(
@@ -383,6 +443,8 @@ def launch_from_slurm(
         world_size = int(os.environ["SLURM_NPROCS"])
     except KeyError as e:
         raise RuntimeError(f"Could not find {e} in the SLURM environment")
+
+    try_bind_numa(global_rank=rank, world_size=world_size)
 
     launch(
         config=config,
@@ -417,6 +479,8 @@ def launch_from_torch(
     except KeyError as e:
         raise RuntimeError(f"Could not find {e} in the torch environment")
 
+    try_bind_numa(global_rank=rank, world_size=world_size, local_rank=local_rank)
+
     launch(
         config=config,
         local_rank=local_rank,
@@ -447,6 +511,9 @@ def initialize_distributed_env(
         seed (int, optional): Specified random seed for every process. 1024 by default.
     """
 
+    # close automatic garbage collection
+    gc.disable()
+
     torch.cuda.empty_cache()
 
     if launcher == "torch":
@@ -465,13 +532,14 @@ def initialize_distributed_env(
         args_sanity_check()
 
     # init light monitor client
-    alert_config = gpc.config.monitor.alert
-    if alert_config.enable_feishu_alert and gpc.is_rank_for_log():
-        light_monitor_address = alert_config.light_monitor_address
-        if light_monitor_address:
-            initialize_light_monitor(light_monitor_address)
-        else:
-            logger.warning("monitor address is none, monitor could not be used!")
+    if gpc.config.get("monitor") and gpc.config.monitor.get("alert"):
+        alert_config = gpc.config.monitor.alert
+        if alert_config.enable_feishu_alert and gpc.is_rank_for_log():
+            light_monitor_address = alert_config.light_monitor_address
+            if light_monitor_address:
+                initialize_light_monitor(light_monitor_address)
+            else:
+                logger.warning("monitor address is none, monitor could not be used!")
 
 
 def get_config_value(config, key, defalut):
@@ -480,3 +548,45 @@ def get_config_value(config, key, defalut):
     except KeyError:
         value = defalut
     return value
+
+
+def try_bind_numa(global_rank, world_size, local_rank=None):
+    # Early return if numa module not available
+    if not get_numa:
+        if global_rank == 0:
+            logger.info(
+                "Try bind numa failed! Package import error, if numa is not installed, "
+                "please implement: pip install --upgrade py-libnuma, Ref: https://pypi.org/project/py-libnuma/"
+            )
+
+    # get numa node number
+    try:
+        numa_node_num = numa.info.get_max_node() + 1
+        # get total gpu number of current node
+        nvsmi = nvidia_smi.getInstance()
+        total_GPU_per_node = len(nvsmi.DeviceQuery("memory.total")["gpu"])
+
+        # return while total_GPU_per_node is larger than numa_node_num or is not divisible by numa_node_num
+        if total_GPU_per_node <= numa_node_num:
+            return
+        if total_GPU_per_node % numa_node_num != 0:
+            return
+        # return while the number of processes is smaller than one node GPUs num
+        if world_size < total_GPU_per_node:
+            return
+
+        if local_rank is None:
+            devices_per_node = torch.cuda.device_count()
+            local_rank = global_rank % devices_per_node
+
+        # compute numa id for each locak rank
+        per_numa = total_GPU_per_node // numa_node_num
+        numa_id = local_rank // per_numa
+
+        # bind numa node
+        schedule.run_on_nodes(numa_id)
+        memory.set_membind_nodes(numa_id)
+    except Exception:
+        return  # try_bind_numa should not raise exception
+    else:
+        logger.info(f"Rank: {global_rank} success bind process to numa node: {numa_id}")

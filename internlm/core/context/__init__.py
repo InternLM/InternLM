@@ -11,6 +11,7 @@ from .process_group_initializer import (
     Initializer_Pipeline,
     Initializer_Tensor,
     Initializer_Zero1,
+    Initializer_Zero3_dp,
     ParallelMode,
     ProcessGroupInitializer,
 )
@@ -36,6 +37,7 @@ __all__ = [
     "Initializer_Data",
     "Initializer_Zero1",
     "Initializer_Nettest",
+    "Initializer_Zero3_dp",
     "ProcessGroupInitializer",
     "Initializer_Model",
     "seed",

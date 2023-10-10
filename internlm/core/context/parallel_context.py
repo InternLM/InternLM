@@ -145,13 +145,19 @@ class ParallelContext(metaclass=SingletonMeta):
         self.tensor_parallel_size = 1
         self.zero1_parallel_size = -1
         self.nettest_parallel_size = 1
+        self.expert_parallel_size = -1
         self.num_processes_on_current_node = -1
         self.virtual_pipeline_parallel_size = None
         self.virtual_pipeline_parallel_rank = None
+        self._expert_parallel_group_names = []
 
     @property
     def config(self):
         return self._config
+
+    @property
+    def expert_parallel_group_names(self):
+        return self._expert_parallel_group_names
 
     def load_config(self, config: Union[dict, str]):
         """Loads the configuration from either a dict or a file.
@@ -322,6 +328,9 @@ class ParallelContext(metaclass=SingletonMeta):
                 return False
         return self.is_last_rank(ParallelMode.PIPELINE)
 
+    def is_no_pp_or_last_stage(self):
+        return not self.is_initialized(ParallelMode.PIPELINE) or self.is_pipeline_last_stage()
+
     def get_world_size(self, parallel_mode: ParallelMode):
         """Returns the world size for `parallel_mode`.
 
@@ -423,6 +432,16 @@ class ParallelContext(metaclass=SingletonMeta):
         assert self.zero1_parallel_size > 0
         assert self.data_parallel_size % self.zero1_parallel_size == 0
 
+        # check for fsdp:
+        # if zo_size < dp_size, ckpts saving will introduce redundent storage for model weights
+        # because pytorch "ShardTensor" need to ensure current global rank equals to saved shard's global rank
+        # pytorch vision: 1.13.1+cu117
+        if self.data_parallel_size > self.zero1_parallel_size and self.config.parallel.zero1.get("fsdp", False):
+            logger.warning(
+                f"zo size: {self.zero1_parallel_size} < dp size: {self.data_parallel_size}, "
+                "will introduce redundancy when saving fsdp model ckpts, recommend setting them to same value"
+            )
+
     def _set_parallel_size_from_config(self, config: dict, key: str, attr_name: str):
         if key in config:
             ele = config[key]
@@ -460,6 +479,16 @@ class ParallelContext(metaclass=SingletonMeta):
         if self.zero1_parallel_size <= 0:
             self.zero1_parallel_size = self.data_parallel_size
 
+        assert (
+            self.data_parallel_size % self.config.model.get("num_experts", 1) == 0
+            or self.config.model.get("num_experts", 1) % self.data_parallel_size == 0
+        ), "can not place the experts evenly"
+
+        # by default, expert_parallel_size equals to data_parallel_size, but if the number of experts is smaller
+        # than data_parallel_size, set expert_parallel_size to be the number of experts to make sure each device
+        # has one expert.
+        self.expert_parallel_size = min(self.data_parallel_size, self.config.model.get("num_experts", 1))
+
         self.check_sanity()
 
         initializer_args = [
@@ -470,6 +499,7 @@ class ParallelContext(metaclass=SingletonMeta):
             self.tensor_parallel_size,
             self.zero1_parallel_size,
             self.nettest_parallel_size,
+            self.expert_parallel_size,
         ]
 
         # run initialization of different process groups
@@ -478,9 +508,13 @@ class ParallelContext(metaclass=SingletonMeta):
         initializers.append(pgroup_initializer.Initializer_Model(*initializer_args))
         initializers.append(pgroup_initializer.Initializer_Tensor(*initializer_args))
         initializers.append(pgroup_initializer.Initializer_Zero1(*initializer_args))
+        if isinstance(self.config.parallel.zero1, dict) and self.config.parallel.zero1.get("fsdp", False):
+            initializers.append(pgroup_initializer.Initializer_Zero3_dp(*initializer_args))
         initializers.append(pgroup_initializer.Initializer_Nettest(*initializer_args))
         if self.pipeline_parallel_size > 1:
             initializers.append(pgroup_initializer.Initializer_Pipeline(*initializer_args))
+        if self.config.model.get("num_experts", 1) > 1:
+            initializers.append(pgroup_initializer.Initializer_Expert_Data(*initializer_args))
         for initializer in initializers:
             parallel_setting = initializer.init_dist_group()
             if isinstance(parallel_setting, list):
@@ -549,7 +583,8 @@ class ParallelContext(metaclass=SingletonMeta):
         # during model construction), this is because the random state will be different in different tensor parallel
         # device of the same data parallel group. The underlying reason is that the device of tp_rank = 0 will perform
         # additional random operations during the RowParallelLinear module building process.
-        set_mode(ParallelMode.DUMMY)
+        # set_mode(ParallelMode.DUMMY)
+        set_mode(ParallelMode.TENSOR)
 
         seeds = get_seeds()
         seed_str = ", ".join([f"{k}: {v}" for k, v in seeds.items()])

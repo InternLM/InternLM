@@ -33,16 +33,24 @@ class BucketStore(BaseStore):
     Bucket Store
     """
 
-    def __init__(self, dp_parallel_mode):
+    def __init__(self, group_id, dp_parallel_mode):
         super().__init__(dp_parallel_mode)
         self._grads = dict()
         self._params = dict()
         self._num_elements_in_bucket = dict()
+        self._dp_parallel_mode = dp_parallel_mode
+        self._group_id = group_id
 
         self.reset()
 
     def num_elements_in_bucket(self, reduce_rank: int = None):
         return self._num_elements_in_bucket[reduce_rank]
+
+    def get_param_group_id(self):
+        return self._group_id
+
+    def get_dp_parallel_mode(self):
+        return self._dp_parallel_mode
 
     def add_num_elements_in_bucket(self, num_elements, reduce_rank: int = None):
         self._num_elements_in_bucket[reduce_rank] += num_elements
@@ -177,20 +185,6 @@ class ParameterStore(BaseStore):
         :type tensor: torch.Tensor
         """
         return self._fp16_param_to_rank[tensor]
-
-    def belongs_to_current_rank(self, tensor) -> bool:
-        """
-        Check whether a parameter is supposed to be updated by the process of the current rank
-
-        :param tensor: A :class:`torch.Tensor` object
-        :type tensor: torch.Tensor
-
-        :return: True if the parameter should be updated by the current rank. Otherwise false.
-        :rtype: bool
-        """
-
-        tensor_rank = self._fp16_param_to_rank[tensor]
-        return tensor_rank == self._local_rank
 
     def add_fp16_param_list_by_rank_group(self, rank, group_id, tensor_list) -> None:
         if rank not in self._rank_groupid_to_fp16_param_list:

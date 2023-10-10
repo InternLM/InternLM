@@ -59,6 +59,7 @@ init_config = Config(
 def init_naive_model():
     # let MODEL_INITIALIZER to work
     import internlm.model.modeling_internlm  # noqa # pylint: disable=unused-import
+    import internlm.model.modeling_moe  # noqa # pylint: disable=unused-import
     from internlm.core.naive_amp import NaiveAMPModel
     from internlm.utils.registry import MODEL_INITIALIZER
 
