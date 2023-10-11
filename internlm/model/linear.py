@@ -11,7 +11,8 @@ from torch import nn
 
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
-from internlm.model.utils import Silu, fstp_fused_dense_func, fused_dense_func_torch
+from internlm.core.naive_amp import NaiveAMPModel
+from internlm.model.utils import Silu, fstp_fused_dense_func, fused_dense_func_torch, all_gather_raw
 
 
 class ScaleColumnParallelLinear(nn.Linear):
@@ -211,8 +212,7 @@ class FeedForward(nn.Module):
 
 class FSTPLinear(ColumnParallelLinear):
     def forward(self, x):
-        import pdb; pdb.set_trace()
-        return fstp_fused_dense_func(x, self.weight, self.bias, process_group=self.process_group)
+        return fstp_fused_dense_func(x, self.weight, self.bias, process_group=self.process_group, module=self, handler=gpc.config.fstp_handler)
 
 
 class FSTPFeedForward(nn.Module):
@@ -287,6 +287,7 @@ class FSTPAllGatherSyncHandler:
     
     def __init__(self, model: Union[nn.Module, nn.ModuleList], process_group) -> None:
         
+        # import pdb; pdb.set_trace()
         self.process_group = process_group
         self.FSTP_modules = []
         self.module_name = ["Wqkv", "out_proj", "w1", "w2", "w3"]
@@ -306,19 +307,21 @@ class FSTPAllGatherSyncHandler:
             
             for _, children in _chunk.named_children():
                 if isinstance(children, nn.ModuleList):
-                    for _, block in enumerate(children):
+                    for idx, block in enumerate(children):
                         index = 0
-                        sub_modules = list(block.children())
-                        if len(sub_modules) > 0:
-                            for name, child in block.named_children():
-                                if isinstance(child, FSTPLinear):
-                                    self.FSTP_modules.append(child)
-                                    self.module_block[child] = _
-                                    self.block_module[_][index] = child
-                                    self.module_name_index[child] = index
-                                    index = index + 1
-                        else:
-                            continue
+                        self.block_module[idx] = {}
+                        for _, sub in block.named_children():
+                            sub_modules = list(sub.children())
+                            if len(sub_modules) > 0:
+                                for name, child in sub.named_children():
+                                    if isinstance(child, FSTPLinear):
+                                        self.FSTP_modules.append(child)
+                                        self.module_block[child] = idx
+                                        self.block_module[idx][index] = child
+                                        self.module_name_index[child] = index
+                                        index = index + 1
+                            else:
+                                continue
         
     
     def _register_sync_parameters_hook(self) -> None:
@@ -326,27 +329,58 @@ class FSTPAllGatherSyncHandler:
         register pre_forward_hook and pre_backward_hook for FSTPLinear.
         """
         
-        def _hook(module: nn.Module):
+        def _pre_forward_hook(module: nn.Module, inputs: Any):
             block_index = self.module_block[module]
             name_index = self.module_name_index[module]
             if name_index == 0:
+                total_weight, weight_handler = all_gather_raw(module.weight, self.process_group, async_op=True)
+                weight_handler.wait()
+                self.FSTP_global_weights[module] = total_weight
+                
+                # start the all-gather for next module
                 next_module = self.block_module[block_index][name_index + 1]
-                self.FSTP_global_weights, weights_handler = all_gather_raw(next_module.weight, self.process_group, async_op=True)
+                self.FSTP_global_weights[next_module], weights_handler = all_gather_raw(next_module.weight, self.process_group, async_op=True)
                 self.module_handler[next_module] = weights_handler
             else:
                 handler = self.module_handler[module]
                 handler.wait()
                 if name_index != 4:
                     next_module = self.block_module[block_index][name_index + 1]
-                    self.FSTP_global_weights, weights_handler = all_gather_raw(next_module.weight, self.process_group, async_op=True)
+                    self.FSTP_global_weights[next_module], weights_handler = all_gather_raw(next_module.weight, self.process_group, async_op=True)
                     self.module_handler[next_module] = weights_handler
         
-        def _pre_forward_hook(module: nn.Module, inputs: Any):
-            _hook(module)
+        def _post_forward_hook(module: nn.Module, input, output):
+            del self.FSTP_global_weights[module]
+            del self.module_handler[module]
 
         def _pre_backward_hook(module: nn.Module, grad_input, grad_output):
-            _hook(module)
+            block_index = self.module_block[module]
+            name_index = self.module_name_index[module]
+            if name_index == 4:
+                total_weight, weight_handler = all_gather_raw(module.weight, self.process_group, async_op=True)
+                weight_handler.wait()
+                self.FSTP_global_weights[module] = total_weight
+                
+                # start the all-gather for next module
+                next_module = self.block_module[block_index][name_index - 1]
+                self.FSTP_global_weights[next_module], weights_handler = all_gather_raw(next_module.weight, self.process_group, async_op=True)
+                self.module_handler[next_module] = weights_handler
+            else:
+                handler = self.module_handler[module]
+                handler.wait()
+                if name_index != 0:
+                    next_module = self.block_module[block_index][name_index - 1]
+                    self.FSTP_global_weights[next_module], weights_handler = all_gather_raw(next_module.weight, self.process_group, async_op=True)
+                    self.module_handler[next_module] = weights_handler
+        
+        def _post_backward_hook(module, grad_input, grad_output):
+            del self.FSTP_global_weights[module]
         
         for module in self.FSTP_modules:
+            # import pdb; pdb.set_trace()
             module.register_forward_pre_hook(_pre_forward_hook)
-            module.register_backward_pre_hook(_pre_backward_hook)
+            module.register_forward_hook(_post_forward_hook)
+            # module.register_backward_pre_hook(_pre_backward_hook)
+            # module.register_backward_hook(_post_backward_hook)
+            module.register_module_full_backward_pre_hook(_pre_backward_hook)
+            

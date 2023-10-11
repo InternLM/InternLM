@@ -283,11 +283,13 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
 
     @staticmethod
     @custom_fwd
-    def forward(ctx, x, weight, bias, return_residual=False, process_group=None):
+    def forward(ctx, x, weight, bias, return_residual=False, process_group=None, module=None, all_gather_handler=None):
 
         ctx.compute_weight_gradient = weight.requires_grad
         ctx.return_residual = return_residual
         ctx.process_group = process_group
+        ctx.all_gather_handler = all_gather_handler
+        ctx.module = module
 
         if torch.is_autocast_enabled():
             x = x.to(dtype=torch.get_autocast_gpu_dtype())
@@ -295,14 +297,16 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
 
         world_size = gpc.get_world_size(ParallelMode.TENSOR)
         if world_size > 1:
-            # do all_gather for weight and bias before actual computation
-            total_weight, handle_weight = all_gather_raw(weight, process_group, async_op=True)
-            if bias is not None:
-                total_bias, handle_bias = all_gather_raw(bias, process_group, async_op=True)
-                handle_bias.wait()
-            else:
-                total_bias = bias
-            handle_weight.wait()
+            total_weight = all_gather_handler.FSTP_global_weights[module]
+            total_bias = bias
+            # # do all_gather for weight and bias before actual computation
+            # total_weight, handle_weight = all_gather_raw(weight, process_group, async_op=True)
+            # if bias is not None:
+            #     total_bias, handle_bias = all_gather_raw(bias, process_group, async_op=True)
+            #     handle_bias.wait()
+            # else:
+            #     total_bias = bias
+            # handle_weight.wait()
         else:
             total_weight = weight
             total_bias = bias
@@ -332,6 +336,8 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
             (grad_input,) = args
             grad_input = grad_input.contiguous()
         process_group = ctx.process_group
+        all_gather_handler = ctx.all_gather_handler
+        module = ctx.module
         if ctx.compute_weight_gradient:
             x, weight = ctx.saved_tensors
             total_x = x
@@ -345,8 +351,9 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
         world_size = gpc.get_world_size(ParallelMode.TENSOR)
         if world_size > 1:
             # do all-gather for weight before backward
-            total_weight, handle_weight = all_gather_raw(weight, process_group, async_op=True)
-            handle_weight.wait()
+            # total_weight, handle_weight = all_gather_raw(weight, process_group, async_op=True)
+            # handle_weight.wait()
+            total_weight = all_gather_handler.FSTP_global_weights[module]
         else:
             total_weight = weight
         
@@ -379,7 +386,7 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
                 handle_grad_weight.wait()
                 if grad_bias is not None:
                     handle_grad_bias.wait()
-        return grad_input, grad_weight, grad_bias, None, None
+        return grad_input, grad_weight, grad_bias, None, None, None, None
 
 
 def fused_dense_func_torch(
@@ -401,13 +408,13 @@ def fused_dense_func_torch(
 
 
 def fstp_fused_dense_func(
-    x: Tensor, weight: Tensor, bias: Optional[Tensor] = None, return_residual: bool = False, process_group=None
+    x: Tensor, weight: Tensor, bias: Optional[Tensor] = None, return_residual: bool = False, process_group=None, module=None, handler=None
 ):
     dtype_eligible = x.dtype in [torch.float16, torch.bfloat16] or (
         x.dtype == torch.float32 and torch.is_autocast_enabled()
     )
     if x.is_cuda and weight.is_cuda and (bias is None or bias.is_cuda) and dtype_eligible:
-        return FSTPFusedDenseFunc.apply(x, weight, bias, return_residual, process_group)
+        return FSTPFusedDenseFunc.apply(x, weight, bias, return_residual, process_group, module, handler)
     else:
         assert process_group is None
         out = F.linear(x, weight, bias)
