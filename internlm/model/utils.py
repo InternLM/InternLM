@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-from typing import Optional
+from typing import Any, Optional, Union
 
 import fused_dense_lib as fused_dense_cuda
 import torch
@@ -379,7 +379,7 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
                 handle_grad_weight.wait()
                 if grad_bias is not None:
                     handle_grad_bias.wait()
-        return grad_input, grad_weight, grad_bias, None, None, None
+        return grad_input, grad_weight, grad_bias, None, None
 
 
 def fused_dense_func_torch(
@@ -453,3 +453,5 @@ def Silu(w1_o, w2_o):
 
 
 Silu = torch.jit.script(Silu)
+
+

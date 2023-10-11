@@ -162,7 +162,7 @@ sequence parallel (bool): enable/disable sequence parallel, defaults to False.
 """
 parallel = dict(
     zero1=dict(size=1, fsdp=False),
-    tensor=dict(size=8, mode='fstp'), # the mode should be 'origin_tp' or 'fstp'. if the mode is 'fstp', the sequence_parallel should be True
+    tensor=dict(size=2, mode='fstp'), # the mode should be 'origin_tp' or 'fstp'. if the mode is 'fstp', the sequence_parallel should be True
     pipeline=dict(size=1, interleaved_overlap=True),
     sequence_parallel=True,
 )
