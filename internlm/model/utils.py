@@ -284,7 +284,6 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
     @staticmethod
     @custom_fwd
     def forward(ctx, x, weight, bias, return_residual=False, process_group=None, module=None, all_gather_handler=None):
-
         ctx.compute_weight_gradient = weight.requires_grad
         ctx.return_residual = return_residual
         ctx.process_group = process_group
@@ -297,16 +296,18 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
 
         world_size = gpc.get_world_size(ParallelMode.TENSOR)
         if world_size > 1:
-            total_weight = all_gather_handler.FSTP_global_weights[module]
-            total_bias = bias
-            # # do all_gather for weight and bias before actual computation
-            # total_weight, handle_weight = all_gather_raw(weight, process_group, async_op=True)
-            # if bias is not None:
-            #     total_bias, handle_bias = all_gather_raw(bias, process_group, async_op=True)
-            #     handle_bias.wait()
-            # else:
-            #     total_bias = bias
-            # handle_weight.wait()
+            # do all_gather for weight and bias before actual computation
+            if module in all_gather_handler.FSTP_global_weights:
+                total_weight = all_gather_handler.FSTP_global_weights[module]
+            else:
+                total_weight, handle_weight = all_gather_raw(weight, process_group, async_op=True)
+                handle_weight.wait()
+
+            if bias is not None:
+                total_bias, handle_bias = all_gather_raw(bias, process_group, async_op=True)
+                handle_bias.wait()
+            else:
+                total_bias = bias
         else:
             total_weight = weight
             total_bias = bias
@@ -351,12 +352,14 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
         world_size = gpc.get_world_size(ParallelMode.TENSOR)
         if world_size > 1:
             # do all-gather for weight before backward
-            # total_weight, handle_weight = all_gather_raw(weight, process_group, async_op=True)
-            # handle_weight.wait()
-            total_weight = all_gather_handler.FSTP_global_weights[module]
+            if module in all_gather_handler.FSTP_global_weights:
+                total_weight = all_gather_handler.FSTP_global_weights[module]
+            else:
+                total_weight, handle_weight = all_gather_raw(weight, process_group, async_op=True)
+                handle_weight.wait()
         else:
             total_weight = weight
-        
+
         # compute weight grad
         if ctx.needs_input_grad[1]:
             assert ctx.compute_weight_gradient
@@ -380,7 +383,7 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
             grad_input = grad_input.reshape(*batch_shape, grad_input.shape[-1])
         else:
             grad_input = None
-        
+
         if ctx.needs_input_grad[1]:
             if world_size > 1:
                 handle_grad_weight.wait()
@@ -408,7 +411,13 @@ def fused_dense_func_torch(
 
 
 def fstp_fused_dense_func(
-    x: Tensor, weight: Tensor, bias: Optional[Tensor] = None, return_residual: bool = False, process_group=None, module=None, handler=None
+    x: Tensor,
+    weight: Tensor,
+    bias: Optional[Tensor] = None,
+    return_residual: bool = False,
+    process_group=None,
+    module=None,
+    handler=None,
 ):
     dtype_eligible = x.dtype in [torch.float16, torch.bfloat16] or (
         x.dtype == torch.float32 and torch.is_autocast_enabled()
@@ -460,5 +469,3 @@ def Silu(w1_o, w2_o):
 
 
 Silu = torch.jit.script(Silu)
-
-

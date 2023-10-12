@@ -36,10 +36,11 @@ from internlm.data.packed_dataset import (
 from internlm.data.utils import DATASET_TYPE_IDS_MAP, unpack_data
 from internlm.model.embedding import Embedding1D
 from internlm.model.linear import (
+    CoarseGrainedFSTPAllGatherSyncHandler,
     FeedForward,
+    FSTPAllGatherSyncHandler,
     RewardModelLinear,
     ScaleColumnParallelLinear,
-    FSTPAllGatherSyncHandler,
 )
 from internlm.model.multi_head_attention import MHA
 from internlm.model.utils import try_import_RMSNorm
@@ -107,12 +108,13 @@ def initialize_model():
 
     # if fsdp enabled, wrap the model
     model = wrap_FSDP_model(model)
-    
+
     if gpc.config.parallel["tensor"]["mode"] == "fstp":
-        handler = FSTPAllGatherSyncHandler(model, gpc.get_group(ParallelMode.TENSOR))
+        handler = CoarseGrainedFSTPAllGatherSyncHandler(model, gpc.get_group(ParallelMode.TENSOR))
         handler._register_sync_parameters_hook()
         gpc.config.fstp_handler = handler
     return model
+
 
 def wrap_FSDP_model(model: Union[nn.Module, nn.ModuleList]):
     if gpc.config.parallel.zero1.fsdp:
