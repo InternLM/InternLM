@@ -494,11 +494,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         # Gradients may not be fully synchronized here.
 
     def _compute_norm_with_stage(
-        self,
-        group_id: int = 0,
-        last_bucket: bool = False,
-        last_stage: bool = False,
-        previous_norm=None,
+        self, group_id: int = 0, last_bucket: bool = False, last_stage: bool = False, previous_layer_norms=None
     ):
         # compute norm for gradients that have been reduced
         params, grads = self._param_store.get_reduced_param_for_compute_norm(group_id=group_id, last_bucket=last_bucket)
@@ -507,18 +503,18 @@ class HybridZeroOptimizer(BaseOptimizer):
             grads = [self.padding_grad.to(dtype)]
             params = [self.padding_tensor.to(dtype)]
 
-        norm = 0
+        layer_norm = None
         if self._clip_grad_norm > 0:
             # this norm is before scaling, it will be very large
-            norm = compute_norm(
+            layer_norm = compute_norm(
                 gradients=grads,
                 parameters=params,
                 last_stage=last_stage,
-                previous_norm=previous_norm,
+                previous_layer_norms=previous_layer_norms,
                 zero_mode=self._broadcast_parallel_mode[group_id],
             )
 
-        return norm
+        return layer_norm
 
     @llm_timeout(func_name="optim_step")
     def step(self, closure=None):
@@ -546,10 +542,10 @@ class HybridZeroOptimizer(BaseOptimizer):
             self._reduce_grads_stored_in_bucket(self._bucket_store[group_id], reduce_rank=None, last_bucket=True)
 
         # compute norm for gradients in the before bucket
-        groups_norms = []
+        groups_layer_norms = []
         for group_id in range(self.num_param_groups):
-            groups_norms.append(self._compute_norm_with_stage(group_id=group_id))
-
+            layer_norm = self._compute_norm_with_stage(group_id=group_id)
+            groups_layer_norms.append(layer_norm)
         # clear reduced grads
         # grads in the last bucket is reduced
         for bucket in self._bucket_in_progress:
@@ -561,15 +557,14 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         # compute norm for gradients in the last bucket
         total_norms = {}
+        total_layernorms = {}
         for group_id in range(self.num_param_groups):
             group_name = self.param_groups[group_id]["name"] if "name" in self.param_groups[group_id] else "default"
             group_name = f"{group_id}_{group_name}"
-            total_norms[group_name] = self._compute_norm_with_stage(
-                group_id=group_id,
-                last_bucket=True,
-                last_stage=True,
-                previous_norm=groups_norms[group_id],
+            total_layernorms[group_name] = self._compute_norm_with_stage(
+                group_id=group_id, last_bucket=True, last_stage=True, previous_layer_norms=groups_layer_norms[group_id]
             )
+            total_norms[group_name] = sum(total_layernorms[group_name].values())
 
             # Need to allreduce(avg) the norms across different ranks because moe params will not be synced
             # during allreduce
