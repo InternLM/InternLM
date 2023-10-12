@@ -9,6 +9,8 @@
 import os
 import sys
 
+import torch  # noqa # pylint: disable=unused-import
+
 project = "InternLM"
 copyright = "2023, InternLM Team"
 author = "InternLM Team"
@@ -94,6 +96,10 @@ autodoc_mock_imports = [
     "apex",
     "torch",
     "numpy",
+    "flash_attn",
+    "rotary_emb",
+    "einops",
+    "torch_scatter",
 ]
 
 # support multi-language docs
