@@ -317,6 +317,8 @@ def compute_norm(
 
         if gpc.is_initialized(ParallelMode.MODEL):
             dist.all_reduce(total_layer_norms_values, op=dist.ReduceOp.SUM, group=gpc.get_group(ParallelMode.MODEL))
+        # This is because we use zero1, so we need to use this reduction.
+        # TODO: Check zero group to be a subset of dp group.
         dist.all_reduce(total_layer_norms_values, op=dist.ReduceOp.SUM, group=gpc.get_group(zero_mode))
 
         for idx, layer_name in enumerate(total_layer_norms.keys()):
@@ -521,9 +523,6 @@ class ParamBcastSyncHandler:
         for _chunk in model:
             if isinstance(_chunk, NaiveAMPModel):
                 _chunk = _chunk.model
-            # if gpc.is_rank_for_log():
-            # logger.info(_chunk)
-            # [ name for name , _ in  model.model.named_children()]
             for name, children in _chunk.named_children():
                 # should be the transformer block definaton in modeling_xxx.py
                 if isinstance(children, nn.ModuleList):
@@ -533,8 +532,6 @@ class ParamBcastSyncHandler:
                         self._block_to_param[block] = list(block.parameters())
                         for parameter in self._block_to_param[block]:
                             layer_name = f"{block.__class__.__name__}.{idx}"
-                            # if gpc.is_rank_for_log():
-                            # logger.info(layer_name)
                             global_layer_norms[layer_name] = 0.0
                             parameter.__setattr__("layer_name", layer_name)
                 else:
@@ -543,9 +540,6 @@ class ParamBcastSyncHandler:
                     self._block_to_param[children] = list(children.parameters())
                     for parameter in self._block_to_param[children]:
                         layer_name = f"{children.__class__.__name__}"
-                        # if gpc.is_rank_for_log():
-                        # logger.info(layer_name)
-                        # global_layer_norms[layer_name] = 0.0
                         parameter.__setattr__("layer_name", name)
 
         alloc_num = 0
