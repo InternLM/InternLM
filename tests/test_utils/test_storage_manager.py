@@ -6,9 +6,9 @@ import torch
 from internlm.core.context.parallel_context import Config
 from internlm.initialize.launch import get_config_value
 from tests.test_utils.common_fixture import (  # noqa # pylint: disable=unused-import
-    ASYNC_TMP_FOLDER,
     BOTO_SAVE_PATH,
     LOCAL_SAVE_PATH,
+    VOLC_SAVE_PATH,
     del_tmp_file,
     init_dist_and_model,
     reset_singletons,
@@ -47,6 +47,22 @@ ckpt_config_list = [
         async_upload=True,
         save_folder=LOCAL_SAVE_PATH,
         test_id=3,
+    ),
+    # async volc
+    dict(
+        enable_save_ckpt=True,
+        async_upload_tmp_folder=ASYNC_TMP_FOLDER,
+        async_upload=True,
+        save_folder=VOLC_SAVE_PATH,
+        test_id=4,
+    ),
+    # sync volc
+    dict(
+        enable_save_ckpt=True,
+        async_upload_tmp_folder=None,
+        async_upload=False,
+        save_folder=VOLC_SAVE_PATH,
+        test_id=5,
     ),
 ]
 
@@ -97,6 +113,9 @@ internlm_ckpt_path = [
     ("/mnt/ckpt/", "local", "/mnt/ckpt/"),
     ("./ckpt/", "local", "./ckpt/"),
     ("s3://oss_bucket/", "boto3", "s3://oss_bucket/"),
+    ("volc:vc://oss_bucket/", "volc", "vc://oss_bucket/"),
+    ("volc:oss_bucket/", "volc", "oss_bucket/"),
+    ("vc://oss_bucket/", "volc", "vc://oss_bucket/"),
 ]
 
 
