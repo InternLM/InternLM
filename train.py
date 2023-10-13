@@ -240,7 +240,7 @@ def main(args):
             trainer_result = trainer.step()
             assert trainer_result is not None
 
-            success_update, grad_norm_groups = trainer_result
+            success_update, grad_norm_groups, layer_grad_norm_groups = trainer_result
             if success_update:  # update parameters successfully
                 train_state.step_count += 1
             else:
@@ -268,6 +268,7 @@ def main(args):
                 loss=loss,
                 moe_loss=moe_loss,
                 grad_norm=grad_norm_groups,
+                layer_grad_norm=layer_grad_norm_groups,
                 metric=metric,
                 update_panel=uniscale_logger is not None,
             )

@@ -115,7 +115,7 @@ class Engine:
         self._all_reduce_gradients()
         self.optimizer.clip_grad_norm(self.model, self._clip_grad_norm)
 
-        success, grad_norm = self.optimizer.step()
+        success, grad_norm, layer_grad_norm = self.optimizer.step()
 
         if success and self._lr_scheduler is not None:
             self._lr_scheduler.step()
@@ -123,7 +123,7 @@ class Engine:
         if success and self._beta2_scheduler is not None:
             self._beta2_scheduler.step()
 
-        return success, grad_norm
+        return success, grad_norm, layer_grad_norm
 
     def train(self):
         """Sets the model to training mode."""

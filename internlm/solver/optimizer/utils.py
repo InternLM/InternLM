@@ -319,7 +319,7 @@ def compute_norm(
             dist.all_reduce(total_layer_norms_values, op=dist.ReduceOp.SUM, group=gpc.get_group(ParallelMode.MODEL))
         dist.all_reduce(total_layer_norms_values, op=dist.ReduceOp.SUM, group=gpc.get_group(zero_mode))
 
-        for idx in range(len(total_layer_norms_keys)):
+        for idx, layer_name in enumerate(total_layer_norms.keys()):
             layer_norm = total_layer_norms_values[idx]
             if torch.is_tensor(layer_norm):
                 layer_norm = layer_norm.item()
@@ -328,7 +328,7 @@ def compute_norm(
 
             if math.isnan(layer_norm):
                 layer_norm = -2
-            total_layer_norms[total_layer_norms_keys[idx]] = layer_norm
+            total_layer_norms[layer_name] = layer_norm
 
     return total_layer_norms
 

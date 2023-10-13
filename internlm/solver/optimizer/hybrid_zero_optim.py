@@ -564,26 +564,54 @@ class HybridZeroOptimizer(BaseOptimizer):
             total_layernorms[group_name] = self._compute_norm_with_stage(
                 group_id=group_id, last_bucket=True, last_stage=True, previous_layer_norms=groups_layer_norms[group_id]
             )
-            total_norms[group_name] = sum(total_layernorms[group_name].values())
 
             # Need to allreduce(avg) the norms across different ranks because moe params will not be synced
             # during allreduce
             if self._is_moe_group(self.optim.param_groups[group_id]):
                 # model and zero have been reduced!!!
                 pg = gpc.get_group(ParallelMode.EXPERT)
-                scaled_norm = total_norms[group_name] * 1.0 / float(gpc.get_world_size(ParallelMode.EXPERT))
-                scaled_norm_tensor = torch.tensor(scaled_norm, device=get_current_device(), dtype=torch.float)
-                dist.all_reduce(scaled_norm_tensor, group=pg)
-                total_norms[group_name] = scaled_norm_tensor.item()
+                # layer_norms allreduce
+                scaled_layer_norm = torch.cuda.FloatTensor(
+                    list(total_layernorms[group_name].values()), device=get_current_device()
+                )
+                scaled_layer_norm = scaled_layer_norm / float(gpc.get_world_size(ParallelMode.EXPERT))
+                dist.all_reduce(scaled_layer_norm, group=pg)
+                for i, layer_name in enumerate(total_layernorms[group_name].keys()):
+                    total_layernorms[group_name][layer_name] = scaled_layer_norm[i].item()
+
+            # compute total_norms using the layer grad_norm
+            total_layer_norms_values = list(total_layernorms[group_name].values())
+            # inf flag
+            if -1 in total_layer_norms_values:
+                total_norms[group_name] = -1
+            # nan flag
+            elif -2 in total_layer_norms_values:
+                total_norms[group_name] = -2
+            else:
+                total_norms[group_name] = sum(total_layer_norms_values)
 
         timer("sync_grad").start()
         self._sync_grad()
         timer("sync_grad").stop()
 
-        return self._step(closure=closure, norms=total_norms)
+        return self._step(closure=closure, norms=total_norms, layer_norms=total_layernorms)
 
-    def _step(self, closure=None, norms=None):
+    def _step(self, closure=None, norms=None, layer_norms=None):
         assert closure is None, "closure is not supported by step()"
+
+        def scale_layer_norm(layer_norms, loss_scale):
+            global_layer_norm_groups = {}
+            if layer_norms:
+                for group_name, layer_norm_dict in layer_norms.items():
+                    global_layer_norm_groups[group_name] = {}
+                    for layer_name, norm in layer_norm_dict.items():
+                        # filter unknown
+                        if layer_name == "unknown" and norm == 0:
+                            continue
+                        # handle inf (-1) and nan (-2)
+                        if norm != -1 or norm != -2:
+                            global_layer_norm_groups[group_name][layer_name] = norm**0.5 / loss_scale
+            return global_layer_norm_groups
 
         # check for overflow
         found_inf = False
@@ -603,6 +631,9 @@ class HybridZeroOptimizer(BaseOptimizer):
         if gpc.config.model.dtype is not torch.float32:
             self.grad_scaler.update(found_inf)
 
+        # scale layer norm
+        global_layer_norm_groups = scale_layer_norm(layer_norms, loss_scale)
+
         # update loss scale if overflow occurs
         if found_inf:
             if gpc.is_rank_for_log():
@@ -613,7 +644,7 @@ class HybridZeroOptimizer(BaseOptimizer):
                 )
             self._grad_store._averaged_gradients = dict()
             self.zero_grad()
-            return False, norms
+            return False, norms, global_layer_norm_groups
 
         if found_nan:
             if gpc.is_rank_for_log():
@@ -624,7 +655,7 @@ class HybridZeroOptimizer(BaseOptimizer):
                 )
             self._grad_store._averaged_gradients = dict()
             self.zero_grad()
-            return False, norms
+            return False, norms, global_layer_norm_groups
 
         # copy the grad of fp16 param to fp32 param
         single_grad_partition_groups = []
@@ -711,7 +742,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         # so synchronization is maintained
         for group_name, global_norm in global_norm_groups.items():
             global_norm_groups[group_name] = global_norm / loss_scale
-        return True, global_norm_groups
+        return True, global_norm_groups, global_layer_norm_groups
 
     def broadcast_params(self):
         handles = []

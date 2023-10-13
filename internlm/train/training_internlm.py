@@ -405,6 +405,7 @@ def record_current_batch_training_metrics(
     loss,
     moe_loss,
     grad_norm,
+    layer_grad_norm,
     metric,
     update_panel,
 ):
@@ -525,6 +526,11 @@ def record_current_batch_training_metrics(
                 writer.add_scalars(key=key, value=value, step=train_state.step_count)
             else:
                 writer.add_scalar(key=key, value=value, step=train_state.step_count)
+
+        # add layer grad norm
+        for key, value in layer_grad_norm.items():
+            title = f"layer_grad_norm_group_{key}"
+            writer.add_scalars(key=title, value=value, step=train_state.step_count)
 
         if gpc.config.monitor.alert.get("light_monitor_address", None) and batch_count % 50 == 0:
             send_heartbeat("train_metrics", infos)
