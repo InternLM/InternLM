@@ -52,7 +52,11 @@ from internlm.train.utils import create_param_groups
 from internlm.utils.common import DummyProfile
 from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
-from internlm.utils.parallel import sync_model_param, sync_model_param_within_tp
+from internlm.utils.parallel import (
+    set_model_params_layer_name,
+    sync_model_param,
+    sync_model_param_within_tp,
+)
 from internlm.utils.registry import MODEL_INITIALIZER
 from internlm.utils.timeout import llm_timeout
 
@@ -106,6 +110,9 @@ def initialize_model():
 
     # if fsdp enabled, wrap the model
     model = wrap_FSDP_model(model)
+
+    # set the layer name as an attribute of the model parameters
+    set_model_params_layer_name(model)
 
     return model
 

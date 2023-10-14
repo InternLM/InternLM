@@ -150,6 +150,7 @@ class ParallelContext(metaclass=SingletonMeta):
         self.virtual_pipeline_parallel_size = None
         self.virtual_pipeline_parallel_rank = None
         self._expert_parallel_group_names = []
+        self.layer_names = {"unknown", "embedding", "norm", "head"}
 
     @property
     def config(self):

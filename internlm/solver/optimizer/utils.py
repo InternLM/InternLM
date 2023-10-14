@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-import copy
 import math
 from abc import ABC, abstractmethod
 from collections import OrderedDict
@@ -32,7 +31,6 @@ except (ModuleNotFoundError, ImportError):
     APEX_AVAILABLE = False
 
 inf = math.inf
-global_layer_norms = {"unknown": 0.0, "embedding": 0.0, "norm": 0.0, "head": 0.0}
 
 
 def flatten(input_):
@@ -228,7 +226,7 @@ def compute_norm(
     enable_cuda_kernels = gradients[0].device.type == "cuda"
     # Norm parameters.
     norm_type = float(norm_type)
-    total_layer_norms = copy.deepcopy(global_layer_norms)
+    total_layer_norms = {layer_name: 0.0 for layer_name in gpc.layer_names}
     layer_grads = {}
     # Calculate norm.
     if norm_type == inf:
@@ -249,7 +247,7 @@ def compute_norm(
                 total_layer_norms[key] = max(value, total_layer_norms[key])
 
         total_layer_norms_values = move_norm_to_cuda(torch.Tensor(list(total_layer_norms.values())))
-        total_layer_norms_keys = list(global_layer_norms.keys())
+        total_layer_norms_keys = list(total_layer_norms.keys())
 
         # Take max across all model-parallel GPUs.
         if gpc.is_initialized(ParallelMode.MODEL):
@@ -523,24 +521,17 @@ class ParamBcastSyncHandler:
         for _chunk in model:
             if isinstance(_chunk, NaiveAMPModel):
                 _chunk = _chunk.model
-            for name, children in _chunk.named_children():
+            for _, children in _chunk.named_children():
                 # should be the transformer block definaton in modeling_xxx.py
                 if isinstance(children, nn.ModuleList):
                     # record the block that a parameter belongs to
-                    for idx, block in enumerate(children):
+                    for _, block in enumerate(children):
                         # self._block_to_param[f"{name}.{idx}"] = list(block.parameters())
                         self._block_to_param[block] = list(block.parameters())
-                        for parameter in self._block_to_param[block]:
-                            layer_name = f"{block.__class__.__name__}.{idx}"
-                            global_layer_norms[layer_name] = 0.0
-                            parameter.__setattr__("layer_name", layer_name)
                 else:
                     # record the block that a parameter belongs to
                     # self._block_to_param[name] = list(children.parameters())
                     self._block_to_param[children] = list(children.parameters())
-                    for parameter in self._block_to_param[children]:
-                        layer_name = f"{children.__class__.__name__}"
-                        parameter.__setattr__("layer_name", name)
 
         alloc_num = 0
         rank_to_go = 0
