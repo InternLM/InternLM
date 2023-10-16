@@ -175,6 +175,7 @@ class FeedForward(nn.Module):
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
         multiple_of: int = 256,
+        block_idx: int = 0,
     ):
         super().__init__()
 
@@ -248,38 +249,62 @@ class FSTPFeedForward(nn.Module):
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
         multiple_of: int = 256,
+        block_idx: int = 0,
     ):
         super().__init__()
 
         hidden_features = multiple_of * ((hidden_features + multiple_of - 1) // multiple_of)
 
-        self.w1 = FSTPLinear(
-            in_features,
-            hidden_features,
-            process_group,
-            bias,
-            sequence_parallel=gpc.config.parallel.sequence_parallel,
-            device=device,
-            dtype=dtype,
-        )
-        self.w2 = FSTPLinear(
-            in_features,
-            hidden_features,
-            process_group,
-            bias,
-            sequence_parallel=gpc.config.parallel.sequence_parallel,
-            device=device,
-            dtype=dtype,
-        )
-        self.w3 = FSTPLinear(
-            hidden_features,
-            out_features,
-            process_group,
-            bias=bias,
-            sequence_parallel=gpc.config.parallel.sequence_parallel,
-            device=device,
-            dtype=dtype,
-        )
+        if block_idx == 0 and gpc.config.parallel.block_0_full_weight:
+            self.w1 = nn.Linear(
+                in_features,
+                hidden_features,
+                bias,
+                device=device,
+                dtype=dtype,
+            )
+            self.w2 = nn.Linear(
+                in_features,
+                hidden_features,
+                bias,
+                device=device,
+                dtype=dtype,
+            )
+            self.w3 = nn.Linear(
+                hidden_features,
+                out_features,
+                bias=bias,
+                device=device,
+                dtype=dtype,
+            )
+        else:
+            self.w1 = FSTPLinear(
+                in_features,
+                hidden_features,
+                process_group,
+                bias,
+                sequence_parallel=gpc.config.parallel.sequence_parallel,
+                device=device,
+                dtype=dtype,
+            )
+            self.w2 = FSTPLinear(
+                in_features,
+                hidden_features,
+                process_group,
+                bias,
+                sequence_parallel=gpc.config.parallel.sequence_parallel,
+                device=device,
+                dtype=dtype,
+            )
+            self.w3 = FSTPLinear(
+                hidden_features,
+                out_features,
+                process_group,
+                bias=bias,
+                sequence_parallel=gpc.config.parallel.sequence_parallel,
+                device=device,
+                dtype=dtype,
+            )
 
     def forward(self, x):
         w1_o = self.w1(x)
@@ -449,10 +474,10 @@ class CoarseGrainedFSTPAllGatherSyncHandler:
                                     # print(f"name: {name}", flush=True)
                                     if name == "out_proj":
                                         self.FSTP_outs.append(child)
-                                        # self.module_to_index[child] = idx
+                                        self.module_to_index[child] = idx
                                     if name == "Wqkv":
                                         self.FSTP_wqkvs.append(child)
-                                        # self.module_to_index[child] = idx
+                                        self.module_to_index[child] = idx
                                     if isinstance(child, FSTPLinear):
                                         self.module_to_index[child] = idx
                                         self.block_module[idx][index] = child
@@ -489,6 +514,7 @@ class CoarseGrainedFSTPAllGatherSyncHandler:
             # start the all-gather for next block
             if block_index + 1 < gpc.config.NUM_LAYER:
                 self._all_gather_block_weight(block_index + 1)
+                # print(f"_all_gather_block_weight for block {block_index+1}", flush=True)
 
         def _pre_forward_hook_for_block(block: nn.Module, inputs: Any):
             block_index = self.block_to_index[block]
@@ -512,14 +538,13 @@ class CoarseGrainedFSTPAllGatherSyncHandler:
                 del self.block_handles[block]
             for module in fsdp_modules:
                 del self.FSTP_global_weights[module]
-        
-        
+
         def _pre_forward_hook_for_module(module: nn.Module, inputs: Any):
             block_index = self.module_to_index[module]
             if block_index != 0:
                 handler = self.FSTP_global_handle[module]
                 handler.wait()
-        
+
         def _post_forward_hook_for_module(module: nn.Module, input, output):
             if module in self.FSTP_global_weights:
                 del self.FSTP_global_weights[module]
@@ -558,46 +583,48 @@ class CoarseGrainedFSTPAllGatherSyncHandler:
                 del self.block_handles[block]
             for module in fsdp_modules:
                 del self.FSTP_global_weights[module]
-        
+
         def _pre_backward_hook_for_module(module: nn.Module, grad_output):
             block_index = self.module_to_index[module]
             name_index = self.module_name_index[module]
-            if name_index == 4:
-                total_weight, weight_handler = all_gather_raw(module.weight, self.process_group, async_op=True)
-                weight_handler.wait()
-                self.FSTP_global_weights[module] = total_weight
+            if block_index != 0:
+                if name_index == 4:
+                    total_weight, weight_handler = all_gather_raw(module.weight, self.process_group, async_op=True)
+                    weight_handler.wait()
+                    self.FSTP_global_weights[module] = total_weight
 
-                # start the all-gather for next module
-                next_module = self.block_module[block_index][name_index - 1]
-                self.FSTP_global_weights[next_module], weights_handler = all_gather_raw(
-                    next_module.weight, self.process_group, async_op=True
-                )
-                self.FSTP_global_handle[next_module] = weights_handler
-            else:
-                handler = self.FSTP_global_handle[module]
-                handler.wait()
-                if name_index != 0:
+                    # start the all-gather for next module
                     next_module = self.block_module[block_index][name_index - 1]
                     self.FSTP_global_weights[next_module], weights_handler = all_gather_raw(
                         next_module.weight, self.process_group, async_op=True
                     )
                     self.FSTP_global_handle[next_module] = weights_handler
+                else:
+                    handler = self.FSTP_global_handle[module]
+                    handler.wait()
+                    if name_index != 0:
+                        next_module = self.block_module[block_index][name_index - 1]
+                        self.FSTP_global_weights[next_module], weights_handler = all_gather_raw(
+                            next_module.weight, self.process_group, async_op=True
+                        )
+                        self.FSTP_global_handle[next_module] = weights_handler
 
         def _post_backward_hook_for_module(module, grad_input, grad_output):
-            del self.FSTP_global_weights[module]
+            if module in self.FSTP_global_weights:
+                del self.FSTP_global_weights[module]
 
         # for block in self.FSTP_blocks:
-            # block.register_forward_pre_hook(_pre_forward_hook_for_block)
-            # block.register_forward_hook(_post_forward_hook_for_block)
-            # block.register_full_backward_pre_hook(_pre_backward_hook_for_block)
-            # block.register_full_backward_hook(_post_backward_hook_for_block)
+        # block.register_forward_pre_hook(_pre_forward_hook_for_block)
+        # block.register_forward_hook(_post_forward_hook_for_block)
+        # block.register_full_backward_pre_hook(_pre_backward_hook_for_block)
+        # block.register_full_backward_hook(_post_backward_hook_for_block)
 
         for out_proj in self.FSTP_outs:
             out_proj.register_forward_pre_hook(_pre_forward_hook_for_out_proj)
 
         # for wqkv in self.FSTP_wqkvs:
         #     wqkv.register_full_backward_pre_hook(_pre_backward_hook_for_wqkv)
-        
+
         for module in self.FSTP_modules:
             module.register_forward_pre_hook(_pre_forward_hook_for_module)
             module.register_forward_hook(_post_forward_hook_for_module)

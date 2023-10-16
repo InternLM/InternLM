@@ -110,8 +110,8 @@ def initialize_model():
     model = wrap_FSDP_model(model)
 
     if gpc.config.parallel["tensor"]["mode"] == "fstp":
-        # handler = CoarseGrainedFSTPAllGatherSyncHandler(model, gpc.get_group(ParallelMode.TENSOR))
-        handler = FSTPAllGatherSyncHandler(model, gpc.get_group(ParallelMode.TENSOR))
+        handler = CoarseGrainedFSTPAllGatherSyncHandler(model, gpc.get_group(ParallelMode.TENSOR))
+        # handler = FSTPAllGatherSyncHandler(model, gpc.get_group(ParallelMode.TENSOR))
         handler._register_sync_parameters_hook()
         gpc.config.fstp_handler = handler
     return model
@@ -396,6 +396,9 @@ def initialize_llm_profile(profiling: bool = False, start_time: str = None):
     )
 
 
+tgs_list = []
+
+
 @llm_timeout(func_name="record_current_batch_training_metrics")
 def record_current_batch_training_metrics(
     get_tflops_func,
@@ -568,3 +571,9 @@ def record_current_batch_training_metrics(
             step_count=batch_count,
             cur_step_loss=loss.item(),
         )
+
+        if batch_count >= 5:
+            tgs_list.append(tgs_origin)
+        if batch_count == gpc.config.data.total_steps - 1:
+            print(tgs_list, flush=True)
+            print(f"avg_tgs: {sum(tgs_list)/len(tgs_list)}", flush=True)

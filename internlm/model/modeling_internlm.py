@@ -78,6 +78,7 @@ class PackedFlashBaseLayer1D(nn.Module):
         use_swiglu: bool = True,
         use_flash_attn: bool = True,
         tp_mode: str = "origin_tp",
+        block_idx: int = 0,
     ):
         super().__init__()
         self.checkpoint = checkpoint
@@ -103,6 +104,7 @@ class PackedFlashBaseLayer1D(nn.Module):
             device=device,
             dtype=dtype,
             tp_mode=tp_mode,
+            block_idx=block_idx,
         )
 
         self.dropout1 = nn.Dropout(drop_rate)
@@ -123,6 +125,7 @@ class PackedFlashBaseLayer1D(nn.Module):
                 bias=False,
                 device=device,
                 dtype=dtype,
+                block_idx=block_idx,
             )
         else:
             self.mlp = ParallelFusedMLP(
@@ -344,6 +347,7 @@ class PackedFlashInternLm1D(nn.Module):
                     use_swiglu=use_swiglu,
                     use_flash_attn=use_flash_attn,
                     tp_mode=self.tp_mode,
+                    block_idx=lid,
                 )
                 for lid in range(num_layers)
             ]
@@ -410,7 +414,7 @@ class PackedFlashInternLm1D(nn.Module):
             # Evaluation
             if hidden_states.ndim == 3:
                 hidden_states = self.head(hidden_states, gather_dim=1)
-            else: # Training
+            else:  # Training
                 hidden_states = self.head(hidden_states, gather_dim=0)
 
         if not self.parallel_output:

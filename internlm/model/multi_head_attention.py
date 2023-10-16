@@ -51,7 +51,6 @@ class _SeqAllToAll(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx: Any, group: dist.ProcessGroup, input_: Tensor, scatter_idx: int, gather_idx: int) -> Tensor:
-
         ctx.group = group
         ctx.scatter_idx = scatter_idx
         ctx.gather_idx = gather_idx
@@ -91,7 +90,6 @@ class DistributedAttention(torch.nn.Module):
         second_scatter_idx: int = 0,
         second_gather_idx: int = 1,
     ) -> None:
-
         super().__init__()
         self.local_attn = local_attention
         self.spg = sequence_process_group
@@ -178,6 +176,7 @@ class MHA(nn.Module):
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
         tp_mode: str = "origin_tp",
+        block_idx: int = 0,
     ) -> None:
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
@@ -206,14 +205,23 @@ class MHA(nn.Module):
 
         # notice here should change bias=True
         Wqkv_cls = ColumnParallelLinearTorch if tp_mode == "origin_tp" else FSTPLinear
-        self.Wqkv = Wqkv_cls(
-            embed_dim,
-            3 * embed_dim,
-            process_group,
-            bias=False,
-            sequence_parallel=gpc.config.parallel.sequence_parallel,
-            **factory_kwargs,
-        )  # according to https://spaces.ac.cn/archives/9577
+        if block_idx == 0 and tp_mode != "origin_tp" and gpc.config.parallel.block_0_full_weight:
+            Wqkv_cls = nn.Linear
+            self.Wqkv = Wqkv_cls(
+                embed_dim,
+                3 * embed_dim,
+                bias=False,
+                **factory_kwargs,
+            )
+        else:
+            self.Wqkv = Wqkv_cls(
+                embed_dim,
+                3 * embed_dim,
+                process_group,
+                bias=False,
+                sequence_parallel=gpc.config.parallel.sequence_parallel,
+                **factory_kwargs,
+            )  # according to https://spaces.ac.cn/archives/9577
 
         inner_attn_cls = FlashSelfAttention if use_flash_attn else SelfAttention
         inner_cross_attn_cls = FlashCrossAttention if use_flash_attn else CrossAttention
@@ -227,14 +235,23 @@ class MHA(nn.Module):
 
         # output projection always have the bias (for now)
         out_proj_cls = RowParallelLinearTorch if tp_mode == "origin_tp" else FSTPLinear
-        self.out_proj = out_proj_cls(
-            embed_dim,
-            embed_dim,
-            process_group,
-            bias=False,
-            sequence_parallel=gpc.config.parallel.sequence_parallel,
-            **factory_kwargs,
-        )
+        if block_idx == 0 and tp_mode != "origin_tp" and gpc.config.parallel.block_0_full_weight:
+            out_proj_cls = nn.Linear
+            self.out_proj = out_proj_cls(
+                embed_dim,
+                embed_dim,
+                bias=False,
+                **factory_kwargs,
+            )
+        else:
+            self.out_proj = out_proj_cls(
+                embed_dim,
+                embed_dim,
+                process_group,
+                bias=False,
+                sequence_parallel=gpc.config.parallel.sequence_parallel,
+                **factory_kwargs,
+            )
         # need to assign tp attribute so that internlm know it is tensor parallel module
         if gpc.get_world_size(ParallelMode.TENSOR) > 1:
             for name in ["out_proj", "Wqkv"]:
