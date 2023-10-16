@@ -24,6 +24,7 @@ from internlm.solver.pipeline_utils import partition_uniform
 from internlm.utils.checkpoint import activation_checkpoint
 from internlm.utils.common import filter_kwargs
 from internlm.utils.logger import get_logger
+from internlm.utils.parallel import set_model_params_layer_name
 from internlm.utils.registry import MODEL_INITIALIZER
 
 MODEL_TYPE = "INTERNLM"
@@ -417,6 +418,21 @@ def _build_generic_model_1d(num_layers, num_chunks, device=torch.device("cuda"),
     parts = all_parts[pipeline_rank]
     if gpc.is_rank_for_log():
         logger.info(f"The layer sharding is {all_parts}.")
+
+    # config gpc.layer_name
+    # get names of first and last layers
+    kwargs["num_layers"] = 1
+    kwargs["device"] = device
+    kwargs["first"] = True
+    kwargs["last"] = True
+    kwargs["start_layer_idx"] = 0
+    tmp_chunk = PackedFlashInternLm1D(**filter_kwargs(PackedFlashInternLm1D.__init__, kwargs)).cpu()
+    # get names of middle layers
+    for idx in range(num_layers):
+        layer_name = f"{PackedFlashBaseLayer1D.__name__}.{idx}"
+        gpc.layer_names.append(layer_name)
+    set_model_params_layer_name(tmp_chunk)
+    torch.cuda.empty_cache()
 
     models = []
 

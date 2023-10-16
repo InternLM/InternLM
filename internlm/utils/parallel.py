@@ -78,14 +78,16 @@ def set_model_params_layer_name(model):
         if isinstance(_chunk, NaiveAMPModel):
             _chunk = _chunk.model
         # Create a unique layer name based on the block's class name and index
-        for name, children in _chunk.named_children():
+        for _, children in _chunk.named_children():
             if isinstance(children, nn.ModuleList):
                 for idx, block in enumerate(children):
                     for param in block.parameters():
                         layer_name = f"{block.__class__.__name__}.{idx}"
-                        gpc.layer_names.add(layer_name)
+                        gpc.layer_names.append(layer_name)
                         param.__setattr__("layer_name", layer_name)
             else:
                 for param in children.parameters():
-                    gpc.layer_names.add(name)
-                    param.__setattr__("layer_name", name)
+                    layer_name = f"{children.__class__.__name__}"
+                    gpc.layer_names.append(layer_name)
+                    param.__setattr__("layer_name", layer_name)
+    gpc.layer_names = sorted(set(gpc.layer_names))
