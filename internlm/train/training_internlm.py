@@ -110,7 +110,8 @@ def initialize_model():
     model = wrap_FSDP_model(model)
 
     if gpc.config.parallel["tensor"]["mode"] == "fstp":
-        handler = CoarseGrainedFSTPAllGatherSyncHandler(model, gpc.get_group(ParallelMode.TENSOR))
+        # handler = CoarseGrainedFSTPAllGatherSyncHandler(model, gpc.get_group(ParallelMode.TENSOR))
+        handler = FSTPAllGatherSyncHandler(model, gpc.get_group(ParallelMode.TENSOR))
         handler._register_sync_parameters_hook()
         gpc.config.fstp_handler = handler
     return model
