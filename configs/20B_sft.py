@@ -1,4 +1,4 @@
-JOB_NAME = "13b_train"
+JOB_NAME = "20b_train"
 DO_ALERT = False
 
 SEQ_LEN = 4096
@@ -51,7 +51,7 @@ data = dict(
     # micro_num means the number of micro_batch contained in one gradient update
     micro_num=4,
     # packed_length = micro_bsz * SEQ_LEN
-    micro_bsz=4,
+    micro_bsz=2,
     # defaults to the value of micro_num
     valid_micro_num=4,
     # defaults to 0, means disable evaluate

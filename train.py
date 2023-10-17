@@ -296,6 +296,8 @@ def main(args):
 
             if batch_count % 2 == 0:
                 prof.step()
+            
+            torch.cuda.reset_peak_memory_stats()
 
     ckpt_manager.wait_async_upload_finish()
 

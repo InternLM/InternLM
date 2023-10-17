@@ -423,7 +423,6 @@ class CoarseGrainedFSTPAllGatherSyncHandler:
         self.process_group = process_group
         self.FSTP_blocks = []
         self.FSTP_outs = []
-        self.FSTP_wqkvs = []
         self.FSTP_modules = []
         self.module_name = ["Wqkv", "out_proj", "w1", "w2", "w3"]
         self.FSTP_global_handle = dict()  # key: FSTP module; value: module global all-gather op handle
@@ -465,9 +464,6 @@ class CoarseGrainedFSTPAllGatherSyncHandler:
                                     if name == "out_proj":
                                         self.FSTP_outs.append(child)
                                         self.module_to_index[child] = idx
-                                    if name == "Wqkv":
-                                        self.FSTP_wqkvs.append(child)
-                                        self.module_to_index[child] = idx
                                     if isinstance(child, FSTPLinear):
                                         self.module_to_index[child] = idx
                                         self.block_module[idx][index] = child
@@ -488,7 +484,7 @@ class CoarseGrainedFSTPAllGatherSyncHandler:
                     self.embedding.append(children)
 
     def _all_gather_block_weight(self, block_index: int):
-        block = self.index_to_block[block_index]
+        #block = self.index_to_block[block_index]
         fsdp_modules = self.index_to_fsdp_modules[block_index]
         # self.block_handles[block] = []
         for module in fsdp_modules:
@@ -551,12 +547,6 @@ class CoarseGrainedFSTPAllGatherSyncHandler:
                 del self.FSTP_global_weights[module]
             if module in self.FSTP_global_handle:
                 del self.FSTP_global_handle[module]
-
-        def _pre_backward_hook_for_wqkv(module: nn.Module, grad_output):
-            block_index = self.module_to_index[module]
-            # start the all-gather for next block
-            if block_index - 1 >= 0:
-                self._all_gather_block_weight(block_index - 1)
 
         def _pre_backward_hook_for_block(block: nn.Module, grad_output):
             # import pdb; pdb.set_trace()
