@@ -329,6 +329,8 @@ class FSTPAllGatherSyncHandler:
         self.block_module = dict()  # key: transformer block index; value: {name_index: FSTP module}
         self.module_name_index = dict()  # key: FSTP module; value: the name in index in self.module_name
 
+        self.reduce_scatter_handlers = {}
+
         # just want to share same for loop for ModuleList and Module
         if not isinstance(model, nn.ModuleList):
             model = [model]
@@ -337,16 +339,22 @@ class FSTPAllGatherSyncHandler:
             if isinstance(_chunk, NaiveAMPModel):
                 _chunk = _chunk.model
 
-            for _, children in _chunk.named_children():
+            for _chunk_name, children in _chunk.named_children():
                 if isinstance(children, nn.ModuleList):
                     for idx, block in enumerate(children):
                         index = 0
                         self.block_module[idx] = {}
-                        for _, sub in block.named_children():
+                        for _sub_name, sub in block.named_children():
                             sub_modules = list(sub.children())
                             if len(sub_modules) > 0:
                                 for name, child in sub.named_children():
                                     if isinstance(child, FSTPLinear):
+
+                                        _full_name = f"{_chunk_name}.{idx}.{_sub_name}.{name}"
+                                        setattr(child.weight, "_fstp_reduce_scatter_str", f"{_full_name}.weight")
+                                        if child.bias is not None:
+                                            setattr(child.bias, "_fstp_reduce_scatter_str", f"{_full_name}.bias")
+
                                         self.FSTP_modules.append(child)
                                         self.module_block[child] = idx
                                         self.block_module[idx][index] = child
@@ -450,7 +458,9 @@ class CoarseGrainedFSTPAllGatherSyncHandler:
         self.module_name_index = dict()  # key: FSTP module; value: the name in index in self.module_name
         self.block_module = dict()  # key: transformer block index; value: {name_index: FSTP module}
         self.head = []
-        
+
+        self.reduce_scatter_handlers = {}
+
         # just want to share same for loop for ModuleList and Module
         if not isinstance(model, nn.ModuleList):
             model = [model]
@@ -459,7 +469,7 @@ class CoarseGrainedFSTPAllGatherSyncHandler:
             if isinstance(_chunk, NaiveAMPModel):
                 _chunk = _chunk.model
 
-            for _, children in _chunk.named_children():
+            for _chunk_name, children in _chunk.named_children():
                 if isinstance(children, nn.ModuleList):
                     for idx, block in enumerate(children):
                         index = 0
@@ -468,7 +478,7 @@ class CoarseGrainedFSTPAllGatherSyncHandler:
                         self.block_to_index[block] = idx
                         self.index_to_block[idx] = block
                         self.index_to_fsdp_modules[idx] = []
-                        for _, sub in block.named_children():
+                        for _sub_name, sub in block.named_children():
                             sub_modules = list(sub.children())
                             if len(sub_modules) > 0:
                                 for name, child in sub.named_children():
@@ -486,6 +496,11 @@ class CoarseGrainedFSTPAllGatherSyncHandler:
                                         self.index_to_fsdp_modules[idx].append(child)
                                         self.module_name_index[child] = index
                                         index = index + 1
+                                        
+                                        _full_name = f"{_chunk_name}.{idx}.{_sub_name}.{name}"
+                                        setattr(child.weight, "_fstp_reduce_scatter_str", f"{_full_name}.weight")
+                                        if child.bias is not None:
+                                            setattr(child.bias, "_fstp_reduce_scatter_str", f"{_full_name}.bias")
                             else:
                                 continue
                 elif isinstance(children, ScaleColumnParallelLinear):
