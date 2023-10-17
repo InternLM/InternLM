@@ -205,23 +205,14 @@ class MHA(nn.Module):
 
         # notice here should change bias=True
         Wqkv_cls = ColumnParallelLinearTorch if tp_mode == "origin_tp" else FSTPLinear
-        if block_idx == 0 and tp_mode != "origin_tp" and gpc.config.parallel.block_0_full_weight:
-            Wqkv_cls = nn.Linear
-            self.Wqkv = Wqkv_cls(
-                embed_dim,
-                3 * embed_dim,
-                bias=False,
-                **factory_kwargs,
-            )
-        else:
-            self.Wqkv = Wqkv_cls(
-                embed_dim,
-                3 * embed_dim,
-                process_group,
-                bias=False,
-                sequence_parallel=gpc.config.parallel.sequence_parallel,
-                **factory_kwargs,
-            )  # according to https://spaces.ac.cn/archives/9577
+        self.Wqkv = Wqkv_cls(
+            embed_dim,
+            3 * embed_dim,
+            process_group,
+            bias=False,
+            sequence_parallel=gpc.config.parallel.sequence_parallel,
+            **factory_kwargs,
+        )  # according to https://spaces.ac.cn/archives/9577
 
         inner_attn_cls = FlashSelfAttention if use_flash_attn else SelfAttention
         inner_cross_attn_cls = FlashCrossAttention if use_flash_attn else CrossAttention
@@ -235,23 +226,14 @@ class MHA(nn.Module):
 
         # output projection always have the bias (for now)
         out_proj_cls = RowParallelLinearTorch if tp_mode == "origin_tp" else FSTPLinear
-        if block_idx == 0 and tp_mode != "origin_tp" and gpc.config.parallel.block_0_full_weight:
-            out_proj_cls = nn.Linear
-            self.out_proj = out_proj_cls(
-                embed_dim,
-                embed_dim,
-                bias=False,
-                **factory_kwargs,
-            )
-        else:
-            self.out_proj = out_proj_cls(
-                embed_dim,
-                embed_dim,
-                process_group,
-                bias=False,
-                sequence_parallel=gpc.config.parallel.sequence_parallel,
-                **factory_kwargs,
-            )
+        self.out_proj = out_proj_cls(
+            embed_dim,
+            embed_dim,
+            process_group,
+            bias=False,
+            sequence_parallel=gpc.config.parallel.sequence_parallel,
+            **factory_kwargs,
+        )
         # need to assign tp attribute so that internlm know it is tensor parallel module
         if gpc.get_world_size(ParallelMode.TENSOR) > 1:
             for name in ["out_proj", "Wqkv"]:
