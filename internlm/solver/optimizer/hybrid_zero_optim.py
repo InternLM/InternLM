@@ -64,8 +64,9 @@ class HybridZeroOptimizer(BaseOptimizer):
         backoff_factor = grad_scal_cfg.backoff_factor
         hysteresis = grad_scal_cfg.hysteresis
         max_scale = grad_scal_cfg.max_scale
-
-        self._fstp_handler = gpc.config.fstp_handler
+        
+        if gpc.config.parallel["tensor"]["mode"] == "fstp":
+            self._fstp_handler = gpc.config.fstp_handler
 
         # Zero related args
         reduce_bucket_size = zero_cfg.reduce_bucket_size

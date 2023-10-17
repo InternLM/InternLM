@@ -578,6 +578,6 @@ def record_current_batch_training_metrics(
             print(tgs_list, flush=True)
             avg_tgs = sum(tgs_list) / len(tgs_list)
             for tgs in tgs_list.copy():
-                if abs(tgs - avg_tgs) > 1000:
+                if abs(tgs - avg_tgs) > 400:
                     tgs_list.remove(tgs)
             print(f"avg_tgs: {sum(tgs_list)/len(tgs_list)}", flush=True)

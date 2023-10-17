@@ -1,11 +1,11 @@
-JOB_NAME = "7b_train"
+JOB_NAME = "13b_train"
 DO_ALERT = False
 
 SEQ_LEN = 4096
-HIDDEN_SIZE = 4096
-NUM_ATTENTION_HEAD = 32
+HIDDEN_SIZE = 5120
+NUM_ATTENTION_HEAD = 40
 MLP_RATIO = 8 / 3
-NUM_LAYER = 32
+NUM_LAYER = 40
 VOCAB_SIZE = 103168
 
 MODEL_ONLY_FOLDER = "local:llm_ckpts/xxxx"
@@ -51,7 +51,7 @@ data = dict(
     # micro_num means the number of micro_batch contained in one gradient update
     micro_num=4,
     # packed_length = micro_bsz * SEQ_LEN
-    micro_bsz=4,
+    micro_bsz=2,
     # defaults to the value of micro_num
     valid_micro_num=4,
     # defaults to 0, means disable evaluate
@@ -162,7 +162,7 @@ sequence parallel (bool): enable/disable sequence parallel, defaults to False.
 """
 parallel = dict(
     zero1=dict(size=-1, fsdp=False),
-    tensor=dict(size=8, mode="fstp"),
+    tensor=dict(size=8, mode="origin_tp"),
     pipeline=dict(size=1, interleaved_overlap=True),
     sequence_parallel=True,
 )
