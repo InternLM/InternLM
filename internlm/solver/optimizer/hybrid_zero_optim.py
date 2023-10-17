@@ -333,7 +333,7 @@ class HybridZeroOptimizer(BaseOptimizer):
                     key = getattr(_param, "_fstp_reduce_scatter_str")
                     comm_handle, _grad = self._fstp_handler.reduce_scatter_handlers[key]
                     comm_handle.wait()
-                    _param.grad = _grad
+                    _param.grad += _grad
 
                 bucket.reset_by_rank(rank)
 
@@ -356,7 +356,7 @@ class HybridZeroOptimizer(BaseOptimizer):
                 key = getattr(_param, "_fstp_reduce_scatter_str")
                 comm_handle, _grad = self._fstp_handler.reduce_scatter_handlers[key]
                 comm_handle.wait()
-                _param.grad = _grad
+                _param.grad += _grad
 
             # reduce grad
             if self.skip_grad_reduce is False:
