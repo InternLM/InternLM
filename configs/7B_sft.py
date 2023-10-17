@@ -5,7 +5,7 @@ SEQ_LEN = 4096
 HIDDEN_SIZE = 8192
 NUM_ATTENTION_HEAD = 32
 MLP_RATIO = 8 / 3
-NUM_LAYER = 8
+NUM_LAYER = 4
 VOCAB_SIZE = 103168
 
 MODEL_ONLY_FOLDER = "local:llm_ckpts/xxxx"
@@ -57,7 +57,7 @@ data = dict(
     # defaults to 0, means disable evaluate
     valid_every=50,
     pack_sample_into_one=False,
-    total_steps=50000,
+    total_steps=20,
     skip_batches="",
     rampup_batch_size="",
     # Datasets with less than 50 rows will be discarded
@@ -161,10 +161,11 @@ pipeline parallel (dict):
 sequence parallel (bool): enable/disable sequence parallel, defaults to False.
 """
 parallel = dict(
-    zero1=dict(size=1, fsdp=False),
-    tensor=dict(size=8, mode='fstp'), # the mode should be 'origin_tp' or 'fstp'. if the mode is 'fstp', the sequence_parallel should be True
+    zero1=dict(size=-1, fsdp=False),
+    tensor=dict(size=8, mode="fstp"),
     pipeline=dict(size=1, interleaved_overlap=True),
     sequence_parallel=True,
+    block_0_full_weight=True,
 )
 
 cudnn_deterministic = False
