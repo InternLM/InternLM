@@ -424,7 +424,9 @@ class SimpleMemoryProfiler:
             layer_name, output.element_size() * output.nelement(), flush=False
         )
 
-    def _activation_trace_hook_forward(self, chunk_id: int, model: Any, inputs: Any, output: torch.Tensor) -> None:
+    def _activation_trace_hook_forward(
+        self, chunk_id: int, model: Any, inputs: Any, output: Any  # pylint: disable=W0613
+    ) -> None:
         """
         Hook function to trace the activation memory usage for a forward pass.
 
@@ -437,7 +439,6 @@ class SimpleMemoryProfiler:
             None
         """
         del model, inputs
-        assert isinstance(output, torch.Tensor), f"invalid output type: {type(output)}"
 
         if self._stoped:
             return
