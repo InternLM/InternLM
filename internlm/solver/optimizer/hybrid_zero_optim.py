@@ -65,6 +65,8 @@ class HybridZeroOptimizer(BaseOptimizer):
         hysteresis = grad_scal_cfg.hysteresis
         max_scale = grad_scal_cfg.max_scale
 
+        self._fstp_handler = gpc.config.fstp_handler
+
         # Zero related args
         reduce_bucket_size = zero_cfg.reduce_bucket_size
         clip_grad_norm = zero_cfg.clip_grad_norm
@@ -301,8 +303,7 @@ class HybridZeroOptimizer(BaseOptimizer):
                         # NOT IMPORTANT BUT GOOD TO KNOW:
                         # args here is not grad, but allow_unreacable and accumulate_grad
                         def reduce_grad_hook(*args):  # pylint: disable=W0613
-                            if self.skip_grad_reduce is False:
-                                reduction_func()
+                            reduction_func()
 
                         accum_grad_obj.register_hook(reduce_grad_hook)
 
@@ -322,6 +323,20 @@ class HybridZeroOptimizer(BaseOptimizer):
         group_id = getattr(param, "group_id")
         return tensor_rank == gpc.get_local_rank(self._broadcast_parallel_mode[group_id])
 
+    def reset_reduce_bucket(self) -> None:
+        for bucket in self._bucket_store:
+            for rank, params in bucket._params.items():
+                for _param in params:
+                    if not hasattr(_param, "_fstp_reduce_scatter_str"):
+                        continue
+
+                    key = getattr(_param, "_fstp_reduce_scatter_str")
+                    comm_handle, _grad = self._fstp_handler.reduce_scatter_handlers[key]
+                    comm_handle.wait()
+                    _param.grad = _grad
+
+                bucket.reset_by_rank(rank)
+
     def _store_and_try_reduce_grads_by_bucket(self, param, reduce_rank=None):
         param_size = param.numel()
 
@@ -332,11 +347,26 @@ class HybridZeroOptimizer(BaseOptimizer):
         current_bucket = self._bucket_store[group_id]
 
         if current_bucket.num_elements_in_bucket(reduce_rank) + param_size > self._reduce_bucket_size:
-            self._reduce_grads_stored_in_bucket(current_bucket, reduce_rank, last_bucket=False)
+            # wait reduce scatter communication
+            params = current_bucket.get_param(reduce_rank)
+            for _param in params:
+                if not hasattr(_param, "_fstp_reduce_scatter_str"):
+                    continue
+
+                key = getattr(_param, "_fstp_reduce_scatter_str")
+                comm_handle, _grad = self._fstp_handler.reduce_scatter_handlers[key]
+                comm_handle.wait()
+                _param.grad = _grad
+
+            # reduce grad
+            if self.skip_grad_reduce is False:
+                self._reduce_grads_stored_in_bucket(current_bucket, reduce_rank, last_bucket=False)
+            else:
+                current_bucket.reset_by_rank(reduce_rank)
 
         # the param must not be reduced to ensure correctness
         is_param_reduced = self._param_store.is_param_reduced(param)
-        if is_param_reduced:
+        if is_param_reduced and self.skip_grad_reduce is False:
             msg = (
                 f"Parameter of size ({param.size()}) has already been reduced, "
                 + "duplicate reduction will lead to arithmetic incorrectness"

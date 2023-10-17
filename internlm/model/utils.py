@@ -324,9 +324,9 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
             raise RuntimeError("fused_dense only supports matrix dims <= 2M")
         output = F.linear(total_x, total_weight, total_bias)
         if ctx.compute_weight_gradient:
-            ctx.save_for_backward(x, weight)
+            ctx.save_for_backward(x, weight, bias)
         else:
-            ctx.save_for_backward(weight)
+            ctx.save_for_backward(weight, bias)
         return output if not return_residual else (output, x)
 
     @staticmethod
@@ -340,10 +340,10 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
         all_gather_handler = ctx.all_gather_handler
         module = ctx.module
         if ctx.compute_weight_gradient:
-            x, weight = ctx.saved_tensors
+            x, weight, bias = ctx.saved_tensors
             total_x = x
         else:
-            (weight,) = ctx.saved_tensors
+            weight, bias = ctx.saved_tensors
             total_x = None
         batch_shape = grad_output.shape[:-1]
         batch_dim = batch_shape.numel()
@@ -368,9 +368,15 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
                 total_x.reshape(batch_dim, total_x.shape[-1]), grad_output, ctx.needs_input_grad[2]
             )
             if world_size > 1:
-                grad_weight, handle_grad_weight = reduce_scatter_raw(grad_weight, process_group, async_op=True)
+                grad_weight_async, handle_grad_weight = reduce_scatter_raw(grad_weight, process_group, async_op=True)
+                assert hasattr(weight, "_fstp_reduce_scatter_str")
+                all_gather_handler.reduce_scatter_handlers[weight._fstp_reduce_scatter_str] = (handle_grad_weight, grad_weight_async)
+                grad_weight = torch.empty(grad_weight.shape[0]//torch.distributed.get_world_size(process_group), *grad_weight.shape[1:], dtype=grad_weight.dtype, device=grad_weight.device)
                 if grad_bias is not None:
-                    grad_bias, handle_grad_bias = reduce_scatter_raw(grad_bias, process_group, async_op=True)
+                    grad_bias_async, handle_grad_bias = reduce_scatter_raw(grad_bias, process_group, async_op=True)
+                    assert hasattr(bias, "_fstp_reduce_scatter_str")
+                    all_gather_handler.reduce_scatter_handlers[bias._fstp_reduce_scatter_str] = (handle_grad_bias, grad_bias_async)
+                    grad_bias = torch.empty(grad_bias.shape[0]//torch.distributed.get_world_size(process_group), *grad_bias.shape[1:], dtype=grad_bias.dtype, device=grad_bias.device)
         else:
             grad_weight = None
             grad_bias = grad_output if ctx.needs_input_grad[2] else None
@@ -384,11 +390,11 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
         else:
             grad_input = None
 
-        if ctx.needs_input_grad[1]:
-            if world_size > 1:
-                handle_grad_weight.wait()
-                if grad_bias is not None:
-                    handle_grad_bias.wait()
+        # if ctx.needs_input_grad[1]:
+        #     if world_size > 1:
+        #         handle_grad_weight.wait()
+        #         if grad_bias is not None:
+        #             handle_grad_bias.wait()
         return grad_input, grad_weight, grad_bias, None, None, None, None
 
 
