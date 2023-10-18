@@ -43,5 +43,5 @@ def try_import_send_exception():
         from uniscale_monitoring import send_exception_msg as send_exception
 
         return send_exception
-    except ModuleNotFoundError:
+    except ImportError:
         return None
