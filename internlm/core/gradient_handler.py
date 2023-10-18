@@ -9,6 +9,7 @@ import torch.distributed as dist
 from torch._utils import _flatten_dense_tensors, _unflatten_dense_tensors
 
 from internlm.core.context import global_context as gpc
+from internlm.core.context.process_group_initializer import ParallelMode
 
 
 class BaseGradientHandler(ABC):
@@ -74,3 +75,26 @@ class PipelineSharedModuleGradientHandler(BaseGradientHandler):
                     dist.all_reduce(coalesced, op=dist.ReduceOp.SUM, group=group)
                     for buf, synced in zip(grads, _unflatten_dense_tensors(coalesced, grads)):
                         buf.copy_(synced)
+
+
+class EmbeddingSharedModuleGradientHandler(BaseGradientHandler):
+    """A helper class to handle all-reduce operations in embedding share groups.
+    A all-reduce collective communication will be operated in
+    :func:`handle_gradient` among the first pipeline stage and the last pipeline stage.
+    For better performance, it bucketizes the gradients of all parameters that are
+    the same type to improve the efficiency of communication.
+
+    Args:
+        model (Module): Model where the gradients accumulate.
+        optimizer (Optimizer): Optimizer for updating the parameters.
+    """
+
+    def handle_gradient(self):
+        """A method running a all-reduce operation in sub pipeline parallel groups."""
+        if gpc.is_pipeline_first_stage() or gpc.is_pipeline_last_stage():
+            weight = self._model.model.shared_embedding_weight()
+            grad = weight.grad
+            # enable zero will cause grad to be None
+            if grad is None:
+                grad = torch.zeros_like(weight)
+            torch.distributed.all_reduce(grad, group=gpc.get_group(parallel_mode=ParallelMode.EMBEDDING))

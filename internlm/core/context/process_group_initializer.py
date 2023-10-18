@@ -48,6 +48,9 @@ class ParallelMode(Enum):
     # expert data parallel
     EXPERT_DATA = "expert_data"
 
+    # embedding share
+    EMBEDDING = "embedding"
+
     # dummy mode, only used during mode construction
     DUMMY = "dummy"
 
@@ -236,8 +239,8 @@ class Initializer_Pipeline(ProcessGroupInitializer):
         process_group = None
         cpu_group = None
         group_world_size = None
-        mode = ParallelMode.PIPELINE
 
+        groups = []
         for i in range(self.data_parallel_size):
             for j in range(self.pipeline_stage_size):
                 ranks = list(
@@ -265,7 +268,37 @@ class Initializer_Pipeline(ProcessGroupInitializer):
                     cpu_group = group_cpu
                     ranks_in_group = ranks
 
-        return local_rank, group_world_size, process_group, cpu_group, ranks_in_group, mode
+                    groups.append(
+                        (local_rank, group_world_size, process_group, cpu_group, ranks_in_group, ParallelMode.PIPELINE)
+                    )
+
+                # create embedding commuication group
+                if len(ranks) > 1:
+                    embedding_ranks = [ranks[0], ranks[-1]]
+                else:
+                    embedding_ranks = ranks
+                embed_group = dist.new_group(embedding_ranks, timeout=LLM_NCCL_TIMEOUT)
+                if use_cpu:
+                    group_cpu = (
+                        dist.new_group(embedding_ranks, backend="gloo", timeout=LLM_NCCL_TIMEOUT)
+                        if dist.get_backend() != "gloo"
+                        else embed_group
+                    )
+                else:
+                    group_cpu = None
+
+                if self.rank in ranks:
+                    local_rank = ranks.index(self.rank)
+                    group_world_size = len(embedding_ranks)
+                    process_group = embed_group
+                    cpu_group = group_cpu
+                    ranks_in_group = embedding_ranks
+
+                    groups.append(
+                        (local_rank, group_world_size, process_group, cpu_group, ranks_in_group, ParallelMode.EMBEDDING)
+                    )
+
+        return groups
 
 
 class Initializer_Tensor(ProcessGroupInitializer):

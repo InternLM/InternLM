@@ -40,22 +40,30 @@ class ScaleColumnParallelLinear(nn.Linear):
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
         weight_scale: int = 1,
+        skip_weight_alloction: bool = False,
     ) -> None:
         world_size = torch.distributed.get_world_size(process_group)
         if out_features % world_size != 0:
             raise ValueError(f"out_features ({out_features}) must be divisible by " f"world_size ({world_size})")
         super().__init__(in_features, out_features // world_size, bias=bias, device=device, dtype=dtype)
+        if skip_weight_alloction:
+            del self.weight
+            self.register_parameter("weight", None)
         self.process_group = process_group
         self.weight_scale = weight_scale
 
-    def forward(self, input):  # pylint: disable=W0622
+    def forward(self, input, shared_weight: Optional[torch.Tensor] = None):  # pylint: disable=W0622
         # If self.sequence_parallel is True, we're doing Tensor Parallel with sequence parallelism:
         # we do an all_gather of x before doing the matmul.
         # If not, then the input is already gathered.
+        if shared_weight is None:
+            if self.weight is None:
+                raise RuntimeError("weight was not given in forward pass " "and skip_weight_allocation is True.")
+            shared_weight = self.weight
         if self.weight_scale != 1:
-            weight = self.weight * self.weight_scale + (1 - self.weight_scale) * self.weight.detach()
+            weight = shared_weight * self.weight_scale + (1 - self.weight_scale) * shared_weight.detach()
         else:
-            weight = self.weight
+            weight = shared_weight
         return fused_dense_func_torch(
             input,
             weight,
@@ -91,7 +99,11 @@ class RewardModelLinear(ScaleColumnParallelLinear):
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
         weight_scale: int = 1,
+        skip_weight_alloction: bool = False,
     ) -> None:
+        # TODO have not use RewardModelLinear for now
+        assert not skip_weight_alloction, "shared weight not support here for now"
+
         super().__init__(in_features, out_features, process_group, bias, device, dtype, weight_scale)
         torch.distributed.broadcast(self.weight, gpc.get_ranks_in_group(ParallelMode.TENSOR)[0], process_group)
         if bias:
@@ -102,7 +114,10 @@ class RewardModelLinear(ScaleColumnParallelLinear):
         # we do an all_gather of x before doing the matmul.
         # If not, then the input is already gathered.
         if self.weight_scale != 1:
-            weight = self.weight * self.weight_scale + (1 - self.weight_scale) * self.weight.detach()
+            weight = (
+                self.weight * self.weight_scale
+                + (1 - self.weight_scale) * self.weight.detach()  # pylint: disable=not-callable
+            )
         else:
             weight = self.weight
         return fused_dense_func_torch(

@@ -14,7 +14,10 @@ from torch.utils.data import DataLoader
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.core.engine import Engine
-from internlm.core.gradient_handler import PipelineSharedModuleGradientHandler
+from internlm.core.gradient_handler import (
+    EmbeddingSharedModuleGradientHandler,
+    PipelineSharedModuleGradientHandler,
+)
 from internlm.core.scheduler import (
     InterleavedPipelineScheduler,
     NonPipelineScheduler,
@@ -68,14 +71,26 @@ def initialize_trainer(
     assert isinstance(optimizer, BaseOptimizer), "optimizer must be instance of BaseOptimizer"
 
     # gradient handler, only support PipelineSharedModuleGradientHandler now
+    # TODO: can refactor code here
     if gpc.is_using_pp():
-        gpc.config.gradient_handler = [dict(type="PipelineSharedModuleGradientHandler")]
+        gpc.config.gradient_handler = [
+            dict(type="PipelineSharedModuleGradientHandler"),
+            dict(type="EmbeddingSharedModuleGradientHandler"),
+        ]
     gradient_handler_cfg = gpc.config.get("gradient_handler", [])
     gradient_handlers = []
     assert isinstance(gradient_handler_cfg, list), f"gradient_handler must be list but got {type(gradient_handler_cfg)}"
     for config in gradient_handler_cfg:
         if isinstance(config, dict) and config.get("type") == "PipelineSharedModuleGradientHandler":
             handler = PipelineSharedModuleGradientHandler(model=model, optimizer=optimizer)
+            gradient_handlers.append(handler)
+        if (
+            isinstance(config, dict)
+            and config.get("type") == "EmbeddingSharedModuleGradientHandler"
+            and gpc.config.model.get("tie_embeddings_and_output_weights", False)
+            and gpc.pipeline_parallel_size > 1
+        ):
+            handler = EmbeddingSharedModuleGradientHandler(model=model, optimizer=optimizer)
             gradient_handlers.append(handler)
 
     # initialize scheduler for trainer

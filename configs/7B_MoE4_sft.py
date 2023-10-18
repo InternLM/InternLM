@@ -129,6 +129,7 @@ model = dict(
     checkpoint=False,  # The proportion of layers for activation aheckpointing, the optional value are True/False/[0-1]
     num_attention_heads=NUM_ATTENTION_HEAD,
     embed_split_hidden=True,
+    tie_embeddings_and_output_weights=False,
     vocab_size=VOCAB_SIZE,
     embed_grad_scale=1,
     parallel_output=True,

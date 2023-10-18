@@ -293,6 +293,8 @@ def args_sanity_check():
             model._add_item("moe_use_residual", False)
         if "moe_gate_k" not in model:
             model._add_item("moe_gate_k", 2)
+        if "tie_embeddings_and_output_weights" not in model:
+            model._add_item("tie_embeddings_and_output_weights", False)
         assert not (
             gpc.config.model.num_experts > 1 and gpc.config.parallel.zero1.fsdp
         ), "FSDP does not support num_experts > 1"
