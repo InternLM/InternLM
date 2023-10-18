@@ -58,7 +58,7 @@ class ScaleColumnParallelLinear(nn.Linear):
         # If not, then the input is already gathered.
         if shared_weight is None:
             if self.weight is None:
-                raise RuntimeError("weight was not given in forward pass " "and skip_weight_allocation is True.")
+                raise RuntimeError("weight was not given in forward pass and skip_weight_allocation is True.")
             shared_weight = self.weight
         if self.weight_scale != 1:
             weight = shared_weight * self.weight_scale + (1 - self.weight_scale) * shared_weight.detach()
@@ -102,7 +102,7 @@ class RewardModelLinear(ScaleColumnParallelLinear):
         skip_weight_alloction: bool = False,
     ) -> None:
         # TODO have not use RewardModelLinear for now
-        assert not skip_weight_alloction, "shared weight not support here for now"
+        assert not skip_weight_alloction, "shared weight is not supported in RewardModelLinear for now"
 
         super().__init__(in_features, out_features, process_group, bias, device, dtype, weight_scale)
         torch.distributed.broadcast(self.weight, gpc.get_ranks_in_group(ParallelMode.TENSOR)[0], process_group)

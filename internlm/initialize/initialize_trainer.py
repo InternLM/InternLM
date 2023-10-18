@@ -70,8 +70,7 @@ def initialize_trainer(
 
     assert isinstance(optimizer, BaseOptimizer), "optimizer must be instance of BaseOptimizer"
 
-    # gradient handler, only support PipelineSharedModuleGradientHandler now
-    # TODO: can refactor code here
+    # gradient handler, support PipelineSharedModuleGradientHandler and EmbeddingSharedModuleGradientHandler now
     if gpc.is_using_pp():
         gpc.config.gradient_handler = [
             dict(type="PipelineSharedModuleGradientHandler"),

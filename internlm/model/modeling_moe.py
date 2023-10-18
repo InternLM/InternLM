@@ -331,7 +331,7 @@ class PackedFlashInternLm1D(nn.Module):
         moe_use_rts (bool, optional): default=True, whether to use Random Token Selection.
         moe_use_residual (bool, optional): default=False, make this MoE layer a Residual MoE
                                           (https://arxiv.org/abs/2201.05596) layer.
-        tie_embeddings_and_output_weights: embedding and output layer share the same weight.
+        tie_embeddings_and_output_weights: default=False, whether embedding and output layer share the same weight.
     """
 
     def __init__(
@@ -529,7 +529,7 @@ class PackedFlashInternLm1D(nn.Module):
         device: Optional[torch.device] = None,
     ):
         if not self.tie_embeddings_and_output_weights:
-            raise Exception("initialize_word_embeddings() was called but " "tie_embeddings_and_output_weights is false")
+            raise Exception("initialize_word_embeddings() was called but tie_embeddings_and_output_weights is false")
 
         # This function just initializes the word embeddings in the final stage
         # when we are using pipeline parallelism. Nothing to do if we aren't
@@ -546,9 +546,9 @@ class PackedFlashInternLm1D(nn.Module):
         # 2. Do an all-reduce between the first and last stage to ensure that
         #    the two copies of word_embeddings start off with the same
         #    parameter values.
-        # 3. In the training loop, before an all-reduce between the grads of
-        #    the two word_embeddings layers to ensure that every applied weight
-        #    update is the same on both stages.
+        # 3. In the training loop, before step perform an all-reduce between the
+        #    grads of the two word_embeddings layers to ensure that every applied
+        #    weight update is the same on both stages.
         if gpc.is_pipeline_last_stage():
             assert not gpc.is_pipeline_first_stage()
             # set word_embeddings weights to 0 here, then copy first
@@ -692,7 +692,7 @@ def build_model_with_moe_cfg(
         moe_use_rts (bool, optional): default=True, whether to use Random Token Selection.
         moe_use_residual (bool, optional): default=False, make this MoE layer a Residual MoE
                                            (https://arxiv.org/abs/2201.05596) layer.
-        tie_embeddings_and_output_weights: embedding and output layer share the same weight.
+        tie_embeddings_and_output_weights: default=False, whether embedding and output layer share the same weight.
     """
 
     cfg = dict(
