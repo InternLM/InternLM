@@ -32,3 +32,16 @@ def get_job_name():
 
 def get_job_key():
     return f"{get_job_id()}_{get_job_name()}"
+
+
+def try_import_send_exception():
+    """
+    Try import send_exception from uniscale_monitoring, if failed, return None
+
+    """
+    try:
+        from uniscale_monitoring import send_exception_msg as send_exception
+
+        return send_exception
+    except ImportError:
+        return None
