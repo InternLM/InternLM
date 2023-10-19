@@ -16,6 +16,7 @@ from internlm.model.embedding import Embedding1D
 from internlm.model.utils import (
     Silu,
     all_gather_raw,
+    all_gather_raw_memory_pool,
     fstp_fused_dense_func,
     fused_dense_func_torch,
 )
@@ -219,8 +220,12 @@ class FeedForward(nn.Module):
 
 class FSTPLinear(ColumnParallelLinear):
     def forward(self, x):
+        block_index = gpc.config.fstp_handler.module_to_index[self]
+        name_index = gpc.config.fstp_handler.module_name_index[self]
+        name = gpc.config.fstp_handler.module_name[name_index]
         return fstp_fused_dense_func(
-            x, self.weight, self.bias, process_group=self.process_group, module=self, handler=gpc.config.fstp_handler
+            x, self.weight, self.bias, process_group=self.process_group, 
+            module=self, handler=gpc.config.fstp_handler, block_index=block_index, module_name=name
         )
 
 
@@ -308,6 +313,7 @@ class FSTPAllGatherSyncHandler:
         self.module_name_index = dict()  # key: FSTP module; value: the name in index in self.module_name
 
         self.reduce_scatter_handlers = {}
+        self.all_reduce_handlers = {}
 
         # just want to share same for loop for ModuleList and Module
         if not isinstance(model, nn.ModuleList):
@@ -438,6 +444,8 @@ class CoarseGrainedFSTPAllGatherSyncHandler:
         self.embedding = []
 
         self.reduce_scatter_handlers = {}
+        self.all_reduce_handlers = {}
+        self.zero_const_pool = {}
 
         # just want to share same for loop for ModuleList and Module
         if not isinstance(model, nn.ModuleList):
@@ -476,12 +484,23 @@ class CoarseGrainedFSTPAllGatherSyncHandler:
                                         setattr(child.weight, "_fstp_reduce_scatter_str", f"{_full_name}.weight")
                                         if child.bias is not None:
                                             setattr(child.bias, "_fstp_reduce_scatter_str", f"{_full_name}.bias")
+                                        # _full_name = f"{_chunk_name}.{idx}.{_sub_name}.{name}"
+                                        # setattr(child.weight, "_fstp_all_reduce_str", f"{_full_name}.weight")
+                                        # if child.bias is not None:
+                                        #     setattr(child.bias, "_fstp_all_reduce_str", f"{_full_name}.bias")
                             else:
                                 continue
                 elif isinstance(children, ScaleColumnParallelLinear):
                     self.head.append(children)
                 elif isinstance(children, Embedding1D):
                     self.embedding.append(children)
+                    
+    def get_zero_by_shape(self, size:tuple, dtype, device) -> torch.Tensor:
+        if size not in self.zero_const_pool:        
+            self.zero_const_pool[size] = torch.zeros(*size, dtype=dtype, device=device).contiguous()
+        
+        return self.zero_const_pool[size]
+
 
     def _all_gather_block_weight(self, block_index: int):
         #block = self.index_to_block[block_index]
@@ -490,6 +509,17 @@ class CoarseGrainedFSTPAllGatherSyncHandler:
         for module in fsdp_modules:
             total_weight, weight_handle = all_gather_raw(module.weight, self.process_group, async_op=True)
             self.FSTP_global_weights[module] = total_weight
+            self.FSTP_global_handle[module] = weight_handle
+            # self.block_handles[block].append(weight_handle)
+    
+    def _all_gather_block_weight_memory_pool(self, block_index: int):
+        fsdp_modules = self.index_to_fsdp_modules[block_index]
+        # self.block_handles[block] = []
+        for module in fsdp_modules:
+            module_index = self.module_name_index[module]
+            name = self.module_name[module_index]
+            weight_handle = all_gather_raw_memory_pool(module.weight, self.process_group, async_op=True, block_index=block_index, module_name=name)
+            # self.FSTP_global_weights[module] = total_weight
             self.FSTP_global_handle[module] = weight_handle
             # self.block_handles[block].append(weight_handle)
 
@@ -508,7 +538,8 @@ class CoarseGrainedFSTPAllGatherSyncHandler:
             block_index = self.module_to_index[module]
             # start the all-gather for next block
             if block_index + 1 < gpc.config.NUM_LAYER:
-                self._all_gather_block_weight(block_index + 1)
+                # self._all_gather_block_weight(block_index + 1)
+                self._all_gather_block_weight_memory_pool(block_index + 1)
 
         def _pre_forward_hook_for_block(block: nn.Module, inputs: Any):
             block_index = self.block_to_index[block]
@@ -526,7 +557,8 @@ class CoarseGrainedFSTPAllGatherSyncHandler:
                     handle.wait()
         
         def _pre_forward_hook_for_embedding(module: nn.Module, inputs: Any, output):
-            self._all_gather_block_weight(0)
+            # self._all_gather_block_weight(0)
+            self._all_gather_block_weight_memory_pool(0)
             
 
         def _post_forward_hook_for_block(block: nn.Module, input, output):
@@ -582,6 +614,48 @@ class CoarseGrainedFSTPAllGatherSyncHandler:
                 del self.block_handles[block]
             for module in fsdp_modules:
                 del self.FSTP_global_weights[module]
+
+        def _pre_backward_hook_for_module_memory_pool(module: nn.Module, grad_output):
+            block_index = self.module_to_index[module]
+            name_index = self.module_name_index[module]
+            
+            if name_index == 4 and block_index == gpc.config.NUM_LAYER - 1:
+                # total_weight, weight_handler = all_gather_raw(module.weight, self.process_group, async_op=True)
+                weight_handler = self.FSTP_global_handle[module]
+                weight_handler.wait()
+                # self.FSTP_global_weights[module] = total_weight
+
+                # start the all-gather for next module
+                next_module = self.block_module[block_index][name_index - 1]
+                next_name = self.module_name[name_index - 1]
+                weights_handler = all_gather_raw_memory_pool(
+                    next_module.weight, self.process_group, async_op=True, block_index=block_index, module_name=next_name
+                )
+                self.FSTP_global_handle[next_module] = weights_handler
+            elif name_index == 0:
+                handler = self.FSTP_global_handle[module]
+                handler.wait()
+                
+                if block_index - 1 >= 0:
+                    next_module = self.block_module[block_index - 1][4]
+                    name = self.module_name[4]
+                    weights_handler = all_gather_raw_memory_pool(
+                        next_module.weight, self.process_group, async_op=True, block_index=block_index - 1, module_name=name,
+                    )
+                    self.FSTP_global_handle[next_module] = weights_handler
+            else:
+                handler = self.FSTP_global_handle[module]
+                handler.wait()
+                if name_index != 0:
+                    next_module = self.block_module[block_index][name_index - 1]
+                    name = self.module_name[name_index - 1]
+                    weights_handler = all_gather_raw_memory_pool(
+                        next_module.weight, self.process_group, async_op=True, block_index=block_index, module_name=name
+                    )
+                    self.FSTP_global_handle[next_module] = weights_handler
+                # if module in self.FSTP_global_handle:
+                #     handler = self.FSTP_global_handle[module]
+                #     handler.wait()
 
         def _pre_backward_hook_for_module(module: nn.Module, grad_output):
             block_index = self.module_to_index[module]
@@ -649,5 +723,6 @@ class CoarseGrainedFSTPAllGatherSyncHandler:
         for module in self.FSTP_modules:
             module.register_forward_pre_hook(_pre_forward_hook_for_module)
             module.register_forward_hook(_post_forward_hook_for_module)
-            module.register_full_backward_pre_hook(_pre_backward_hook_for_module)
+            # module.register_full_backward_pre_hook(_pre_backward_hook_for_module)
+            module.register_full_backward_pre_hook(_pre_backward_hook_for_module_memory_pool)
             module.register_full_backward_hook(_post_backward_hook_for_module)

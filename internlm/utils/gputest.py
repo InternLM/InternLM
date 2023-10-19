@@ -36,10 +36,17 @@ def empty_cache_and_diag(batch_count, interval=50):
         if batch_count > 0:
             if gpc.is_rank_for_log():
                 logger.info("Empty Cache and Diagnosis GPU/NCCL/Timer ...")
-            with torch.no_grad():
-                timer_diagnosis()
-                bench_gpu()
-                bench_net()
+            # with torch.no_grad():
+            #     try:
+            #         timer_diagnosis()
+            #         bench_gpu()
+            #         bench_net()
+            #     except torch.distributed.DistBackendError as e:
+            #         # import time
+            #         # time.sleep(10)
+            #         print(e, "rank = ", gpc.get_global_rank(), flush=True)
+                    # torch.cuda.memory._dump_snapshot(f"my_snapshot_{gpc.get_global_rank()}.pickle")
+
         # do empty_cache after the bench
         torch.cuda.empty_cache()
         # do garbage collection

@@ -108,12 +108,45 @@ def initialize_model():
 
     # if fsdp enabled, wrap the model
     model = wrap_FSDP_model(model)
+    
+    gpc.config.fstp_handler = None
 
-    if gpc.config.parallel["tensor"]["mode"] == "fstp":
+    if gpc.config.parallel["tensor"]["mode"] == "fstp" and gpc.config.parallel["tensor"]["overlap"] == True:
         handler = CoarseGrainedFSTPAllGatherSyncHandler(model, gpc.get_group(ParallelMode.TENSOR))
         # handler = FSTPAllGatherSyncHandler(model, gpc.get_group(ParallelMode.TENSOR))
         handler._register_sync_parameters_hook()
         gpc.config.fstp_handler = handler
+        
+        # allocate memory pool
+        block_memory = {} # containing two groups of block weight
+        hidden_size = gpc.config.HIDDEN_SIZE
+        mlp_ratio = gpc.config.MLP_RATIO
+        mlp_hidden_size = int(hidden_size * mlp_ratio)
+        mlp_hidden_size = 256 * ((mlp_hidden_size + 256 - 1) // 256)
+        size_key = [(3 * hidden_size, hidden_size), (mlp_hidden_size, hidden_size), (mlp_hidden_size, hidden_size), (hidden_size, hidden_size)]
+        module_name = ['Wqkv', 'out_proj', 'w1', 'w2', 'w3']
+        for i in range(2):
+            weight = {}
+            for name in module_name:
+                if name == 'Wqkv':
+                    weight[name] = torch.zeros((3 * hidden_size, hidden_size), 
+                                               dtype=gpc.config.model.get("dtype", torch.half), 
+                                               device='cuda').contiguous()
+                elif name == 'out_proj':
+                    weight[name] = torch.zeros((hidden_size, hidden_size), 
+                                               dtype=gpc.config.model.get("dtype", torch.half), 
+                                               device='cuda').contiguous()
+                elif name == 'w1' or name == 'w2':
+                    weight[name] = torch.zeros((mlp_hidden_size, hidden_size), 
+                                               dtype=gpc.config.model.get("dtype", torch.half), 
+                                               device='cuda').contiguous()
+                else:
+                    weight[name] = torch.zeros((hidden_size, mlp_hidden_size), 
+                                               dtype=gpc.config.model.get("dtype", torch.half), 
+                                               device='cuda').contiguous()
+            block_memory[i] = weight
+        gpc.config.block_memory = block_memory
+
     return model
 
 
@@ -393,6 +426,7 @@ def initialize_llm_profile(profiling: bool = False, start_time: str = None):
         ),
         with_stack=True,
         with_modules=True,
+        profile_memory=True,
     )
 
 

@@ -57,7 +57,7 @@ data = dict(
     # defaults to 0, means disable evaluate
     valid_every=50,
     pack_sample_into_one=False,
-    total_steps=20,
+    total_steps=50,
     skip_batches="",
     rampup_batch_size="",
     # Datasets with less than 50 rows will be discarded
@@ -162,7 +162,7 @@ sequence parallel (bool): enable/disable sequence parallel, defaults to False.
 """
 parallel = dict(
     zero1=dict(size=-1, fsdp=False),
-    tensor=dict(size=8, mode="fstp"),
+    tensor=dict(size=8, mode="fstp", overlap=True),
     pipeline=dict(size=1, interleaved_overlap=True),
     sequence_parallel=True,
 )

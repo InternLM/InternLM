@@ -1,4 +1,4 @@
-JOB_NAME = "13b_train"
+JOB_NAME = "30b_train"
 DO_ALERT = False
 
 SEQ_LEN = 4096
@@ -162,7 +162,7 @@ sequence parallel (bool): enable/disable sequence parallel, defaults to False.
 """
 parallel = dict(
     zero1=dict(size=-1, fsdp=False),
-    tensor=dict(size=8, mode="fstp"),
+    tensor=dict(size=8, mode="origin_tp", overlap=False),
     pipeline=dict(size=1, interleaved_overlap=True),
     sequence_parallel=True,
 )

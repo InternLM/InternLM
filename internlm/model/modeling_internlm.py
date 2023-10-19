@@ -125,7 +125,6 @@ class PackedFlashBaseLayer1D(nn.Module):
                 bias=False,
                 device=device,
                 dtype=dtype,
-                block_idx=block_idx,
             )
         else:
             self.mlp = ParallelFusedMLP(

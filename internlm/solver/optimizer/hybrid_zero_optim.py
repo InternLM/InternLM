@@ -10,6 +10,7 @@ from torch.optim import Optimizer
 
 from internlm.core.context import Config, ParallelMode
 from internlm.core.context import global_context as gpc
+from internlm.model.utils import split_forward_gather_backward
 from internlm.monitor import send_alert_message
 from internlm.solver.optimizer.store import (
     BucketStore,
@@ -40,12 +41,8 @@ inf = math.inf
 logger = get_logger(__file__)
 
 def print_memory(msg):
-    
-    if gpc.get_global_rank() == 0:
-        print(msg, flush=True)
-        print("memory allocated: ", torch.cuda.memory_allocated() / 1024 / 1024 / 1024, flush=True)
-        print("max memory allocated: ", torch.cuda.max_memory_allocated() / 1024 / 1024 / 1024, flush=True)
-        print("===========================================")
+    print(msg, " rank = ", gpc.get_global_rank(), " memory allocated: ", torch.cuda.memory_allocated() / 1024 / 1024 / 1024, " reverved memory: ", torch.cuda.memory_reserved() / 1024 / 1024 / 1024, " max memory: ", torch.cuda.max_memory_allocated() / 1024 / 1024 / 1024, flush=True)
+    print("===========================================")
 
 
 class HybridZeroOptimizer(BaseOptimizer):
@@ -73,7 +70,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         hysteresis = grad_scal_cfg.hysteresis
         max_scale = grad_scal_cfg.max_scale
         
-        if gpc.config.parallel["tensor"]["mode"] == "fstp":
+        if gpc.config.parallel["tensor"]["mode"] == "fstp" and gpc.config.parallel["tensor"]["overlap"] == True:
             self._fstp_handler = gpc.config.fstp_handler
 
         # Zero related args
@@ -94,6 +91,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         self._param_store = ParameterStore(ParallelMode.ZERO1)
         self._grad_store = GradientStore(ParallelMode.DATA)
         self._bucket_store = []
+        self._bucket_store_2 = []
         self._bucket_in_progress = []
 
         # fp16 and fp32 params for mixed precision training
@@ -162,6 +160,7 @@ class HybridZeroOptimizer(BaseOptimizer):
             # TODO _broadcast_parallel_mode is not only used in broadcast, maybe can change its name
             self._broadcast_parallel_mode.append(zero_mode)
             self._bucket_store.append(BucketStore(group_id, param_group["dp_mode"]))
+            self._bucket_store_2.append(BucketStore(group_id, param_group["dp_mode"]))
 
             # assign parameters to ranks the params in the list are sorted
             params_per_rank, no_params_ranks = self._partition_param_list(group_id, param_group)
@@ -307,12 +306,22 @@ class HybridZeroOptimizer(BaseOptimizer):
                             param=param,
                             reduce_rank=reduce_rank,
                         )
+                        
+                        reduce_scatter_checker = partial(
+                            self._wait_reduce_scatter_and_accumulate_grad,
+                            param=param,
+                            reduce_rank=reduce_rank,
+                        )
 
                         # define hook
                         # NOT IMPORTANT BUT GOOD TO KNOW:
                         # args here is not grad, but allow_unreacable and accumulate_grad
                         def reduce_grad_hook(*args):  # pylint: disable=W0613
-                            reduction_func()
+                            if gpc.config.fstp_handler is not None:
+                                reduce_scatter_checker()
+
+                            if self.skip_grad_reduce is False:
+                                reduction_func()
 
                         accum_grad_obj.register_hook(reduce_grad_hook)
 
@@ -333,7 +342,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         return tensor_rank == gpc.get_local_rank(self._broadcast_parallel_mode[group_id])
 
     def reset_reduce_bucket(self) -> None:
-        for bucket in self._bucket_store:
+        for bucket in self._bucket_store_2:
             for rank, params in bucket._params.items():
                 for _param in params:
                     if not hasattr(_param, "_fstp_reduce_scatter_str"):
@@ -342,10 +351,74 @@ class HybridZeroOptimizer(BaseOptimizer):
                     key = getattr(_param, "_fstp_reduce_scatter_str")
                     comm_handle, _grad = self._fstp_handler.reduce_scatter_handlers[key]
                     comm_handle.wait()
-                    _param.grad += _grad
+                    _param.grad.add_(_grad)
+                    # self._fstp_handler.reduce_scatter_handlers[key] = None
+                    del _grad
+                    del self._fstp_handler.reduce_scatter_handlers[key]
                     self._fstp_handler.reduce_scatter_handlers[key] = None
+                    assert key in self._fstp_handler.reduce_scatter_handlers
+                    # if not hasattr(_param, "_fstp_all_reduce_str"):
+                    #     continue
+
+                    # key = getattr(_param, "_fstp_all_reduce_str")
+                    # comm_handle, _grad = self._fstp_handler.all_reduce_handlers[key]
+                    # comm_handle.wait()
+                    # with torch.no_grad():
+                    #     _grad = split_forward_gather_backward(_grad, ParallelMode.TENSOR, dim=0)
+                    # _param.grad.add_(_grad)
+                    # # self._fstp_handler.reduce_scatter_handlers[key] = None
+                    # del _grad
+                    # del self._fstp_handler.all_reduce_handlers[key]
+                    # self._fstp_handler.all_reduce_handlers[key] = None
+                    # assert key in self._fstp_handler.all_reduce_handlers
 
                 bucket.reset_by_rank(rank)
+                
+    def _wait_reduce_scatter_and_accumulate_grad(self, param, reduce_rank=None):
+        param_size = param.numel()
+
+        # check if the bucket is full
+        # if full, will reduce the grads already in the bucket
+        # after reduction, the bucket will be empty
+        group_id = getattr(param, "group_id")
+        current_bucket = self._bucket_store_2[group_id]
+
+        if current_bucket.num_elements_in_bucket(reduce_rank) >= 512 * 1024 * 1024:
+            # wait reduce scatter communication
+            params = current_bucket.get_param(reduce_rank)
+            for _param in params:
+                if not hasattr(_param, "_fstp_reduce_scatter_str"):
+                    continue
+
+                key = getattr(_param, "_fstp_reduce_scatter_str")
+                comm_handle, _grad = self._fstp_handler.reduce_scatter_handlers[key]
+                comm_handle.wait()
+                _param.grad.add_(_grad)
+                # self._fstp_handler.reduce_scatter_handlers[key] = None
+                del _grad
+                del self._fstp_handler.reduce_scatter_handlers[key]
+                self._fstp_handler.reduce_scatter_handlers[key] = None
+                assert key in self._fstp_handler.reduce_scatter_handlers
+                
+                # if not hasattr(_param, "_fstp_all_reduce_str"):
+                #         continue
+
+                # key = getattr(_param, "_fstp_all_reduce_str")
+                # comm_handle, _grad = self._fstp_handler.all_reduce_handlers[key]
+                # comm_handle.wait()
+                # with torch.no_grad():
+                #     _grad = split_forward_gather_backward(_grad, ParallelMode.TENSOR, dim=0)
+                # _param.grad.add_(_grad)
+                # # self._fstp_handler.reduce_scatter_handlers[key] = None
+                # del _grad
+                # del self._fstp_handler.all_reduce_handlers[key]
+                # self._fstp_handler.all_reduce_handlers[key] = None
+                # assert key in self._fstp_handler.all_reduce_handlers
+
+                current_bucket.reset_by_rank(reduce_rank)
+                
+        current_bucket.add_num_elements_in_bucket(param_size, reduce_rank)
+        current_bucket.add_param(param, reduce_rank)
 
     def _store_and_try_reduce_grads_by_bucket(self, param, reduce_rank=None):
         param_size = param.numel()
@@ -357,27 +430,11 @@ class HybridZeroOptimizer(BaseOptimizer):
         current_bucket = self._bucket_store[group_id]
 
         if current_bucket.num_elements_in_bucket(reduce_rank) + param_size > self._reduce_bucket_size:
-            # wait reduce scatter communication
-            params = current_bucket.get_param(reduce_rank)
-            for _param in params:
-                if not hasattr(_param, "_fstp_reduce_scatter_str"):
-                    continue
-
-                key = getattr(_param, "_fstp_reduce_scatter_str")
-                comm_handle, _grad = self._fstp_handler.reduce_scatter_handlers[key]
-                comm_handle.wait()
-                _param.grad += _grad
-                self._fstp_handler.reduce_scatter_handlers[key] = None
-
-            # reduce grad
-            if self.skip_grad_reduce is False:
-                self._reduce_grads_stored_in_bucket(current_bucket, reduce_rank, last_bucket=False)
-            else:
-                current_bucket.reset_by_rank(reduce_rank)
+            self._reduce_grads_stored_in_bucket(current_bucket, reduce_rank, last_bucket=False)
 
         # the param must not be reduced to ensure correctness
         is_param_reduced = self._param_store.is_param_reduced(param)
-        if is_param_reduced and self.skip_grad_reduce is False:
+        if is_param_reduced:
             msg = (
                 f"Parameter of size ({param.size()}) has already been reduced, "
                 + "duplicate reduction will lead to arithmetic incorrectness"
@@ -628,8 +685,15 @@ class HybridZeroOptimizer(BaseOptimizer):
         timer("sync_grad").stop()
         
         print_memory("No 4")
-
-        return self._step(closure=closure, norms=total_norms)
+        
+        try:
+            res =  self._step(closure=closure, norms=total_norms)
+        except torch.cuda.OutOfMemoryError as e:
+            print(e, flush=True)
+            print(torch.cuda.memory_summary(), flush=True)
+            torch.cuda.memory._dump_snapshot(f"my_snapshot_{gpc.get_global_rank()}.pickle")
+            
+        return res
 
     def _step(self, closure=None, norms=None):
         assert closure is None, "closure is not supported by step()"
