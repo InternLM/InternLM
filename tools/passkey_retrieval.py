@@ -2,7 +2,6 @@ import argparse
 import random
 from numpy import random
 from transformers import AutoTokenizer, AutoModelForCausalLM
-import pdb
 
 def parse_config():
     parser = argparse.ArgumentParser(description='arg parser')
