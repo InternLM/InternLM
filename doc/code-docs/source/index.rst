@@ -55,6 +55,14 @@ InternLM
 
    mixed_precision
 
+混合专家模型
+-------------------
+
+.. toctree::
+   :maxdepth: 2
+
+   moe
+
 模型备份
 --------------------
 

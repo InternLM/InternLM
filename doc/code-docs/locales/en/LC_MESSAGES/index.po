@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: InternLM \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-09-07 10:56+0800\n"
+"POT-Creation-Date: 2023-10-10 17:48+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -16,7 +16,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.12.1\n"
+"Generated-By: Babel 2.13.0\n"
 
 #: ../../source/index.rst:8 11e029810acf410180311a3c63eb01f4
 msgid "InternLM"
@@ -46,38 +46,42 @@ msgstr "Parallel Training"
 msgid "混合精度"
 msgstr "Mixed Precision"
 
-#: ../../source/index.rst:59 9234725f3c464731993d73607608c874
+#: ../../source/index.rst:59
+msgid "混合专家模型"
+msgstr "Mixture-of-Experts"
+
+#: ../../source/index.rst:67 9234725f3c464731993d73607608c874
 msgid "模型备份"
 msgstr "Model Checkpointing"
 
-#: ../../source/index.rst:67 8e4ce037017f4510b2892a66003877fa
+#: ../../source/index.rst:75 8e4ce037017f4510b2892a66003877fa
 msgid "性能分析"
 msgstr "Profiler"
 
-#: ../../source/index.rst:75 a36e02819ecd4b448a8cb4ebbecb6600
+#: ../../source/index.rst:83 a36e02819ecd4b448a8cb4ebbecb6600
 msgid "训练监控"
 msgstr "Monitor"
 
-#: ../../source/index.rst:83 b912e292486f455c8b5cdd75962e8ac2
+#: ../../source/index.rst:91 b912e292486f455c8b5cdd75962e8ac2
 msgid "训练样例"
 msgstr "Example"
 
-#: ../../source/index.rst:91 ea9e9281720941a1830e5df7a2badf7a
+#: ../../source/index.rst:99 ea9e9281720941a1830e5df7a2badf7a
 msgid "常见问题"
 msgstr "Q&A"
 
-#: ../../source/index.rst:99 e08edc5aa1c74965b10084b393b88fae
+#: ../../source/index.rst:107 e08edc5aa1c74965b10084b393b88fae
 msgid "索引和表格"
 msgstr "Indices and tables"
 
-#: ../../source/index.rst:101 f3fdca059caa49dcad09aa44be7f02d6
+#: ../../source/index.rst:109 f3fdca059caa49dcad09aa44be7f02d6
 msgid ":ref:`genindex`"
 msgstr ""
 
-#: ../../source/index.rst:102 b3791e811315435097bb507edc3f4b9b
+#: ../../source/index.rst:110 b3791e811315435097bb507edc3f4b9b
 msgid ":ref:`modindex`"
 msgstr ""
 
-#: ../../source/index.rst:103 a164b772960f4ab8b18c7e8820f69f55
+#: ../../source/index.rst:111 a164b772960f4ab8b18c7e8820f69f55
 msgid ":ref:`search`"
 msgstr ""

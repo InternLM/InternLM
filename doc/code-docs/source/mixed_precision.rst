@@ -1,5 +1,5 @@
 混合精度
------------------
+============
 混合精度是指在模型训练的过程中同时使用16位和32位浮点数类型，是一种在最小化精度损失的前提下加速模型训练的方法。
 混合精度通过让模型的某些部分使用32位浮点数以保持数值稳定性，并在其余部分利用半精度浮点数加速训练并可以减少内存使用，在评估指标（如准确率）方面仍可以获得同等的训练效果。
 
@@ -22,10 +22,10 @@ InternLM默认将模型转换为16位浮点数类型进行训练（在配置文�
             super().__init__()
             self.linear1 = nn.Linear(4, 1, bias=False)
             self.linear2 = nn.Linear(1, 4, bias=False)
+            # set model.linear2 as fp32 module
+            set_fp32_attr_to_module(model.linear2)
 
     model = MlpModel()
-    # set model.linear2 as fp32 module
-    set_fp32_attr_to_module(model.linear2)
 
     # apply mixed precision
     model = NaiveAMPModel(
@@ -78,4 +78,3 @@ InternLM支持使用TF32训练模型，允许用户在config文件中将 ``dtype
 
     torch.backends.cudnn.allow_tf32 = True
     torch.backends.cuda.matmul.allow_tf32 = True
-
