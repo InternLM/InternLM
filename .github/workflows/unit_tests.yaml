@@ -3,12 +3,14 @@ on:
   push:
     branches:
       - "develop"
+      - "main"
     paths-ignore:
       - "cmds/**"
       - "**.md"
   pull_request:
     branches:
       - "develop"
+      - "main"
     paths-ignore:
       - "cmds/**"
       - "**.md"
