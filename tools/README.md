@@ -1,11 +1,12 @@
-本目录提供辅助模型训练的一些工具，文件结构如下所示：
+本目录提供辅助模型训练和推理的一些工具，文件结构如下所示：
 
 ```bash
 ├── transformers  # 适配hugging face的transformers的一些工具
 │   ├── configuration_internlm.py  # config适配工具
 │   ├── modeling_internlm.py  # model适配工具
 │   ├── tokenization_internlm.py  # tokenizer适配工具
-│   └── convert2hf.py  # 模型适配hugging face工具
+│   └── convert2hf.py    # 模型适配hugging face工具
+├── passkey_retrieval.py # 长文本检索测试工具
 └── tokenizer.py  # 将原始数据转换成bin和meta文件的工具
 ```
 
@@ -109,3 +110,24 @@ InternLM 在 GSM8K 数据集中带工具和不带工具的性能表现：
 | -------- | -------------------- |
 | w/o tool | 34.5                 |
 | w tool   | 39.2                 |
+
+# passkey_retrieval.py
+用于测试模型输入不同长度文本时，提取细节的能力。测试方法来自 [这篇论文](https://arxiv.org/pdf/2305.16300.pdf)。使用方法：
+
+```bash
+python3 tools/passkey_retrieval.py [--max_tokens <max_token>]  [--interval <interval>] [--num_tests <num_tests>]
+
+# 可选参数:
+# --max-tokens <max_token>  最大输入文本长度（默认：4096）。
+# --interval <interval>     每隔多大长度测试一轮（默认：1024）。
+# --num_tests <num_tests>   每轮测多少次推理（默认：20）。
+```
+
+以下是使用示例：
+```bash
+python3 tools/passkey_retrieval.py
+```
+输出是不同 token 长度下检索 passkey 的精度。
+```bash
+accuries over tokens {'881': 1.0, '1973': 0.8, '2792': 1.0, '3885': 0.8}
+```

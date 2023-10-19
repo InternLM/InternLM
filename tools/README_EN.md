@@ -6,6 +6,7 @@ This directory provide some tools for model training with the following file str
 │   ├── modeling_internlm.py  # tools for adapting model
 │   └── tokenization_internlm.py  # tools for adapting tokenizer
 │   └── convert2hf.py  # tools for adapting models to Hugging Face's format
+├── passkey_retrieval.py # tools for testing handle long context
 └── tokenizer.py  # tools for generating `bin` and `meta` file for raw data
 ```
 
@@ -107,3 +108,24 @@ InternLM performance in the GSM8K dataset with and without tools:
 | -------- | -------------------- |
 | w/o tool | 34.5                 |
 | w tool   | 39.2                 |
+
+# passkey_retrieval.py
+Test the ability to extract details when inputting long text. This test method comes from [this paper](https://arxiv.org/pdf/2305.16300.pdf). 
+
+```bash
+python3 tools/passkey_retrieval.py [--max_tokens <max_token>] [--interval <interval>] [--num_tests <num_tests>]
+
+# Optional parameters:
+# --max-tokens <max_token> Maximum input text length (default: 4096).
+# --interval <interval> The length of the test (default: 1024).
+# --num_tests <num_tests> How many times to test inference per round (default: 20).
+```
+
+Below is an example of usage:
+```bash
+python3 tools/passkey_retrieval.py
+```
+The output is the accuracy of retrieving passkey under different token lengths.
+```bash
+accuries over tokens {'881': 1.0, '1973': 0.8, '2792': 1.0, '3885': 0.8}
+```
