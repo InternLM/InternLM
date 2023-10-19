@@ -10,20 +10,11 @@ from tests.test_utils.common_fixture import (  # noqa # pylint: disable=unused-i
     LOCAL_SAVE_PATH,
     VOLC_SAVE_PATH,
     del_tmp_file,
-    init_dist_and_model,
     reset_singletons,
 )
 
 ASYNC_TMP_FOLDER = "./async_tmp_folder"
 ckpt_config_list = [
-    # async boto
-    dict(
-        enable_save_ckpt=True,
-        async_upload_tmp_folder=ASYNC_TMP_FOLDER,
-        async_upload=True,
-        save_folder=BOTO_SAVE_PATH,
-        test_id=0,
-    ),
     # sync local
     dict(
         enable_save_ckpt=True,
@@ -32,21 +23,29 @@ ckpt_config_list = [
         save_folder=LOCAL_SAVE_PATH,
         test_id=1,
     ),
-    # sync boto
-    dict(
-        enable_save_ckpt=True,
-        async_upload_tmp_folder=None,
-        async_upload=False,
-        save_folder=BOTO_SAVE_PATH,
-        test_id=2,
-    ),
     # async local
     dict(
         enable_save_ckpt=True,
         async_upload_tmp_folder=ASYNC_TMP_FOLDER,
         async_upload=True,
         save_folder=LOCAL_SAVE_PATH,
+        test_id=2,
+    ),
+    # async boto
+    dict(
+        enable_save_ckpt=True,
+        async_upload_tmp_folder=ASYNC_TMP_FOLDER,
+        async_upload=True,
+        save_folder=BOTO_SAVE_PATH,
         test_id=3,
+    ),
+    # sync boto
+    dict(
+        enable_save_ckpt=True,
+        async_upload_tmp_folder=None,
+        async_upload=False,
+        save_folder=BOTO_SAVE_PATH,
+        test_id=4,
     ),
     # async volc
     dict(
@@ -54,7 +53,7 @@ ckpt_config_list = [
         async_upload_tmp_folder=ASYNC_TMP_FOLDER,
         async_upload=True,
         save_folder=VOLC_SAVE_PATH,
-        test_id=4,
+        test_id=5,
     ),
     # sync volc
     dict(
@@ -62,7 +61,7 @@ ckpt_config_list = [
         async_upload_tmp_folder=None,
         async_upload=False,
         save_folder=VOLC_SAVE_PATH,
-        test_id=5,
+        test_id=6,
     ),
 ]
 
@@ -77,7 +76,7 @@ def del_tmp():
 @pytest.mark.usefixtures("del_tmp")
 @pytest.mark.usefixtures("reset_singletons")
 @pytest.mark.parametrize("ckpt_config", ckpt_config_list)
-def test_storage_mm_save_load(ckpt_config, init_dist_and_model):  # noqa # pylint: disable=unused-argument
+def test_storage_mm_save_load(ckpt_config):  # noqa # pylint: disable=unused-argument
     from internlm.utils.storage_manager import (
         check_folder,
         get_fns,
@@ -88,6 +87,11 @@ def test_storage_mm_save_load(ckpt_config, init_dist_and_model):  # noqa # pylin
     )
 
     ckpt_config = Config(ckpt_config)
+    if os.environ.get("OSS_BUCKET_NAME") is None:
+        if ckpt_config.test_id > 2:
+            print("Pass boto3 and volc", flush=True)
+            return
+
     enable_save_ckpt = get_config_value(ckpt_config, "enable_save_ckpt", False)
     async_upload_tmp_folder = get_config_value(ckpt_config, "async_upload_tmp_folder", False)
     async_upload = get_config_value(ckpt_config, "async_upload", False)
