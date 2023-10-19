@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - "main"
+      - "develop"
 env:
   SLURM_PARTITION: llm_s
 

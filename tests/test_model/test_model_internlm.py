@@ -16,7 +16,12 @@ from internlm.model.utils import gather_forward_split_backward
 
 config = Config(
     dict(
-        parallel=dict(zero1=1, pipeline=dict(size=1, interleaved_overlap=False), sequence_parallel=False, tensor=1),
+        parallel=dict(
+            zero1=dict(size=1, fsdp=False),
+            pipeline=dict(size=1, interleaved_overlap=False),
+            sequence_parallel=False,
+            tensor=1,
+        ),
         model_type="INTERNLM",
         data=dict(seq_len=2048, micro_num=1, micro_bsz=1, pack_sample_into_one=False, min_length=0, total_steps=9999),
         model=dict(
