@@ -164,7 +164,7 @@ def reduce_scatter_raw_memory_pool(input_: Tensor, process_group: ProcessGroup, 
 
 # adpated from https://github.com/Dao-AILab/flash-attention/blob/main/flash_attn/ops/fused_dense.py
 class FusedDenseFunc(torch.autograd.Function):
-    "tp fused dense function"
+    "FusedDenseFunc for tensor parallel in flash-attn implementation."
 
     @staticmethod
     @custom_fwd
@@ -255,9 +255,96 @@ class FusedDenseFunc(torch.autograd.Function):
         return grad_input, grad_weight, grad_bias, None, None, None, None
 
 
+class MegatronFusedDenseFunc(torch.autograd.Function):
+    '''
+    FusedDenseFunc for tensor parallel in megatron implementation.
+    The diffenrence between the implementation of flash-attn and megatron is that the total_x could be saved for backward in megatron,
+    so that the all-gather in backward is ommited.
+    '''
+
+    @staticmethod
+    @custom_fwd
+    def forward(ctx, x, weight, bias, return_residual=False, process_group=None, sequence_parallel=True, gather_dim=0):
+        """
+        If process_group is not None and sequence_parallel=True, we're doing Tensor Parallel
+        with sequence parallelism: we do an all_gather_raw of x before doing the matmul.
+        """
+        ctx.compute_weight_gradient = weight.requires_grad
+        ctx.return_residual = return_residual
+        ctx.process_group = process_group
+        ctx.sequence_parallel = sequence_parallel
+
+        if torch.is_autocast_enabled():
+            x = x.to(dtype=torch.get_autocast_gpu_dtype())
+        x = x.contiguous()
+        if process_group is not None and sequence_parallel:
+            # We want to kick off the all_gather early, before weight dtype conversion
+            total_x, handle_x = all_gather_raw(x, process_group, async_op=True, gather_dim=gather_dim)
+        else:
+            total_x = x
+
+        if torch.is_autocast_enabled():
+            weight = weight.to(dtype=torch.get_autocast_gpu_dtype())
+            bias = bias.to(dtype=torch.get_autocast_gpu_dtype()) if bias is not None else None
+        weight = weight.contiguous()
+        if process_group is not None and sequence_parallel:
+            handle_x.wait()
+        batch_shape, n = total_x.shape[:-1], total_x.shape[-1]
+        batch_dim = batch_shape.numel()
+        # https://github.com/pytorch/pytorch/blob/5b51849b48a7dbccd297286cc0110def4706f9e7/aten/src/ATen/native/cuda/Blas.cpp#L174
+        if min(batch_dim, n, *weight.shape) > 65535 * 32:
+            raise RuntimeError("fused_dense only supports matrix dims <= 2M")
+        output = F.linear(total_x, weight, bias)
+        if ctx.compute_weight_gradient:
+            ctx.save_for_backward(total_x, weight)
+        else:
+            ctx.save_for_backward(weight)
+        return output if not return_residual else (output, x)
+
+    @staticmethod
+    @custom_bwd
+    def backward(ctx, grad_output, *args):
+        grad_output = grad_output.contiguous()
+        if ctx.return_residual:
+            (grad_input,) = args
+            grad_input = grad_input.contiguous()
+        process_group = ctx.process_group
+        sequence_parallel = ctx.sequence_parallel
+
+        if ctx.compute_weight_gradient:
+            total_x, weight = ctx.saved_tensors
+        else:
+            (weight,) = ctx.saved_tensors
+            total_x = None
+        batch_shape = grad_output.shape[:-1]
+        batch_dim = batch_shape.numel()
+        grad_output = grad_output.reshape(batch_dim, grad_output.shape[-1])
+        if ctx.needs_input_grad[0]:
+            if not ctx.return_residual:
+                grad_input = F.linear(grad_output, weight.t())
+            else:
+                grad_input = torch.addmm(grad_input.reshape(batch_dim, grad_input.shape[-1]), grad_output, weight)
+            grad_input = grad_input.reshape(*batch_shape, grad_input.shape[-1])
+            if process_group is not None:
+                reduce_fn = reduce_scatter_raw if sequence_parallel else all_reduce_raw
+                grad_input, handle_grad_input = reduce_fn(grad_input, process_group, async_op=True)
+        else:
+            grad_input = None
+        if ctx.needs_input_grad[1]:
+            assert ctx.compute_weight_gradient
+            grad_weight, grad_bias = fused_dense_cuda.linear_bias_wgrad(
+                total_x.reshape(batch_dim, total_x.shape[-1]), grad_output, ctx.needs_input_grad[2]
+            )
+        else:
+            grad_weight = None
+            grad_bias = grad_output if ctx.needs_input_grad[2] else None
+        if process_group is not None and ctx.needs_input_grad[0]:
+            handle_grad_input.wait()
+        return grad_input, grad_weight, grad_bias, None, None, None, None
+
 # adpated from https://github.com/Dao-AILab/flash-attention/blob/main/flash_attn/ops/fused_dense.py
 class FusedDenseFuncTorch(FusedDenseFunc):
-    """A custom PyTorch module extending FusedDenseFunc."""
+    '''FusedDenseFunc in flash implementation for supporting torch.float32'''
 
     @staticmethod
     @custom_bwd
@@ -307,17 +394,61 @@ class FusedDenseFuncTorch(FusedDenseFunc):
             handle_grad_input.wait()
         return grad_input, grad_weight, grad_bias, None, None, None, None
 
+class MegatronFusedDenseFuncTorch(FusedDenseFunc):
+    '''FusedDenseFunc in megatron implementation for supporting torch.float32'''
+
+    @staticmethod
+    @custom_bwd
+    def backward(ctx, grad_output, *args):
+        grad_output = grad_output.contiguous()
+        if ctx.return_residual:
+            (grad_input,) = args
+            grad_input = grad_input.contiguous()
+        process_group = ctx.process_group
+        sequence_parallel = ctx.sequence_parallel
+        gather_dim = ctx.gather_dim
+        if ctx.compute_weight_gradient:
+            total_x, weight = ctx.saved_tensors
+        else:
+            (weight,) = ctx.saved_tensors
+            total_x = None
+        batch_shape = grad_output.shape[:-1]
+        batch_dim = batch_shape.numel()
+        grad_output = grad_output.reshape(batch_dim, grad_output.shape[-1])
+        if ctx.needs_input_grad[0]:
+            if not ctx.return_residual:
+                grad_input = F.linear(grad_output, weight.t())
+            else:
+                grad_input = torch.addmm(grad_input.reshape(batch_dim, grad_input.shape[-1]), grad_output, weight)
+            grad_input = grad_input.reshape(*batch_shape, grad_input.shape[-1])
+            if process_group is not None:
+                reduce_fn = reduce_scatter_raw if sequence_parallel else all_reduce_raw
+                grad_input, handle_grad_input = reduce_fn(grad_input, process_group, async_op=True)
+        else:
+            grad_input = None
+        if ctx.needs_input_grad[1]:
+            assert ctx.compute_weight_gradient
+            # we remove the cuda independence, which is different from flash_attn.
+            grad_weight, grad_bias = linear_bias_wgrad_torch(
+                total_x.reshape(batch_dim, total_x.shape[-1]), grad_output, ctx.needs_input_grad[2]
+            )
+        else:
+            grad_weight = None
+            grad_bias = grad_output if ctx.needs_input_grad[2] else None
+        if process_group is not None and ctx.needs_input_grad[0]:
+            handle_grad_input.wait()
+        return grad_input, grad_weight, grad_bias, None, None, None, None
 
 class FSTPFusedDenseFunc(torch.autograd.Function):
-    "FSTP fused dense function"
+    "FusedDenseFunc for FSTP, which is optimized based on flash implementation."
 
     @staticmethod
     @custom_fwd
-    def forward(ctx, x, weight, bias, return_residual=False, process_group=None, module=None, all_gather_handler=None, block_index=None, module_name=None):
+    def forward(ctx, x, weight, bias, return_residual=False, process_group=None, module=None, overlap_handler=None, block_index=None, module_name=None):
         ctx.compute_weight_gradient = weight.requires_grad
         ctx.return_residual = return_residual
         ctx.process_group = process_group
-        ctx.all_gather_handler = all_gather_handler
+        ctx.overlap_handler = overlap_handler
         ctx.module = module
         ctx.block_index = block_index
         ctx.module_name = module_name
@@ -329,13 +460,12 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
         world_size = gpc.get_world_size(ParallelMode.TENSOR)
         if world_size > 1:
             # do all_gather for weight and bias before actual computation
-            if all_gather_handler is not None:# and module in all_gather_handler.FSTP_global_weights:
-                    # total_weight = all_gather_handler.FSTP_global_weights[module]
-                    total_weight = gpc.config.block_memory[block_index % 2][module_name]   
+            if overlap_handler is not None:
+                total_weight = gpc.config.block_memory[block_index % 2][module_name]   
             else:
                 total_weight, handle_weight = all_gather_raw(weight, process_group, async_op=True)
                 handle_weight.wait()
-
+            # TODO memory pool for bias
             if bias is not None:
                 total_bias, handle_bias = all_gather_raw(bias, process_group, async_op=True)
                 handle_bias.wait()
@@ -356,6 +486,7 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
         if min(batch_dim, n, *total_weight.shape) > 65535 * 32:
             raise RuntimeError("fused_dense only supports matrix dims <= 2M")
         output = F.linear(total_x, total_weight, total_bias)
+        # release memory
         del total_weight
         del total_bias
         if ctx.compute_weight_gradient:
@@ -372,8 +503,7 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
             (grad_input,) = args
             grad_input = grad_input.contiguous()
         process_group = ctx.process_group
-        all_gather_handler = ctx.all_gather_handler
-        module = ctx.module
+        overlap_handler = ctx.overlap_handler
         block_index = ctx.block_index
         module_name = ctx.module_name
         
@@ -389,51 +519,35 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
 
         world_size = gpc.get_world_size(ParallelMode.TENSOR)
         if world_size > 1:
-            total_weight = gpc.config.block_memory[block_index % 2][module_name]
-            # # do all-gather for weight before backward
-            # if module in all_gather_handler.FSTP_global_weights:
-            #     total_weight = all_gather_handler.FSTP_global_weights[module]
-            # else:
-            #     total_weight, handle_weight = all_gather_raw(weight, process_group, async_op=True)
-            #     handle_weight.wait()
+            if overlap_handler is not None:
+                total_weight = gpc.config.block_memory[block_index % 2][module_name]
+            else:
+                total_weight, handle_weight = all_gather_raw(weight, process_group, async_op=True)
+                handle_weight.wait()
         else:
             total_weight = weight
 
         # compute weight grad
         if ctx.needs_input_grad[1]:
             assert ctx.compute_weight_gradient
-
             grad_weight, grad_bias = fused_dense_cuda.linear_bias_wgrad(
                 total_x.reshape(batch_dim, total_x.shape[-1]), grad_output, ctx.needs_input_grad[2]
             )
             if world_size > 1:
-                if gpc.config.fstp_handler is not None:
-                    # grad_weight_async, handle_grad_weight = all_reduce_raw(grad_weight, process_group, async_op=True)
-                    # assert hasattr(weight, "_fstp_all_reduce_str")
-                    # all_gather_handler.all_reduce_handlers[weight._fstp_all_reduce_str] = (handle_grad_weight, grad_weight_async)
-                    # grad_weight = all_gather_handler.get_zero_by_shape((grad_weight.shape[0]//torch.distributed.get_world_size(process_group), *grad_weight.shape[1:]), dtype=grad_weight.dtype, device=grad_weight.device)
-                    # if grad_bias is not None:
-                    #     grad_bias_async, handle_grad_bias = all_reduce_raw(grad_bias, process_group, async_op=True)
-                    #     assert hasattr(bias, "_fstp_all_reduce_str")
-                    #     all_gather_handler.all_reduce_handlers[bias._fstp_all_reduce_str] = (handle_grad_bias, grad_bias_async)
-                    #     grad_bias = all_gather_handler.get_zero_by_shape((grad_weight.shape[0]//torch.distributed.get_world_size(process_group), *grad_weight.shape[1:]), dtype=grad_bias.dtype, device=grad_bias.device)
-                    
+                if overlap_handler is not None:
                     grad_weight_async, handle_grad_weight = reduce_scatter_raw_memory_pool(grad_weight, process_group, async_op=True)
                     assert hasattr(weight, "_fstp_reduce_scatter_str")
-                    all_gather_handler.reduce_scatter_handlers[weight._fstp_reduce_scatter_str] = (handle_grad_weight, grad_weight_async)
-                    grad_weight = all_gather_handler.get_zero_by_shape((grad_weight.shape[0]//torch.distributed.get_world_size(process_group), *grad_weight.shape[1:]), dtype=grad_weight.dtype, device=grad_weight.device)
+                    overlap_handler.reduce_scatter_handlers[weight._fstp_reduce_scatter_str] = (handle_grad_weight, grad_weight_async)
+                    grad_weight = overlap_handler.get_zero_by_shape((grad_weight.shape[0]//torch.distributed.get_world_size(process_group), *grad_weight.shape[1:]), dtype=grad_weight.dtype, device=grad_weight.device)
                     if grad_bias is not None:
                         grad_bias_async, handle_grad_bias = reduce_scatter_raw_memory_pool(grad_bias, process_group, async_op=True)
                         assert hasattr(bias, "_fstp_reduce_scatter_str")
-                        all_gather_handler.reduce_scatter_handlers[bias._fstp_reduce_scatter_str] = (handle_grad_bias, grad_bias_async)
-                        grad_bias = all_gather_handler.get_zero_by_shape((grad_bias.shape[0]//torch.distributed.get_world_size(process_group), *grad_bias.shape[1:]), dtype=grad_bias.dtype, device=grad_bias.device)
+                        overlap_handler.reduce_scatter_handlers[bias._fstp_reduce_scatter_str] = (handle_grad_bias, grad_bias_async)
+                        grad_bias = overlap_handler.get_zero_by_shape((grad_bias.shape[0]//torch.distributed.get_world_size(process_group), *grad_bias.shape[1:]), dtype=grad_bias.dtype, device=grad_bias.device)
                 else:
                     grad_weight, handle_grad_weight = reduce_scatter_raw(grad_weight, process_group, async_op=True)
                     if grad_bias is not None:
                         grad_bias, handle_grad_bias = reduce_scatter_raw(grad_bias, process_group, async_op=True)
-                # grad_weight, handle_grad_weight = reduce_scatter_raw(grad_weight, process_group, async_op=True)
-                # if grad_bias is not None:
-                #     grad_bias, handle_grad_bias = reduce_scatter_raw(grad_bias, process_group, async_op=True)
         else:
             grad_weight = None
             grad_bias = grad_output if ctx.needs_input_grad[2] else None
@@ -449,7 +563,7 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
         del total_weight
 
         if ctx.needs_input_grad[1]:
-            if world_size > 1 and gpc.config.fstp_handler is None:
+            if world_size > 1 and overlap_handler is None:
                 handle_grad_weight.wait()
                 if grad_bias is not None:
                     handle_grad_bias.wait()
@@ -473,6 +587,22 @@ def fused_dense_func_torch(
     else:
         return FusedDenseFuncTorch.apply(x, weight, bias, return_residual, process_group, sequence_parallel, gather_dim)
 
+def megatron_fused_dense_func_torch(
+    x: Tensor,
+    weight: Tensor,
+    bias: Optional[Tensor] = None,
+    return_residual: bool = False,
+    process_group: Optional[ProcessGroup] = None,
+    sequence_parallel: bool = True,
+    gather_dim: int = 0,
+):
+    dtype_eligible = x.dtype in [torch.float16, torch.bfloat16] or (
+        x.dtype == torch.float32 and torch.is_autocast_enabled()
+    )
+    if x.is_cuda and weight.is_cuda and (bias is None or bias.is_cuda) and dtype_eligible:
+        return MegatronFusedDenseFunc.apply(x, weight, bias, return_residual, process_group, sequence_parallel, gather_dim)
+    else:
+        return MegatronFusedDenseFuncTorch.apply(x, weight, bias, return_residual, process_group, sequence_parallel, gather_dim)
 
 def fstp_fused_dense_func(
     x: Tensor,

@@ -42,6 +42,9 @@ from internlm.model.linear import (
     ColumnParallelLinearTorch,
     FSTPLinear,
     RowParallelLinearTorch,
+    MegatronColumnParallelLinearTorch,
+    MegatronRowParallelLinearTorch,
+    get_linear_cls,
 )
 
 
@@ -175,8 +178,7 @@ class MHA(nn.Module):
         use_flash_attn: bool = True,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
-        tp_mode: str = "origin_tp",
-        block_idx: int = 0,
+        sp_mode: str = "none",
     ) -> None:
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
@@ -204,7 +206,7 @@ class MHA(nn.Module):
                 self.rotary_emb = RotaryEmbedding(self.rotary_emb_dim, scale_base=rotary_emb_scale_base, device=device)
 
         # notice here should change bias=True
-        Wqkv_cls = ColumnParallelLinearTorch if tp_mode == "origin_tp" else FSTPLinear
+        Wqkv_cls = get_linear_cls(sp_mode, "column")
         self.Wqkv = Wqkv_cls(
             embed_dim,
             3 * embed_dim,
@@ -220,12 +222,12 @@ class MHA(nn.Module):
         self.inner_cross_attn = inner_cross_attn_cls(
             causal=causal, softmax_scale=softmax_scale, attention_dropout=dropout
         )
-        if tp_mode == "fstp":
+        if sp_mode == "intern":
             self.inner_attn = DistributedAttention(self.inner_attn, sequence_process_group=process_group)
             self.inner_cross_attn = DistributedAttention(self.inner_cross_attn, sequence_process_group=process_group)
 
         # output projection always have the bias (for now)
-        out_proj_cls = RowParallelLinearTorch if tp_mode == "origin_tp" else FSTPLinear
+        out_proj_cls = get_linear_cls(sp_mode, 'row')
         self.out_proj = out_proj_cls(
             embed_dim,
             embed_dim,

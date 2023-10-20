@@ -40,11 +40,6 @@ from .utils import compute_norm
 inf = math.inf
 logger = get_logger(__file__)
 
-def print_memory(msg):
-    print(msg, " rank = ", gpc.get_global_rank(), " memory allocated: ", torch.cuda.memory_allocated() / 1024 / 1024 / 1024, " reverved memory: ", torch.cuda.memory_reserved() / 1024 / 1024 / 1024, " max memory: ", torch.cuda.max_memory_allocated() / 1024 / 1024 / 1024, flush=True)
-    print("===========================================")
-
-
 class HybridZeroOptimizer(BaseOptimizer):
     """
     Hybrid Zero Optimizer.
@@ -70,7 +65,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         hysteresis = grad_scal_cfg.hysteresis
         max_scale = grad_scal_cfg.max_scale
         
-        if gpc.config.parallel["tensor"]["mode"] == "fstp" and gpc.config.parallel["tensor"]["overlap"] == True:
+        if gpc.config.parallel["tensor"]["sp"] == "intern" and gpc.config.parallel["tensor"]["intern_overlap"] == True:
             self._fstp_handler = gpc.config.fstp_handler
 
         # Zero related args
@@ -358,20 +353,7 @@ class HybridZeroOptimizer(BaseOptimizer):
                     del self._fstp_handler.reduce_scatter_handlers[key]
                     self._fstp_handler.reduce_scatter_handlers[key] = None
                     assert key in self._fstp_handler.reduce_scatter_handlers
-                    # if not hasattr(_param, "_fstp_all_reduce_str"):
-                    #     continue
 
-                    # key = getattr(_param, "_fstp_all_reduce_str")
-                    # comm_handle, _grad = self._fstp_handler.all_reduce_handlers[key]
-                    # comm_handle.wait()
-                    # with torch.no_grad():
-                    #     _grad = split_forward_gather_backward(_grad, ParallelMode.TENSOR, dim=0)
-                    # _param.grad.add_(_grad)
-                    # # self._fstp_handler.reduce_scatter_handlers[key] = None
-                    # del _grad
-                    # del self._fstp_handler.all_reduce_handlers[key]
-                    # self._fstp_handler.all_reduce_handlers[key] = None
-                    # assert key in self._fstp_handler.all_reduce_handlers
 
                 bucket.reset_by_rank(rank)
                 
@@ -401,21 +383,6 @@ class HybridZeroOptimizer(BaseOptimizer):
                 del self._fstp_handler.reduce_scatter_handlers[key]
                 self._fstp_handler.reduce_scatter_handlers[key] = None
                 assert key in self._fstp_handler.reduce_scatter_handlers
-                
-                # if not hasattr(_param, "_fstp_all_reduce_str"):
-                #         continue
-
-                # key = getattr(_param, "_fstp_all_reduce_str")
-                # comm_handle, _grad = self._fstp_handler.all_reduce_handlers[key]
-                # comm_handle.wait()
-                # with torch.no_grad():
-                #     _grad = split_forward_gather_backward(_grad, ParallelMode.TENSOR, dim=0)
-                # _param.grad.add_(_grad)
-                # # self._fstp_handler.reduce_scatter_handlers[key] = None
-                # del _grad
-                # del self._fstp_handler.all_reduce_handlers[key]
-                # self._fstp_handler.all_reduce_handlers[key] = None
-                # assert key in self._fstp_handler.all_reduce_handlers
 
                 current_bucket.reset_by_rank(reduce_rank)
                 
@@ -634,7 +601,6 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         # if not overlapping communication (no reduction hook is attached)
         # we need to manually reduce these gradients
-        print_memory("No 1")
         if not self._overlap_sync_grad:
             for group_id in range(len(self._fp16_param_groups)):
                 for param in self._fp16_param_groups[group_id]:
@@ -659,7 +625,6 @@ class HybridZeroOptimizer(BaseOptimizer):
             bucket.empty()
         self._bucket_in_progress = []
         self._param_store.clear_grads_of_previous_reduced_params()
-        print_memory("No 2")
         # compute norm for gradients in the last bucket
         total_norms = {}
         for group_id in range(self.num_param_groups):
@@ -681,19 +646,11 @@ class HybridZeroOptimizer(BaseOptimizer):
                 scaled_norm_tensor = torch.tensor(scaled_norm, device=get_current_device(), dtype=torch.float)
                 dist.all_reduce(scaled_norm_tensor, group=pg)
                 total_norms[group_name] = scaled_norm_tensor.item()
-        print_memory("No 3")
         timer("sync_grad").start()
         self._sync_grad()
         timer("sync_grad").stop()
         
-        print_memory("No 4")
-        
-        try:
-            res =  self._step(closure=closure, norms=total_norms)
-        except torch.cuda.OutOfMemoryError as e:
-            print(e, flush=True)
-            print(torch.cuda.memory_summary(), flush=True)
-            torch.cuda.memory._dump_snapshot(f"my_snapshot_{gpc.get_global_rank()}.pickle")
+        res =  self._step(closure=closure, norms=total_norms)
             
         return res
 
@@ -740,7 +697,6 @@ class HybridZeroOptimizer(BaseOptimizer):
             self._grad_store._averaged_gradients = dict()
             self.zero_grad()
             return False, norms
-        print_memory("No 5")
         # copy the grad of fp16 param to fp32 param
         single_grad_partition_groups = []
         for group_id in range(self.num_param_groups):
@@ -781,7 +737,6 @@ class HybridZeroOptimizer(BaseOptimizer):
             single_grad_partition_groups.append(flat_fp32_avg_grads)
             device = self._fp32_flat_param_groups_of_current_rank[group_id].device
             self._fp32_flat_param_groups_of_current_rank[group_id].grad = flat_fp32_avg_grads.to(device)
-        print_memory("No 6")
         # unscale and clip grads
         # get the global norm
         global_norm_groups = {}
@@ -804,12 +759,9 @@ class HybridZeroOptimizer(BaseOptimizer):
         # For those ranks that are not assigned parameters, we just wait for other ranks
         # to send them updated their own parameters.
         if self.has_params:
-            print_memory("No 7")
             self.optim.step()
-            print_memory("No 8")
             # release the fp32 grad
             release_param_grad(self._fp32_flat_param_groups_of_current_rank.values())
-            print_memory("No 9")
             # update fp16 partition updated by the current rank
             for group_id in range(len(self._fp16_param_groups)):
                 if self.param_group_has_params[group_id]:
@@ -818,7 +770,6 @@ class HybridZeroOptimizer(BaseOptimizer):
                     )
                     fp32_param = self._fp32_flat_param_groups_of_current_rank[group_id]
                     fp16_param.data.copy_(fp32_param)
-            print_memory("No 10")
         torch.cuda.synchronize()
         with torch.cuda.stream(self._comm_bcast_stream):
             self.broadcast_params()
@@ -829,7 +780,6 @@ class HybridZeroOptimizer(BaseOptimizer):
         # so synchronization is maintained
         for group_name, global_norm in global_norm_groups.items():
             global_norm_groups[group_name] = global_norm / loss_scale
-        print_memory("No 11")
         return True, global_norm_groups
 
     def broadcast_params(self):

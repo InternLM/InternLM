@@ -19,25 +19,26 @@ from internlm.model.utils import (
     all_gather_raw_memory_pool,
     fstp_fused_dense_func,
     fused_dense_func_torch,
+    megatron_fused_dense_func_torch,
 )
 
 
-class ScaleColumnParallelLinear(nn.Linear):
+class BaseScaleColumnParallelLinear(nn.Linear):
     """
-    ScaleColumnParallelLinear.
+        Base class for ScaleColumnParallelLinear.
 
-    Args:
-        in_features (int): size of each input sample
-        out_features (int): size of each output sample
-        process_group (Optional[torch.distributed.ProcessGroup]): The group of the current device for `parallel_mode`.
-        bias (bool): Whether the bias is needed for linears. True by default. But it is typically set to False
-                    in the config.
-        sequence_parallel (bool): If sequence_parallel is True, we're doing Tensor Parallel with sequence parallelism:
-                                    we do an all_gather of x before doing the matmul.
-                                    If not, then the input is already gathered.
-        device (Optional[Union[str, torch.device]]): The device will be used.
-        dtype (Optional[torch.dtype]): The type of data.
-        weight_scale (int): For training stability. 1 by default.
+        Args:
+            in_features (int): size of each input sample
+            out_features (int): size of each output sample
+            process_group (Optional[torch.distributed.ProcessGroup]): The group of the current device for `parallel_mode`.
+            bias (bool): Whether the bias is needed for linears. True by default. But it is typically set to False
+                        in the config.
+            sequence_parallel (bool): If sequence_parallel is True, we're doing Tensor Parallel with sequence parallelism:
+                                        we do an all_gather of x before doing the matmul.
+                                        If not, then the input is already gathered.
+            device (Optional[Union[str, torch.device]]): The device will be used.
+            dtype (Optional[torch.dtype]): The type of data.
+            weight_scale (int): For training stability. 1 by default.
     """
 
     def __init__(
@@ -57,6 +58,10 @@ class ScaleColumnParallelLinear(nn.Linear):
         self.process_group = process_group
         self.weight_scale = weight_scale
 
+class ScaleColumnParallelLinear(BaseScaleColumnParallelLinear):
+    """
+    ScaleColumnParallelLinear in flash implementation.
+    """
     def forward(self, input, gather_dim=0):  # pylint: disable=W0622
         # If self.sequence_parallel is True, we're doing Tensor Parallel with sequence parallelism:
         # we do an all_gather of x before doing the matmul.
@@ -74,6 +79,27 @@ class ScaleColumnParallelLinear(nn.Linear):
             gather_dim=gather_dim,
         )
 
+class MegatronScaleColumnParallelLinear(BaseScaleColumnParallelLinear):
+    """
+    ScaleColumnParallelLinear in megatron implementation.
+    """
+
+    def forward(self, input, gather_dim=0):  # pylint: disable=W0622
+        # If self.sequence_parallel is True, we're doing Tensor Parallel with sequence parallelism:
+        # we do an all_gather of x before doing the matmul.
+        # If not, then the input is already gathered.
+        if self.weight_scale != 1:
+            weight = self.weight * self.weight_scale + (1 - self.weight_scale) * self.weight.detach()
+        else:
+            weight = self.weight
+        return megatron_fused_dense_func_torch(
+            input,
+            weight,
+            self.bias,
+            process_group=self.process_group,
+            sequence_parallel=gpc.config.parallel.sequence_parallel,
+            gather_dim=gather_dim,
+        )
 
 class RewardModelLinear(ScaleColumnParallelLinear):
     """
@@ -129,7 +155,6 @@ class ColumnParallelLinearTorch(ColumnParallelLinear):
         # If self.sequence_parallel is True, we're doing Tensor Parallel with sequence parallelism:
         # we do an all_gather of x before doing the matmul.
         # If not, then the input is already gathered.
-
         return fused_dense_func_torch(
             x,
             self.weight,
@@ -139,6 +164,19 @@ class ColumnParallelLinearTorch(ColumnParallelLinear):
             gather_dim=gather_dim,
         )
 
+class MegatronColumnParallelLinearTorch(ColumnParallelLinear):
+    def forward(self, x, gather_dim=0):
+        # If self.sequence_parallel is True, we're doing Tensor Parallel with sequence parallelism:
+        # we do an all_gather of x before doing the matmul.
+        # If not, then the input is already gathered.
+        return megatron_fused_dense_func_torch(
+            x,
+            self.weight,
+            self.bias,
+            process_group=self.process_group,
+            sequence_parallel=self.sequence_parallel,
+            gather_dim=gather_dim,
+        )
 
 class RowParallelLinearTorch(RowParallelLinear):
     def forward(self, x):
@@ -150,10 +188,20 @@ class RowParallelLinearTorch(RowParallelLinear):
         reduce_fn = reduce_scatter if self.sequence_parallel else all_reduce
         return reduce_fn(out, self.process_group)
 
+class MegatronRowParallelLinearTorch(RowParallelLinear):
+    def forward(self, x):
+        """
+        We're doing Tensor Parallel with sequence parallelism: we do the matmul and then
+        a reduce_scatter of the result.
+        """
+        out = megatron_fused_dense_func_torch(x, self.weight, self.bias)
+        reduce_fn = reduce_scatter if self.sequence_parallel else all_reduce
+        return reduce_fn(out, self.process_group)
 
-class FeedForward(nn.Module):
+
+class BaseFeedForward(nn.Module):
     """
-    FeedForward.
+    Base FeedForward in flash implementation.
 
     Args:
         in_features (int): size of each input sample
@@ -177,13 +225,13 @@ class FeedForward(nn.Module):
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
         multiple_of: int = 256,
-        block_idx: int = 0,
+        colum_cls = None,
+        row_cls = None,
     ):
         super().__init__()
-
         hidden_features = multiple_of * ((hidden_features + multiple_of - 1) // multiple_of)
 
-        self.w1 = ColumnParallelLinearTorch(
+        self.w1 = colum_cls(
             in_features,
             hidden_features,
             process_group,
@@ -192,7 +240,7 @@ class FeedForward(nn.Module):
             device=device,
             dtype=dtype,
         )
-        self.w2 = ColumnParallelLinearTorch(
+        self.w2 = colum_cls(
             in_features,
             hidden_features,
             process_group,
@@ -201,7 +249,7 @@ class FeedForward(nn.Module):
             device=device,
             dtype=dtype,
         )
-        self.w3 = RowParallelLinearTorch(
+        self.w3 = row_cls(
             hidden_features,
             out_features,
             process_group,
@@ -217,21 +265,9 @@ class FeedForward(nn.Module):
         out = self.w3(Silu(w1_o, w2_o))
         return out
 
-
-class FSTPLinear(ColumnParallelLinear):
-    def forward(self, x):
-        block_index = gpc.config.fstp_handler.module_to_index[self]
-        name_index = gpc.config.fstp_handler.module_name_index[self]
-        name = gpc.config.fstp_handler.module_name[name_index]
-        return fstp_fused_dense_func(
-            x, self.weight, self.bias, process_group=self.process_group, 
-            module=self, handler=gpc.config.fstp_handler, block_index=block_index, module_name=name
-        )
-
-
-class FSTPFeedForward(nn.Module):
+class FeedForward(BaseFeedForward):
     """
-    FeedForward.
+    FeedForward in flash implementation.
 
     Args:
         in_features (int): size of each input sample
@@ -255,169 +291,106 @@ class FSTPFeedForward(nn.Module):
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
         multiple_of: int = 256,
-        block_idx: int = 0,
     ):
-        super().__init__()
+        super().__init__(in_features, hidden_features, out_features, process_group, bias, device, 
+                         dtype, multiple_of, ColumnParallelLinearTorch, RowParallelLinearTorch)
+       
 
-        hidden_features = multiple_of * ((hidden_features + multiple_of - 1) // multiple_of)
+class MegatronFeedForward(BaseFeedForward):
+    """
+    FeedForward in megatron implementation.
 
-        self.w1 = FSTPLinear(
-            in_features,
-            hidden_features,
-            process_group,
-            bias,
-            sequence_parallel=gpc.config.parallel.sequence_parallel,
-            device=device,
-            dtype=dtype,
-        )
-        self.w2 = FSTPLinear(
-            in_features,
-            hidden_features,
-            process_group,
-            bias,
-            sequence_parallel=gpc.config.parallel.sequence_parallel,
-            device=device,
-            dtype=dtype,
-        )
-        self.w3 = FSTPLinear(
-            hidden_features,
-            out_features,
-            process_group,
-            bias=bias,
-            sequence_parallel=gpc.config.parallel.sequence_parallel,
-            device=device,
-            dtype=dtype,
-        )
+    Args:
+        in_features (int): size of each input sample
+        hidden_features (int): size of hidden state of FFN
+        out_features (int): size of each output sample
+        process_group (Optional[torch.distributed.ProcessGroup]): The group of the current device for `parallel_mode`.
+        bias (bool): Whether the bias is needed for linears. True by default. But it is typically set to False
+                    in the config.
+        device (Optional[Union[str, torch.device]]): The device will be used.
+        dtype (Optional[torch.dtype]): The type of data.
+        multiple_of (int): For efficient training. Reset the size of hidden feature. 256 by default.
+    """
 
+    def __init__(
+        self,
+        in_features: int,
+        hidden_features: int,
+        out_features: int = None,
+        process_group: Optional[torch.distributed.ProcessGroup] = None,
+        bias: bool = True,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
+        multiple_of: int = 256,
+    ):
+        super().__init__(in_features, hidden_features, out_features, process_group, bias, device,
+                         dtype, multiple_of, MegatronColumnParallelLinearTorch, MegatronRowParallelLinearTorch)
+
+class FSTPLinear(ColumnParallelLinear):
     def forward(self, x):
-        w1_o = self.w1(x)
-        w2_o = self.w2(x)
-        out = self.w3(F.silu(w1_o) * w2_o)
-        return out
+        block_index = gpc.config.fstp_handler.module_to_index[self]
+        name_index = gpc.config.fstp_handler.module_name_index[self]
+        name = gpc.config.fstp_handler.module_name[name_index]
+        return fstp_fused_dense_func(
+            x, self.weight, self.bias, process_group=self.process_group, 
+            module=self, handler=gpc.config.fstp_handler, block_index=block_index, module_name=name
+        )
 
-
-class FSTPAllGatherSyncHandler:
+class FSTPFeedForward(BaseFeedForward):
     """
-    All-gather handler for overlapping the all-gather in adjcent FSTP linear.
+    FeedForward in FSTP.
+
+    Args:
+        in_features (int): size of each input sample
+        hidden_features (int): size of hidden state of FFN
+        out_features (int): size of each output sample
+        process_group (Optional[torch.distributed.ProcessGroup]): The group of the current device for `parallel_mode`.
+        bias (bool): Whether the bias is needed for linears. True by default. But it is typically set to False
+                    in the config.
+        device (Optional[Union[str, torch.device]]): The device will be used.
+        dtype (Optional[torch.dtype]): The type of data.
+        multiple_of (int): For efficient training. Reset the size of hidden feature. 256 by default.
     """
 
-    def __init__(self, model: Union[nn.Module, nn.ModuleList], process_group) -> None:
-        # import pdb; pdb.set_trace()
-        self.process_group = process_group
-        self.FSTP_modules = []
-        self.module_name = ["Wqkv", "out_proj", "w1", "w2", "w3"]
-        self.FSTP_global_weights = dict()  # key: FSTP module; value: module global weight for forward
-        self.module_handler = dict()  # key: FSTP module; value: all-gather handler
-        self.module_block = dict()  # key: FSTP module; value: transformer block index
-        self.block_module = dict()  # key: transformer block index; value: {name_index: FSTP module}
-        self.module_name_index = dict()  # key: FSTP module; value: the name in index in self.module_name
+    def __init__(
+        self,
+        in_features: int,
+        hidden_features: int,
+        out_features: int = None,
+        process_group: Optional[torch.distributed.ProcessGroup] = None,
+        bias: bool = True,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
+        multiple_of: int = 256,
+    ):
+        super().__init__(in_features, hidden_features, out_features, process_group, bias, device,
+                         dtype, multiple_of, FSTPLinear, FSTPLinear)
 
-        self.reduce_scatter_handlers = {}
-        self.all_reduce_handlers = {}
+def get_mlp_cls(sp_mode: str):
+    if sp_mode in ["none", "flash-attn"]:
+        mlp_cls = FeedForward
+    elif sp_mode == "megatron":
+        mlp_cls = MegatronFeedForward
+    else:
+        mlp_cls = FSTPFeedForward
+    return mlp_cls
 
-        # just want to share same for loop for ModuleList and Module
-        if not isinstance(model, nn.ModuleList):
-            model = [model]
-
-        for _chunk in model:
-            if isinstance(_chunk, NaiveAMPModel):
-                _chunk = _chunk.model
-
-            for _chunk_name, children in _chunk.named_children():
-                if isinstance(children, nn.ModuleList):
-                    for idx, block in enumerate(children):
-                        index = 0
-                        self.block_module[idx] = {}
-                        for _sub_name, sub in block.named_children():
-                            sub_modules = list(sub.children())
-                            if len(sub_modules) > 0:
-                                for name, child in sub.named_children():
-                                    if isinstance(child, FSTPLinear):
-
-                                        _full_name = f"{_chunk_name}.{idx}.{_sub_name}.{name}"
-                                        setattr(child.weight, "_fstp_reduce_scatter_str", f"{_full_name}.weight")
-                                        if child.bias is not None:
-                                            setattr(child.bias, "_fstp_reduce_scatter_str", f"{_full_name}.bias")
-
-                                        self.FSTP_modules.append(child)
-                                        self.module_block[child] = idx
-                                        self.block_module[idx][index] = child
-                                        self.module_name_index[child] = index
-                                        index = index + 1
-                            else:
-                                continue
-
-    def _register_sync_parameters_hook(self) -> None:
-        """
-        register pre_forward_hook and pre_backward_hook for FSTPLinear.
-        """
-
-        def _pre_forward_hook(module: nn.Module, inputs: Any):
-            block_index = self.module_block[module]
-            name_index = self.module_name_index[module]
-            if name_index == 0:
-                total_weight, weight_handler = all_gather_raw(module.weight, self.process_group, async_op=True)
-                weight_handler.wait()
-                self.FSTP_global_weights[module] = total_weight
-
-                # start the all-gather for next module
-                next_module = self.block_module[block_index][name_index + 1]
-                self.FSTP_global_weights[next_module], weights_handler = all_gather_raw(
-                    next_module.weight, self.process_group, async_op=True
-                )
-                self.module_handler[next_module] = weights_handler
-            else:
-                handler = self.module_handler[module]
-                handler.wait()
-                if name_index != 4:
-                    next_module = self.block_module[block_index][name_index + 1]
-                    self.FSTP_global_weights[next_module], weights_handler = all_gather_raw(
-                        next_module.weight, self.process_group, async_op=True
-                    )
-                    self.module_handler[next_module] = weights_handler
-
-        def _post_forward_hook(module: nn.Module, input, output):
-            if module in self.FSTP_global_weights:
-                del self.FSTP_global_weights[module]
-            if module in self.module_handler:
-                del self.module_handler[module]
-
-        def _pre_backward_hook(module: nn.Module, grad_output):
-            block_index = self.module_block[module]
-            name_index = self.module_name_index[module]
-            if name_index == 4:
-                total_weight, weight_handler = all_gather_raw(module.weight, self.process_group, async_op=True)
-                weight_handler.wait()
-                self.FSTP_global_weights[module] = total_weight
-
-                # start the all-gather for next module
-                next_module = self.block_module[block_index][name_index - 1]
-                self.FSTP_global_weights[next_module], weights_handler = all_gather_raw(
-                    next_module.weight, self.process_group, async_op=True
-                )
-                self.module_handler[next_module] = weights_handler
-            else:
-                handler = self.module_handler[module]
-                handler.wait()
-                if name_index != 0:
-                    next_module = self.block_module[block_index][name_index - 1]
-                    self.FSTP_global_weights[next_module], weights_handler = all_gather_raw(
-                        next_module.weight, self.process_group, async_op=True
-                    )
-                    self.module_handler[next_module] = weights_handler
-
-        def _post_backward_hook(module, grad_input, grad_output):
-            del self.FSTP_global_weights[module]
-
-        for module in self.FSTP_modules:
-            # import pdb; pdb.set_trace()
-            module.register_forward_pre_hook(_pre_forward_hook)
-            module.register_forward_hook(_post_forward_hook)
-            # module.register_backward_pre_hook(_pre_backward_hook)
-            # module.register_backward_hook(_post_backward_hook)
-            module.register_full_backward_pre_hook(_pre_backward_hook)
-            module.register_full_backward_hook(_post_backward_hook)
-
+def get_linear_cls(sp_mode: str, parallel_mode: str):
+    if parallel_mode == "column":
+        if sp_mode in ["none", "flash-attn"]:
+            cls = ColumnParallelLinearTorch
+        elif sp_mode == "megatron":
+            cls = MegatronColumnParallelLinearTorch
+        else:
+            cls = FSTPLinear
+    elif parallel_mode == 'row':
+        if sp_mode in ["none", "flash-attn"]:
+            cls = RowParallelLinearTorch
+        elif sp_mode == "megatron":
+            cls = MegatronRowParallelLinearTorch
+        else:
+            cls = FSTPLinear
+    return cls
 
 class CoarseGrainedFSTPAllGatherSyncHandler:
     """
@@ -468,7 +441,6 @@ class CoarseGrainedFSTPAllGatherSyncHandler:
                             sub_modules = list(sub.children())
                             if len(sub_modules) > 0:
                                 for name, child in sub.named_children():
-                                    # print(f"name: {name}", flush=True)
                                     if name == "out_proj":
                                         self.FSTP_outs.append(child)
                                         self.module_to_index[child] = idx
