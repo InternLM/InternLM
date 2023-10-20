@@ -527,7 +527,12 @@ class HybridZeroOptimizer(BaseOptimizer):
         params, grads = self._param_store.get_reduced_param_for_compute_norm(group_id=group_id, last_bucket=last_bucket)
 
         total_param_norms = {}
-        if self._clip_grad_norm > 0 and len(params) > 0:
+        if len(params) == 0:
+            dtype = self.param_groups[group_id]["dtype"]
+            grads = [self.padding_grad.to(dtype)]
+            params = [self.padding_tensor.to(dtype)]
+
+        if self._clip_grad_norm > 0:
             total_param_norms = compute_param_norm(
                 grads,
                 params,

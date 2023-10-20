@@ -345,14 +345,15 @@ def compute_param_norm(
 
     param_grads = {}
     for g, p in zip(gradients, parameters):
-        if p.param_name not in param_grads:
-            param_grads[p.param_name] = []
+        param_name = p.param_name if hasattr(p, "param_name") else "unknown-padding"
+        if param_name not in param_grads:
+            param_grads[param_name] = []
         if (
             gpc.is_initialized(ParallelMode.PIPELINE)
             and hasattr(p, "pipeline_shared_module_pg")
             and dist.get_rank(p.pipeline_shared_module_pg) == 0
         ):  # if shared between different pipe, only count o
-            param_grads[p.param_name].append(g.data.float())
+            param_grads[param_name].append(g.data.float())
         elif (
             gpc.is_initialized(ParallelMode.PIPELINE)
             and hasattr(p, "pipeline_shared_module_pg")
@@ -364,9 +365,9 @@ def compute_param_norm(
             and not is_model_parallel_parameter(p)
             and gpc.get_local_rank(ParallelMode.TENSOR) == 0
         ):  # if not used in each chunk, such as layernorm
-            param_grads[p.param_name].append(g.data.float())
+            param_grads[param_name].append(g.data.float())
         elif is_model_parallel_parameter(p):
-            param_grads[p.param_name].append(g.data.float())
+            param_grads[param_name].append(g.data.float())
         elif gpc.get_local_rank(ParallelMode.TENSOR) != 0:
             continue
         else:
