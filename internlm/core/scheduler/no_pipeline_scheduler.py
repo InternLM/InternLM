@@ -194,7 +194,6 @@ class NonPipelineScheduler(BaseScheduler):
             _output, _loss, _moe_loss = self._train_one_batch(
                 _data, _label, engine, forward_only, return_loss, self._grad_accum_size
             )
-            engine.optimizer.reset_reduce_bucket()
 
             if return_loss:
                 loss += _loss
