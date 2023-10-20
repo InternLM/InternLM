@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-from typing import Any, Optional, Union
+from typing import Optional
 
 import fused_dense_lib as fused_dense_cuda
 import torch
 import torch.nn.functional as F
-from flash_attn.utils.distributed import all_reduce_raw  # , reduce_scatter_raw
+from flash_attn.utils.distributed import all_reduce_raw
 from torch import Tensor
 from torch.cuda.amp import custom_bwd, custom_fwd
 from torch.distributed import ProcessGroup
@@ -397,7 +397,6 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
             grad_input = grad_input.contiguous()
         process_group = ctx.process_group
         all_gather_handler = ctx.all_gather_handler
-        module = ctx.module
         block_index = ctx.block_index
         module_name = ctx.module_name
 

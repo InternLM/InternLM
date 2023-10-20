@@ -11,10 +11,7 @@ from torch.optim import Optimizer
 
 from internlm.core.context import Config, ParallelMode
 from internlm.core.context import global_context as gpc
-from internlm.model.utils import (
-    release_reduce_scatter_memory_pool,
-    split_forward_gather_backward,
-)
+from internlm.model.utils import release_reduce_scatter_memory_pool
 from internlm.monitor import send_alert_message
 from internlm.solver.optimizer.store import (
     BucketStore,
