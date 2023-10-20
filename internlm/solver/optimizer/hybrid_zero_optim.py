@@ -34,7 +34,7 @@ from internlm.utils.megatron_timers import megatron_timer as timer
 from internlm.utils.timeout import llm_timeout
 
 from .base_optimizer import BaseOptimizer
-from .utils import compute_norm
+from .utils import compute_layer_norm, compute_norm, compute_param_norm
 
 inf = math.inf
 logger = get_logger(__file__)
@@ -520,6 +520,24 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         return norm
 
+    def _compute_param_norm_stage(
+        self, group_id: int = 0, last_bucket: bool = False, last_stage: bool = False, previous_param_norms=None
+    ):
+        # compute norm for gradients that have been reduced
+        params, grads = self._param_store.get_reduced_param_for_compute_norm(group_id=group_id, last_bucket=last_bucket)
+
+        total_param_norms = {}
+        if self._clip_grad_norm > 0 and len(params) > 0:
+            total_param_norms = compute_param_norm(
+                grads,
+                params,
+                last_stage=last_stage,
+                previous_param_norms=previous_param_norms,
+                zero_mode=self._broadcast_parallel_mode[group_id],
+                is_moe_group=self._is_moe_group(self.optim.param_groups[group_id]),
+            )
+        return total_param_norms
+
     @llm_timeout(func_name="optim_step")
     def step(self, closure=None):
         """Performs a single optimization step.
@@ -547,8 +565,11 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         # compute norm for gradients in the before bucket
         groups_norms = []
+        groups_param_norms = []
         for group_id in range(self.num_param_groups):
             groups_norms.append(self._compute_norm_with_stage(group_id=group_id))
+            if gpc.config.get("grad_norm_profiling", False):
+                groups_param_norms.append(self._compute_param_norm_stage(group_id=group_id))
 
         # clear reduced grads
         # grads in the last bucket is reduced
@@ -561,6 +582,8 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         # compute norm for gradients in the last bucket
         total_norms = {}
+        total_param_norms = {}
+        total_layer_norms = {}
         for group_id in range(self.num_param_groups):
             group_name = self.param_groups[group_id]["name"] if "name" in self.param_groups[group_id] else "default"
             group_name = f"{group_id}_{group_name}"
@@ -570,6 +593,16 @@ class HybridZeroOptimizer(BaseOptimizer):
                 last_stage=True,
                 previous_norm=groups_norms[group_id],
             )
+            if gpc.config.get("grad_norm_profiling", False):
+                param_norms = self._compute_param_norm_stage(
+                    group_id=group_id,
+                    last_bucket=True,
+                    last_stage=True,
+                    previous_param_norms=groups_param_norms[group_id],
+                )
+                total_layer_norms[group_name], total_param_norms[group_name] = compute_layer_norm(
+                    param_norms=param_norms, loss_scale=self.loss_scale.item()
+                )
 
             # Need to allreduce(avg) the norms across different ranks because moe params will not be synced
             # during allreduce
@@ -585,7 +618,12 @@ class HybridZeroOptimizer(BaseOptimizer):
         self._sync_grad()
         timer("sync_grad").stop()
 
-        return self._step(closure=closure, norms=total_norms)
+        state, global_norms = self._step(closure=closure, norms=total_norms)
+        if gpc.config.get("grad_norm_profiling", False):
+            global_norms["layer_norms"] = total_layer_norms
+            global_norms["param_norms"] = total_param_norms
+
+        return state, global_norms
 
     def _step(self, closure=None, norms=None):
         assert closure is None, "closure is not supported by step()"
