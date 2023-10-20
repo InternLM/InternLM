@@ -45,7 +45,7 @@ def empty_cache_and_diag(batch_count, interval=50):
             #         # import time
             #         # time.sleep(10)
             #         print(e, "rank = ", gpc.get_global_rank(), flush=True)
-                    # torch.cuda.memory._dump_snapshot(f"my_snapshot_{gpc.get_global_rank()}.pickle")
+            #         torch.cuda.memory._dump_snapshot(f"my_snapshot_{gpc.get_global_rank()}.pickle")
 
         # do empty_cache after the bench
         torch.cuda.empty_cache()

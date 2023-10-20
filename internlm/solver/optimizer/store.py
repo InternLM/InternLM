@@ -45,7 +45,7 @@ class BucketStore(BaseStore):
 
     def num_elements_in_bucket(self, reduce_rank: int = None):
         return self._num_elements_in_bucket[reduce_rank]
-    
+
     def num_params_in_bucket(self, reduce_rank: int = None):
         return len(self._params[reduce_rank])
 

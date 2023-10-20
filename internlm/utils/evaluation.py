@@ -54,7 +54,7 @@ def switch_evaluation_pipeline_scheduler(trainer, num_microbatches, tensor_shape
 def switch_sequence_parallel_mode():
     prev_mode = gpc.config.parallel.sequence_parallel
     try:
-        if gpc.config.parallel["tensor"]["mode"] == "fstp":
+        if gpc.config.parallel["tensor"]["sp"] == "intern":
             gpc.config.parallel.sequence_parallel = True
         else:
             gpc.config.parallel.sequence_parallel = False
@@ -106,7 +106,7 @@ def evaluate_on_val_dls(
                         total_val_bsz = len(batch[1])
                         assert total_val_bsz % data_cfg.micro_bsz == 0
                         num_microbatches = total_val_bsz // data_cfg.micro_bsz
-                        if gpc.config.parallel["tensor"]["mode"] == "fstp":
+                        if gpc.config.parallel["tensor"]["sp"] == "intern":
                             sequence_world_size = gpc.get_world_size(ParallelMode.TENSOR)
                             tensor_shape = torch.Size(
                                 [
