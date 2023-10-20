@@ -77,7 +77,7 @@ class PackedFlashBaseLayer1D(nn.Module):
         use_scaled_init: bool = True,
         use_swiglu: bool = True,
         use_flash_attn: bool = True,
-        tp_mode: str = "origin_tp",
+        sp_mode: str = "none",
     ):
         super().__init__()
         self.checkpoint = checkpoint
@@ -102,7 +102,7 @@ class PackedFlashBaseLayer1D(nn.Module):
             use_flash_attn=use_flash_attn,
             device=device,
             dtype=dtype,
-            tp_mode=tp_mode,
+            sp_mode=sp_mode,
         )
 
         self.dropout1 = nn.Dropout(drop_rate)
@@ -114,7 +114,7 @@ class PackedFlashBaseLayer1D(nn.Module):
             self.norm2 = nn.LayerNorm(hidden_size, eps=layer_norm_epsilon)
 
         if use_swiglu:
-            mlp_cls = FeedForward if tp_mode == "origin_tp" else FSTPFeedForward
+            mlp_cls = FSTPFeedForward if sp_mode == "intern" else FeedForward
             self.mlp = mlp_cls(
                 hidden_size,
                 int(hidden_size * mlp_ratio),
@@ -297,7 +297,7 @@ class PackedFlashInternLm1D(nn.Module):
         super().__init__()
 
         checkpoint_layer_num = int(num_layers * checkpoint)
-        self.tp_mode = gpc.config.parallel["tensor"]["mode"]
+        self.sp_mode = gpc.config.parallel["tensor"]["sp"]
 
         if is_reward:
             head_cls = RewardModelLinear
@@ -343,7 +343,7 @@ class PackedFlashInternLm1D(nn.Module):
                     use_scaled_init=use_scaled_init,
                     use_swiglu=use_swiglu,
                     use_flash_attn=use_flash_attn,
-                    tp_mode=self.tp_mode,
+                    sp_mode=self.sp_mode,
                 )
                 for lid in range(num_layers)
             ]
@@ -389,8 +389,8 @@ class PackedFlashInternLm1D(nn.Module):
             assert len(indexes) == 1
             # The indexes are used to indicate the actual position IDs of each token in the packed input.
             indexes = indexes[0]
-            # if the tensor parallel mode is 'fstp', the indexes should also be split in sequence dimension.
-            if gpc.config.parallel.sequence_parallel and self.tp_mode == "fstp":
+            # if the sequence parallel mode is 'intern', the indexes should also be split in sequence dimension.
+            if gpc.config.parallel.sequence_parallel and self.sp_mode == "intern":
                 indexes = split_forward_gather_backward(indexes, ParallelMode.TENSOR, dim=0)
 
         max_seqlen = (cu_seqlens[1:] - cu_seqlens[:-1]).max().item() if cu_seqlens is not None else None

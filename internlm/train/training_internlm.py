@@ -110,9 +110,8 @@ def initialize_model():
 
     gpc.config.fstp_handler = None
 
-    if gpc.config.parallel["tensor"]["mode"] == "fstp" and gpc.config.parallel["tensor"]["overlap"] == True:
+    if gpc.config.parallel["tensor"]["sp"] == "intern" and gpc.config.parallel["tensor"]["intern_overlap"] is True:
         handler = CoarseGrainedFSTPAllGatherSyncHandler(model, gpc.get_group(ParallelMode.TENSOR))
-        # handler = FSTPAllGatherSyncHandler(model, gpc.get_group(ParallelMode.TENSOR))
         handler._register_sync_parameters_hook()
         gpc.config.fstp_handler = handler
 

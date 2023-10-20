@@ -10,7 +10,10 @@ from torch.optim import Optimizer
 
 from internlm.core.context import Config, ParallelMode
 from internlm.core.context import global_context as gpc
-from internlm.model.utils import split_forward_gather_backward, release_reduce_scatter_memory_pool
+from internlm.model.utils import (
+    release_reduce_scatter_memory_pool,
+    split_forward_gather_backward,
+)
 from internlm.monitor import send_alert_message
 from internlm.solver.optimizer.store import (
     BucketStore,
@@ -40,8 +43,20 @@ from .utils import compute_norm
 inf = math.inf
 logger = get_logger(__file__)
 
+
 def print_memory(msg):
-    print(msg, " rank = ", gpc.get_global_rank(), " memory allocated: ", torch.cuda.memory_allocated() / 1024 / 1024 / 1024, " reverved memory: ", torch.cuda.memory_reserved() / 1024 / 1024 / 1024, " max memory: ", torch.cuda.max_memory_allocated() / 1024 / 1024 / 1024, flush=True)
+    print(
+        msg,
+        " rank = ",
+        gpc.get_global_rank(),
+        " memory allocated: ",
+        torch.cuda.memory_allocated() / 1024 / 1024 / 1024,
+        " reverved memory: ",
+        torch.cuda.memory_reserved() / 1024 / 1024 / 1024,
+        " max memory: ",
+        torch.cuda.max_memory_allocated() / 1024 / 1024 / 1024,
+        flush=True,
+    )
     print("===========================================")
 
 
@@ -69,8 +84,8 @@ class HybridZeroOptimizer(BaseOptimizer):
         backoff_factor = grad_scal_cfg.backoff_factor
         hysteresis = grad_scal_cfg.hysteresis
         max_scale = grad_scal_cfg.max_scale
-        
-        if gpc.config.parallel["tensor"]["mode"] == "fstp" and gpc.config.parallel["tensor"]["overlap"] == True:
+
+        if gpc.config.parallel["tensor"]["sp"] == "intern" and gpc.config.parallel["tensor"]["intern_overlap"] is True:
             self._fstp_handler = gpc.config.fstp_handler
 
         # Zero related args
@@ -306,7 +321,7 @@ class HybridZeroOptimizer(BaseOptimizer):
                             param=param,
                             reduce_rank=reduce_rank,
                         )
-                        
+
                         reduce_scatter_checker = partial(
                             self._wait_reduce_scatter_and_accumulate_grad,
                             param=param,
@@ -354,7 +369,7 @@ class HybridZeroOptimizer(BaseOptimizer):
                     _param.grad.add_(_grad)
                     # self._fstp_handler.reduce_scatter_handlers[key] = None
                     # del _grad
-                    release_reduce_scatter_memory_pool(size=tuple(_grad.size()),index=_grad.index)
+                    release_reduce_scatter_memory_pool(size=tuple(_grad.size()), index=_grad.index)
                     del self._fstp_handler.reduce_scatter_handlers[key]
                     self._fstp_handler.reduce_scatter_handlers[key] = None
                     assert key in self._fstp_handler.reduce_scatter_handlers
@@ -374,7 +389,7 @@ class HybridZeroOptimizer(BaseOptimizer):
                     # assert key in self._fstp_handler.all_reduce_handlers
 
                 bucket.reset_by_rank(rank)
-                
+
     def _wait_reduce_scatter_and_accumulate_grad(self, param, reduce_rank=None):
         param_size = param.numel()
 
@@ -397,11 +412,11 @@ class HybridZeroOptimizer(BaseOptimizer):
                 _param.grad.add_(_grad)
                 # self._fstp_handler.reduce_scatter_handlers[key] = None
                 # del _grad
-                release_reduce_scatter_memory_pool(size=tuple(_grad.size()),index=_grad.index)
+                release_reduce_scatter_memory_pool(size=tuple(_grad.size()), index=_grad.index)
                 del self._fstp_handler.reduce_scatter_handlers[key]
                 self._fstp_handler.reduce_scatter_handlers[key] = None
                 assert key in self._fstp_handler.reduce_scatter_handlers
-                
+
                 # if not hasattr(_param, "_fstp_all_reduce_str"):
                 #         continue
 
@@ -418,7 +433,7 @@ class HybridZeroOptimizer(BaseOptimizer):
                 # assert key in self._fstp_handler.all_reduce_handlers
 
                 current_bucket.reset_by_rank(reduce_rank)
-                
+
         current_bucket.add_num_elements_in_bucket(param_size, reduce_rank)
         current_bucket.add_param(param, reduce_rank)
 
@@ -685,16 +700,16 @@ class HybridZeroOptimizer(BaseOptimizer):
         timer("sync_grad").start()
         self._sync_grad()
         timer("sync_grad").stop()
-        
+
         print_memory("No 4")
-        
+
         try:
-            res =  self._step(closure=closure, norms=total_norms)
+            res = self._step(closure=closure, norms=total_norms)
         except torch.cuda.OutOfMemoryError as e:
             print(e, flush=True)
             print(torch.cuda.memory_summary(), flush=True)
             torch.cuda.memory._dump_snapshot(f"my_snapshot_{gpc.get_global_rank()}.pickle")
-            
+
         return res
 
     def _step(self, closure=None, norms=None):
@@ -822,7 +837,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         torch.cuda.synchronize()
         with torch.cuda.stream(self._comm_bcast_stream):
             self.broadcast_params()
-        
+
         timer("step").stop()
 
         # update gradients may not be needed here, because the sync_params function is used in initialization,
