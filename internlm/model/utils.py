@@ -6,15 +6,15 @@ from typing import Any, Optional, Union
 import fused_dense_lib as fused_dense_cuda
 import torch
 import torch.nn.functional as F
-from flash_attn.utils.distributed import all_reduce_raw #, reduce_scatter_raw
+from flash_attn.utils.distributed import all_reduce_raw  # , reduce_scatter_raw
 from torch import Tensor
 from torch.cuda.amp import custom_bwd, custom_fwd
 from torch.distributed import ProcessGroup
 
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
-from internlm.utils.logger import get_logger
 from internlm.utils.common import get_current_device
+from internlm.utils.logger import get_logger
 
 logger = get_logger(__file__)
 
@@ -125,9 +125,20 @@ def all_gather_raw(input_: Tensor, process_group: ProcessGroup, async_op: bool =
     )
     return output, handle
 
-def all_gather_raw_memory_pool(input_: Tensor, process_group: ProcessGroup, async_op: bool = False, gather_dim: int = 0, block_index: int = None, module_name: str = None):
+
+def all_gather_raw_memory_pool(
+    input_: Tensor,
+    process_group: ProcessGroup,
+    async_op: bool = False,
+    gather_dim: int = 0,
+    block_index: int = None,
+    module_name: str = None,
+):
     handle = torch.distributed.all_gather_into_tensor(
-        gpc.config.block_memory[block_index % 2][module_name], input_.contiguous(), group=process_group, async_op=async_op
+        gpc.config.block_memory[block_index % 2][module_name],
+        input_.contiguous(),
+        group=process_group,
+        async_op=async_op,
     )
     return handle
 
@@ -142,23 +153,25 @@ def linear_bias_wgrad_torch(my_input, grad_output, has_d_bias):
 def reduce_scatter_raw(input_: Tensor, process_group: ProcessGroup, async_op: bool = False):
     world_size = torch.distributed.get_world_size(process_group)
     assert input_.shape[0] % world_size == 0
-    output = torch.empty(input_.shape[0] // world_size, *input_.shape[1:],
-                         dtype=input_.dtype, device=input_.device).contiguous()
-    handle = torch.distributed.reduce_scatter_tensor(output, input_.contiguous(),
-                                                     group=process_group,
-                                                     async_op=async_op)
+    output = torch.empty(
+        input_.shape[0] // world_size, *input_.shape[1:], dtype=input_.dtype, device=input_.device
+    ).contiguous()
+    handle = torch.distributed.reduce_scatter_tensor(
+        output, input_.contiguous(), group=process_group, async_op=async_op
+    )
     return output, handle
+
 
 def reduce_scatter_raw_memory_pool(input_: Tensor, process_group: ProcessGroup, async_op: bool = False):
     world_size = torch.distributed.get_world_size(process_group)
     assert input_.shape[0] % world_size == 0
     size = (input_.shape[0] // world_size, *input_.shape[1:])
     index = check_reduce_scatter_memory_pool(size)
-    output = gpc.config.reduce_scatter_memory[size]['data'][index]
+    output = gpc.config.reduce_scatter_memory[size]["data"][index]
     setattr(output, "index", index)
-    handle = torch.distributed.reduce_scatter_tensor(output, input_.contiguous(),
-                                                     group=process_group,
-                                                     async_op=async_op)
+    handle = torch.distributed.reduce_scatter_tensor(
+        output, input_.contiguous(), group=process_group, async_op=async_op
+    )
     return output, handle
 
 
@@ -313,7 +326,18 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
 
     @staticmethod
     @custom_fwd
-    def forward(ctx, x, weight, bias, return_residual=False, process_group=None, module=None, all_gather_handler=None, block_index=None, module_name=None):
+    def forward(
+        ctx,
+        x,
+        weight,
+        bias,
+        return_residual=False,
+        process_group=None,
+        module=None,
+        all_gather_handler=None,
+        block_index=None,
+        module_name=None,
+    ):
         ctx.compute_weight_gradient = weight.requires_grad
         ctx.return_residual = return_residual
         ctx.process_group = process_group
@@ -329,9 +353,9 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
         world_size = gpc.get_world_size(ParallelMode.TENSOR)
         if world_size > 1:
             # do all_gather for weight and bias before actual computation
-            if all_gather_handler is not None:# and module in all_gather_handler.FSTP_global_weights:
-                    # total_weight = all_gather_handler.FSTP_global_weights[module]
-                    total_weight = gpc.config.block_memory[block_index % 2][module_name]   
+            if all_gather_handler is not None:  # and module in all_gather_handler.FSTP_global_weights:
+                # total_weight = all_gather_handler.FSTP_global_weights[module]
+                total_weight = gpc.config.block_memory[block_index % 2][module_name]
             else:
                 total_weight, handle_weight = all_gather_raw(weight, process_group, async_op=True)
                 handle_weight.wait()
@@ -376,7 +400,7 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
         module = ctx.module
         block_index = ctx.block_index
         module_name = ctx.module_name
-        
+
         if ctx.compute_weight_gradient:
             x, weight, bias = ctx.saved_tensors
             total_x = x
@@ -408,32 +432,43 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
             )
             if world_size > 1:
                 if gpc.config.fstp_handler is not None:
-                    # grad_weight_async, handle_grad_weight = all_reduce_raw(grad_weight, process_group, async_op=True)
-                    # assert hasattr(weight, "_fstp_all_reduce_str")
-                    # all_gather_handler.all_reduce_handlers[weight._fstp_all_reduce_str] = (handle_grad_weight, grad_weight_async)
-                    # grad_weight = all_gather_handler.get_zero_by_shape((grad_weight.shape[0]//torch.distributed.get_world_size(process_group), *grad_weight.shape[1:]), dtype=grad_weight.dtype, device=grad_weight.device)
-                    # if grad_bias is not None:
-                    #     grad_bias_async, handle_grad_bias = all_reduce_raw(grad_bias, process_group, async_op=True)
-                    #     assert hasattr(bias, "_fstp_all_reduce_str")
-                    #     all_gather_handler.all_reduce_handlers[bias._fstp_all_reduce_str] = (handle_grad_bias, grad_bias_async)
-                    #     grad_bias = all_gather_handler.get_zero_by_shape((grad_weight.shape[0]//torch.distributed.get_world_size(process_group), *grad_weight.shape[1:]), dtype=grad_bias.dtype, device=grad_bias.device)
-                    
-                    grad_weight_async, handle_grad_weight = reduce_scatter_raw_memory_pool(grad_weight, process_group, async_op=True)
+                    grad_weight_async, handle_grad_weight = reduce_scatter_raw_memory_pool(
+                        grad_weight, process_group, async_op=True
+                    )
                     assert hasattr(weight, "_fstp_reduce_scatter_str")
-                    all_gather_handler.reduce_scatter_handlers[weight._fstp_reduce_scatter_str] = (handle_grad_weight, grad_weight_async)
-                    grad_weight = all_gather_handler.get_zero_by_shape((grad_weight.shape[0]//torch.distributed.get_world_size(process_group), *grad_weight.shape[1:]), dtype=grad_weight.dtype, device=grad_weight.device)
+                    all_gather_handler.reduce_scatter_handlers[weight._fstp_reduce_scatter_str] = (
+                        handle_grad_weight,
+                        grad_weight_async,
+                    )
+                    grad_weight = all_gather_handler.get_zero_by_shape(
+                        (
+                            grad_weight.shape[0] // torch.distributed.get_world_size(process_group),
+                            *grad_weight.shape[1:],
+                        ),
+                        dtype=grad_weight.dtype,
+                        device=grad_weight.device,
+                    )
                     if grad_bias is not None:
-                        grad_bias_async, handle_grad_bias = reduce_scatter_raw_memory_pool(grad_bias, process_group, async_op=True)
+                        grad_bias_async, handle_grad_bias = reduce_scatter_raw_memory_pool(
+                            grad_bias, process_group, async_op=True
+                        )
                         assert hasattr(bias, "_fstp_reduce_scatter_str")
-                        all_gather_handler.reduce_scatter_handlers[bias._fstp_reduce_scatter_str] = (handle_grad_bias, grad_bias_async)
-                        grad_bias = all_gather_handler.get_zero_by_shape((grad_bias.shape[0]//torch.distributed.get_world_size(process_group), *grad_bias.shape[1:]), dtype=grad_bias.dtype, device=grad_bias.device)
+                        all_gather_handler.reduce_scatter_handlers[bias._fstp_reduce_scatter_str] = (
+                            handle_grad_bias,
+                            grad_bias_async,
+                        )
+                        grad_bias = all_gather_handler.get_zero_by_shape(
+                            (
+                                grad_bias.shape[0] // torch.distributed.get_world_size(process_group),
+                                *grad_bias.shape[1:],
+                            ),
+                            dtype=grad_bias.dtype,
+                            device=grad_bias.device,
+                        )
                 else:
                     grad_weight, handle_grad_weight = reduce_scatter_raw(grad_weight, process_group, async_op=True)
                     if grad_bias is not None:
                         grad_bias, handle_grad_bias = reduce_scatter_raw(grad_bias, process_group, async_op=True)
-                # grad_weight, handle_grad_weight = reduce_scatter_raw(grad_weight, process_group, async_op=True)
-                # if grad_bias is not None:
-                #     grad_bias, handle_grad_bias = reduce_scatter_raw(grad_bias, process_group, async_op=True)
         else:
             grad_weight = None
             grad_bias = grad_output if ctx.needs_input_grad[2] else None
@@ -489,7 +524,9 @@ def fstp_fused_dense_func(
         x.dtype == torch.float32 and torch.is_autocast_enabled()
     )
     if x.is_cuda and weight.is_cuda and (bias is None or bias.is_cuda) and dtype_eligible:
-        return FSTPFusedDenseFunc.apply(x, weight, bias, return_residual, process_group, module, handler, block_index, module_name)
+        return FSTPFusedDenseFunc.apply(
+            x, weight, bias, return_residual, process_group, module, handler, block_index, module_name
+        )
     else:
         assert process_group is None
         out = F.linear(x, weight, bias)
@@ -536,36 +573,37 @@ def Silu(w1_o, w2_o):
 
 Silu = torch.jit.script(Silu)
 
+
 def check_reduce_scatter_memory_pool(key):
-    
     return_idx = 0
-    
+
     # if key not in dict
     if key not in gpc.config.reduce_scatter_memory:
-        gpc.config.reduce_scatter_memory[key] = {'data': [], 'used': []}
-    
+        gpc.config.reduce_scatter_memory[key] = {"data": [], "used": []}
+
     # if the data is empty
-    if len(gpc.config.reduce_scatter_memory[key]['data']) == 0:
-        gpc.config.reduce_scatter_memory[key]['data'].append(torch.zeros(key, 
-                                                             dtype=gpc.config.model.get("dtype", torch.half), 
-                                                             device=get_current_device()).contiguous())
-        gpc.config.reduce_scatter_memory[key]['used'].append(True)
+    if len(gpc.config.reduce_scatter_memory[key]["data"]) == 0:
+        gpc.config.reduce_scatter_memory[key]["data"].append(
+            torch.zeros(key, dtype=gpc.config.model.get("dtype", torch.half), device=get_current_device()).contiguous()
+        )
+        gpc.config.reduce_scatter_memory[key]["used"].append(True)
         return_idx = 0
         return return_idx
-    else: # if not empty
-        for index, used in enumerate(gpc.config.reduce_scatter_memory[key]['used']):
-            if used == False:
-                gpc.config.reduce_scatter_memory[key]['used'][index] = True
+    else:  # if not empty
+        for index, used in enumerate(gpc.config.reduce_scatter_memory[key]["used"]):
+            if used is False:
+                gpc.config.reduce_scatter_memory[key]["used"][index] = True
                 return_idx = index
                 return return_idx
         # if the memory pool is all used
-        length = len(gpc.config.reduce_scatter_memory[key]['data'])
-        gpc.config.reduce_scatter_memory[key]['data'].append(torch.zeros(key, 
-                                                             dtype=gpc.config.model.get("dtype", torch.half), 
-                                                             device=get_current_device()).contiguous())
-        gpc.config.reduce_scatter_memory[key]['used'].append(True)
+        length = len(gpc.config.reduce_scatter_memory[key]["data"])
+        gpc.config.reduce_scatter_memory[key]["data"].append(
+            torch.zeros(key, dtype=gpc.config.model.get("dtype", torch.half), device=get_current_device()).contiguous()
+        )
+        gpc.config.reduce_scatter_memory[key]["used"].append(True)
         return_idx = length
         return return_idx
 
+
 def release_reduce_scatter_memory_pool(size, index):
-    gpc.config.reduce_scatter_memory[size]['used'][index] = False
+    gpc.config.reduce_scatter_memory[size]["used"][index] = False

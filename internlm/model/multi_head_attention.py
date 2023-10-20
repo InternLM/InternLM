@@ -176,7 +176,6 @@ class MHA(nn.Module):
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
         tp_mode: str = "origin_tp",
-        block_idx: int = 0,
     ) -> None:
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
