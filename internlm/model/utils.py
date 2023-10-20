@@ -135,7 +135,7 @@ def all_gather_raw_memory_pool(
     module_name: str = None,
 ):
     handle = torch.distributed.all_gather_into_tensor(
-        gpc.config.block_memory[block_index % 2][module_name],
+        gpc.config.fstp_handler.get_all_gather_memory(block_index, module_name),
         input_.contiguous(),
         group=process_group,
         async_op=async_op,
@@ -166,8 +166,8 @@ def reduce_scatter_raw_memory_pool(input_: Tensor, process_group: ProcessGroup, 
     world_size = torch.distributed.get_world_size(process_group)
     assert input_.shape[0] % world_size == 0
     size = (input_.shape[0] // world_size, *input_.shape[1:])
-    index = check_reduce_scatter_memory_pool(size)
-    output = gpc.config.reduce_scatter_memory[size]["data"][index]
+    index = gpc.config.fstp_handler.get_reduce_scatter_memory(size)
+    output = gpc.config.fstp_handler.reduce_scatter_memory_pool[size]["data"][index]
     setattr(output, "index", index)
     handle = torch.distributed.reduce_scatter_tensor(
         output, input_.contiguous(), group=process_group, async_op=async_op
@@ -269,11 +269,11 @@ class FusedDenseFunc(torch.autograd.Function):
 
 
 class MegatronFusedDenseFunc(torch.autograd.Function):
-    '''
+    """
     FusedDenseFunc for tensor parallel in megatron implementation.
     The diffenrence between the implementation of flash-attn and megatron is that the total_x could be saved for backward in megatron,
     so that the all-gather in backward is ommited.
-    '''
+    """
 
     @staticmethod
     @custom_fwd
@@ -355,9 +355,10 @@ class MegatronFusedDenseFunc(torch.autograd.Function):
             handle_grad_input.wait()
         return grad_input, grad_weight, grad_bias, None, None, None, None
 
+
 # adpated from https://github.com/Dao-AILab/flash-attention/blob/main/flash_attn/ops/fused_dense.py
 class FusedDenseFuncTorch(FusedDenseFunc):
-    '''FusedDenseFunc in flash implementation for supporting torch.float32'''
+    """FusedDenseFunc in flash implementation for supporting torch.float32"""
 
     @staticmethod
     @custom_bwd
@@ -407,8 +408,9 @@ class FusedDenseFuncTorch(FusedDenseFunc):
             handle_grad_input.wait()
         return grad_input, grad_weight, grad_bias, None, None, None, None
 
+
 class MegatronFusedDenseFuncTorch(FusedDenseFunc):
-    '''FusedDenseFunc in megatron implementation for supporting torch.float32'''
+    """FusedDenseFunc in megatron implementation for supporting torch.float32"""
 
     @staticmethod
     @custom_bwd
@@ -452,6 +454,7 @@ class MegatronFusedDenseFuncTorch(FusedDenseFunc):
             handle_grad_input.wait()
         return grad_input, grad_weight, grad_bias, None, None, None, None
 
+
 class FSTPFusedDenseFunc(torch.autograd.Function):
     "FusedDenseFunc for FSTP, which is optimized based on flash implementation."
 
@@ -485,7 +488,7 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
         if world_size > 1:
             # do all_gather for weight and bias before actual computation
             if overlap_handler is not None:
-                total_weight = gpc.config.block_memory[block_index % 2][module_name]   
+                total_weight = gpc.config.fstp_handler.get_all_gather_memory(block_index, module_name)
             else:
                 total_weight, handle_weight = all_gather_raw(weight, process_group, async_op=True)
                 handle_weight.wait()
@@ -544,7 +547,7 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
         world_size = gpc.get_world_size(ParallelMode.TENSOR)
         if world_size > 1:
             if overlap_handler is not None:
-                total_weight = gpc.config.block_memory[block_index % 2][module_name]
+                total_weight = gpc.config.fstp_handler.get_all_gather_memory(block_index, module_name)
             else:
                 total_weight, handle_weight = all_gather_raw(weight, process_group, async_op=True)
                 handle_weight.wait()
@@ -559,17 +562,39 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
             )
             if world_size > 1:
                 if overlap_handler is not None:
-                    grad_weight_async, handle_grad_weight = reduce_scatter_raw_memory_pool(grad_weight, process_group, async_op=True)
+                    grad_weight_async, handle_grad_weight = reduce_scatter_raw_memory_pool(
+                        grad_weight, process_group, async_op=True
+                    )
                     assert hasattr(weight, "_fstp_reduce_scatter_str")
-                    overlap_handler.reduce_scatter_handlers[weight._fstp_reduce_scatter_str] = (handle_grad_weight, grad_weight_async)
-                    grad_weight = overlap_handler.get_zero_by_shape((grad_weight.shape[0]//torch.distributed.get_world_size(process_group), *grad_weight.shape[1:]), dtype=grad_weight.dtype, device=grad_weight.device)
+                    overlap_handler.reduce_scatter_handlers[weight._fstp_reduce_scatter_str] = (
+                        handle_grad_weight,
+                        grad_weight_async,
+                    )
+                    grad_weight = overlap_handler.get_zero_by_shape(
+                        (
+                            grad_weight.shape[0] // torch.distributed.get_world_size(process_group),
+                            *grad_weight.shape[1:],
+                        ),
+                        dtype=grad_weight.dtype,
+                        device=grad_weight.device,
+                    )
                     if grad_bias is not None:
                         grad_bias_async, handle_grad_bias = reduce_scatter_raw_memory_pool(
                             grad_bias, process_group, async_op=True
                         )
                         assert hasattr(bias, "_fstp_reduce_scatter_str")
-                        overlap_handler.reduce_scatter_handlers[bias._fstp_reduce_scatter_str] = (handle_grad_bias, grad_bias_async)
-                        grad_bias = overlap_handler.get_zero_by_shape((grad_bias.shape[0]//torch.distributed.get_world_size(process_group), *grad_bias.shape[1:]), dtype=grad_bias.dtype, device=grad_bias.device)
+                        overlap_handler.reduce_scatter_handlers[bias._fstp_reduce_scatter_str] = (
+                            handle_grad_bias,
+                            grad_bias_async,
+                        )
+                        grad_bias = overlap_handler.get_zero_by_shape(
+                            (
+                                grad_bias.shape[0] // torch.distributed.get_world_size(process_group),
+                                *grad_bias.shape[1:],
+                            ),
+                            dtype=grad_bias.dtype,
+                            device=grad_bias.device,
+                        )
                 else:
                     grad_weight, handle_grad_weight = reduce_scatter_raw(grad_weight, process_group, async_op=True)
                     if grad_bias is not None:
@@ -613,6 +638,7 @@ def fused_dense_func_torch(
     else:
         return FusedDenseFuncTorch.apply(x, weight, bias, return_residual, process_group, sequence_parallel, gather_dim)
 
+
 def megatron_fused_dense_func_torch(
     x: Tensor,
     weight: Tensor,
@@ -626,9 +652,14 @@ def megatron_fused_dense_func_torch(
         x.dtype == torch.float32 and torch.is_autocast_enabled()
     )
     if x.is_cuda and weight.is_cuda and (bias is None or bias.is_cuda) and dtype_eligible:
-        return MegatronFusedDenseFunc.apply(x, weight, bias, return_residual, process_group, sequence_parallel, gather_dim)
+        return MegatronFusedDenseFunc.apply(
+            x, weight, bias, return_residual, process_group, sequence_parallel, gather_dim
+        )
     else:
-        return MegatronFusedDenseFuncTorch.apply(x, weight, bias, return_residual, process_group, sequence_parallel, gather_dim)
+        return MegatronFusedDenseFuncTorch.apply(
+            x, weight, bias, return_residual, process_group, sequence_parallel, gather_dim
+        )
+
 
 def fstp_fused_dense_func(
     x: Tensor,
@@ -693,38 +724,3 @@ def Silu(w1_o, w2_o):
 
 
 Silu = torch.jit.script(Silu)
-
-
-def check_reduce_scatter_memory_pool(key):
-    return_idx = 0
-
-    # if key not in dict
-    if key not in gpc.config.reduce_scatter_memory:
-        gpc.config.reduce_scatter_memory[key] = {"data": [], "used": []}
-
-    # if the data is empty
-    if len(gpc.config.reduce_scatter_memory[key]["data"]) == 0:
-        gpc.config.reduce_scatter_memory[key]["data"].append(
-            torch.zeros(key, dtype=gpc.config.model.get("dtype", torch.half), device=get_current_device()).contiguous()
-        )
-        gpc.config.reduce_scatter_memory[key]["used"].append(True)
-        return_idx = 0
-        return return_idx
-    else:  # if not empty
-        for index, used in enumerate(gpc.config.reduce_scatter_memory[key]["used"]):
-            if used is False:
-                gpc.config.reduce_scatter_memory[key]["used"][index] = True
-                return_idx = index
-                return return_idx
-        # if the memory pool is all used
-        length = len(gpc.config.reduce_scatter_memory[key]["data"])
-        gpc.config.reduce_scatter_memory[key]["data"].append(
-            torch.zeros(key, dtype=gpc.config.model.get("dtype", torch.half), device=get_current_device()).contiguous()
-        )
-        gpc.config.reduce_scatter_memory[key]["used"].append(True)
-        return_idx = length
-        return return_idx
-
-
-def release_reduce_scatter_memory_pool(size, index):
-    gpc.config.reduce_scatter_memory[size]["used"][index] = False

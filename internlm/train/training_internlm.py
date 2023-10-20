@@ -36,12 +36,12 @@ from internlm.data.packed_dataset import (
 from internlm.data.utils import DATASET_TYPE_IDS_MAP, unpack_data
 from internlm.model.embedding import Embedding1D
 from internlm.model.linear import (
-    CoarseGrainedFSTPAllGatherSyncHandler,
     FeedForward,
     RewardModelLinear,
     ScaleColumnParallelLinear,
 )
 from internlm.model.multi_head_attention import MHA
+from internlm.model.overlap_handler import FSTPOverlapHandler
 from internlm.model.utils import try_import_RMSNorm
 from internlm.monitor import send_heartbeat, set_env_var
 from internlm.monitor.monitor import monitor_manager as mm
@@ -109,60 +109,8 @@ def initialize_model():
     model = wrap_FSDP_model(model)
 
     gpc.config.fstp_handler = None
-
     if gpc.config.parallel["tensor"]["sp"] == "intern" and gpc.config.parallel["tensor"]["intern_overlap"] is True:
-        handler = CoarseGrainedFSTPAllGatherSyncHandler(model, gpc.get_group(ParallelMode.TENSOR))
-        handler._register_sync_parameters_hook()
-        gpc.config.fstp_handler = handler
-
-        # allocate memory pool
-        block_memory = {}  # containing two groups of block weight
-        hidden_size = gpc.config.HIDDEN_SIZE
-        mlp_ratio = gpc.config.MLP_RATIO
-        mlp_hidden_size = int(hidden_size * mlp_ratio)
-        mlp_hidden_size = 256 * ((mlp_hidden_size + 256 - 1) // 256)
-        world_size = gpc.get_world_size(ParallelMode.TENSOR)
-        size_key = [
-            (3 * hidden_size // world_size, hidden_size),
-            (mlp_hidden_size // world_size, hidden_size),
-            (hidden_size // world_size, mlp_hidden_size),
-            (hidden_size // world_size, hidden_size),
-        ]
-        module_name = ["Wqkv", "out_proj", "w1", "w2", "w3"]
-        for i in range(2):
-            weight = {}
-            for name in module_name:
-                if name == "Wqkv":
-                    weight[name] = torch.zeros(
-                        (3 * hidden_size, hidden_size),
-                        dtype=gpc.config.model.get("dtype", torch.half),
-                        device=get_current_device(),
-                    ).contiguous()
-                elif name == "out_proj":
-                    weight[name] = torch.zeros(
-                        (hidden_size, hidden_size),
-                        dtype=gpc.config.model.get("dtype", torch.half),
-                        device=get_current_device(),
-                    ).contiguous()
-                elif name == "w1" or name == "w2":
-                    weight[name] = torch.zeros(
-                        (mlp_hidden_size, hidden_size),
-                        dtype=gpc.config.model.get("dtype", torch.half),
-                        device=get_current_device(),
-                    ).contiguous()
-                else:
-                    weight[name] = torch.zeros(
-                        (hidden_size, mlp_hidden_size),
-                        dtype=gpc.config.model.get("dtype", torch.half),
-                        device=get_current_device(),
-                    ).contiguous()
-            block_memory[i] = weight
-        reduce_scatter_memory = {}
-        for key in size_key:
-            reduce_scatter_memory[key] = {"data": [], "used": []}
-
-        gpc.config.block_memory = block_memory
-        gpc.config.reduce_scatter_memory = reduce_scatter_memory
+        gpc.config.fstp_handler = FSTPOverlapHandler(model, gpc.get_group(ParallelMode.TENSOR))
 
     return model
 
