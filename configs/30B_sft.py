@@ -5,7 +5,7 @@ SEQ_LEN = 4096
 HIDDEN_SIZE = 6144
 NUM_ATTENTION_HEAD = 48
 MLP_RATIO = 8 / 3
-NUM_LAYER = 40
+NUM_LAYER = 60
 VOCAB_SIZE = 103168
 
 MODEL_ONLY_FOLDER = "local:llm_ckpts/xxxx"
@@ -51,7 +51,7 @@ data = dict(
     # micro_num means the number of micro_batch contained in one gradient update
     micro_num=4,
     # packed_length = micro_bsz * SEQ_LEN
-    micro_bsz=4,
+    micro_bsz=2,
     # defaults to the value of micro_num
     valid_micro_num=4,
     # defaults to 0, means disable evaluate
@@ -161,8 +161,8 @@ pipeline parallel (dict):
 sequence parallel (bool): enable/disable sequence parallel, defaults to False.
 """
 parallel = dict(
-    zero1=dict(size=-1, fsdp=False),
-    tensor=dict(size=8, mode="origin_tp", overlap=False),
+    zero1=dict(size=4, fsdp=False),
+    tensor=dict(size=8, mode="fstp", overlap=True),
     pipeline=dict(size=1, interleaved_overlap=True),
     sequence_parallel=True,
 )

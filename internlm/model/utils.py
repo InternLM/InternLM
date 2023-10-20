@@ -14,6 +14,7 @@ from torch.distributed import ProcessGroup
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.utils.logger import get_logger
+from internlm.utils.common import get_current_device
 
 logger = get_logger(__file__)
 
@@ -143,6 +144,18 @@ def reduce_scatter_raw(input_: Tensor, process_group: ProcessGroup, async_op: bo
     assert input_.shape[0] % world_size == 0
     output = torch.empty(input_.shape[0] // world_size, *input_.shape[1:],
                          dtype=input_.dtype, device=input_.device).contiguous()
+    handle = torch.distributed.reduce_scatter_tensor(output, input_.contiguous(),
+                                                     group=process_group,
+                                                     async_op=async_op)
+    return output, handle
+
+def reduce_scatter_raw_memory_pool(input_: Tensor, process_group: ProcessGroup, async_op: bool = False):
+    world_size = torch.distributed.get_world_size(process_group)
+    assert input_.shape[0] % world_size == 0
+    size = (input_.shape[0] // world_size, *input_.shape[1:])
+    index = check_reduce_scatter_memory_pool(size)
+    output = gpc.config.reduce_scatter_memory[size]['data'][index]
+    setattr(output, "index", index)
     handle = torch.distributed.reduce_scatter_tensor(output, input_.contiguous(),
                                                      group=process_group,
                                                      async_op=async_op)
@@ -404,12 +417,13 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
                     #     assert hasattr(bias, "_fstp_all_reduce_str")
                     #     all_gather_handler.all_reduce_handlers[bias._fstp_all_reduce_str] = (handle_grad_bias, grad_bias_async)
                     #     grad_bias = all_gather_handler.get_zero_by_shape((grad_weight.shape[0]//torch.distributed.get_world_size(process_group), *grad_weight.shape[1:]), dtype=grad_bias.dtype, device=grad_bias.device)
-                    grad_weight_async, handle_grad_weight = reduce_scatter_raw(grad_weight, process_group, async_op=True)
+                    
+                    grad_weight_async, handle_grad_weight = reduce_scatter_raw_memory_pool(grad_weight, process_group, async_op=True)
                     assert hasattr(weight, "_fstp_reduce_scatter_str")
                     all_gather_handler.reduce_scatter_handlers[weight._fstp_reduce_scatter_str] = (handle_grad_weight, grad_weight_async)
                     grad_weight = all_gather_handler.get_zero_by_shape((grad_weight.shape[0]//torch.distributed.get_world_size(process_group), *grad_weight.shape[1:]), dtype=grad_weight.dtype, device=grad_weight.device)
                     if grad_bias is not None:
-                        grad_bias_async, handle_grad_bias = reduce_scatter_raw(grad_bias, process_group, async_op=True)
+                        grad_bias_async, handle_grad_bias = reduce_scatter_raw_memory_pool(grad_bias, process_group, async_op=True)
                         assert hasattr(bias, "_fstp_reduce_scatter_str")
                         all_gather_handler.reduce_scatter_handlers[bias._fstp_reduce_scatter_str] = (handle_grad_bias, grad_bias_async)
                         grad_bias = all_gather_handler.get_zero_by_shape((grad_bias.shape[0]//torch.distributed.get_world_size(process_group), *grad_bias.shape[1:]), dtype=grad_bias.dtype, device=grad_bias.device)
@@ -521,3 +535,37 @@ def Silu(w1_o, w2_o):
 
 
 Silu = torch.jit.script(Silu)
+
+def check_reduce_scatter_memory_pool(key):
+    
+    return_idx = 0
+    
+    # if key not in dict
+    if key not in gpc.config.reduce_scatter_memory:
+        gpc.config.reduce_scatter_memory[key] = {'data': [], 'used': []}
+    
+    # if the data is empty
+    if len(gpc.config.reduce_scatter_memory[key]['data']) == 0:
+        gpc.config.reduce_scatter_memory[key]['data'].append(torch.zeros(key, 
+                                                             dtype=gpc.config.model.get("dtype", torch.half), 
+                                                             device=get_current_device()).contiguous())
+        gpc.config.reduce_scatter_memory[key]['used'].append(True)
+        return_idx = 0
+        return return_idx
+    else: # if not empty
+        for index, used in enumerate(gpc.config.reduce_scatter_memory[key]['used']):
+            if used == False:
+                gpc.config.reduce_scatter_memory[key]['used'][index] = True
+                return_idx = index
+                return return_idx
+        # if the memory pool is all used
+        length = len(gpc.config.reduce_scatter_memory[key]['data'])
+        gpc.config.reduce_scatter_memory[key]['data'].append(torch.zeros(key, 
+                                                             dtype=gpc.config.model.get("dtype", torch.half), 
+                                                             device=get_current_device()).contiguous())
+        gpc.config.reduce_scatter_memory[key]['used'].append(True)
+        return_idx = length
+        return return_idx
+
+def release_reduce_scatter_memory_pool(size, index):
+    gpc.config.reduce_scatter_memory[size]['used'][index] = False

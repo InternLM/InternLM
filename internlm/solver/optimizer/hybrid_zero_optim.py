@@ -10,7 +10,7 @@ from torch.optim import Optimizer
 
 from internlm.core.context import Config, ParallelMode
 from internlm.core.context import global_context as gpc
-from internlm.model.utils import split_forward_gather_backward
+from internlm.model.utils import split_forward_gather_backward, release_reduce_scatter_memory_pool
 from internlm.monitor import send_alert_message
 from internlm.solver.optimizer.store import (
     BucketStore,
@@ -353,7 +353,8 @@ class HybridZeroOptimizer(BaseOptimizer):
                     comm_handle.wait()
                     _param.grad.add_(_grad)
                     # self._fstp_handler.reduce_scatter_handlers[key] = None
-                    del _grad
+                    # del _grad
+                    release_reduce_scatter_memory_pool(size=tuple(_grad.size()),index=_grad.index)
                     del self._fstp_handler.reduce_scatter_handlers[key]
                     self._fstp_handler.reduce_scatter_handlers[key] = None
                     assert key in self._fstp_handler.reduce_scatter_handlers
@@ -395,7 +396,8 @@ class HybridZeroOptimizer(BaseOptimizer):
                 comm_handle.wait()
                 _param.grad.add_(_grad)
                 # self._fstp_handler.reduce_scatter_handlers[key] = None
-                del _grad
+                # del _grad
+                release_reduce_scatter_memory_pool(size=tuple(_grad.size()),index=_grad.index)
                 del self._fstp_handler.reduce_scatter_handlers[key]
                 self._fstp_handler.reduce_scatter_handlers[key] = None
                 assert key in self._fstp_handler.reduce_scatter_handlers
