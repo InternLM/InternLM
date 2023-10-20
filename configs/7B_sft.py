@@ -152,19 +152,19 @@ zero1 parallel (dict):
     2. fsdp: bool, enable/disable torch's fully sharded data parallel, defaults to False.
 tensor parallel (dict):
     1. size: int, the size of tensor parallel.
-    2. mode: str, the mode should be 'origin_tp' or 'fstp', defaults to 'origin_tp'. If the mode is 'fstp',
-        the sequence_parallel should be True.
+    2. sp: str, the sequence parallel mode, should be in ['none', 'megatron', 'flash-attn', 'intern'],
+        defaults to 'none', means the sequence parallel will be disabled.
+    3. intern_overlap: bool, enable/disable all_gather/reduce_scatter communication overlap when using 'intern' mode sp,
+        defaults to False.
 pipeline parallel (dict):
     1. size: int, the size of pipeline parallel.
     2. interleaved_overlap: bool, enable/disable communication overlap when using interleaved pipeline scheduler,
         defaults to False.
-sequence parallel (bool): enable/disable sequence parallel, defaults to False.
 """
 parallel = dict(
     zero1=dict(size=-1, fsdp=False),
-    tensor=dict(size=8, sp="intern", intern_overlap=True),
+    tensor=dict(size=8, sp="megatron", intern_overlap=True),
     pipeline=dict(size=1, interleaved_overlap=True),
-    sequence_parallel=True,
 )
 
 cudnn_deterministic = False

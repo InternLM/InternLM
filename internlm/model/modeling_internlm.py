@@ -396,7 +396,7 @@ class PackedFlashInternLm1D(nn.Module):
             assert len(indexes) == 1
             # The indexes are used to indicate the actual position IDs of each token in the packed input.
             indexes = indexes[0]
-            # if the tensor parallel mode is 'fstp', the indexes should also be split in sequence dimension.
+            # if the sequence parallel mode is 'intern', the indexes should also be split in sequence dimension.
             if gpc.config.parallel.sequence_parallel and self.sp_mode == "intern":
                 indexes = split_forward_gather_backward(indexes, ParallelMode.TENSOR, dim=0)
 

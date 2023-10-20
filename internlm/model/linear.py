@@ -451,49 +451,33 @@ class CoarseGrainedFSTPAllGatherSyncHandler:
                                         self.index_to_fsdp_modules[idx].append(child)
                                         self.module_name_index[child] = index
                                         index = index + 1
-                                        
+
                                         _full_name = f"{_chunk_name}.{idx}.{_sub_name}.{name}"
                                         setattr(child.weight, "_fstp_reduce_scatter_str", f"{_full_name}.weight")
                                         if child.bias is not None:
                                             setattr(child.bias, "_fstp_reduce_scatter_str", f"{_full_name}.bias")
-                                        # _full_name = f"{_chunk_name}.{idx}.{_sub_name}.{name}"
-                                        # setattr(child.weight, "_fstp_all_reduce_str", f"{_full_name}.weight")
-                                        # if child.bias is not None:
-                                        #     setattr(child.bias, "_fstp_all_reduce_str", f"{_full_name}.bias")
                             else:
                                 continue
                 elif isinstance(children, ScaleColumnParallelLinear):
                     self.head.append(children)
                 elif isinstance(children, Embedding1D):
                     self.embedding.append(children)
-                    
-    def get_zero_by_shape(self, size:tuple, dtype, device) -> torch.Tensor:
-        if size not in self.zero_const_pool:        
+
+    def get_zero_by_shape(self, size: tuple, dtype, device) -> torch.Tensor:
+        if size not in self.zero_const_pool:
             self.zero_const_pool[size] = torch.zeros(*size, dtype=dtype, device=device).contiguous()
-        
+
         return self.zero_const_pool[size]
 
-
-    def _all_gather_block_weight(self, block_index: int):
-        #block = self.index_to_block[block_index]
-        fsdp_modules = self.index_to_fsdp_modules[block_index]
-        # self.block_handles[block] = []
-        for module in fsdp_modules:
-            total_weight, weight_handle = all_gather_raw(module.weight, self.process_group, async_op=True)
-            self.FSTP_global_weights[module] = total_weight
-            self.FSTP_global_handle[module] = weight_handle
-            # self.block_handles[block].append(weight_handle)
-    
     def _all_gather_block_weight_memory_pool(self, block_index: int):
         fsdp_modules = self.index_to_fsdp_modules[block_index]
-        # self.block_handles[block] = []
         for module in fsdp_modules:
             module_index = self.module_name_index[module]
             name = self.module_name[module_index]
-            weight_handle = all_gather_raw_memory_pool(module.weight, self.process_group, async_op=True, block_index=block_index, module_name=name)
-            # self.FSTP_global_weights[module] = total_weight
+            weight_handle = all_gather_raw_memory_pool(
+                module.weight, self.process_group, async_op=True, block_index=block_index, module_name=name
+            )
             self.FSTP_global_handle[module] = weight_handle
-            # self.block_handles[block].append(weight_handle)
 
     def _register_sync_parameters_hook(self) -> None:
         """
@@ -510,41 +494,14 @@ class CoarseGrainedFSTPAllGatherSyncHandler:
             block_index = self.module_to_index[module]
             # start the all-gather for next block
             if block_index + 1 < gpc.config.NUM_LAYER:
-                # self._all_gather_block_weight(block_index + 1)
                 self._all_gather_block_weight_memory_pool(block_index + 1)
 
-        def _pre_forward_hook_for_block(block: nn.Module, inputs: Any):
-            block_index = self.block_to_index[block]
-            if block_index == 0:
-                # all gather weight for block 0
-                fsdp_modules = self.index_to_fsdp_modules[block_index]
-                for module in fsdp_modules:
-                    total_weight, weight_handle = all_gather_raw(module.weight, self.process_group, async_op=True)
-                    weight_handle.wait()
-                    self.FSTP_global_weights[module] = total_weight
-            else:
-                # wait handle for current block
-                handles = self.block_handles[block]
-                for handle in handles:
-                    handle.wait()
-        
-        def _pre_forward_hook_for_embedding(module: nn.Module, inputs: Any, output):
-            # self._all_gather_block_weight(0)
+        def _post_forward_hook_for_embedding(module: nn.Module, inputs: Any, output):
             self._all_gather_block_weight_memory_pool(0)
-            
 
-        def _post_forward_hook_for_block(block: nn.Module, input, output):
-            block_index = self.block_to_index[block]
-            fsdp_modules = self.index_to_fsdp_modules[block_index]
-            if block in self.block_handles:
-                del self.block_handles[block]
-            for module in fsdp_modules:
-                del self.FSTP_global_weights[module]
-
-        def _pre_forward_hook_for_module(module: nn.Module, inputs: Any,):
-            block_index = self.module_to_index[module]
-            handler = self.FSTP_global_handle[module]
-            handler.wait()
+        def _pre_forward_hook_for_module(module: nn.Module, inputs: Any):
+            handle = self.FSTP_global_handle[module]
+            handle.wait()
 
         def _post_forward_hook_for_module(module: nn.Module, input, output):
             if module in self.FSTP_global_weights:
@@ -552,67 +509,44 @@ class CoarseGrainedFSTPAllGatherSyncHandler:
             if module in self.FSTP_global_handle:
                 del self.FSTP_global_handle[module]
 
-        def _pre_backward_hook_for_block(block: nn.Module, grad_output):
-            # import pdb; pdb.set_trace()
-            block_index = self.block_to_index[block]
-            # if block_index == gpc.config.NUM_LAYER - 1:
-            #     # all gather weight for the last block
-            #     fsdp_modules = self.index_to_fsdp_modules[block_index]
-            #     for module in fsdp_modules:
-            #         total_weight, weight_handle = all_gather_raw(module.weight, self.process_group, async_op=True)
-            #         weight_handle.wait()
-            #         self.FSTP_global_weights[module] = total_weight
-            # else:
-            #     # wait handle for current block
-            #     handles = self.block_handles[block]
-            #     for handle in handles:
-            #         handle.wait()
-            # if block_index == gpc.config.NUM_LAYER - 1:
-            #     self._all_gather_block_weight(block_index)
-            # start the all-gather for next block
-            if block_index - 1 >= 0:
-                self._all_gather_block_weight(block_index - 1)
-        
         def _post_backward_hook_for_head(module: nn.Module, grad_input, grad_output):
             first_module = self.block_module[gpc.config.NUM_LAYER - 1][4]
             total_weight, weight_handler = all_gather_raw(first_module.weight, self.process_group, async_op=True)
             self.FSTP_global_handle[first_module] = weight_handler
             self.FSTP_global_weights[first_module] = total_weight
 
-        def _post_backward_hook_for_block(block: nn.Module, grad_input, grad_output):
-            block_index = self.block_to_index[block]
-            fsdp_modules = self.index_to_fsdp_modules[block_index]
-            if block in self.block_handles:
-                del self.block_handles[block]
-            for module in fsdp_modules:
-                del self.FSTP_global_weights[module]
-
         def _pre_backward_hook_for_module_memory_pool(module: nn.Module, grad_output):
             block_index = self.module_to_index[module]
             name_index = self.module_name_index[module]
-            
+
             if name_index == 4 and block_index == gpc.config.NUM_LAYER - 1:
-                # total_weight, weight_handler = all_gather_raw(module.weight, self.process_group, async_op=True)
                 weight_handler = self.FSTP_global_handle[module]
                 weight_handler.wait()
-                # self.FSTP_global_weights[module] = total_weight
 
                 # start the all-gather for next module
                 next_module = self.block_module[block_index][name_index - 1]
                 next_name = self.module_name[name_index - 1]
                 weights_handler = all_gather_raw_memory_pool(
-                    next_module.weight, self.process_group, async_op=True, block_index=block_index, module_name=next_name
+                    next_module.weight,
+                    self.process_group,
+                    async_op=True,
+                    block_index=block_index,
+                    module_name=next_name,
                 )
                 self.FSTP_global_handle[next_module] = weights_handler
             elif name_index == 0:
                 handler = self.FSTP_global_handle[module]
                 handler.wait()
-                
+
                 if block_index - 1 >= 0:
                     next_module = self.block_module[block_index - 1][4]
                     name = self.module_name[4]
                     weights_handler = all_gather_raw_memory_pool(
-                        next_module.weight, self.process_group, async_op=True, block_index=block_index - 1, module_name=name,
+                        next_module.weight,
+                        self.process_group,
+                        async_op=True,
+                        block_index=block_index - 1,
+                        module_name=name,
                     )
                     self.FSTP_global_handle[next_module] = weights_handler
             else:
@@ -625,76 +559,24 @@ class CoarseGrainedFSTPAllGatherSyncHandler:
                         next_module.weight, self.process_group, async_op=True, block_index=block_index, module_name=name
                     )
                     self.FSTP_global_handle[next_module] = weights_handler
-                # if module in self.FSTP_global_handle:
-                #     handler = self.FSTP_global_handle[module]
-                #     handler.wait()
-
-        def _pre_backward_hook_for_module(module: nn.Module, grad_output):
-            block_index = self.module_to_index[module]
-            name_index = self.module_name_index[module]
-            
-            if name_index == 4 and block_index == gpc.config.NUM_LAYER - 1:
-                # total_weight, weight_handler = all_gather_raw(module.weight, self.process_group, async_op=True)
-                weight_handler = self.FSTP_global_handle[module]
-                weight_handler.wait()
-                # self.FSTP_global_weights[module] = total_weight
-
-                # start the all-gather for next module
-                next_module = self.block_module[block_index][name_index - 1]
-                self.FSTP_global_weights[next_module], weights_handler = all_gather_raw(
-                    next_module.weight, self.process_group, async_op=True
-                )
-                self.FSTP_global_handle[next_module] = weights_handler
-            elif name_index == 0:
-                handler = self.FSTP_global_handle[module]
-                handler.wait()
-                
-                if block_index - 1 >= 0:
-                    next_module = self.block_module[block_index - 1][4]
-                    self.FSTP_global_weights[next_module], weights_handler = all_gather_raw(
-                        next_module.weight, self.process_group, async_op=True
-                    )
-                    self.FSTP_global_handle[next_module] = weights_handler
-            else:
-                handler = self.FSTP_global_handle[module]
-                handler.wait()
-                if name_index != 0:
-                    next_module = self.block_module[block_index][name_index - 1]
-                    self.FSTP_global_weights[next_module], weights_handler = all_gather_raw(
-                        next_module.weight, self.process_group, async_op=True
-                    )
-                    self.FSTP_global_handle[next_module] = weights_handler
-                # if module in self.FSTP_global_handle:
-                #     handler = self.FSTP_global_handle[module]
-                #     handler.wait()
 
         def _post_backward_hook_for_module(module, grad_input, grad_output):
             if module in self.FSTP_global_weights:
                 del self.FSTP_global_weights[module]
             if module in self.FSTP_global_handle:
                 del self.FSTP_global_handle[module]
-        
+
         for embedding in self.embedding:
-            embedding.register_forward_hook(_pre_forward_hook_for_embedding)
-        
+            embedding.register_forward_hook(_post_forward_hook_for_embedding)
+
         for head in self.head:
             head.register_full_backward_hook(_post_backward_hook_for_head)
 
-        # for block in self.FSTP_blocks:
-            # block.register_forward_pre_hook(_pre_forward_hook_for_block)
-            # block.register_forward_hook(_post_forward_hook_for_block)
-            # block.register_full_backward_pre_hook(_pre_backward_hook_for_block)
-            # block.register_full_backward_hook(_post_backward_hook_for_block)
-
         for out_proj in self.FSTP_outs:
             out_proj.register_forward_pre_hook(_pre_forward_hook_for_out_proj)
-   
-        # for wqkv in self.FSTP_wqkvs:
-        #     wqkv.register_full_backward_pre_hook(_pre_backward_hook_for_wqkv)
 
         for module in self.FSTP_modules:
             module.register_forward_pre_hook(_pre_forward_hook_for_module)
             module.register_forward_hook(_post_forward_hook_for_module)
-            # module.register_full_backward_pre_hook(_pre_backward_hook_for_module)
             module.register_full_backward_pre_hook(_pre_backward_hook_for_module_memory_pool)
             module.register_full_backward_hook(_post_backward_hook_for_module)

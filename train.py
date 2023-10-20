@@ -296,7 +296,7 @@ def main(args):
                 memory_profiler.step()
 
             prof.step()
-            
+
             if gpc.config.fstp_handler is not None:
                 gpc.config.fstp_handler.zero_const_pool = {}
                 gpc.config.fstp_handler.reduce_scatter_memory = {}
