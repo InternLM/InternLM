@@ -38,14 +38,7 @@ from torch.nn import Module
 from internlm.core.context import IS_TENSOR_PARALLEL, ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.model.embedding import DynamicNTKScalingRotaryEmbedding, RotaryEmbedding
-from internlm.model.linear import (
-    ColumnParallelLinearTorch,
-    FSTPLinear,
-    RowParallelLinearTorch,
-    MegatronColumnParallelLinearTorch,
-    MegatronRowParallelLinearTorch,
-    get_linear_cls,
-)
+from internlm.model.linear import get_linear_cls
 
 
 # adpated from https://github.com/microsoft/DeepSpeed/blob/master/deepspeed/sequence/layer.py
@@ -227,7 +220,7 @@ class MHA(nn.Module):
             self.inner_cross_attn = DistributedAttention(self.inner_cross_attn, sequence_process_group=process_group)
 
         # output projection always have the bias (for now)
-        out_proj_cls = get_linear_cls(sp_mode, 'row')
+        out_proj_cls = get_linear_cls(sp_mode, "row")
         self.out_proj = out_proj_cls(
             embed_dim,
             embed_dim,

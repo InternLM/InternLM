@@ -14,12 +14,9 @@ from internlm.core.context.parallel_context import global_context as gpc
 from internlm.initialize.initialize_tensor import normal_, scaled_init_method_normal
 from internlm.model.embedding import Embedding1D
 from internlm.model.linear import (
-    FeedForward,
-    MegatronFeedForward,
-    FSTPFeedForward,
+    MegatronScaleColumnParallelLinear,
     RewardModelLinear,
     ScaleColumnParallelLinear,
-    MegatronScaleColumnParallelLinear,
     get_mlp_cls,
 )
 from internlm.model.multi_head_attention import MHA
@@ -309,7 +306,11 @@ class PackedFlashInternLm1D(nn.Module):
         if is_reward:
             head_cls = RewardModelLinear
         else:
-            head_cls = ScaleColumnParallelLinear if self.sp_mode in ["flash-attn", "none", "intern"] else MegatronScaleColumnParallelLinear
+            head_cls = (
+                ScaleColumnParallelLinear
+                if self.sp_mode in ["flash-attn", "none", "intern"]
+                else MegatronScaleColumnParallelLinear
+            )
         if first:
             if embed_split_hidden:
                 self.embedding = Embedding1D(num_embeddings=vocab_size, embedding_dim=hidden_size)

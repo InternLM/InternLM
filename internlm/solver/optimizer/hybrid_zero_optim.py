@@ -11,7 +11,6 @@ from torch.optim import Optimizer
 
 from internlm.core.context import Config, ParallelMode
 from internlm.core.context import global_context as gpc
-from internlm.model.utils import release_reduce_scatter_memory_pool
 from internlm.monitor import send_alert_message
 from internlm.solver.optimizer.store import (
     BucketStore,
@@ -41,6 +40,7 @@ from .utils import compute_norm
 inf = math.inf
 logger = get_logger(__file__)
 
+
 class HybridZeroOptimizer(BaseOptimizer):
     """
     Hybrid Zero Optimizer.
@@ -65,10 +65,10 @@ class HybridZeroOptimizer(BaseOptimizer):
         backoff_factor = grad_scal_cfg.backoff_factor
         hysteresis = grad_scal_cfg.hysteresis
         max_scale = grad_scal_cfg.max_scale
-        
+
         self._fstp_handler = None
         if gpc.config.parallel["tensor"]["sp"] == "intern" and gpc.config.parallel["tensor"]["intern_overlap"] is True:
-            self._fstp_handler = gpc.config.fstp_handler
+            self._fstp_handler = gpc.fstp_handler
 
         # Zero related args
         reduce_bucket_size = zero_cfg.reduce_bucket_size
@@ -350,7 +350,7 @@ class HybridZeroOptimizer(BaseOptimizer):
             _param.grad.add_(_grad)
 
             # release cuda memory.
-            release_reduce_scatter_memory_pool(size=tuple(_grad.size()), index=_grad.index)
+            self._fstp_handler.release_reduce_scatter_memory(key=tuple(_grad.size()), index=_grad.index)
             self._fstp_handler.reduce_scatter_handlers[_key] = None
 
         bucket.reset_by_rank(reduce_rank)
@@ -635,9 +635,9 @@ class HybridZeroOptimizer(BaseOptimizer):
         timer("sync_grad").start()
         self._sync_grad()
         timer("sync_grad").stop()
-        
-        res =  self._step(closure=closure, norms=total_norms)
-            
+
+        res = self._step(closure=closure, norms=total_norms)
+
         return res
 
     def _step(self, closure=None, norms=None):
