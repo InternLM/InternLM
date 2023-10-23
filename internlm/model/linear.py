@@ -352,16 +352,13 @@ class MegatronFeedForward(BaseFeedForward):
 
 class FSTPLinear(ColumnParallelLinear):
     def forward(self, x):
-        block_index = gpc.config.fstp_handler.module_to_index[self]
         return fstp_fused_dense_func(
             x,
             self.weight,
             self.bias,
             process_group=self.process_group,
             module=self,
-            handler=gpc.config.fstp_handler,
-            block_index=block_index,
-            module_name=self._fstp_name,
+            handler=gpc.fstp_handler,
         )
 
 

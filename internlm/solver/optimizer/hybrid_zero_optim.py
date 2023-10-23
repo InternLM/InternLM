@@ -68,7 +68,7 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         self._fstp_handler = None
         if gpc.config.parallel["tensor"]["sp"] == "intern" and gpc.config.parallel["tensor"]["intern_overlap"] is True:
-            self._fstp_handler = gpc.config.fstp_handler
+            self._fstp_handler = gpc.fstp_handler
 
         # Zero related args
         reduce_bucket_size = zero_cfg.reduce_bucket_size
@@ -350,7 +350,7 @@ class HybridZeroOptimizer(BaseOptimizer):
             _param.grad.add_(_grad)
 
             # release cuda memory.
-            gpc.config.fstp_handler.release_reduce_scatter_memory(size=tuple(_grad.size()), index=_grad.index)
+            gpc.fstp_handler.release_reduce_scatter_memory(size=tuple(_grad.size()), index=_grad.index)
             self._fstp_handler.reduce_scatter_handlers[_key] = None
 
         bucket.reset_by_rank(reduce_rank)

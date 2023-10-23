@@ -116,8 +116,9 @@ class FSTPOverlapHandler:
 
             self.all_gather_memory_pool.append(weight)  # containing two groups of block weight
 
-    def get_all_gather_memory(self, index, module_name):
-        return self.all_gather_memory_pool[index % 2][module_name]
+    def get_all_gather_memory(self, module):
+        block_index = self.module_to_index[module]
+        return self.all_gather_memory_pool[block_index % 2][module._fstp_name]
 
     def get_reduce_scatter_memory(self, key):
         return_idx = 0
@@ -163,8 +164,7 @@ class FSTPOverlapHandler:
                 module.weight,
                 self.process_group,
                 async_op=True,
-                block_index=block_index,
-                module_name=getattr(module, "_fstp_name"),
+                module=module,
             )
             self.fstp_global_handle[module] = weight_handle
 
@@ -192,13 +192,11 @@ class FSTPOverlapHandler:
 
         def _post_backward_hook_for_head(module: nn.Module, grad_input, grad_output):
             first_backward_module = self.fstp_modules[-1]
-            block_index = self.module_to_index[first_backward_module]
             weight_handle = all_gather_raw_memory_pool(
                 first_backward_module.weight,
                 self.process_group,
                 async_op=True,
-                block_index=block_index,
-                module_name=getattr(first_backward_module, "_fstp_name"),
+                module=first_backward_module,
             )
             self.fstp_global_handle[first_backward_module] = weight_handle
 
@@ -211,13 +209,11 @@ class FSTPOverlapHandler:
             module_index = self.fstp_modules.index(module)
             if module_index - 1 >= 0:
                 next_module = self.fstp_modules[module_index - 1]
-                block_index = self.module_to_index[next_module]
                 weight_handle = all_gather_raw_memory_pool(
                     next_module.weight,
                     self.process_group,
                     async_op=True,
-                    block_index=block_index,
-                    module_name=getattr(next_module, "_fstp_name"),
+                    module=next_module,
                 )
                 self.fstp_global_handle[next_module] = weight_handle
 

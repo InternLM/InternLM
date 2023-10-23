@@ -7,13 +7,12 @@ import fused_dense_lib as fused_dense_cuda
 import torch
 import torch.nn.functional as F
 from flash_attn.utils.distributed import all_reduce_raw
-from torch import Tensor
+from torch import Tensor, nn
 from torch.cuda.amp import custom_bwd, custom_fwd
 from torch.distributed import ProcessGroup
 
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
-from internlm.utils.common import get_current_device
 from internlm.utils.logger import get_logger
 
 logger = get_logger(__file__)
@@ -131,11 +130,10 @@ def all_gather_raw_memory_pool(
     process_group: ProcessGroup,
     async_op: bool = False,
     gather_dim: int = 0,
-    block_index: int = None,
-    module_name: str = None,
+    module: nn.Module = None,
 ):
     handle = torch.distributed.all_gather_into_tensor(
-        gpc.config.fstp_handler.get_all_gather_memory(block_index, module_name),
+        gpc.fstp_handler.get_all_gather_memory(module=module),
         input_.contiguous(),
         group=process_group,
         async_op=async_op,
@@ -166,8 +164,8 @@ def reduce_scatter_raw_memory_pool(input_: Tensor, process_group: ProcessGroup, 
     world_size = torch.distributed.get_world_size(process_group)
     assert input_.shape[0] % world_size == 0
     size = (input_.shape[0] // world_size, *input_.shape[1:])
-    index = gpc.config.fstp_handler.get_reduce_scatter_memory(size)
-    output = gpc.config.fstp_handler.reduce_scatter_memory_pool[size]["data"][index]
+    index = gpc.fstp_handler.get_reduce_scatter_memory(size)
+    output = gpc.fstp_handler.reduce_scatter_memory_pool[size]["data"][index]
     setattr(output, "index", index)
     handle = torch.distributed.reduce_scatter_tensor(
         output, input_.contiguous(), group=process_group, async_op=async_op
@@ -469,16 +467,12 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
         process_group=None,
         module=None,
         overlap_handler=None,
-        block_index=None,
-        module_name=None,
     ):
         ctx.compute_weight_gradient = weight.requires_grad
         ctx.return_residual = return_residual
         ctx.process_group = process_group
         ctx.overlap_handler = overlap_handler
         ctx.module = module
-        ctx.block_index = block_index
-        ctx.module_name = module_name
 
         if torch.is_autocast_enabled():
             x = x.to(dtype=torch.get_autocast_gpu_dtype())
@@ -488,7 +482,7 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
         if world_size > 1:
             # do all_gather for weight and bias before actual computation
             if overlap_handler is not None:
-                total_weight = gpc.config.fstp_handler.get_all_gather_memory(block_index, module_name)
+                total_weight = gpc.fstp_handler.get_all_gather_memory(module=module)
             else:
                 total_weight, handle_weight = all_gather_raw(weight, process_group, async_op=True)
                 handle_weight.wait()
@@ -531,8 +525,7 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
             grad_input = grad_input.contiguous()
         process_group = ctx.process_group
         overlap_handler = ctx.overlap_handler
-        block_index = ctx.block_index
-        module_name = ctx.module_name
+        module = ctx.module
 
         if ctx.compute_weight_gradient:
             x, weight, bias = ctx.saved_tensors
@@ -547,7 +540,7 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
         world_size = gpc.get_world_size(ParallelMode.TENSOR)
         if world_size > 1:
             if overlap_handler is not None:
-                total_weight = gpc.config.fstp_handler.get_all_gather_memory(block_index, module_name)
+                total_weight = gpc.fstp_handler.get_all_gather_memory(module=module)
             else:
                 total_weight, handle_weight = all_gather_raw(weight, process_group, async_op=True)
                 handle_weight.wait()
@@ -669,16 +662,12 @@ def fstp_fused_dense_func(
     process_group=None,
     module=None,
     handler=None,
-    block_index=None,
-    module_name=None,
 ):
     dtype_eligible = x.dtype in [torch.float16, torch.bfloat16] or (
         x.dtype == torch.float32 and torch.is_autocast_enabled()
     )
     if x.is_cuda and weight.is_cuda and (bias is None or bias.is_cuda) and dtype_eligible:
-        return FSTPFusedDenseFunc.apply(
-            x, weight, bias, return_residual, process_group, module, handler, block_index, module_name
-        )
+        return FSTPFusedDenseFunc.apply(x, weight, bias, return_residual, process_group, module, handler)
     else:
         assert process_group is None
         out = F.linear(x, weight, bias)
