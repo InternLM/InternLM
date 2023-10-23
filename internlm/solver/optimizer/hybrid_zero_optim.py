@@ -590,13 +590,13 @@ class HybridZeroOptimizer(BaseOptimizer):
                     if param.grad is not None:
                         self._store_and_try_reduce_grads_by_bucket(param)
 
-        # we need to reduce the gradients left in the communication bucket
-        for group_id in range(self.num_param_groups):
-            self._reduce_grads_stored_in_bucket(self._bucket_store[group_id], reduce_rank=None, last_bucket=True)
-
         # we need to accumulate gradients left in the accumulate gardient bucket
         for group_id in range(self.num_param_groups):
             self._accum_grads_store_in_bucket(self._accum_grad_buckets[group_id], reduce_rank=None)
+
+        # we need to reduce the gradients left in the communication bucket
+        for group_id in range(self.num_param_groups):
+            self._reduce_grads_stored_in_bucket(self._bucket_store[group_id], reduce_rank=None, last_bucket=True)
 
         # compute norm for gradients in the before bucket
         groups_norms = []
