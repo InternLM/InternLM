@@ -129,7 +129,6 @@ def all_gather_raw_memory_pool(
     input_: Tensor,
     process_group: ProcessGroup,
     async_op: bool = False,
-    gather_dim: int = 0,
     module: nn.Module = None,
 ):
     handle = torch.distributed.all_gather_into_tensor(
@@ -145,7 +144,6 @@ def all_gather_raw_bias_memory_pool(
     input_: Tensor,
     process_group: ProcessGroup,
     async_op: bool = False,
-    gather_dim: int = 0,
     module: nn.Module = None,
 ):
     handle = torch.distributed.all_gather_into_tensor(
@@ -283,8 +281,8 @@ class FusedDenseFunc(torch.autograd.Function):
 class MegatronFusedDenseFunc(torch.autograd.Function):
     """
     FusedDenseFunc for tensor parallel in megatron implementation.
-    The diffenrence between the implementation of flash-attn and megatron is that the total_x could be saved for backward in megatron,
-    so that the all-gather in backward is ommited.
+    The diffenrence between the implementation of flash-attn and megatron is that the total_x could be
+    saved for backward in megatron, so that the all-gather in backward is ommited.
     """
 
     @staticmethod
@@ -433,7 +431,6 @@ class MegatronFusedDenseFuncTorch(FusedDenseFunc):
             grad_input = grad_input.contiguous()
         process_group = ctx.process_group
         sequence_parallel = ctx.sequence_parallel
-        gather_dim = ctx.gather_dim
         if ctx.compute_weight_gradient:
             total_x, weight = ctx.saved_tensors
         else:
