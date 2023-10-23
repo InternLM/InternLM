@@ -140,6 +140,7 @@ def all_gather_raw_memory_pool(
     )
     return handle
 
+
 def all_gather_raw_bias_memory_pool(
     input_: Tensor,
     process_group: ProcessGroup,

@@ -53,7 +53,6 @@ class MoE(torch.nn.Module):
         device=None,
         dtype=None,
     ):
-
         super().__init__()
 
         assert (
