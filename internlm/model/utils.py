@@ -164,9 +164,7 @@ def reduce_scatter_raw_memory_pool(input_: Tensor, process_group: ProcessGroup, 
     world_size = torch.distributed.get_world_size(process_group)
     assert input_.shape[0] % world_size == 0
     size = (input_.shape[0] // world_size, *input_.shape[1:])
-    index = gpc.fstp_handler.get_reduce_scatter_memory(size)
-    output = gpc.fstp_handler.reduce_scatter_memory_pool[size]["data"][index]
-    setattr(output, "index", index)
+    output = gpc.fstp_handler.get_reduce_scatter_memory(size)
     handle = torch.distributed.reduce_scatter_tensor(
         output, input_.contiguous(), group=process_group, async_op=async_op
     )

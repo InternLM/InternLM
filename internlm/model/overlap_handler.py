@@ -125,37 +125,38 @@ class FSTPOverlapHandler:
 
         # if key not in dict
         if key not in self.reduce_scatter_memory_pool:
-            self.reduce_scatter_memory_pool[key] = {"data": [], "used": []}
+            self.reduce_scatter_memory_pool[key] = []
 
         # if the data is empty
-        if len(self.reduce_scatter_memory_pool[key]["data"]) == 0:
-            self.reduce_scatter_memory_pool[key]["data"].append(
+        if len(self.reduce_scatter_memory_pool[key]) == 0:
+            self.reduce_scatter_memory_pool[key].append(
                 torch.zeros(
                     key, dtype=gpc.config.model.get("dtype", torch.half), device=get_current_device()
                 ).contiguous()
             )
-            self.reduce_scatter_memory_pool[key]["used"].append(True)
-            return_idx = 0
-            return return_idx
+            setattr(self.reduce_scatter_memory_pool[key][return_idx], "idle", False)
+            setattr(self.reduce_scatter_memory_pool[key][return_idx], "index", return_idx)
+            return self.reduce_scatter_memory_pool[key][return_idx]
         else:  # if not empty
-            for index, used in enumerate(self.reduce_scatter_memory_pool[key]["used"]):
-                if used is False:
-                    self.reduce_scatter_memory_pool[key]["used"][index] = True
+            for index, mem_item in enumerate(self.reduce_scatter_memory_pool[key]):
+                if mem_item.idle is True:
+                    self.reduce_scatter_memory_pool[key][index].idle = False
                     return_idx = index
-                    return return_idx
+                    return self.reduce_scatter_memory_pool[key][return_idx]
             # if the memory pool is all used
-            length = len(self.reduce_scatter_memory_pool[key]["data"])
-            self.reduce_scatter_memory_pool[key]["data"].append(
+            cur_len = len(self.reduce_scatter_memory_pool[key])
+            self.reduce_scatter_memory_pool[key].append(
                 torch.zeros(
                     key, dtype=gpc.config.model.get("dtype", torch.half), device=get_current_device()
                 ).contiguous()
             )
-            self.reduce_scatter_memory_pool[key]["used"].append(True)
-            return_idx = length
-            return return_idx
+            setattr(self.reduce_scatter_memory_pool[key][cur_len], "idle", False)
+            return_idx = cur_len
+            setattr(self.reduce_scatter_memory_pool[key][return_idx], "index", return_idx)
+            return self.reduce_scatter_memory_pool[key][return_idx]
 
-    def release_reduce_scatter_memory(self, size, index):
-        self.reduce_scatter_memory_pool[size]["used"][index] = False
+    def release_reduce_scatter_memory(self, key, index):
+        self.reduce_scatter_memory_pool[key][index].idle = True
 
     def _all_gather_block_weight_memory_pool(self, block_index: int):
         fstp_modules = self.index_to_fstp_modules[block_index]

@@ -350,7 +350,7 @@ class HybridZeroOptimizer(BaseOptimizer):
             _param.grad.add_(_grad)
 
             # release cuda memory.
-            gpc.fstp_handler.release_reduce_scatter_memory(size=tuple(_grad.size()), index=_grad.index)
+            gpc.fstp_handler.release_reduce_scatter_memory(key=tuple(_grad.size()), index=_grad.index)
             self._fstp_handler.reduce_scatter_handlers[_key] = None
 
         bucket.reset_by_rank(reduce_rank)
