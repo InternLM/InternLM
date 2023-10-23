@@ -140,6 +140,21 @@ def all_gather_raw_memory_pool(
     )
     return handle
 
+def all_gather_raw_bias_memory_pool(
+    input_: Tensor,
+    process_group: ProcessGroup,
+    async_op: bool = False,
+    gather_dim: int = 0,
+    module: nn.Module = None,
+):
+    handle = torch.distributed.all_gather_into_tensor(
+        gpc.fstp_handler.get_bias_memory(module=module),
+        input_.contiguous(),
+        group=process_group,
+        async_op=async_op,
+    )
+    return handle
+
 
 def linear_bias_wgrad_torch(my_input, grad_output, has_d_bias):
     assert my_input.dtype == grad_output.dtype
@@ -486,8 +501,11 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
                 handle_weight.wait()
             # TODO memory pool for bias
             if bias is not None:
-                total_bias, handle_bias = all_gather_raw(bias, process_group, async_op=True)
-                handle_bias.wait()
+                if overlap_handler is not None:
+                    total_bias = gpc.fstp_handler.get_bias_memory(module=module)
+                else:
+                    total_bias, handle_bias = all_gather_raw(bias, process_group, async_op=True)
+                    handle_bias.wait()
             else:
                 total_bias = bias
         else:
