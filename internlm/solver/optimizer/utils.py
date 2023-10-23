@@ -15,7 +15,7 @@ from torch._utils import _flatten_dense_tensors, _unflatten_dense_tensors
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.core.naive_amp import NaiveAMPModel
-from internlm.utils.common import get_tensor_norm, move_norm_to_cuda
+from internlm.utils.common import get_current_device, get_tensor_norm, move_norm_to_cuda
 from internlm.utils.logger import get_logger
 from internlm.utils.parallel import is_model_parallel_parameter
 
@@ -209,6 +209,49 @@ def calc_lp(grads, norm_type):
     return norm
 
 
+def reduce_grads(gradients, parameters, fine_grained=False):
+    parallel_grads = []
+    if fine_grained:
+        parallel_grads = {}
+
+    def append_grad(g, p):
+        if fine_grained:
+            param_name = p.param_name if hasattr(p, "param_name") else "unknown-padding"
+            if param_name not in parallel_grads:
+                parallel_grads[param_name] = []
+            parallel_grads[param_name].append(g.data.float())
+        else:
+            parallel_grads.append(g.data.float())
+
+    for g, p in zip(gradients, parameters):
+        # TODO: consider the pipeline shared parameter
+        if (
+            gpc.is_initialized(ParallelMode.PIPELINE)
+            and hasattr(p, "pipeline_shared_module_pg")
+            and dist.get_rank(p.pipeline_shared_module_pg) == 0
+        ):  # if shared between different pipe, only count o
+            append_grad(g, p)
+        elif (
+            gpc.is_initialized(ParallelMode.PIPELINE)
+            and hasattr(p, "pipeline_shared_module_pg")
+            and dist.get_rank(p.pipeline_shared_module_pg) != 0
+        ):
+            continue
+        elif (
+            gpc.is_initialized(ParallelMode.TENSOR)
+            and not is_model_parallel_parameter(p)
+            and gpc.get_local_rank(ParallelMode.TENSOR) == 0
+        ):  # if not used in each chunk, such as layernorm
+            append_grad(g, p)
+        elif is_model_parallel_parameter(p):
+            append_grad(g, p)
+        elif gpc.get_local_rank(ParallelMode.TENSOR) != 0:
+            continue
+        else:
+            raise RuntimeError("Should not arrive here")
+    return parallel_grads
+
+
 def compute_norm(
     gradients, parameters, last_stage=False, previous_norm=None, norm_type=2, zero_mode=ParallelMode.ZERO1
 ):
@@ -247,33 +290,7 @@ def compute_norm(
             )
         total_norm = total_norm_cuda[0].item()
     else:
-        tensor_parallel_grads = []
-        for g, p in zip(gradients, parameters):
-            # TODO: consider the pipeline shared parameter
-            if (
-                gpc.is_initialized(ParallelMode.PIPELINE)
-                and hasattr(p, "pipeline_shared_module_pg")
-                and dist.get_rank(p.pipeline_shared_module_pg) == 0
-            ):  # if shared between different pipe, only count o
-                tensor_parallel_grads.append(g.data.float())
-            elif (
-                gpc.is_initialized(ParallelMode.PIPELINE)
-                and hasattr(p, "pipeline_shared_module_pg")
-                and dist.get_rank(p.pipeline_shared_module_pg) != 0
-            ):
-                continue
-            elif (
-                gpc.is_initialized(ParallelMode.TENSOR)
-                and not is_model_parallel_parameter(p)
-                and gpc.get_local_rank(ParallelMode.TENSOR) == 0
-            ):  # if not used in each chunk, such as layernorm
-                tensor_parallel_grads.append(g.data.float())
-            elif is_model_parallel_parameter(p):
-                tensor_parallel_grads.append(g.data.float())
-            elif gpc.get_local_rank(ParallelMode.TENSOR) != 0:
-                continue
-            else:
-                raise RuntimeError("Should not arrive here")
+        tensor_parallel_grads = reduce_grads(gradients, parameters)
 
         if norm_type == 2.0 and enable_cuda_kernels:
             tensor_parallel_norm = calc_l2_norm(tensor_parallel_grads) ** norm_type
@@ -317,6 +334,124 @@ def compute_norm(
         total_norm = -2
 
     return total_norm
+
+
+def compute_param_norm(
+    gradients,
+    parameters,
+    last_stage=False,
+    previous_param_norms=None,
+    norm_type=2,
+    zero_mode=ParallelMode.ZERO1,
+    is_moe_group=False,
+):
+    """Get the norm of params
+    Arguments:
+        gradients (Iterable[Tensor]): The gradient value.
+        parameters (Iterable[Tensor]): The parameter each gradient corresponds to.
+        norm_type (float or int): type of the used p-norm. Can be ``'inf'`` for
+            infinity norm.
+
+    Returns:
+        The norm of the parameters.
+    """
+    enable_cuda_kernels = gradients[0].device.type == "cuda"
+    # Norm parameters.
+    norm_type = float(norm_type)
+    total_param_norms = {}
+
+    param_grads = reduce_grads(gradients, parameters, fine_grained=True)
+
+    param_norms = {}
+    for param_name, grads in param_grads.items():
+        if norm_type == inf:
+            param_norm = max(g.data.abs().max() for g in grads)
+        elif norm_type == 2.0 and enable_cuda_kernels:
+            param_norm = calc_l2_norm(grads) ** norm_type
+        else:
+            param_norm = calc_lp(grads, norm_type)
+        param_norms[param_name] = param_norm.item() if torch.is_tensor(param_norm) else param_norm
+
+    if last_stage is False:
+        return param_norms
+
+    if previous_param_norms is not None:
+        for key, value in previous_param_norms.items():
+            if key not in param_norms:
+                param_norms[key] = value
+                continue
+
+            if norm_type == inf:
+                param_norms[key] = max(param_norms[key], value)
+            else:
+                param_norms[key] += value
+
+    # model parallel
+    model_parallel_param_norms = {}
+    if gpc.is_initialized(ParallelMode.MODEL):
+        parallel_param_norms = [None for _ in range(gpc.get_world_size(ParallelMode.MODEL))]
+        dist.all_gather_object(parallel_param_norms, param_norms, group=gpc.get_group(ParallelMode.MODEL))
+        for local_param_norm in parallel_param_norms:
+            for param_name, param_norm in local_param_norm.items():
+                if param_name not in model_parallel_param_norms:
+                    model_parallel_param_norms[param_name] = 0.0
+                if norm_type == inf:
+                    model_parallel_param_norms[param_name] = max(model_parallel_param_norms[param_name], param_norm)
+                else:
+                    model_parallel_param_norms[param_name] += param_norm
+
+    # zero parallel
+    zero_param_norms = [None for _ in range(gpc.get_world_size(zero_mode))]
+    dist.all_gather_object(zero_param_norms, model_parallel_param_norms, group=gpc.get_group(zero_mode))
+    for local_param_norm in zero_param_norms:
+        for param_name, param_norm in local_param_norm.items():
+            if param_name not in total_param_norms:
+                total_param_norms[param_name] = 0.0
+            if norm_type == inf:
+                total_param_norms[param_name] = max(total_param_norms[param_name], param_norm)
+            else:
+                total_param_norms[param_name] += param_norm
+
+    # moe
+    if is_moe_group:
+        pg = gpc.get_group(ParallelMode.EXPERT)
+        scaled_param_norm = torch.cuda.FloatTensor(list(total_param_norms.values()), device=get_current_device())
+        scaled_param_norm = scaled_param_norm / float(gpc.get_world_size(ParallelMode.EXPERT))
+        dist.all_reduce(scaled_param_norm, group=pg)
+        for i, param_name in enumerate(total_param_norms.keys()):
+            total_param_norms[param_name] = scaled_param_norm[i].item()
+
+    # scale
+    for param_name, param_norm in total_param_norms.items():
+        if param_norm in (inf, -inf):
+            total_param_norms[param_name] = -1
+        elif math.isnan(param_norm):
+            total_param_norms[param_name] = -2
+
+    return total_param_norms
+
+
+def compute_layer_norm(param_norms, loss_scale):
+    """
+    compute layer norm by parameter norms
+    """
+    param_norms_groupby_layer = {}
+    layer_norms = {}
+
+    for param_name, param_norm in param_norms.items():
+        layer_name, param_key = param_name.split("-")
+        if layer_name not in param_norms_groupby_layer:
+            param_norms_groupby_layer[layer_name] = {}
+        if layer_name not in layer_norms:
+            layer_norms[layer_name] = 0.0
+
+        if param_norm not in (-1, -2):
+            param_norm = param_norm**0.5 / loss_scale
+
+        param_norms_groupby_layer[layer_name][param_key] = param_norm
+        layer_norms[layer_name] += param_norm
+
+    return layer_norms, param_norms_groupby_layer
 
 
 class BaseGradScaler(ABC):
