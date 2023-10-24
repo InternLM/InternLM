@@ -1,4 +1,4 @@
-from typing import List
+from typing import Callable, List, Optional
 
 import torch
 from flash_attn.losses.cross_entropy import CrossEntropyLoss as FlashCrossEntropyLoss
@@ -6,6 +6,8 @@ from torch_scatter import scatter
 
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
+from internlm.core.scheduler import SchedulerHook
+from internlm.utils.megatron_timers import megatron_timer as timer
 
 
 class AccPerplex:
@@ -260,3 +262,41 @@ class LossWithTypeId:
                 self.ds_token_num.fill_(0.0)
 
         return res
+
+
+class SchedulerMetricHook(SchedulerHook):
+    """
+    Scheduler Metric Hook.
+    """
+
+    def __init__(self, metric: Optional[Callable] = None, skip: bool = False) -> None:
+        self._post_func = metric
+        self._skip = skip
+
+    def before_forward(self, scheduler, inputs) -> None:
+        if not self._skip:
+            timer("fwd").start()
+
+    def after_forward(self, scheduler, outputs) -> None:
+        if not self._skip:
+            timer("fwd").stop()
+
+    def before_criterion(self, scheduler, outputs, label) -> None:
+        if not self._skip:
+            timer("cal_loss").start()
+
+    def after_criterion(self, scheduler, loss) -> None:
+        if not self._skip:
+            timer("cal_loss").stop()
+
+    def before_backward(self, scheduler, outputs, outputs_grad) -> None:
+        if not self._skip:
+            timer("bwd").start()
+
+    def after_backward(self, scheduler, inputs_grad) -> None:
+        if not self._skip:
+            timer("bwd").stop()
+
+    def post_helper_func(self, scheduler, outputs, label) -> None:
+        if self._post_func is not None:
+            self._post_func(outputs, label)

@@ -5,6 +5,7 @@ import socket
 import time
 import traceback
 from functools import partial
+from typing import List, Optional
 
 import torch
 import torch.distributed as dist
@@ -12,11 +13,12 @@ import torch.distributed as dist
 import internlm
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
-from internlm.core.scheduler import SchedulerMetricHook
+from internlm.core.scheduler import SchedulerHook
 from internlm.core.trainer import TrainState
 from internlm.initialize import initialize_distributed_env
 from internlm.model.loss import FlashGPTLMLoss
-from internlm.model.metrics import AccPerplex
+from internlm.model.metrics import AccPerplex, SchedulerMetricHook
+from internlm.model.overlap_handler import FSTPOverlapSchedulerHook
 from internlm.monitor import initialize_monitor_manager, send_alert_message
 from internlm.monitor.monitor import monitor_manager as mm
 from internlm.train import (
@@ -65,6 +67,30 @@ def initialize_llm_logger(start_time: str):
         logger = uniscale_logger
 
     return uniscale_logger
+
+
+def get_scheduler_hooks(
+    metric: Optional[AccPerplex] = None, activation_checkpoint: bool = False
+) -> List[SchedulerHook]:
+    scheduler_hooks: List[SchedulerHook] = []
+
+    if metric is not None:
+        scheduler_hooks.append(
+            SchedulerMetricHook(
+                metric=metric,
+                skip=(
+                    gpc.is_using_pp()
+                    and hasattr(gpc.config.model, "num_chunks")
+                    and gpc.config.model.num_chunks > 1
+                    and gpc.config.parallel["pipeline"].get("interleaved_overlap", False)
+                ),
+            ),
+        )
+
+    if activation_checkpoint:
+        scheduler_hooks.append(FSTPOverlapSchedulerHook(gpc.fstp_handler))
+
+    return scheduler_hooks
 
 
 def main(args):
@@ -149,17 +175,6 @@ def main(args):
     )
 
     # initialize trainer
-    scheduler_hooks = [
-        SchedulerMetricHook(
-            metric=metric,
-            skip=(
-                gpc.is_using_pp()
-                and hasattr(gpc.config.model, "num_chunks")
-                and gpc.config.model.num_chunks > 1
-                and gpc.config.parallel["pipeline"].get("interleaved_overlap", False)
-            ),
-        ),
-    ]
 
     trainer, train_dl, _, _ = internlm.initialize_trainer(
         model=model,
@@ -168,7 +183,7 @@ def main(args):
         train_dataloader=train_dl,
         lr_scheduler=lr_scheduler,
         beta2_scheduler=beta2_scheduler,
-        scheduler_hooks=scheduler_hooks,
+        scheduler_hooks=get_scheduler_hooks(metric, gpc.config.model.checkpoint),
     )
 
     # initialize simple memory profiler

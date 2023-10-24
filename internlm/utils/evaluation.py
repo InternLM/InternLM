@@ -6,8 +6,7 @@ from tqdm import tqdm
 
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
-from internlm.core.scheduler import SchedulerMetricHook
-from internlm.model.metrics import AccPerplex
+from internlm.model.metrics import AccPerplex, SchedulerMetricHook
 
 
 @contextmanager

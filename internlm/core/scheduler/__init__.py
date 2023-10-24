@@ -1,4 +1,4 @@
-from .base_scheduler import BaseScheduler, SchedulerHook, SchedulerMetricHook
+from .base_scheduler import BaseScheduler, SchedulerHook
 from .no_pipeline_scheduler import NonPipelineScheduler
 from .pipeline_scheduler import InterleavedPipelineScheduler, PipelineScheduler
 
@@ -8,5 +8,4 @@ __all__ = [
     "InterleavedPipelineScheduler",
     "PipelineScheduler",
     "SchedulerHook",
-    "SchedulerMetricHook",
 ]
