@@ -396,6 +396,7 @@ def initialize_llm_profile(profiling: bool = False, start_time: str = None):
 
 
 tgs_list = []
+tflops_list = []
 
 
 @llm_timeout(func_name="record_current_batch_training_metrics")
@@ -573,6 +574,7 @@ def record_current_batch_training_metrics(
 
         if batch_count >= 5:
             tgs_list.append(tgs_origin)
+            tflops_list.append(tflops)
         if batch_count == gpc.config.data.total_steps - 1:
             print(tgs_list, flush=True)
             avg_tgs = sum(tgs_list) / len(tgs_list)
@@ -580,3 +582,9 @@ def record_current_batch_training_metrics(
                 if abs(tgs - avg_tgs) > 400:
                     tgs_list.remove(tgs)
             print(f"avg_tgs: {sum(tgs_list)/len(tgs_list)}", flush=True)
+            print(tflops_list, flush=True)
+            avg_tflops = sum(tflops_list) / len(tflops_list)
+            for tf in tflops_list.copy():
+                if abs(tf - avg_tflops) > 10:
+                    tflops_list.remove(tf)
+            print(f"avg_tflops: {sum(tflops_list)/len(tflops_list)}", flush=True)

@@ -145,3 +145,9 @@ core.*
 llm_ckpts
 events.*
 memory_trace
+7b_train*/
+13b_train*/
+30b_train*/
+fstp_logs/
+atb
+pip

@@ -1,7 +1,8 @@
-JOB_NAME = "7b_train"
+# JOB_NAME = "7b_train"
 DO_ALERT = False
 
-SEQ_LEN = 4096
+SEQ_LEN = 32768
+JOB_NAME = "7b_train_" + str(SEQ_LEN) + "_" + str("none") + "_" + str(False)
 HIDDEN_SIZE = 4096
 NUM_ATTENTION_HEAD = 32
 MLP_RATIO = 8 / 3

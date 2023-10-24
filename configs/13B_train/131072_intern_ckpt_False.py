@@ -1,11 +1,12 @@
-JOB_NAME = "7b_train"
+
 DO_ALERT = False
 
-SEQ_LEN = 4096
-HIDDEN_SIZE = 4096
-NUM_ATTENTION_HEAD = 32
+SEQ_LEN = 131072
+JOB_NAME = "13b_train_" + str(SEQ_LEN) + "_" + str("intern") + "_" + str(False)
+HIDDEN_SIZE = 5120
+NUM_ATTENTION_HEAD = 40
 MLP_RATIO = 8 / 3
-NUM_LAYER = 32
+NUM_LAYER = 40
 VOCAB_SIZE = 103168
 
 MODEL_ONLY_FOLDER = "local:llm_ckpts/xxxx"
@@ -49,14 +50,14 @@ VALID_FOLDER = "/path/to/dataset"
 data = dict(
     seq_len=SEQ_LEN,
     # micro_num means the number of micro_batch contained in one gradient update
-    micro_num=1,
+    micro_num=4,
     # packed_length = micro_bsz * SEQ_LEN
-    micro_bsz=1,
+    micro_bsz=2,
     # defaults to the value of micro_num
     valid_micro_num=4,
     # defaults to 0, means disable evaluate
     valid_every=50,
-    pack_sample_into_one=True,
+    pack_sample_into_one=False,
     total_steps=20,
     skip_batches="",
     rampup_batch_size="",
@@ -64,7 +65,7 @@ data = dict(
     min_length=50,
     # train_folder=TRAIN_FOLDER,
     # valid_folder=VALID_FOLDER,
-    empty_cache_and_diag_interval=100,
+    empty_cache_and_diag_interval=10,
     diag_outlier_ratio=1.1,
 )
 
@@ -90,7 +91,7 @@ grad_scaler = dict(
 hybrid_zero_optimizer = dict(
     # Enable low_level_optimzer overlap_communication
     overlap_sync_grad=True,
-    overlap_sync_param=False,
+    overlap_sync_param=True,
     # bucket size for nccl communication params
     reduce_bucket_size=512 * 1024 * 1024,
     # grad clipping
@@ -152,18 +153,17 @@ zero1 parallel (dict):
     2. fsdp: bool, enable/disable torch's fully sharded data parallel, defaults to False.
 tensor parallel (dict):
     1. size: int, the size of tensor parallel.
-    2. sp: str, the sequence parallel mode, should be in ['none', 'megatron', 'flash-attn', 'intern'],
-        defaults to 'none', means the sequence parallel will be disabled.
-    3. intern_overlap: bool, enable/disable all_gather/reduce_scatter communication overlap when using 'intern' mode sp,
-        defaults to False.
+    2. mode: str, the mode should be 'origin_tp' or 'fstp', defaults to 'origin_tp'. If the mode is 'fstp',
+        the sequence_parallel should be True.
 pipeline parallel (dict):
     1. size: int, the size of pipeline parallel.
     2. interleaved_overlap: bool, enable/disable communication overlap when using interleaved pipeline scheduler,
         defaults to False.
+sequence parallel (bool): enable/disable sequence parallel, defaults to False.
 """
 parallel = dict(
     zero1=dict(size=-1, fsdp=False),
-    tensor=dict(size=8, sp="none", intern_overlap=False),
+    tensor=dict(size=8, sp="intern", intern_overlap=True),
     pipeline=dict(size=1, interleaved_overlap=True),
 )
 

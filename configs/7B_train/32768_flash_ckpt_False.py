@@ -1,7 +1,8 @@
-JOB_NAME = "7b_train"
+# JOB_NAME = "7b_train"
 DO_ALERT = False
 
-SEQ_LEN = 4096
+SEQ_LEN = 32768
+JOB_NAME = "7b_train_" + str(SEQ_LEN) + "_" + str(False)
 HIDDEN_SIZE = 4096
 NUM_ATTENTION_HEAD = 32
 MLP_RATIO = 8 / 3
@@ -163,7 +164,7 @@ pipeline parallel (dict):
 """
 parallel = dict(
     zero1=dict(size=-1, fsdp=False),
-    tensor=dict(size=8, sp="none", intern_overlap=False),
+    tensor=dict(size=8, sp="flash", intern_overlap=False),
     pipeline=dict(size=1, interleaved_overlap=True),
 )
 

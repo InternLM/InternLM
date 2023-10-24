@@ -1,7 +1,8 @@
-JOB_NAME = "7b_train"
+# JOB_NAME = "7b_train"
 DO_ALERT = False
 
-SEQ_LEN = 4096
+SEQ_LEN = {seq_len}
+JOB_NAME = "7b_train_" + str(SEQ_LEN) + "_" + str({sp}) + "_" + str({checkpoint})
 HIDDEN_SIZE = 4096
 NUM_ATTENTION_HEAD = 32
 MLP_RATIO = 8 / 3
@@ -125,7 +126,7 @@ beta2_scheduler = dict(
 )
 
 model = dict(
-    checkpoint=False,  # The proportion of layers for activation aheckpointing, the optional value are True/False/[0-1]
+    checkpoint={checkpoint},  # The proportion of layers for activation aheckpointing, the optional value are True/False/[0-1]
     num_attention_heads=NUM_ATTENTION_HEAD,
     embed_split_hidden=True,
     vocab_size=VOCAB_SIZE,
@@ -163,7 +164,7 @@ pipeline parallel (dict):
 """
 parallel = dict(
     zero1=dict(size=-1, fsdp=False),
-    tensor=dict(size=8, sp="none", intern_overlap=False),
+    tensor=dict(size=8, sp={sp}, intern_overlap={intern_overlap}),
     pipeline=dict(size=1, interleaved_overlap=True),
 )
 
