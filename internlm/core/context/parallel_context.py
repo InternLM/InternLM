@@ -25,6 +25,7 @@ from .process_group_initializer import ParallelMode
 from .random import add_seed, get_seeds, set_mode
 
 IS_TENSOR_PARALLEL = "is_tensor_parallel"
+IS_SEQUENCE_PARALLEL = "is_sequence_parallel"
 
 logger = get_logger(__file__)
 

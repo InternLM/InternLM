@@ -8,7 +8,7 @@ import torch
 import torch.distributed as dist
 from torch.optim import Optimizer
 
-from internlm.core.context import Config, ParallelMode
+from internlm.core.context import Config, ParallelMode, IS_SEQUENCE_PARALLEL
 from internlm.core.context import global_context as gpc
 from internlm.monitor import send_alert_message
 from internlm.solver.optimizer.store import (
@@ -296,6 +296,15 @@ class HybridZeroOptimizer(BaseOptimizer):
                             param=param,
                             reduce_rank=reduce_rank,
                         )
+                        
+                        def reduction_sp_func():
+                            handle = reduce_tensor(
+                                param.grad,
+                                dtype=None,
+                                dst_rank=reduce_rank,
+                                parallel_mode=ParallelMode.TENSOR,
+                            )
+                            handle.wait()
 
                         # define hook
                         # NOT IMPORTANT BUT GOOD TO KNOW:
@@ -303,8 +312,20 @@ class HybridZeroOptimizer(BaseOptimizer):
                         def reduce_grad_hook(*args):  # pylint: disable=W0613
                             if self.skip_grad_reduce is False:
                                 reduction_func()
-
+                        
+                        # define hook for sequence_parallel
+                        def reduce_grad_hook_sp(*args):
+                            if self.skip_grad_reduce is False:
+                                reduction_sp_func()
+                        
+                        
                         accum_grad_obj.register_hook(reduce_grad_hook)
+                        
+                        # if sequence_parallel is True, the grad of norm should be all-reduce across the tp process group
+                        if gpc.config.parallel.sequence_parallel is True:
+                            if hasattr(param, IS_SEQUENCE_PARALLEL) and getattr(param, IS_SEQUENCE_PARALLEL) is True:
+                                accum_grad_obj_sp = get_grad_accumulate_object(param)
+                                accum_grad_obj_sp.register_hook(reduce_grad_hook_sp)
 
                     _define_and_attach(param, reduce_rank)
 
