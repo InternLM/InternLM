@@ -1,4 +1,5 @@
 from .parallel_context import (
+    IS_SEQUENCE_PARALLEL,
     IS_TENSOR_PARALLEL,
     Config,
     ParallelContext,
@@ -29,6 +30,7 @@ from .random import (
 __all__ = [
     "Config",
     "IS_TENSOR_PARALLEL",
+    "IS_SEQUENCE_PARALLEL",
     "global_context",
     "ParallelContext",
     "ParallelMode",
