@@ -149,5 +149,9 @@ memory_trace
 13b_train*/
 30b_train*/
 fstp_logs/
+configs/7B_train/*
+configs/13B_train/*
+configs/30B_train/*
+
 atb
 pip

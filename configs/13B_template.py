@@ -2,7 +2,7 @@
 DO_ALERT = False
 
 SEQ_LEN = {seq_len}
-JOB_NAME = "13b_train_" + str(SEQ_LEN) + "_" + str({sp}) + "_" + str({checkpoint})
+JOB_NAME = "13b_train_" + str(SEQ_LEN) + "_" + str({sp}) + "_" + str({intern_overlap}) + "_" + str({checkpoint})
 HIDDEN_SIZE = 5120
 NUM_ATTENTION_HEAD = 40
 MLP_RATIO = 8 / 3
@@ -50,9 +50,9 @@ VALID_FOLDER = "/path/to/dataset"
 data = dict(
     seq_len=SEQ_LEN,
     # micro_num means the number of micro_batch contained in one gradient update
-    micro_num=4,
+    micro_num=1,
     # packed_length = micro_bsz * SEQ_LEN
-    micro_bsz=2,
+    micro_bsz=1,
     # defaults to the value of micro_num
     valid_micro_num=4,
     # defaults to 0, means disable evaluate
@@ -91,7 +91,7 @@ grad_scaler = dict(
 hybrid_zero_optimizer = dict(
     # Enable low_level_optimzer overlap_communication
     overlap_sync_grad=True,
-    overlap_sync_param=True,
+    overlap_sync_param=False,
     # bucket size for nccl communication params
     reduce_bucket_size=512 * 1024 * 1024,
     # grad clipping
