@@ -530,17 +530,30 @@ def record_current_batch_training_metrics(
         if gpc.config.get("grad_norm_profiling", False):
             layer_norms = copy.deepcopy(grad_norm["layer_norms"])
             param_norms = copy.deepcopy(grad_norm["param_norms"])
+            layer_zero_grad_count = copy.deepcopy(grad_norm["layer_zero_grad"])
+            param_zero_grad_count = copy.deepcopy(grad_norm["param_zero_grad"])
             for group_name, value in layer_norms.items():
                 if value:
-                    title = f"laye_norm_group_{group_name}"
+                    title = f"laye_norm/{group_name}"
                     writer.add_scalars(key=title, value=value, step=train_state.step_count)
             for group_name, layer_group in param_norms.items():
                 if layer_group:
                     for layer_name, param_group in layer_group.items():
-                        title = f"param_norm_{layer_name}_{group_name}"
+                        title = f"param_norm/{group_name}/{layer_name}"
+                        writer.add_scalars(key=title, value=param_group, step=train_state.step_count)
+            for group_name, value in layer_zero_grad_count.items():
+                if value:
+                    title = f"laye_zero_grad/{group_name}"
+                    writer.add_scalars(key=title, value=value, step=train_state.step_count)
+            for group_name, layer_group in param_zero_grad_count.items():
+                if layer_group:
+                    for layer_name, param_group in layer_group.items():
+                        title = f"param_zero_grad/{group_name}/{layer_name}"
                         writer.add_scalars(key=title, value=param_group, step=train_state.step_count)
             del grad_norm["layer_norms"]
             del grad_norm["param_norms"]
+            del grad_norm["layer_zero_grad"]
+            del grad_norm["param_zero_grad"]
 
         line = ""
         for key, value in infos.items():
