@@ -1,6 +1,6 @@
 from .parallel_context import (
-    IS_TENSOR_PARALLEL,
     IS_SEQUENCE_PARALLEL,
+    IS_TENSOR_PARALLEL,
     Config,
     ParallelContext,
     global_context,

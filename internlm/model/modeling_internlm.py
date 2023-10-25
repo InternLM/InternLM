@@ -9,7 +9,7 @@ from flash_attn.modules.embedding import ParallelGPT2Embeddings
 from flash_attn.modules.mlp import ParallelFusedMLP
 from torch import nn
 
-from internlm.core.context import IS_TENSOR_PARALLEL, IS_SEQUENCE_PARALLEL, ParallelMode
+from internlm.core.context import IS_SEQUENCE_PARALLEL, IS_TENSOR_PARALLEL, ParallelMode
 from internlm.core.context.parallel_context import global_context as gpc
 from internlm.initialize.initialize_tensor import normal_, scaled_init_method_normal
 from internlm.model.embedding import Embedding1D
@@ -365,7 +365,7 @@ class PackedFlashInternLm1D(nn.Module):
             for param in self.norm.parameters():
                 if gpc.config.parallel.sequence_parallel is True:
                     setattr(param, IS_SEQUENCE_PARALLEL, True)
-        
+
         self.parallel_output = parallel_output
 
     def forward(self, hidden_states=None, cu_seqlens=None, input_ids=None, indexes=None, inference_params=None):
