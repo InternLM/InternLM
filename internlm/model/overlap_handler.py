@@ -316,8 +316,7 @@ class FSTPOverlapSchedulerHook(SchedulerHook):
             self._overlap_handler.set_forward_mode(True)
 
     def after_forward(self, scheduler, outputs) -> None:
-        print("after forward allocated memory: ", torch.cuda.memory_allocated() / 1024 / 1024 /1024, flush=True)
-        print("after forward max memory: ", torch.cuda.max_memory_allocated() / 1024 / 1024 / 1024, flush=True)
+        pass
 
     def before_criterion(self, scheduler, outputs, label) -> None:
         pass

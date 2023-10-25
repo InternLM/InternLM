@@ -255,8 +255,6 @@ def main(args):
             # update parameters, and returns (success_update, grad_norm)
             trainer_result = trainer.step()
             assert trainer_result is not None
-            print("after step: ", torch.cuda.memory_allocated() / 1024 / 1024 /1024, flush=True)
-            print("after step: ", torch.cuda.max_memory_allocated() / 1024 / 1024 / 1024, flush=True)
 
             success_update, grad_norm_groups = trainer_result
             if success_update:  # update parameters successfully
