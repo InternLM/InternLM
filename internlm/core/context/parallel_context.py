@@ -25,6 +25,7 @@ from .process_group_initializer import ParallelMode
 from .random import add_seed, get_seeds, set_mode
 
 IS_TENSOR_PARALLEL = "is_tensor_parallel"
+IS_SEQUENCE_PARALLEL = "is_sequence_parallel"
 
 logger = get_logger(__file__)
 
@@ -329,7 +330,8 @@ class ParallelContext(metaclass=SingletonMeta):
         return self.is_last_rank(ParallelMode.PIPELINE)
 
     def is_no_pp_or_last_stage(self):
-        return not self.is_initialized(ParallelMode.PIPELINE) or self.is_pipeline_last_stage()
+        # NOTICE!!!, this will ignore virutal stage
+        return not self.is_initialized(ParallelMode.PIPELINE) or self.is_last_rank(ParallelMode.PIPELINE)
 
     def get_world_size(self, parallel_mode: ParallelMode):
         """Returns the world size for `parallel_mode`.

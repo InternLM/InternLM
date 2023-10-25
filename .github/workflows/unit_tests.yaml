@@ -1,0 +1,76 @@
+name: unit-tests
+on:
+  push:
+    branches:
+      - "develop"
+      - "main"
+    paths-ignore:
+      - "cmds/**"
+      - "**.md"
+  pull_request:
+    branches:
+      - "develop"
+      - "main"
+    paths-ignore:
+      - "cmds/**"
+      - "**.md"
+env:
+  WORKSPACE_PREFIX: $(echo $GITHUB_WORKSPACE |cut -d '/' -f 1-4)
+  SLURM_PARTITION: llm_t
+
+jobs:
+  check-requirements:
+    runs-on: [t_cluster]
+    steps:
+    - name: mask env
+      run: |
+        echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
+    - uses: actions/checkout@v3
+      with:
+         fetch-depth: 2
+    - name: check-requirements
+      run: |
+        changed_files=$(git diff --name-only -r HEAD^1 HEAD)
+        echo $changed_files
+        if [[ $changed_files =~ "runtime.txt" ]]; then
+          pip install -r requirements/runtime.txt
+        fi
+
+        if [[ $changed_files =~ "torch.txt"  ]]; then
+          pip install -r requirements/torch.txt
+        fi
+
+
+  unit_tests_core_pipeline:
+    if: ${{ always() }}
+    needs: check-requirements
+    runs-on: [t_cluster]
+    timeout-minutes: 20
+    steps:
+    - name: mask env
+      run: |
+        echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
+    - uses: actions/checkout@v3
+
+    - name: core_pipeline
+      run: |
+        source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
+        export PYTHONPATH=$PWD:$PYTHONPATH
+        srun -p ${SLURM_PARTITION} --job-name=internlm-ut-${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 1 --gres=gpu:8 python -m pytest -s -v ./tests/test_core/test_pipeline.py
+
+  unit_tests_utils_storage_manager:
+    if: ${{ always() }}
+    needs: check-requirements
+    runs-on: [t_cluster]
+    timeout-minutes: 20
+    steps:
+    - name: mask env
+      run: |
+        echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
+    - uses: actions/checkout@v3
+
+    - name: utils_storage_manager
+      run: |
+        source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
+        export PYTHONPATH=$PWD:$PYTHONPATH
+        srun -p ${SLURM_PARTITION} --job-name=internlm-ut-${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 1 --gres=gpu:8 python -m pytest -s -v ./tests/test_utils/test_storage_manager.py

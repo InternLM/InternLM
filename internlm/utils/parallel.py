@@ -2,9 +2,11 @@
 # -*- encoding: utf-8 -*-
 
 import torch.distributed as dist
+from torch import nn
 
 from internlm.core.context import IS_TENSOR_PARALLEL, ParallelMode
 from internlm.core.context import global_context as gpc
+from internlm.core.naive_amp import NaiveAMPModel
 
 
 def is_model_parallel_parameter(p):
@@ -61,3 +63,31 @@ def get_parallel_log_file_name():
         f"tp={gpc.get_local_rank(ParallelMode.TENSOR)}_pp={gpc.get_local_rank(ParallelMode.PIPELINE)}"
     )
     return log_file_name
+
+
+def set_model_params_layer_name(model):
+    r"""Set the layer name as an attribute of the model parameters.
+    Args:
+        model (:class:`torch.nn.Module`): A pyTorch model on whose parameters you check the consistency.
+    """
+    if not isinstance(model, nn.ModuleList):
+        model = [model]
+
+    for _chunk in model:
+        if isinstance(_chunk, NaiveAMPModel):
+            _chunk = _chunk.model
+        # Create a unique layer name based on the block's class name and index
+        for _, children in _chunk.named_children():
+            if isinstance(children, nn.ModuleList):
+                for idx, block in enumerate(children):
+                    for param_name, param in block.named_parameters():
+                        layer_name = f"{block.__class__.__name__}Block{idx}"
+                        layer_param_name = f"{layer_name}-{param_name}"
+                        param.__setattr__("layer_name", layer_name)
+                        param.__setattr__("param_name", layer_param_name)
+            else:
+                for param_name, param in children.named_parameters():
+                    layer_name = f"{children.__class__.__name__}"
+                    layer_param_name = f"{layer_name}-{param_name}"
+                    param.__setattr__("layer_name", layer_name)
+                    param.__setattr__("param_name", f"{layer_name}-{param_name}")

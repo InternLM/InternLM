@@ -9,7 +9,7 @@ from flash_attn.modules.embedding import ParallelGPT2Embeddings
 from flash_attn.modules.mlp import ParallelFusedMLP
 from torch import nn
 
-from internlm.core.context import IS_TENSOR_PARALLEL, ParallelMode
+from internlm.core.context import IS_SEQUENCE_PARALLEL, IS_TENSOR_PARALLEL, ParallelMode
 from internlm.core.context.parallel_context import global_context as gpc
 from internlm.initialize.initialize_tensor import normal_, scaled_init_method_normal
 from internlm.model.embedding import Embedding1D
@@ -142,6 +142,12 @@ class PackedFlashBaseLayer1D(nn.Module):
         for _, param in self.mlp.named_parameters():
             if gpc.get_world_size(ParallelMode.TENSOR) > 1:
                 setattr(param, IS_TENSOR_PARALLEL, True)
+        for param in self.norm1.parameters():
+            if gpc.config.parallel.sequence_parallel is True:
+                setattr(param, IS_SEQUENCE_PARALLEL, True)
+        for param in self.norm2.parameters():
+            if gpc.config.parallel.sequence_parallel is True:
+                setattr(param, IS_SEQUENCE_PARALLEL, True)
 
         self.dropout2 = nn.Dropout(drop_rate)
         self.use_swiglu = use_swiglu
@@ -374,6 +380,10 @@ class PackedFlashInternLm1D(nn.Module):
                 normal_(std=0.0052)(param)
                 if gpc.get_world_size(ParallelMode.TENSOR) > 1:
                     setattr(param, IS_TENSOR_PARALLEL, True)
+            for param in self.norm.parameters():
+                if gpc.config.parallel.sequence_parallel is True:
+                    setattr(param, IS_SEQUENCE_PARALLEL, True)
+
         self.parallel_output = parallel_output
 
     def forward(self, hidden_states=None, cu_seqlens=None, input_ids=None, indexes=None, inference_params=None):

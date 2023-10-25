@@ -10,14 +10,17 @@ from internlm.core.context.parallel_context import Config
 from internlm.solver.optimizer.hybrid_zero_optim import HybridZeroOptimizer
 from internlm.utils.common import SingletonMeta
 
-OSS_NAME = os.environ["OSS_BUCKET_NAME"]
-OSS_IP = os.environ["OSS_IP"]
-USER = os.environ["USER"]
+OSS_NAME = os.environ.get("OSS_BUCKET_NAME")
+OSS_IP = os.environ.get("OSS_IP")
+USER = os.environ.get("USER")
 JOB_NAME = "CI_TEST"
 LOCAL_SAVE_PATH = "local:local_ckpt"
 
 BOTO_SAVE_PATH = f"boto3:s3://{OSS_NAME}.{OSS_IP}/{USER}/{JOB_NAME}"
 BOTO_SAVE_PATH_NO_PRFIX = f"s3://{OSS_NAME}.{OSS_IP}/{USER}/{JOB_NAME}/"
+
+VOLC_SAVE_PATH = f"volc:vc://{OSS_NAME}.{OSS_IP}/{USER}/{JOB_NAME}"
+VOLC_SAVE_PATH_NO_PRFIX = f"vc://{OSS_NAME}.{OSS_IP}/{USER}/{JOB_NAME}/"
 
 ASYNC_TMP_FOLDER = "./async_tmp_folder"
 
@@ -172,13 +175,25 @@ def del_tmp_file():
     except FileNotFoundError:
         pass
 
-    try:
-        cmd = r"/mnt/petrelfs/share/sensesync --dryrun --deleteSrc cp " + BOTO_SAVE_PATH_NO_PRFIX + " / "
-        with Popen(cmd, stdout=PIPE, stderr=STDOUT, shell=True) as output:
-            results, presults = "", ""
-            for line in iter(output.stdout.readline, b""):
-                results += str(line.rstrip())
-                presults += line.rstrip().decode() + "\n"
-        print(presults, flush=True)
-    except:  # noqa # pylint: disable=bare-except
-        pass
+    if OSS_NAME is not None:
+        try:
+            cmd = r"/mnt/petrelfs/share/sensesync --dryrun --deleteSrc cp " + BOTO_SAVE_PATH_NO_PRFIX + " / "
+            with Popen(cmd, stdout=PIPE, stderr=STDOUT, shell=True) as output:
+                results, presults = "", ""
+                for line in iter(output.stdout.readline, b""):
+                    results += str(line.rstrip())
+                    presults += line.rstrip().decode() + "\n"
+            print(presults, flush=True)
+        except:  # noqa # pylint: disable=bare-except
+            pass
+
+        try:
+            cmd = r"/mnt/petrelfs/share/sensesync --dryrun --deleteSrc cp " + VOLC_SAVE_PATH_NO_PRFIX + " / "
+            with Popen(cmd, stdout=PIPE, stderr=STDOUT, shell=True) as output:
+                results, presults = "", ""
+                for line in iter(output.stdout.readline, b""):
+                    results += str(line.rstrip())
+                    presults += line.rstrip().decode() + "\n"
+            print(presults, flush=True)
+        except:  # noqa # pylint: disable=bare-except
+            pass

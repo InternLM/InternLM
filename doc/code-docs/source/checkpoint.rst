@@ -39,7 +39,7 @@ CheckpointManager
       load_ckpt_folder=dict(path="local:/mnt/mfs/ckpt", content=["all",], ckpt_type="internlm"), 
       auto_resume=False, # disable auto-resume, internlm will load model checkpoint from the path of 'load_ckpt_folder'.
       checkpoint_every=CHECKPOINT_EVERY,
-      async_upload=True,  # async ckpt upload. (only work for boto3 ckpt)
+      async_upload=True,  # async ckpt upload. (only work for boto3 and volc ckpt)
       async_upload_tmp_folder="/dev/shm/internlm_tmp_ckpt/",  # path for temporarily files during asynchronous upload.
       oss_snapshot_freq=int(CHECKPOINT_EVERY / 2),  # snapshot ckpt save frequency.
   )
@@ -67,7 +67,9 @@ InternLM对config中出现的所有存储路径都遵循以下的路径格式约
 
 1. 如果需要使用boto3的路径，需要在运行前提前导入 ``S3_ACCESS_KEY_ID`` 和 ``S3_SECRET_ACCESS_KEY_ID`` 这两个环境变量。
 
-2. bucket的endpoint一般分为Inside IP和Outside IP，如果可以尽量使用inside IP，会获得更佳的存储速度。
+2. 如果需要使用volc的路径，需要在运行前提前导入 ``VOLC_ACCESS_KEY_ID`` 和 ``VOLC_SECRET_ACCESS_KEY_ID`` 这两个环境变量。
+
+3. bucket的endpoint一般分为Inside IP和Outside IP，如果可以尽量使用inside IP，会获得更佳的存储速度。
 
 
 
@@ -114,7 +116,7 @@ config.ckpt 中相关的参数：
 
 - ``async_upload_tmp_folder``: 异步上传临时存储路径。参数类型 ``str/None``, 默认值为 ``/dev/shm/{JOB_NAME}_tmp_ckpt/``。
 
-需要注意的是，异步上传功能仅在backend为boto3时才会有效果，bcakend为local时只支持同步存储。
+需要注意的是，异步上传功能仅在backend为boto3或volc时才会有效果，bcakend为local时只支持同步存储。
 
 ``async_upload_tmp_folder`` 设置的的原则为尽量设置为计算节点的local目录，这样才可以获得最佳的异步上传速度，一般来说建议为 ``/dev/shm`` 或 ``/nvme`` 下的路径，如果使用同步上传，则该路径可不给。
 

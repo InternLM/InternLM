@@ -1,0 +1,208 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, InternLM Team
+# This file is distributed under the same license as the InternLM package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: InternLM \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-10-10 19:25+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: en\n"
+"Language-Team: en <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.12.1\n"
+
+#: ../../source/moe.rst:2
+msgid "混合专家模型"
+msgstr "Mixture-of-Experts"
+
+#: ../../source/moe.rst:3
+msgid ""
+"混合专家模型（Mixture-of-Experts, MoE）是一种特殊的模型结构。 "
+"混合专家模型将模型拆分为一系列称为“专家”的子模型，每个“专家” 具有唯一的权重。 "
+"混合专家模型可以针对每个输入标记仅激活一个或少量的专家参与运算。 例如，图 :ref:`switch_transformer` 是 `Switch"
+" Transformer <https://arxiv.org/pdf/2101.03961.pdf>`_ "
+"提出的稀疏混合专家模型结构，其中的前向神经网络（FFN）被分解为多个子网络，在计算时仅有少部分的模型参数参与计算，以实现更有效的计算和资源分配。"
+msgstr ""
+"Mixture-of-Experts (MoE) is a special model structure. MoE partitions the model into a series of sub-models called \"experts\", "
+"each with unique parameters. MoE only activates one or a small number of experts for each input token. For example, the figure :ref:`switch_transformer` "
+" shows the sparse MoE architecture proposed by `Switch Transformer <https://arxiv.org/pdf/2101.03961.pdf>`_ . "
+"The Forward Neural Network (FFN) is decomposed into multiple sub-networks, and only a small number of model parameters "
+"are involved in the calculation to achieve more efficient calculation and resource allocation. "
+
+#: ../../source/moe.rst:8
+msgid ""
+"稀疏混合专家模型通常还包含一个门控（gating）机制，例如图 :ref:`switch_transformer` "
+"中的Router网络。门控网络负责选择激活哪些专家参与计算并组合不同专家的预测结果。"
+msgstr ""
+"Sparse MoE usually also includes a gating mechanism, such as the Router in Figure :ref:`switch_transformer` . "
+"The gating network is responsible for selecting which experts to activate and combining the prediction results of "
+"different experts."
+
+#: ../../source/moe.rst:16
+msgid "switch transformer"
+msgstr "switch transformer"
+
+#: ../../source/moe.rst:19
+msgid "参数配置"
+msgstr "Parameter Settings"
+
+#: ../../source/moe.rst:20
+msgid "如果在启动训练时要使用混合专家模型，可进行如下相关配置："
+msgstr ""
+"If MoE is expected to be used in the training, please make the following settings in the configuration file:"
+
+#: ../../source/moe.rst:22
+msgid "模型相关配置"
+msgstr "Model related settings"
+
+#: ../../source/moe.rst:31
+msgid "num_experts：专家网络个数。在InternLM中，每个专家有着相同的网络结构但维护着不同的训练参数。"
+msgstr ""
+"num_experts: The number of expert networks. In InternLM, each expert has "
+"the same network structure but maintains different training parameters."
+
+#: ../../source/moe.rst:32
+msgid ""
+"moe_gate_k：门控策略。决定如何将输入标记路由到不同的专家进行计算。目前InternLM支持top1gating和top2gating两种门控策略。关于这些门控策略的详细的信息可以参考"
+" `GShard <https://arxiv.org/pdf/2006.16668.pdf>`_。"
+msgstr ""
+"moe_gate_k: Gating strategy. Determines how to route input tokens to "
+"different experts for calculation. Currently, InternLM supports top1gating"
+" and top2gating strategies. For detailed information about "
+"these gating strategies, please refer to `GShard <https://arxiv.org/pdf/2006.16668.pdf>`_."
+
+#: ../../source/moe.rst:34
+msgid ""
+"注意：在目前的InternLM中，每个专家都是根据配置文件中HIDDEN_SIZE和MLP_RATIO构造的一个 `SwiGLU网络 <https://arxiv.org/pdf/2002.05202.pdf>`_，同时支持张量并行。用户可以根据需要构造自己的专家网络。"
+
+msgstr ""
+"Note: In the current version of InternLM, each expert is a `SwiGLU network <https://arxiv.org/pdf/2002.05202.pdf>`_ based on "
+"HIDDEN_SIZE and MLP_RATIO in the configuration file, and supports tensor parallelism. Users can construct their own expert networks as needed."
+
+#: ../../source/moe.rst:37
+msgid "损失相关配置"
+msgstr "Loss related settings"
+
+#: ../../source/moe.rst:46
+msgid ""
+"在top1gating和top2gating门控策略中，不同的专家处理的标记数量存在差异。为了提高模型效果，应尽量保证输入标记被均匀地路由到不同的专家上。"
+"InternLM采用 `GShard <https://arxiv.org/pdf/2006.16668.pdf>`_ 提出的负载平衡损失优化门控策略。 "
+"Moe_loss_coeff项决定着负载平衡损失项将如何添加到最终的损失项中（ :math:`l=l_{nll}+k·l_{moe}` ）。"
+"关于该部分的详细信息可以进一步参考 `GShard <https://arxiv.org/pdf/2006.16668.pdf>`_。"
+msgstr ""
+"In top1gating and top2gating strategies, the number of tokens to process may be different for different experts. "
+"In order to improve the model effect, the input tokens should be evenly routed to different experts. "
+"InternLM adopts the balancing loss to optimize the gating network proposed by GShard. "
+"The moe_loss_coeff determines how the balancing loss should be added to the final loss ( :math:`l=l_{nll}+k·l_{moe}` ). "
+"The details can be found in `GShard <https://arxiv.org/pdf/2006.16668.pdf>`_. "
+
+#: ../../source/moe.rst:49
+msgid "注意：这些参数需要和其他参数一起使用，具体请参考 :doc:`/usage` “训练配置”相关章节的内容。"
+msgstr "Note: These parameters need to be used together with other parameters, please refer to :doc:`/usage`: Training Configuration"
+
+#: ../../source/moe.rst:52
+msgid "模型训练"
+msgstr "Model Training"
+
+#: ../../source/moe.rst:54
+msgid ""
+"internlm.model.modeling_moe提供了一个标准的混合专家模型的实现，该模型的网络结构和图 :ref:`switch_transformer` "
+"一致，其中使用到internlm.model.moe.MoE实现MoE网络。用户在配置文件中指定模型类型："
+msgstr ""
+"internlm.model.modeling_moe provides an implementation of a standard MoE. "
+"The model structure is consistent with Figure :ref:`switch_transformer` ,"
+" which uses internlm.model.moe.MoE to implement the MoE network. "
+"To use moe model, specify the model type in the configuration file:"
+
+#: ../../source/moe.rst:60
+msgid "并配置好稀疏专家网络的相关参数后，就可以像正常启动InternLM一样进行混合专家模型的分布式训练，具体请参考 :doc:`/usage` “启动训练”相关章节的内容。"
+msgstr ""
+"After configuring the relevant parameters of the sparse MoE, "
+"the distributed training can start as the normal training process. please refer to :doc:`/usage`: Start Training"
+
+#: internlm.model.moe.MoE:1 of
+msgid "Initialize an MoE layer."
+msgstr ""
+
+#: internlm.model.moe.MoE of
+msgid "参数"
+msgstr "parameter"
+
+#: internlm.model.moe.MoE:3 of
+msgid ""
+"the hidden dimension of the model, importantly this is also the input and"
+" output dimension."
+msgstr ""
+
+#: internlm.model.moe.MoE:5 of
+msgid "default=1, the total number of experts per layer."
+msgstr ""
+
+#: internlm.model.moe.MoE:7 of
+msgid "default=1, number of ranks in the expert parallel world or group."
+msgstr ""
+
+#: internlm.model.moe.MoE:9 of
+msgid "default=1, top-k gating value, only supports k=1 or k=2."
+msgstr ""
+
+#: internlm.model.moe.MoE:11 of
+msgid "default=1.0, the capacity of the expert at training time."
+msgstr ""
+
+#: internlm.model.moe.MoE:13 of
+msgid "default=1.0, the capacity of the expert at eval time."
+msgstr ""
+
+#: internlm.model.moe.MoE:15 of
+msgid ""
+"default=4, the minimum capacity per expert regardless of the "
+"capacity_factor."
+msgstr ""
+
+#: internlm.model.moe.MoE:17 of
+msgid ""
+"default=None, noisy gate policy, valid options are 'Jitter', 'RSample' or"
+" 'None'."
+msgstr ""
+
+#: internlm.model.moe.MoE:20 of
+msgid "default=True, whether to use the default MoE layer."
+msgstr ""
+
+#: internlm.model.moe.MoE:22 of
+msgid ""
+"default=True, whether to drop tokens - (setting to False is equivalent to"
+" infinite capacity)."
+msgstr ""
+
+#: internlm.model.moe.MoE:25 of
+msgid "default=True, whether to use Random Token Selection."
+msgstr ""
+
+#: internlm.model.moe.MoE:27 of
+msgid ""
+"default=False, make this MoE layer a Residual MoE "
+"(https://arxiv.org/abs/2201.05596) layer."
+msgstr ""
+
+#: internlm.model.moe.MoE:30 of
+msgid "default=None, the torch module that defines the residual MLP."
+msgstr ""
+
+#: ../../source/moe.rst:64
+msgid "注意：InternLM支持用户定义自己的MoE结构。internlm.model.moe.MoE是定义MoE网络的接口，目前使用SwiGLU网络实现了专家模型并支持top1gating和top2gating两种门控策略。用户可以在MoE接口中对专家网络和门控策略进行扩展。"
+msgstr ""
+"Note: InternLM supports users to define their own MoE structure. "
+"internlm.model.moe.MoE is the interface that defines the MoE network. "
+"Currently, the SwiGLU network is used to implement the experts and "
+"supports two gating strategies: top1gating and top2gating. Users can "
+"extend the expert network and gating strategy in the MoE interface as needed."

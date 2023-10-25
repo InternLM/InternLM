@@ -10,7 +10,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.testing import assert_close
 
 import internlm
-from internlm.core.context.parallel_context import Config
+from internlm.core.context.parallel_context import Config, ParallelMode
 from internlm.solver.optimizer import HybridZeroOptimizer
 from internlm.solver.optimizer.utils import ParamBcastSyncHandler
 
@@ -29,7 +29,12 @@ class MlpModel(nn.Module):
 
 config = Config(
     dict(
-        parallel=dict(zero1=1, pipeline=dict(size=1, interleaved_overlap=False), sequence_parallel=False, tensor=1),
+        parallel=dict(
+            zero1=dict(size=1, fsdp=False),
+            pipeline=dict(size=1, interleaved_overlap=False),
+            sequence_parallel=False,
+            tensor=1,
+        ),
         model_type="INTERNLM",
         data=dict(seq_len=2048, micro_num=1, micro_bsz=1, pack_sample_into_one=False, min_length=0, total_steps=9999),
         model=dict(
@@ -103,14 +108,22 @@ def init_optimizer_grouped_parameters(check_group, model):
             {
                 "params": list(model.parameters())[:2],
                 "weight_decay": config.adam.weight_decay,
+                "dp_mode": ParallelMode.DATA,
             },
             {
                 "params": list(model.parameters())[2:],
                 "weight_decay": config.adam.weight_decay,
+                "dp_mode": ParallelMode.DATA,
             },
         ]
     else:
-        optimizer_grouped_parameters = [{"params": model.parameters(), "weight_decay": config.adam.weight_decay}]
+        optimizer_grouped_parameters = [
+            {
+                "params": model.parameters(),
+                "weight_decay": config.adam.weight_decay,
+                "dp_mode": ParallelMode.DATA,
+            }
+        ]
 
     return optimizer_grouped_parameters
 
@@ -137,7 +150,7 @@ def exam_hybrid_zero_optim_with_ddp(args):
     # ParamBcastSyncHandler does not consider paramters in different optimizer group currently
     if overlap_sync_param and check_group:
         return
-    config.parallel.zero1 = zero_parallel
+    config.parallel.zero1.size = zero_parallel
     config.hybrid_zero_optimizer.overlap_sync_param = overlap_sync_param
     config.hybrid_zero_optimizer.overlap_sync_grad = overlap_sync_grad
     config.data.micro_num = micro_num
@@ -253,7 +266,7 @@ def exam_hybrid_zero_optim_with_ddp(args):
 def exam_hybrid_zero_optim_with_ckpt_load_save(args):
     # init
     rank, world_size, zero_parallel, check_group, dtype = args
-    config.parallel.zero1 = zero_parallel
+    config.parallel.zero1.size = zero_parallel
     config.parallel.dtype = dtype
 
     build_environment(rank, world_size)

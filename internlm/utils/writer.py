@@ -42,8 +42,8 @@ def init_tb_writer(
         # dir of the last task by 'make_launch_script.sh'.
         # If we load ckpt, 'resume_tb_folder' will be overwritten as the
         # reloaded 'train_state.resume_tb_folder'.s
-        if resume_tb_folder is not None:
-            assert len(resume_tb_folder) > 0 and resume_tb_folder != "/"
+        if resume_tb_folder is not None and len(resume_tb_folder) > 0:
+            assert resume_tb_folder != "/"
             if not os.path.exists(resume_tb_folder):
                 logger.error(
                     f"Can't found resume_tb_folder{resume_tb_folder}, \
