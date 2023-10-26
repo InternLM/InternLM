@@ -624,4 +624,4 @@ def record_current_batch_training_metrics(
             for tf in tflops_list_2.copy():
                 if abs(tf - avg_tflops_2) > 10:
                     tflops_list_2.remove(tf)
-            print(f"avg_tflops: {sum(tflops_list_2)/len(tflops_list_2)}", flush=True)
+            print(f"avg_tflops_2: {sum(tflops_list_2)/len(tflops_list_2)}", flush=True)
