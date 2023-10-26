@@ -710,6 +710,9 @@ class HybridZeroOptimizer(BaseOptimizer):
         with torch.cuda.stream(self._comm_bcast_stream):
             self.broadcast_params()
 
+        if not self._overlap_sync_param:
+            torch.cuda.synchronize()
+
         timer("step").stop()
 
         # update gradients may not be needed here, because the sync_params function is used in initialization,
