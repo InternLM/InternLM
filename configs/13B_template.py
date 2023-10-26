@@ -57,7 +57,7 @@ data = dict(
     valid_micro_num=4,
     # defaults to 0, means disable evaluate
     valid_every=50,
-    pack_sample_into_one=False,
+    pack_sample_into_one=True,
     total_steps=20,
     skip_batches="",
     rampup_batch_size="",
@@ -65,7 +65,7 @@ data = dict(
     min_length=50,
     # train_folder=TRAIN_FOLDER,
     # valid_folder=VALID_FOLDER,
-    empty_cache_and_diag_interval=10,
+    empty_cache_and_diag_interval=100,
     diag_outlier_ratio=1.1,
 )
 

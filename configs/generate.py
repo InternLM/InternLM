@@ -39,22 +39,7 @@ for idx, root_name in enumerate(root_names):
                         
                     log_name = root_name + "_" + output_file_name[:-3]
                     
-                    skip = True
-                    
-                    if idx == 0 and i == 4:  # 7b, intern_overlap = False
-                        skip = False
-                    if idx == 0 and ckpt is True and i == 3:  # 7b, ckpt = True
-                        skip = False
-                    if idx == 1:  # 13b
-                        skip = False
-                    if idx == 2:  # 30b
-                        skip = False
-                        
-                    if skip:
-                        import time; time.sleep(1)
-                        print(f"skip {log_name}", flush=True)
-                        continue
-                    
-                    command = f"srun -p llm_s -N 8 -n 64 --ntasks-per-node=8 --gpus-per-task=1 --time=20 python train.py --config {write_file} --profiling 2>&1 | tee ./fstp_logs/{log_name}.log"
+                    print(log_name)
+                    command = f"srun -p llm_s -N 8 -n 64 --ntasks-per-node=8 --gpus-per-task=1 --time=30 python train.py --config {write_file} --profiling 2>&1 | tee ./fstp_logs/{log_name}.log"
                     process = subprocess.Popen(command, shell=True, executable='/bin/bash')
                     process.wait() 
