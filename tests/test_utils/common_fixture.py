@@ -22,6 +22,9 @@ BOTO_SAVE_PATH_NO_PRFIX = f"s3://{OSS_NAME}.{OSS_IP}/{USER}/{JOB_NAME}/"
 VOLC_SAVE_PATH = f"volc:vc://{OSS_NAME}.{OSS_IP}/{USER}/{JOB_NAME}"
 VOLC_SAVE_PATH_NO_PRFIX = f"vc://{OSS_NAME}.{OSS_IP}/{USER}/{JOB_NAME}/"
 
+ALI_SAVE_PATH = f"oss2:ali://{OSS_NAME}.{OSS_IP}/{USER}/{JOB_NAME}"
+ALI_SAVE_PATH_NO_PRFIX = f"ali://{OSS_NAME}.{OSS_IP}/{USER}/{JOB_NAME}/"
+
 ASYNC_TMP_FOLDER = "./async_tmp_folder"
 
 
@@ -189,6 +192,17 @@ def del_tmp_file():
 
         try:
             cmd = r"/mnt/petrelfs/share/sensesync --dryrun --deleteSrc cp " + VOLC_SAVE_PATH_NO_PRFIX + " / "
+            with Popen(cmd, stdout=PIPE, stderr=STDOUT, shell=True) as output:
+                results, presults = "", ""
+                for line in iter(output.stdout.readline, b""):
+                    results += str(line.rstrip())
+                    presults += line.rstrip().decode() + "\n"
+            print(presults, flush=True)
+        except:  # noqa # pylint: disable=bare-except
+            pass
+
+        try:
+            cmd = r"/mnt/petrelfs/share/sensesync --dryrun --deleteSrc cp " + ALI_SAVE_PATH_NO_PRFIX + " / "
             with Popen(cmd, stdout=PIPE, stderr=STDOUT, shell=True) as output:
                 results, presults = "", ""
                 for line in iter(output.stdout.readline, b""):
