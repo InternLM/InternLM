@@ -46,7 +46,7 @@ def prepare_generation_config():
     return generation_config
 
 
-user_prompt = "<|User|>:{user}<eoh>\n"
+user_prompt = "<|User|>:{user}\n"
 robot_prompt = "<|Bot|>:{robot}<eoa>\n"
 cur_query_prompt = "<|User|>:{user}<eoh>\n<|Bot|>:"
 
