@@ -657,16 +657,16 @@ class HybridZeroOptimizer(BaseOptimizer):
 
             # Parameters shared within a TP group, such as norm and moe gate, have precision inconsistency in gradients.
             # Therefore, it is recommended to synchronize gradients within the TP group to eliminate accumulated errors.
-            is_tp_sync_groups = (
-                self._is_norm_group(self.optim.param_groups[group_id]),
-                self._is_gate_group(self.optim.param_groups[group_id]),
-            )
-            if any(is_tp_sync_groups):
-                dist.all_reduce(
-                    flat_fp32_avg_grads,
-                    op=dist.ReduceOp.AVG,
-                    group=gpc.get_group(ParallelMode.TENSOR),
-                )
+            # is_tp_sync_groups = (
+            #     self._is_norm_group(self.optim.param_groups[group_id]),
+            #     self._is_gate_group(self.optim.param_groups[group_id]),
+            # )
+            # if any(is_tp_sync_groups):
+            #     dist.all_reduce(
+            #         flat_fp32_avg_grads,
+            #         op=dist.ReduceOp.AVG,
+            #         group=gpc.get_group(ParallelMode.TENSOR),
+            #     )
 
             single_grad_partition_groups.append(flat_fp32_avg_grads)
             device = self._fp32_flat_param_groups_of_current_rank[group_id].device

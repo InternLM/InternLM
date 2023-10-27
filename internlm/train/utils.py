@@ -4,7 +4,7 @@ import torch
 
 from internlm.core.context.parallel_context import ParallelMode
 from internlm.core.context.parallel_context import global_context as gpc
-from internlm.model.utils import is_gate_param, is_moe_param, is_norm_param
+from internlm.model.utils import is_moe_param
 
 
 def split_params_into_different_groups_for_optimizer(param_groups: Tuple[Dict]) -> Tuple[Dict]:
@@ -40,9 +40,6 @@ def split_params_into_different_groups_for_optimizer(param_groups: Tuple[Dict]) 
     new_groups = {}
     new_groups["fp32"] = {"name": "fp32", "params": [], "dp_mode": ParallelMode.DATA}
     if gpc.config.model.get("num_experts", 0) > 1:
-        # norm and gate are special group to force sync (when enable MoE).
-        for key in ["gate", "norm"]:
-            new_groups[key] = {"name": key, key: True, "params": [], "dp_mode": ParallelMode.DATA}
         for key in gpc.expert_parallel_group_names:
             new_groups[key] = {"name": key, "moe": True, "params": [], "dp_mode": ParallelMode.EXPERT_DATA}
 
@@ -58,12 +55,7 @@ def split_params_into_different_groups_for_optimizer(param_groups: Tuple[Dict]) 
         # first split the norm and gate groups, which are special case to force sync (when enable MoE),
         # then fp32 group and the moe group.
         for param in pgroup["params"]:
-            if gpc.config.model.get("num_experts", 0) > 1 and is_norm_param(param):
-                new_groups["norm"]["params"].append(param)
-            # gate param means MoE is enabled
-            elif is_gate_param(param):
-                new_groups["gate"]["params"].append(param)
-            elif param.dtype == torch.float32:
+            if param.dtype == torch.float32:
                 new_groups["fp32"]["params"].append(param)
             # moe param means MoE is enabled
             elif is_moe_param(param):
