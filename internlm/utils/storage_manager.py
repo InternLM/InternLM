@@ -512,10 +512,11 @@ class LocalClient(StorageClient):
     def sync_upload_fileobj(fp: str, saved_obj=None, **kwargs):
         assert saved_obj is not None
         fp_dirname = os.path.dirname(fp)
-        if gpc.get_global_rank() == 0:
+        try:
             if not os.path.exists(fp_dirname):
                 os.makedirs(fp_dirname, exist_ok=True)
-        dist.barrier()
+        except:
+            pass
         torch.save(saved_obj, fp, **kwargs)
 
     @staticmethod
