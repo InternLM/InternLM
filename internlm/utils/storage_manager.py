@@ -515,7 +515,7 @@ class LocalClient(StorageClient):
         try:
             if not os.path.exists(fp_dirname):
                 os.makedirs(fp_dirname, exist_ok=True)
-        except:
+        except FileNotFoundError:
             pass
         torch.save(saved_obj, fp, **kwargs)
 
