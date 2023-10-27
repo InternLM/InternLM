@@ -560,7 +560,6 @@ class HybridZeroOptimizer(BaseOptimizer):
                 last_stage=last_stage,
                 previous_param_norms=previous_param_norms,
                 zero_mode=self._broadcast_parallel_mode[group_id],
-                is_moe_group=self._is_moe_group(self.optim.param_groups[group_id]),
             )
         return total_param_norms
 
@@ -629,16 +628,6 @@ class HybridZeroOptimizer(BaseOptimizer):
                 total_layer_norms[group_name], total_param_norms[group_name] = compute_layer_norm(
                     param_norms=param_norms, loss_scale=self.loss_scale.item()
                 )
-
-            # Need to allreduce(avg) the norms across different ranks because moe params will not be synced
-            # during allreduce
-            if self._is_moe_group(self.optim.param_groups[group_id]):
-                # model and zero have been reduced!!!
-                pg = gpc.get_group(ParallelMode.EXPERT)
-                scaled_norm = total_norms[group_name] * 1.0 / float(gpc.get_world_size(ParallelMode.EXPERT))
-                scaled_norm_tensor = torch.tensor(scaled_norm, device=get_current_device(), dtype=torch.float)
-                dist.all_reduce(scaled_norm_tensor, group=pg)
-                total_norms[group_name] = scaled_norm_tensor.item()
 
         timer("sync_grad").start()
         self._sync_grad()
@@ -719,19 +708,6 @@ class HybridZeroOptimizer(BaseOptimizer):
                 param_shape == flat_fp32_avg_grads.shape
             ), f"fp32 param and grad have different shape {param_shape} vs {flat_fp32_avg_grads.shape}"
 
-            # Parameters shared within a TP group, such as norm and moe gate, have precision inconsistency in gradients.
-            # Therefore, it is recommended to synchronize gradients within the TP group to eliminate accumulated errors.
-            # is_tp_sync_groups = (
-            #     self._is_norm_group(self.optim.param_groups[group_id]),
-            #     self._is_gate_group(self.optim.param_groups[group_id]),
-            # )
-            # if any(is_tp_sync_groups):
-            #     dist.all_reduce(
-            #         flat_fp32_avg_grads,
-            #         op=dist.ReduceOp.AVG,
-            #         group=gpc.get_group(ParallelMode.TENSOR),
-            #     )
-
             single_grad_partition_groups.append(flat_fp32_avg_grads)
             device = self._fp32_flat_param_groups_of_current_rank[group_id].device
             self._fp32_flat_param_groups_of_current_rank[group_id].grad = flat_fp32_avg_grads.to(device)
@@ -773,9 +749,6 @@ class HybridZeroOptimizer(BaseOptimizer):
         torch.cuda.synchronize()
         with torch.cuda.stream(self._comm_bcast_stream):
             self.broadcast_params()
-
-        if not self._overlap_sync_param:
-            torch.cuda.synchronize()
 
         timer("step").stop()
 

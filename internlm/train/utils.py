@@ -39,7 +39,7 @@ def split_params_into_different_groups_for_optimizer(param_groups: Tuple[Dict]) 
     # create new groups for fp32, norm, moe gate and moe expert
     new_groups = {}
     new_groups["fp32"] = {"name": "fp32", "params": [], "dp_mode": ParallelMode.DATA}
-    if gpc.config.model.get("num_experts", 0) > 1:
+    if gpc.config.model.get("num_experts", 1) > 1:
         for key in gpc.expert_parallel_group_names:
             new_groups[key] = {"name": key, "moe": True, "params": [], "dp_mode": ParallelMode.EXPERT_DATA}
 
