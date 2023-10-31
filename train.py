@@ -5,7 +5,7 @@ import socket
 import time
 import traceback
 from functools import partial
-from typing import List, Optional
+from typing import List
 
 import torch
 import torch.distributed as dist
@@ -70,9 +70,7 @@ def initialize_llm_logger(start_time: str):
     return uniscale_logger
 
 
-def get_scheduler_hooks(
-    metric: Optional[AccPerplex] = None, activation_checkpoint: bool = False
-) -> List[SchedulerHook]:
+def get_scheduler_hooks(metric, zero_optim) -> List[SchedulerHook]:
     scheduler_hooks: List[SchedulerHook] = []
 
     if metric is not None:
@@ -87,9 +85,8 @@ def get_scheduler_hooks(
                 ),
             ),
         )
-
-    if activation_checkpoint:
-        scheduler_hooks.append(FSTPOverlapSchedulerHook(gpc.fstp_handler))
+    if gpc.fstp_handler is not None:
+        scheduler_hooks.append(FSTPOverlapSchedulerHook(gpc.fstp_handler, zero_optim))
 
     return scheduler_hooks
 
@@ -112,7 +109,7 @@ def main(args):
         global_world_size=gpc.get_world_size(ParallelMode.GLOBAL),
         mlp_ratio=gpc.config.MLP_RATIO,
     )
-    
+
     get_tflops_func_2 = partial(
         get_megatron_flops_2,
         checkpoint=gpc.config.model.checkpoint,
@@ -196,7 +193,7 @@ def main(args):
         train_dataloader=train_dl,
         lr_scheduler=lr_scheduler,
         beta2_scheduler=beta2_scheduler,
-        scheduler_hooks=get_scheduler_hooks(metric, gpc.config.model.checkpoint),
+        scheduler_hooks=get_scheduler_hooks(metric, optimizer),
     )
 
     # initialize simple memory profiler
@@ -323,7 +320,7 @@ def main(args):
 
             if memory_profiler is not None:
                 memory_profiler.step()
-            
+
             if batch_count % 2 == 0:
                 prof.step()
 

@@ -328,13 +328,12 @@ class FSTPOverlapSchedulerHook(SchedulerHook):
     SchedulerHook for fstp overlap handler
     """
 
-    def __init__(self, overlap_handler: FSTPOverlapHandler) -> None:
-        super().__init__()
-
+    def __init__(self, overlap_handler: FSTPOverlapHandler, zero_optim) -> None:
         self._overlap_handler = overlap_handler
+        self._zero_optim = zero_optim
 
     def before_forward(self, scheduler, inputs) -> None:
-        if self._overlap_handler is not None:
+        if self._overlap_handler.model_checkpoint:
             self._overlap_handler.set_forward_mode(True)
 
     def after_forward(self, scheduler, outputs) -> None:
@@ -347,11 +346,11 @@ class FSTPOverlapSchedulerHook(SchedulerHook):
         pass
 
     def before_backward(self, scheduler, outputs, outputs_grad) -> None:
-        if self._overlap_handler is not None:
+        if self._overlap_handler.model_checkpoint:
             self._overlap_handler.set_forward_mode(False)
 
     def after_backward(self, scheduler, inputs_grad) -> None:
-        pass
+        self._zero_optim.accumulate_left_grads_after_backward()
 
     def post_helper_func(self, scheduler, outputs, label) -> None:
         pass
