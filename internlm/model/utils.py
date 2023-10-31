@@ -568,7 +568,7 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
                 total_x.reshape(batch_dim, total_x.shape[-1]), grad_output, ctx.needs_input_grad[2]
             )
             if world_size > 1:
-                if overlap_handler is not None:
+                if overlap_handler is not None and gpc.config.parallel["tensor"].get("reduce_scatter_overlap", False):
                     grad_weight_async, handle_grad_weight = reduce_scatter_raw_memory_pool(
                         grad_weight, process_group, async_op=True
                     )
@@ -621,7 +621,7 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
         del total_weight
 
         if ctx.needs_input_grad[1]:
-            if world_size > 1 and overlap_handler is None:
+            if world_size > 1 and not (overlap_handler is not None and gpc.config.parallel["tensor"].get("reduce_scatter_overlap", False)):
                 handle_grad_weight.wait()
                 if grad_bias is not None:
                     handle_grad_bias.wait()

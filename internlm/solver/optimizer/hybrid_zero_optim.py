@@ -133,6 +133,7 @@ class HybridZeroOptimizer(BaseOptimizer):
             self._fstp_handler = gpc.fstp_handler
         else:
             self._fstp_handler = None
+        self._reduce_scatter_overlap = gpc.config.parallel["tensor"].get("reduce_scatter_overlap", False)
 
         # iterate over the param group in the optimizer
         # partition these param groups for data parallel training
@@ -348,7 +349,7 @@ class HybridZeroOptimizer(BaseOptimizer):
 
                     # we should not only register for parameters which have _fstp_reduce_scatter_str attr.
                     # we must keep up with reduce_grad_hook.
-                    if self._fstp_handler is not None:
+                    if self._fstp_handler is not None and self._reduce_scatter_overlap is True:
                         accum_grad_obj.register_hook(accum_grad_hook)
 
                     if self._overlap_sync_grad:
@@ -357,7 +358,7 @@ class HybridZeroOptimizer(BaseOptimizer):
                 _define_and_attach(param, reduce_rank)
 
     def accumulate_left_grads_after_backward(self):
-        if self._fstp_handler is None:
+        if self._fstp_handler is None or self._reduce_scatter_overlap is False:
             return
 
         for group_id in range(self.num_param_groups):
