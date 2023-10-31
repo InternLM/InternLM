@@ -133,7 +133,6 @@ class HybridZeroOptimizer(BaseOptimizer):
             self._fstp_handler = gpc.fstp_handler
         else:
             self._fstp_handler = None
-        self._accum_grad_buckets: List[BucketStore] = []
 
         # iterate over the param group in the optimizer
         # partition these param groups for data parallel training
