@@ -315,7 +315,7 @@ class FSTPOverlapHandler:
         # 1. register post_backward_hook @head module to prefetch for the last block's last module
         # 2. register pre_backward_hook @fstp_module to wait handle for current module and to prefetch for next module
         # 3. register post_backward_hook @fstp_module to release resource
-        if self.model_checkpoint is False:
+        if not self.model_checkpoint:
             for head in self.head:
                 head.register_full_backward_hook(_post_backward_hook_for_head)
 
