@@ -51,7 +51,9 @@ Based on the InternLM training framework, we have released two open-sourced pret
 ## Model Zoo
 
 Our models are released in three platforms: Transformers, ModelScope and OpenXLab.  
-There are two kinds of model weights: one is of huggingface type, the other(which is only provided on OpenXLab) is our original model weight which can be loaded by this repo and finetune directly.
+- There are two kinds of model weights: 
+  1. huggingface type(marked as HF)
+  2. original model weight(marked as Original), providing in OpenXLab, which can be loaded by InternLM and finetuned directly.
 
 | Model | Transformers(HF) | ModelScope(HF) | OpenXLab(HF) | OpenXLab(Original) | Release Date |
 |---------------------------|------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------|
