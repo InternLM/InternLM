@@ -274,12 +274,6 @@ class HybridZeroOptimizer(BaseOptimizer):
     def _is_moe_group(self, param_group):
         return "moe" in param_group.keys() and param_group["moe"]
 
-    def _is_norm_group(self, param_group):
-        return "norm" in param_group.keys() and param_group["norm"]
-
-    def _is_gate_group(self, param_group):
-        return "gate" in param_group.keys() and param_group["gate"]
-
     # TODO check expert dp is correct when enable moe and overlap both
     def _attach_reduction_hook(self):
         # we iterate over the fp16 params
