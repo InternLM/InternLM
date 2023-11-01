@@ -293,10 +293,6 @@ def args_sanity_check():
             model._add_item("moe_use_residual", False)
         if "moe_gate_k" not in model:
             model._add_item("moe_gate_k", 2)
-        assert not (
-            gpc.config.model.num_experts > 1 and gpc.config.parallel.zero1.fsdp
-        ), "FSDP does not support num_experts > 1"
-
     # process the parallel config
     if "sequence_parallel" not in gpc.config.parallel:
         gpc.config.parallel._add_item("sequence_parallel", False)
@@ -345,11 +341,13 @@ def args_sanity_check():
         gpc.config.loss._add_item("moe_loss_coeff", 1.0)
 
     # moe not support overlap and zero1.5 for now
-    if hasattr(gpc.config.model, "num_experts"):
+    if gpc.config.model.get("num_experts", 1) > 1:
+        assert not gpc.config.parallel.zero1.fsdp, "FSDP does not support num_experts > 1"
         assert (
             not optim_ckpt.overlap_sync_grad & optim_ckpt.overlap_sync_param
         ), "not support overlap and moe at the same time"
         assert gpc.config.parallel.zero1.size == -1, "moe only support zero1, set zero1=dict(size=-1,...) can fix this"
+        assert not gpc.config.parallel.sequence_parallel, "moe not support sequence parallel for now"
 
 
 def launch(
@@ -413,7 +411,7 @@ def launch(
             f"data parallel size: {gpc.data_parallel_size}, pipeline parallel size: {gpc.pipeline_parallel_size}, "
             f"tensor parallel size: {gpc.tensor_parallel_size}",
         )
-        if hasattr(gpc.config.model, "num_experts") and gpc.config.model.num_experts > 1:
+        if gpc.config.model.get("num_experts", 1) > 1:
             logger.info(
                 f"Creating MoE with num_experts: {gpc.config.model.num_experts} | "
                 f"expert parallel size: {gpc.expert_parallel_size} | "

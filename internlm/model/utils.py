@@ -215,18 +215,6 @@ def is_moe_param(param: torch.Tensor) -> bool:
     return False
 
 
-def is_gate_param(param: torch.Tensor) -> bool:
-    if hasattr(param, "is_gate") and param.is_gate:
-        return True
-    return False
-
-
-def is_norm_param(param: torch.Tensor) -> bool:
-    if hasattr(param, "is_norm") and param.is_norm:
-        return True
-    return False
-
-
 def Silu(w1_o, w2_o):
     return F.silu(w1_o) * w2_o
 

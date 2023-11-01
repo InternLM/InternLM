@@ -262,7 +262,12 @@ def reduce_grads(gradients, parameters, fine_grained=False):
 
 
 def compute_norm(
-    gradients, parameters, last_stage=False, previous_norm=None, norm_type=2, zero_mode=ParallelMode.ZERO1
+    gradients,
+    parameters,
+    last_stage=False,
+    previous_norm=None,
+    norm_type=2,
+    zero_mode=ParallelMode.ZERO1,
 ):
     """Get the norm
     Arguments:
@@ -335,6 +340,15 @@ def compute_norm(
         if torch.is_tensor(total_norm):
             total_norm = total_norm.item()
 
+    # Need to allreduce(avg) the norms across different ranks because moe params will not be synced during allreduce
+    # model and zero have been reduced!!!
+    if zero_mode == ParallelMode.EXPERT_DATA:
+        pg = gpc.get_group(ParallelMode.EXPERT)
+        scaled_norm = total_norm * 1.0 / float(gpc.get_world_size(ParallelMode.DATA))
+        scaled_norm_tensor = torch.tensor(scaled_norm, device=get_current_device(), dtype=torch.float)
+        dist.all_reduce(scaled_norm_tensor, group=pg)
+        total_norm = scaled_norm_tensor.item()
+
     # Scale.
     if total_norm == float("inf") or total_norm == -float("inf"):
         total_norm = -1
@@ -353,7 +367,6 @@ def compute_param_metric(
     previous_param_metrics=None,
     norm_type=2,
     zero_mode=ParallelMode.ZERO1,
-    is_moe_group=False,
 ):
     """Get the metrics of params
     Argumemts:
@@ -424,7 +437,7 @@ def compute_param_metric(
                 total_metrics[param_name] += param_metric
 
     # moe
-    if is_moe_group:
+    if zero_mode == ParallelMode.EXPERT_DATA:
         pg = gpc.get_group(ParallelMode.EXPERT)
         total_metric_values = list(total_metrics.values())
         if isinstance(total_metric_values[0], torch.Tensor):
@@ -463,7 +476,6 @@ def compute_param_norm(
     previous_param_norms=None,
     norm_type=2,
     zero_mode=ParallelMode.ZERO1,
-    is_moe_group=False,
 ):
     """Get the norm of params
     Arguments:
@@ -484,7 +496,6 @@ def compute_param_norm(
         previous_param_metrics=previous_param_norms,
         norm_type=norm_type,
         zero_mode=zero_mode,
-        is_moe_group=is_moe_group,
     )
 
 
@@ -494,7 +505,6 @@ def compute_zero_grad_count(
     last_stage=False,
     previous_zero_grad_count=None,
     zero_mode=ParallelMode.ZERO1,
-    is_moe_group=False,
 ):
     """Get the count of zero gradient for each parameters
     Arguments:
@@ -512,7 +522,6 @@ def compute_zero_grad_count(
         last_stage=last_stage,
         previous_param_metrics=previous_zero_grad_count,
         zero_mode=zero_mode,
-        is_moe_group=is_moe_group,
     )
 
 
