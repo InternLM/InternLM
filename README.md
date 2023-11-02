@@ -22,7 +22,7 @@
 [🛠️Installation](./doc/en/install.md) |
 [📊Train Performance](./doc/en/train_performance.md) |
 [👀Model](#model-zoo) |
-[🤗HuggingFace](https://huggingface.co/internlm) |
+[🤗HuggingFace](https://huggingface.co/spaces/internlm/InternLM-Chat-7B) |
 [🆕Update News](./CHANGE_LOG.md) |
 [🤔Reporting Issues](https://github.com/InternLM/InternLM/issues/new)
 
@@ -173,6 +173,22 @@ Sure, here are three tips for effective time management:
 3. Minimize distractions: Try to eliminate any potential distractions when working on important tasks. Turn off notifications on your phone, close unnecessary tabs on your computer, and find a quiet place to work if possible.
 
 Remember, good time management skills take practice and patience. Start with small steps and gradually incorporate these habits into your daily routine.
+```
+
+The responses can be streamed using `stream_chat`:
+
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+model_path = "/mnt/petrelfs/share_data/xingshuhao/internlm-chat-7b/"
+model = AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True)
+tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+
+model = model.eval()
+length = 0
+for response, history in model.stream_chat(tokenizer, "你好", history=[]):
+    print(response[length:], flush=True, end="")
+    length = len(response)
 ```
 
 ### Import from ModelScope

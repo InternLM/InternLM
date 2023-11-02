@@ -22,7 +22,7 @@
 [🛠️安装教程](./doc/install.md) |
 [📊训练性能](./doc/train_performance.md) |
 [👀模型库](#model-zoo) |
-[🤗HuggingFace](https://huggingface.co/internlm) |
+[🤗HuggingFace](https://huggingface.co/spaces/internlm/InternLM-Chat-7B) |
 [🆕Update News](./CHANGE_LOG.md) |
 [🤔Reporting Issues](https://github.com/InternLM/InternLM/issues/new)
 
@@ -176,6 +176,22 @@ InternLM-7B 包含了一个拥有70亿参数的基础模型和一个为实际场
 1. 制定计划：制定一个详细的计划，包括每天要完成的任务和活动。这将有助于您更好地组织时间，并确保您能够按时完成任务。
 2. 优先级：将任务按照优先级排序，先完成最重要的任务。这将确保您能够在最短的时间内完成最重要的任务，从而节省时间。
 3. 集中注意力：避免分心，集中注意力完成任务。关闭社交媒体和电子邮件通知，专注于任务，这将帮助您更快地完成任务，并减少错误的可能性。
+```
+
+如果想进行流式生成，则可以使用 `stream_chat` 接口：
+
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+model_path = "/mnt/petrelfs/share_data/xingshuhao/internlm-chat-7b/"
+model = AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True)
+tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+
+model = model.eval()
+length = 0
+for response, history in model.stream_chat(tokenizer, "你好", history=[]):
+    print(response[length:], flush=True, end="")
+    length = len(response)
 ```
 
 ### 通过 ModelScope 加载 
