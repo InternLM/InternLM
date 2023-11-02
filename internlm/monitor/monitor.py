@@ -155,7 +155,11 @@ class MonitorManager(metaclass=SingletonMeta):
         format_trace = ""
         for line in filtered_trace:
             format_trace += "\n" + line
-        if self.send_exception:
+        if (
+            self.send_exception
+            and gpc.config.monitor.alert.get("enable_feishu_alert", False)
+            and gpc.config.monitor.alert.get("light_monitor_address", None)
+        ):
             self.send_exception(format_trace, gpc.get_global_rank())
         send_alert_message(
             address=alert_address,
@@ -169,7 +173,11 @@ class MonitorManager(metaclass=SingletonMeta):
             print("receive frame: ", frame)
             print("receive signal: ", sys_signal)
             message = f"Process received signal {signal} and exited."
-            if self.send_exception:
+            if (
+                self.send_exception
+                and gpc.config.monitor.alert.get("enable_feishu_alert", False)
+                and gpc.config.monitor.alert.get("light_monitor_address", None)
+            ):
                 self.send_exception(message, gpc.get_global_rank())
             send_alert_message(
                 address=alert_address,
