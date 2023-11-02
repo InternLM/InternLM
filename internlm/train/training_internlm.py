@@ -600,12 +600,12 @@ def record_current_batch_training_metrics(
             step_count=batch_count,
             cur_step_loss=loss.item(),
         )
+
         loss_list.append(loss.item())
         if batch_count >= 5:
             tgs_list.append(tgs_origin)
             tflops_list.append(tflops)
             tflops_list_2.append(tflops_2)
-            
         if batch_count == gpc.config.data.total_steps - 1:
             print(tgs_list, flush=True)
             avg_tgs = sum(tgs_list) / len(tgs_list)
@@ -627,5 +627,5 @@ def record_current_batch_training_metrics(
                 if abs(tf - avg_tflops_2) > 10:
                     tflops_list_2.remove(tf)
             print(f"avg_tflops_2: {sum(tflops_list_2)/len(tflops_list_2)}", flush=True)
-            
+
             print("loss: ", loss_list, flush=True)
