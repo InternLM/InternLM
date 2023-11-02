@@ -6,8 +6,7 @@ import re
 import tempfile
 
 import torch
-from modeling_internlm import InternLMConfig, InternLMForCausalLM
-from tokenization_internlm import InternLMTokenizer
+from internlm_model import InternLMConfig, InternLMForCausalLM,  InternLMTokenizer
 
 NUM_SHARDS = {
     "7B": 1,
