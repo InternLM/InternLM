@@ -158,7 +158,10 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
     Returns:
         A tuple of (optimizer, beta2_scheduler, lr_scheduler).
     """
-    if gpc.config.get("grad_norm_profiling", False) or gpc.config.get("zero_grad_profiling", False):
+    grad_profiling_config = gpc.config.get("grad_profiling", {})
+    if grad_profiling_config.get("grad_norm_profiling", False) or grad_profiling_config.get(
+        "zero_grad_profiling", False
+    ):
         # set the layer name as an attribute of the model parameters
         set_model_params_layer_name(model)
 
@@ -526,26 +529,42 @@ def record_current_batch_training_metrics(
         for key, value in acc_perplex.items():
             infos[key] = value
 
-        if gpc.config.get("grad_norm_profiling", False) or gpc.config.get("zero_grad_profiling", False):
+        grad_profiling_config = gpc.config.get("grad_profiling", {})
+        if grad_profiling_config.get("grad_norm_profiling", False) or grad_profiling_config.get(
+            "zero_grad_profiling", False
+        ):
             layer_metrics = ["layer_norm", "layer_zero_grad"]
             param_metrics = ["param_norm", "param_zero_grad"]
-
+            layer_names = grad_profiling_config.get("layers", [])
             for layer_metric_name in layer_metrics:
                 layer_metric = grad_norm.get(layer_metric_name, {})
                 if layer_metric:
-                    for group_name, value in layer_metric.items():
-                        if value:
+                    for group_name, layer_group in layer_metric.items():
+                        if layer_group:
                             title = f"{layer_metric_name}/{group_name}"
-                            writer.add_scalars(key=title, value=value, step=train_state.step_count)
+                            if layer_names:
+                                filter_layer_metrics = {}
+                                for layer_name, metric_value in layer_group.items():
+                                    if layer_name in layer_names:
+                                        filter_layer_metrics[layer_name] = metric_value
+                                writer.add_scalars(key=title, value=filter_layer_metrics, step=train_state.step_count)
+                            else:
+                                writer.add_scalars(key=title, value=layer_group, step=train_state.step_count)
                     del grad_norm[layer_metric_name]
 
             for param_metric_name in param_metrics:
                 param_metric = grad_norm.get(param_metric_name, {})
                 if param_metric:
                     for group_name, layer_group in param_metric.items():
-                        if layer_group:
-                            for param_name, param_group in layer_group.items():
-                                title = f"{param_name}/{group_name}_{param_metric_name}"
+                        for param_name, param_group in layer_group.items():
+                            title = f"{param_name}/{group_name}_{param_metric_name}"
+                            if layer_names:
+                                filter_param_group = {}
+                                for layer_name, metric_value in param_group.items():
+                                    if layer_name in layer_names:
+                                        filter_param_group[layer_name] = param_group[layer_name]
+                                writer.add_scalars(key=title, value=filter_param_group, step=train_state.step_count)
+                            else:
                                 writer.add_scalars(key=title, value=param_group, step=train_state.step_count)
                     del grad_norm[param_metric_name]
 

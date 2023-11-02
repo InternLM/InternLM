@@ -611,14 +611,15 @@ class HybridZeroOptimizer(BaseOptimizer):
             self._reduce_grads_stored_in_bucket(self._bucket_store[group_id], reduce_rank=None, last_bucket=True)
 
         # compute norm for gradients in the before bucket
+        grad_profiling_config = gpc.config.get("grad_profiling", {})
         groups_norms = []
         groups_param_norms = []
         group_param_zero_grad_count = []
         for group_id in range(self.num_param_groups):
             groups_norms.append(self._compute_norm_with_stage(group_id=group_id))
-            if gpc.config.get("grad_norm_profiling", False):
+            if grad_profiling_config.get("grad_norm_profiling", False):
                 groups_param_norms.append(self._compute_param_norm_stage(group_id=group_id))
-            if gpc.config.get("zero_grad_profiling", False):
+            if grad_profiling_config.get("zero_grad_profiling", False):
                 group_param_zero_grad_count.append(self._count_zero_grads_stage(group_id=group_id))
 
         # clear reduced grads
@@ -645,7 +646,7 @@ class HybridZeroOptimizer(BaseOptimizer):
                 last_stage=True,
                 previous_norm=groups_norms[group_id],
             )
-            if gpc.config.get("grad_norm_profiling", False):
+            if grad_profiling_config.get("grad_norm_profiling", False):
                 param_norms = self._compute_param_norm_stage(
                     group_id=group_id,
                     last_bucket=True,
@@ -655,7 +656,7 @@ class HybridZeroOptimizer(BaseOptimizer):
                 total_layer_norms[group_name], total_param_norms[group_name] = compute_layer_norm(
                     param_norms=param_norms, loss_scale=self.loss_scale.item()
                 )
-            if gpc.config.get("zero_grad_profiling", False):
+            if grad_profiling_config.get("zero_grad_profiling", False):
                 zero_grad_count = self._count_zero_grads_stage(
                     group_id=group_id,
                     last_bucket=True,
@@ -672,10 +673,10 @@ class HybridZeroOptimizer(BaseOptimizer):
         timer("sync_grad").stop()
 
         state, global_norms = self._step(closure=closure, norms=total_norms)
-        if gpc.config.get("grad_norm_profiling", False):
+        if grad_profiling_config.get("grad_norm_profiling", False):
             global_norms["layer_norm"] = total_layer_norms
             global_norms["param_norm"] = total_param_norms
-        if gpc.config.get("zero_grad_profiling", False):
+        if grad_profiling_config.get("zero_grad_profiling", False):
             global_norms["layer_zero_grad"] = total_layer_zero_grad_count
             global_norms["param_zero_grad"] = total_param_zero_grad_count
 
