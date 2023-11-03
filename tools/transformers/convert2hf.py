@@ -142,13 +142,13 @@ if __name__ == "__main__":
     parser.add_argument("--max_shard", type=str, default="10GB") # 转换后模型每个切片的大小
     args = parser.parse_args()
     dtype = getattr(torch, args.dtype)
+    print_args(args)
 
     def load(fp):
         with open(fp, "rb") as f:
             pt_data = torch.load(f, map_location="cpu")
         return pt_data
 
-    print_args(args)
     folder = args.src_folder
     target_folder = args.tgt_folder
     
