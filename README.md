@@ -175,6 +175,22 @@ Sure, here are three tips for effective time management:
 Remember, good time management skills take practice and patience. Start with small steps and gradually incorporate these habits into your daily routine.
 ```
 
+The responses can be streamed using `stream_chat`:
+
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+model_path = "/mnt/petrelfs/share_data/xingshuhao/internlm-chat-7b/"
+model = AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True)
+tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+
+model = model.eval()
+length = 0
+for response, history in model.stream_chat(tokenizer, "你好", history=[]):
+    print(response[length:], flush=True, end="")
+    length = len(response)
+```
+
 ### Import from ModelScope
 
 To load the InternLM model using ModelScope, use the following code:

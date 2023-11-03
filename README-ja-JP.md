@@ -103,6 +103,22 @@ Transformers を使用して InternLM 7B チャットモデルをロードする
 これらの提案を実践することで、時間管理のスキルを向上させ、効果的に日々のタスクをこなしていくことができます。
 ```
 
+ストリーミング生成を行いたい場合は、「stream_chat」関数を使用できます。
+
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+model_path = "/mnt/petrelfs/share_data/xingshuhao/internlm-chat-7b/"
+model = AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True)
+tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+
+model = model.eval()
+length = 0
+for response, history in model.stream_chat(tokenizer, "你好", history=[]):
+    print(response[length:], flush=True, end="")
+    length = len(response)
+```
+
 ### 対話
 
 以下のコードを実行することで、フロントエンドインターフェースを通して InternLM Chat 7B モデルと対話することができます:

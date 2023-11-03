@@ -178,6 +178,22 @@ InternLM-7B 包含了一个拥有70亿参数的基础模型和一个为实际场
 3. 集中注意力：避免分心，集中注意力完成任务。关闭社交媒体和电子邮件通知，专注于任务，这将帮助您更快地完成任务，并减少错误的可能性。
 ```
 
+如果想进行流式生成，则可以使用 `stream_chat` 接口：
+
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+model_path = "/mnt/petrelfs/share_data/xingshuhao/internlm-chat-7b/"
+model = AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True)
+tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+
+model = model.eval()
+length = 0
+for response, history in model.stream_chat(tokenizer, "你好", history=[]):
+    print(response[length:], flush=True, end="")
+    length = len(response)
+```
+
 ### 通过 ModelScope 加载 
 
 通过以下的代码从 ModelScope 加载 InternLM 模型 （可修改模型名称替换不同的模型）
