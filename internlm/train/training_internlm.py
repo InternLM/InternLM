@@ -533,8 +533,8 @@ def record_current_batch_training_metrics(
         if grad_profiling_config.get("grad_norm_profiling", False) or grad_profiling_config.get(
             "zero_grad_profiling", False
         ):
-            layer_metrics = ["layer_norm", "layer_zero_grad"]
-            param_metrics = ["param_norm", "param_zero_grad"]
+            layer_metrics = ["layer_grad_norm", "layer_zero_grad"]
+            param_metrics = ["param_grad_norm", "param_zero_grad"]
             layer_names = grad_profiling_config.get("layers", [])
             for layer_metric_name in layer_metrics:
                 layer_metric = grad_norm.get(layer_metric_name, {})
