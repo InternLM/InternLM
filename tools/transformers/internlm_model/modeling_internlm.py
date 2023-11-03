@@ -137,14 +137,7 @@ class InternLMRotaryEmbedding(torch.nn.Module):
 
 
 class InternLMDynamicNTKScalingRotaryEmbedding(torch.nn.Module):
-    """实现dynamic ntk rope；
-
-    需要保证：
-    1. 长度小于 seq len 时能够不断地复用；
-    2. 长度超过 seq len 时，每一个 新的token，都需要一个新的base；
-
-    Args:
-        InternLMRotaryEmbedding (_type_): _description_
+    """Implement dynamic ntk rope.
     """
 
     def __init__(self, dim, max_position_embeddings=2048, base=10000, device=None, scaling_factor=1.0):
