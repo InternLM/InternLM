@@ -22,7 +22,7 @@
 [🛠️安装教程](./doc/install.md) |
 [📊训练性能](./doc/train_performance.md) |
 [👀模型库](#model-zoo) |
-[🤗HuggingFace](https://huggingface.co/spaces/internlm/InternLM-Chat-7B) |
+[🤗HuggingFace](https://huggingface.co/internlm) |
 [🆕Update News](./CHANGE_LOG.md) |
 [🤔Reporting Issues](https://github.com/InternLM/InternLM/issues/new)
 
