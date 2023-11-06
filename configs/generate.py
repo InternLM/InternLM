@@ -39,6 +39,14 @@ for idx, root_name in enumerate(root_names):
                         
                     log_name = root_name + "_" + output_file_name[:-3]
                     
+                    skip = True
+                    
+                    if sp_mode == "intern" and intern_overlap[i] is True:
+                        skip = False
+                    
+                    if skip:
+                        continue
+                    
                     print(log_name)
                     command = f"srun -p llm_s -N 8 -n 64 --ntasks-per-node=8 --gpus-per-task=1 --time=30 python train.py --config {write_file} --profiling 2>&1 | tee ./fstp_logs/{log_name}.log"
                     process = subprocess.Popen(command, shell=True, executable='/bin/bash')

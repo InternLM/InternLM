@@ -627,6 +627,104 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
                     handle_grad_bias.wait()
         return grad_input, grad_weight, grad_bias, None, None, None, None, None, None
 
+class FSTPFusedDenseFuncTorch(FSTPFusedDenseFunc):
+    "FusedDenseFunc for FSTP, which is optimized based on flash implementation."
+    @staticmethod
+    @custom_bwd
+    def backward(ctx, grad_output, *args):
+        grad_output = grad_output.contiguous()
+        if ctx.return_residual:
+            (grad_input,) = args
+            grad_input = grad_input.contiguous()
+        process_group = ctx.process_group
+        overlap_handler = ctx.overlap_handler
+        module = ctx.module
+
+        if ctx.compute_weight_gradient:
+            x, weight, bias = ctx.saved_tensors
+            total_x = x
+        else:
+            weight, bias = ctx.saved_tensors
+            total_x = None
+        batch_shape = grad_output.shape[:-1]
+        batch_dim = batch_shape.numel()
+        grad_output = grad_output.reshape(batch_dim, grad_output.shape[-1])
+
+        world_size = gpc.get_world_size(ParallelMode.TENSOR)
+        if world_size > 1:
+            if overlap_handler is not None:
+                total_weight = gpc.fstp_handler.get_all_gather_memory(module=module)
+            else:
+                total_weight, handle_weight = all_gather_raw(weight, process_group, async_op=True)
+                handle_weight.wait()
+        else:
+            total_weight = weight
+
+        # compute weight grad
+        if ctx.needs_input_grad[1]:
+            assert ctx.compute_weight_gradient
+            grad_weight, grad_bias = linear_bias_wgrad_torch(
+                total_x.reshape(batch_dim, total_x.shape[-1]), grad_output, ctx.needs_input_grad[2]
+            )
+            if world_size > 1:
+                if overlap_handler is not None and gpc.config.parallel["tensor"].get("reduce_scatter_overlap", False):
+                    grad_weight_async, handle_grad_weight = reduce_scatter_raw_memory_pool(
+                        grad_weight, process_group, async_op=True
+                    )
+                    assert hasattr(weight, "_fstp_reduce_scatter_str")
+                    overlap_handler.reduce_scatter_handlers[weight._fstp_reduce_scatter_str] = (
+                        handle_grad_weight,
+                        grad_weight_async,
+                    )
+                    grad_weight = overlap_handler.get_zero_by_shape(
+                        (
+                            grad_weight.shape[0] // torch.distributed.get_world_size(process_group),
+                            *grad_weight.shape[1:],
+                        ),
+                        dtype=grad_weight.dtype,
+                        device=grad_weight.device,
+                    )
+                    if grad_bias is not None:
+                        grad_bias_async, handle_grad_bias = reduce_scatter_raw_memory_pool(
+                            grad_bias, process_group, async_op=True
+                        )
+                        assert hasattr(bias, "_fstp_reduce_scatter_str")
+                        overlap_handler.reduce_scatter_handlers[bias._fstp_reduce_scatter_str] = (
+                            handle_grad_bias,
+                            grad_bias_async,
+                        )
+                        grad_bias = overlap_handler.get_zero_by_shape(
+                            (
+                                grad_bias.shape[0] // torch.distributed.get_world_size(process_group),
+                                *grad_bias.shape[1:],
+                            ),
+                            dtype=grad_bias.dtype,
+                            device=grad_bias.device,
+                        )
+                else:
+                    grad_weight, handle_grad_weight = reduce_scatter_raw(grad_weight, process_group, async_op=True)
+                    if grad_bias is not None:
+                        grad_bias, handle_grad_bias = reduce_scatter_raw(grad_bias, process_group, async_op=True)
+        else:
+            grad_weight = None
+            grad_bias = grad_output if ctx.needs_input_grad[2] else None
+
+        if ctx.needs_input_grad[0]:
+            if not ctx.return_residual:
+                grad_input = F.linear(grad_output, total_weight.t())
+            else:
+                grad_input = torch.addmm(grad_input.reshape(batch_dim, grad_input.shape[-1]), grad_output, total_weight)
+            grad_input = grad_input.reshape(*batch_shape, grad_input.shape[-1])
+        else:
+            grad_input = None
+        del total_weight
+
+        if ctx.needs_input_grad[1]:
+            if world_size > 1 and not (overlap_handler is not None and gpc.config.parallel["tensor"].get("reduce_scatter_overlap", False)):
+                handle_grad_weight.wait()
+                if grad_bias is not None:
+                    handle_grad_bias.wait()
+        return grad_input, grad_weight, grad_bias, None, None, None, None, None, None
 
 def fused_dense_func_torch(
     x: Tensor,
@@ -683,9 +781,7 @@ def fstp_fused_dense_func(
     if x.is_cuda and weight.is_cuda and (bias is None or bias.is_cuda) and dtype_eligible:
         return FSTPFusedDenseFunc.apply(x, weight, bias, return_residual, process_group, module, handler)
     else:
-        assert process_group is None
-        out = F.linear(x, weight, bias)
-        return out if not return_residual else (out, x)
+        return FSTPFusedDenseFuncTorch.apply(x, weight, bias, return_residual, process_group, module, handler)
 
 
 def try_import_RMSNorm():

@@ -152,6 +152,8 @@ fstp_logs/
 configs/7B_train/*
 configs/13B_train/*
 configs/30B_train/*
+configs/test_loss/*
+loss_tensorboard/*
 
 atb
 pip
