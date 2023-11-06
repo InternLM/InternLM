@@ -133,7 +133,6 @@ class HybridZeroOptimizer(BaseOptimizer):
             self._fstp_handler = gpc.fstp_handler
         else:
             self._fstp_handler = None
-        self._reduce_scatter_overlap = gpc.config.parallel["tensor"].get("reduce_scatter_overlap", False)
 
         # iterate over the param group in the optimizer
         # partition these param groups for data parallel training
@@ -349,7 +348,7 @@ class HybridZeroOptimizer(BaseOptimizer):
 
                     # we should not only register for parameters which have _fstp_reduce_scatter_str attr.
                     # we must keep up with reduce_grad_hook.
-                    if self._fstp_handler is not None and self._reduce_scatter_overlap is True:
+                    if self._fstp_handler is not None:
                         accum_grad_obj.register_hook(accum_grad_hook)
 
                     if self._overlap_sync_grad:
@@ -358,7 +357,7 @@ class HybridZeroOptimizer(BaseOptimizer):
                 _define_and_attach(param, reduce_rank)
 
     def accumulate_left_grads_after_backward(self):
-        if self._fstp_handler is None or self._reduce_scatter_overlap is False:
+        if self._fstp_handler is None:
             return
 
         for group_id in range(self.num_param_groups):
@@ -644,6 +643,27 @@ class HybridZeroOptimizer(BaseOptimizer):
         """
         assert closure is None, "closure is not supported by step()"
 
+<<<<<<< HEAD
+=======
+        # do all-reduce for layernorm when sequence_parallel is True
+        if gpc.config.parallel.sequence_parallel is True:
+            for group_id in range(len(self._fp16_param_groups)):
+                norm_bucket = TensorBucket(size=0)
+                for param in self._fp16_param_groups[group_id]:
+                    if hasattr(param, IS_SEQUENCE_PARALLEL) and getattr(param, IS_SEQUENCE_PARALLEL) is True:
+                        norm_bucket.add_to_bucket(param.grad, allow_oversize=True)
+                if not norm_bucket.is_empty():
+                    norm_bucket.flatten()
+                    norm_bucket.commu_handle = reduce_tensor(
+                        tensor=norm_bucket.get_flat_tensor(),
+                        dtype=None,
+                        dst_rank=None,
+                        parallel_mode=ParallelMode.TENSOR,
+                    )
+                    norm_bucket.commu_handle.wait()
+                    norm_bucket.unflatten_and_copy()
+
+>>>>>>> c517ec5b8cdf9c675f97dcc615bfd39c2ffda010
         # if not overlapping communication (no reduction hook is attached)
         # we need to manually reduce these gradients
         if not self._overlap_sync_grad:

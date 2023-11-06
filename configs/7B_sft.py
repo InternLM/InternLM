@@ -163,7 +163,7 @@ pipeline parallel (dict):
 """
 parallel = dict(
     zero1=dict(size=-1, fsdp=False),
-    tensor=dict(size=4, sp="intern", intern_overlap=True, reduce_scatter_overlap=True),
+    tensor=dict(size=4, sp="intern", intern_overlap=True),
     pipeline=dict(size=1, interleaved_overlap=True),
 )
 
