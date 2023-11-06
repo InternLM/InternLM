@@ -183,7 +183,7 @@ InternLM-7B 包含了一个拥有70亿参数的基础模型和一个为实际场
 ```python
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-model_path = "/mnt/petrelfs/share_data/xingshuhao/internlm-chat-7b/"
+model_path = "internlm/internlm-chat-7b"
 model = AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True)
 tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
 
