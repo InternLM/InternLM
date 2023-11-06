@@ -108,7 +108,7 @@ Transformers を使用して InternLM 7B チャットモデルをロードする
 ```python
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-model_path = "/mnt/petrelfs/share_data/xingshuhao/internlm-chat-7b/"
+model_path = "internlm/internlm-chat-7b"
 model = AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True)
 tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
 
