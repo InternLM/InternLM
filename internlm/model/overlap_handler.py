@@ -73,11 +73,10 @@ class FSTPOverlapHandler:
 
                                         setattr(child, "_fstp_name", name)
 
-                                        if gpc.config.parallel["tensor"].get("reduce_scatter_overlap", False):
-                                            _full_name = f"{_chunk_name}.{idx}.{_sub_name}.{name}"
-                                            setattr(child.weight, "_fstp_reduce_scatter_str", f"{_full_name}.weight")
-                                            if child.bias is not None:
-                                                setattr(child.bias, "_fstp_reduce_scatter_str", f"{_full_name}.bias")
+                                        _full_name = f"{_chunk_name}.{idx}.{_sub_name}.{name}"
+                                        setattr(child.weight, "_fstp_reduce_scatter_str", f"{_full_name}.weight")
+                                        if child.bias is not None:
+                                            setattr(child.bias, "_fstp_reduce_scatter_str", f"{_full_name}.bias")
 
         self.num_blocks = len(self.index_to_fstp_modules)
 
