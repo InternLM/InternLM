@@ -6,7 +6,8 @@ import re
 import tempfile
 
 import torch
-from internlm_model import InternLMConfig, InternLMForCausalLM,  InternLMTokenizer
+from internlm_model import InternLMConfig, InternLMForCausalLM
+from internlm_model import InternLMTokenizer
 
 NUM_SHARDS = {
     "7B": 1,
@@ -123,12 +124,25 @@ def merge_pp(states_tp_pp):
     return full_states
 
 
+def print_args(args):
+    print("-------------- Arguments --------------")
+    print(f"Source Path: {args.src_folder}")
+    print(f"Target Path: {args.tgt_folder}")
+    print(f"Dtype: {args.dtype}")
+    print(f"Max Shard Size: {args.max_shard}")
+    print(f"Tokenizer Path: {args.tokenizer}")
+    print("---------------------------------------")
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--src_folder', type=str, default='~/test/') # 需要转换为hf格式的checkpoint文件夹
     parser.add_argument('--tgt_folder', type=str, default='~/output/') # 存放转换后checkpoint的目标文件夹
     parser.add_argument('--tokenizer', type=str, default='~/test/tokenizer.model') # Tokenizer 文件的路径
+    parser.add_argument("--dtype", type=str, default="float16") # 转换后模型的 dtype
+    parser.add_argument("--max_shard", type=str, default="10GB") # 转换后模型每个切片的大小
     args = parser.parse_args()
+    dtype = getattr(torch, args.dtype)
+    print_args(args)
 
     def load(fp):
         with open(fp, "rb") as f:
@@ -137,6 +151,10 @@ if __name__ == "__main__":
 
     folder = args.src_folder
     target_folder = args.tgt_folder
+    
+    tokenizer = InternLMTokenizer(args.tokenizer)
+    tokenizer.save_pretrained(target_folder)
+
     model_config = load(os.path.join(folder, "model_config.pt"))
 
     fns = list(os.listdir(folder))
@@ -160,15 +178,15 @@ if __name__ == "__main__":
         states_tp_pps[0].append(states)
 
     config, model = convert2hf(model_config, states_tp_pps)
+    model.config.bos_token_id = tokenizer.bos_token_id
+    model.config.eos_token_id = tokenizer.eos_token_id
+    model.config.pad_token_id = tokenizer.pad_token_id
 
     os.makedirs(target_folder, exist_ok=True)
-    model.save_pretrained(target_folder, max_shard_size="20GB")
+    model.save_pretrained(target_folder, max_shard_size=args.max_shard, torch_dtype=dtype)
     # TODO There should be a better way to add this.
     with open(os.path.join(target_folder, "config.json")) as fp:
         config_dict = json.load(fp)
     config_dict["auto_map"]["AutoModel"] = "modeling_internlm.InternLMForCausalLM"
     with open(os.path.join(target_folder, "config.json"), "w") as fp:
         json.dump(config_dict, fp, indent=2)
-
-    tokenizer = InternLMTokenizer(args.tokenizer)
-    tokenizer.save_pretrained(target_folder)
