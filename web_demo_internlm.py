@@ -1,22 +1,59 @@
 """
-This script refers to the dialogue example of streamlit, the interactive generation code of chatglm2 and transformers.
-We mainly modified part of the code logic to adapt to the generation of our model.
-Please refer to these links below for more information:
-    1. streamlit chat example: https://docs.streamlit.io/knowledge-base/tutorials/build-conversational-apps
-    2. chatglm2: https://github.com/THUDM/ChatGLM2-6B
-    3. transformers: https://github.com/huggingface/transformers
+Directly load models in internlm format for interactive dialogue.
 """
-
-from dataclasses import asdict
+import logging
 
 import streamlit as st
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from transformers.utils import logging
+from sentencepiece import SentencePieceProcessor
 
-from tools.transformers.interface import GenerationConfig, generate_interactive
+from tools.load_internlm_model import (
+    initialize_internlm_model,
+    internlm_interactive_generation,
+)
+from tools.transformers.interface import GenerationConfig
 
-logger = logging.get_logger(__name__)
+logger = logging.getLogger(__file__)
+
+
+MODEL_CONFIG_MAP = {
+    "internlm-chat-7b": dict(
+        checkpoint=False,
+        num_attention_heads=32,
+        embed_split_hidden=True,
+        vocab_size=103168,
+        embed_grad_scale=1,
+        parallel_output=False,
+        hidden_size=4096,
+        num_layers=32,
+        mlp_ratio=8 / 3,
+        apply_post_layer_norm=False,
+        dtype="torch.bfloat16",
+        norm_type="rmsnorm",
+        layer_norm_epsilon=1e-5,
+        use_flash_attn=True,
+        num_chunks=1,
+        use_dynamic_ntk_rope=True,
+    ),
+    "internlm-chat-7b-v1.1": dict(
+        checkpoint=False,
+        num_attention_heads=32,
+        embed_split_hidden=True,
+        vocab_size=103168,
+        embed_grad_scale=1,
+        parallel_output=False,
+        hidden_size=4096,
+        num_layers=32,
+        mlp_ratio=8 / 3,
+        apply_post_layer_norm=False,
+        dtype="torch.bfloat16",
+        norm_type="rmsnorm",
+        layer_norm_epsilon=1e-5,
+        use_flash_attn=True,
+        num_chunks=1,
+        use_dynamic_ntk_rope=True,
+    ),
+}
 
 
 def on_btn_click():
@@ -25,18 +62,20 @@ def on_btn_click():
 
 @st.cache_resource
 def load_model():
-    model = (
-        AutoModelForCausalLM.from_pretrained("internlm/internlm-chat-7b-v1_1", trust_remote_code=True)
-        .to(torch.bfloat16)
-        .cuda()
+    model = initialize_internlm_model(
+        model_type="INTERNLM",
+        ckpt_dir="[Please replace this with the directory where the internlm model weights are stored]",
+        # Please change the model here to other models supported by internlm according to your own usage needs.
+        model_config=MODEL_CONFIG_MAP["internlm-chat-7b-v1.1"],
+        del_model_prefix=True,
     )
-    tokenizer = AutoTokenizer.from_pretrained("internlm/internlm-chat-7b-v1_1", trust_remote_code=True)
+    tokenizer = SentencePieceProcessor("tools/V7_sft.model")  # pylint: disable=E1121
     return model, tokenizer
 
 
 def prepare_generation_config():
     with st.sidebar:
-        max_length = st.slider("Max Length", min_value=32, max_value=2048, value=2048)
+        max_length = st.slider("Max Length", min_value=32, max_value=16000, value=8000)
         top_p = st.slider("Top P", 0.0, 1.0, 0.8, step=0.01)
         temperature = st.slider("Temperature", 0.0, 1.0, 0.7, step=0.01)
         st.button("Clear Chat History", on_click=on_btn_click)
@@ -71,6 +110,7 @@ def combine_history(prompt):
             raise RuntimeError
         total_prompt += cur_prompt
     total_prompt = system_meta_instruction + total_prompt + cur_query_prompt.replace("{user}", prompt)
+    print(total_prompt)
     return total_prompt
 
 
@@ -107,12 +147,12 @@ def main():
 
         with st.chat_message("robot", avatar=robot_avator):
             message_placeholder = st.empty()
-            for cur_response in generate_interactive(
+            for cur_response in internlm_interactive_generation(
                 model=model,
                 tokenizer=tokenizer,
                 prompt=real_prompt,
-                additional_eos_token_id=103028,
-                **asdict(generation_config),
+                generation_config=generation_config,
+                additional_eos_token_list=[103028],
             ):
                 # Display robot response in chat message container
                 message_placeholder.markdown(cur_response + "▌")
