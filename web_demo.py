@@ -53,9 +53,9 @@ system_meta_instruction = (
 - InternLM (书生·浦语) can understand and communicate fluently in the language chosen by the user such as English and 中文.
 """
 )
-user_prompt = "<|User|>:{user}<eoh>\n"
+user_prompt = "<|User|>:{user}\n"
 robot_prompt = "<|Bot|>:{robot}<eoa>\n"
-cur_query_prompt = "<|User|>:{user}<eoh>\n<|Bot|>:"
+cur_query_prompt = "<|User|>:{user}\n<|Bot|>:"
 
 
 def combine_history(prompt):
