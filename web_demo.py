@@ -36,9 +36,9 @@ def load_model():
 
 def prepare_generation_config():
     with st.sidebar:
-        max_length = st.slider("Max Length", min_value=32, max_value=2048, value=2048)
+        max_length = st.slider("Max Length", min_value=32, max_value=16000, value=8000)
         top_p = st.slider("Top P", 0.0, 1.0, 0.8, step=0.01)
-        temperature = st.slider("Temperature", 0.0, 1.0, 0.7, step=0.01)
+        temperature = st.slider("Temperature", 0.0, 1.0, 0.8, step=0.01)
         st.button("Clear Chat History", on_click=on_btn_click)
 
     generation_config = GenerationConfig(max_length=max_length, top_p=top_p, temperature=temperature)
