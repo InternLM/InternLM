@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 from internlm.core.context import global_context as gpc
 from internlm.data.single_dataset import JsonlDataset
-from internlm.data.utils import get_dataset_type_id
+from internlm.data.utils import get_dataset_type_id, get_dataset_type_ids_map
 from internlm.utils.logger import get_logger
 
 DEFAULT_SEED = 1024
@@ -373,6 +373,8 @@ def get_packed_dataset_without_short_length(
     datasets = []
     delete_samples = 0
 
+    DATASET_TYPE_IDS_MAP = get_dataset_type_ids_map(folder)
+
     if gpc.get_global_rank() == 0:
         triples = [list(os.walk(folder, followlinks=True))]
     else:
@@ -400,7 +402,7 @@ def get_packed_dataset_without_short_length(
                         len(catch_ml_keys) < 2
                     ), f"The file name `{fp}` matched the following resample keys:{catch_ml_keys}"
 
-                ds_type_id = get_dataset_type_id(path=fp)
+                ds_type_id = get_dataset_type_id(DATASET_TYPE_IDS_MAP, path=fp)
                 ds = JsonlDataset(fp, ds_type_id, min_length=min_length_num)
 
                 if hasattr(ds, "old_length"):
