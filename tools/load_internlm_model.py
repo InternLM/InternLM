@@ -169,8 +169,8 @@ def initialize_internlm_model(
         init_storage_manager(False, None, None)
     except AssertionError:
         pass
-    except Exception:
-        raise Exception
+    except Exception as e:
+        raise e
 
     model_config["dtype"] = param_dtype
     model_config["parallel_output"] = False
