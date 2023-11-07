@@ -9,6 +9,7 @@ from typing import Dict
 
 import numpy as np
 import torch
+import torch.distributed as dist
 from torch.utils.data import ConcatDataset
 from tqdm import tqdm
 
@@ -372,7 +373,14 @@ def get_packed_dataset_without_short_length(
     datasets = []
     delete_samples = 0
 
-    for root, dirs, files in os.walk(folder, followlinks=True):
+    if gpc.get_global_rank() == 0:
+        triples = [list(os.walk(folder, followlinks=True))]
+    else:
+        triples = [None]
+    dist.broadcast_object_list(triples, src=0)
+    triples = triples[0]
+
+    for root, dirs, files in triples:
         dirs.sort()  # Let the folder need to be returned in a fixed order
         if gpc.is_rank_for_log():
             logger.info(f"Reading {root}...")
