@@ -157,22 +157,25 @@ We conducted a comprehensive evaluation of InternLM using the open-source evalua
 To load the InternLM 7B Chat model using Transformers, use the following code:
 
 ```python
->>> from transformers import AutoTokenizer, AutoModelForCausalLM
->>> tokenizer = AutoTokenizer.from_pretrained("internlm/internlm-chat-7b-v1_1", trust_remote_code=True)
->>> model = AutoModelForCausalLM.from_pretrained("internlm/internlm-chat-7b-v1_1", trust_remote_code=True).cuda()
->>> model = model.eval()
->>> response, history = model.chat(tokenizer, "hello", history=[])
->>> print(response)
-Hello! How can I help you today?
->>> response, history = model.chat(tokenizer, "please provide three suggestions about time management", history=history)
->>> print(response)
-Sure, here are three tips for effective time management:
+import
+from transformers import AutoTokenizer, AutoModelForCausalLM
+tokenizer = AutoTokenizer.from_pretrained("internlm/internlm-chat-7b-v1_1", trust_remote_code=True)
+# Set `torch_dtype=torch.float16` to load model in float16, otherwise it will be loaded as float32 and might cause OOM Error.
+model = AutoModelForCausalLM.from_pretrained("internlm/internlm-chat-7b-v1_1", torch_dtype=torch.float16, trust_remote_code=True).cuda()
+model = model.eval()
+response, history = model.chat(tokenizer, "hello", history=[])
+print(response)
+# Hello! How can I help you today?
 
-1. Prioritize tasks based on importance and urgency: Make a list of all your tasks and categorize them into "important and urgent," "important but not urgent," and "not important but urgent." Focus on completing the tasks in the first category before moving on to the others.
-2. Use a calendar or planner: Write down deadlines and appointments in a calendar or planner so you don't forget them. This will also help you schedule your time more effectively and avoid overbooking yourself.
-3. Minimize distractions: Try to eliminate any potential distractions when working on important tasks. Turn off notifications on your phone, close unnecessary tabs on your computer, and find a quiet place to work if possible.
-
-Remember, good time management skills take practice and patience. Start with small steps and gradually incorporate these habits into your daily routine.
+response, history = model.chat(tokenizer, "please provide three suggestions about time management", history=history)
+print(response)
+# Sure, here are three tips for effective time management:
+#
+# 1. Prioritize tasks based on importance and urgency: Make a list of all your tasks and categorize them into "important and urgent," "important but not urgent," and "not important but urgent." Focus on completing the tasks in the first category before moving on to the others.
+# 2. Use a calendar or planner: Write down deadlines and appointments in a calendar or planner so you don't forget them. This will also help you schedule your time more effectively and avoid overbooking yourself.
+# 3. Minimize distractions: Try to eliminate any potential distractions when working on important tasks. Turn off notifications on your phone, close unnecessary tabs on your computer, and find a quiet place to work if possible.
+#
+# Remember, good time management skills take practice and patience. Start with small steps and gradually incorporate these habits into your daily routine.
 ```
 
 The responses can be streamed using `stream_chat`:
@@ -181,7 +184,7 @@ The responses can be streamed using `stream_chat`:
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 model_path = "internlm/internlm-chat-7b"
-model = AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True)
+model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=torch.float16, trust_remote_code=True)
 tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
 
 model = model.eval()
@@ -198,9 +201,9 @@ To load the InternLM model using ModelScope, use the following code:
 ```python
 from modelscope import snapshot_download, AutoTokenizer, AutoModelForCausalLM
 import torch
-model_dir = snapshot_download('Shanghai_AI_Laboratory/internlm-chat-7b-v1_1', revision='v1.0.0')
-tokenizer = AutoTokenizer.from_pretrained(model_dir, device_map="auto", trust_remote_code=True,torch_dtype=torch.float16)
-model = AutoModelForCausalLM.from_pretrained(model_dir,device_map="auto",  trust_remote_code=True,torch_dtype=torch.float16)
+model_dir = snapshot_download('Shanghai_AI_Laboratory/internlm-chat-7b-v1_1', revision='v1.0.2')
+tokenizer = AutoTokenizer.from_pretrained(model_dir, device_map="auto", trust_remote_code=True)
+model = AutoModelForCausalLM.from_pretrained(model_dir,device_map="auto",  trust_remote_code=True, torch_dtype=torch.float16)
 model = model.eval()
 response, history = model.chat(tokenizer, "hello", history=[])
 print(response)
