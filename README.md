@@ -157,7 +157,7 @@ We conducted a comprehensive evaluation of InternLM using the open-source evalua
 To load the InternLM 7B Chat model using Transformers, use the following code:
 
 ```python
-import
+import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 tokenizer = AutoTokenizer.from_pretrained("internlm/internlm-chat-7b-v1_1", trust_remote_code=True)
 # Set `torch_dtype=torch.float16` to load model in float16, otherwise it will be loaded as float32 and might cause OOM Error.
