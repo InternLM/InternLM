@@ -26,7 +26,7 @@ class AccPerplex:
         self.device = device
         self.right = torch.Tensor([0]).to(device=device)
         self.total = torch.Tensor([0]).to(device=device)
-        self.total_log_probs = torch.Tensor([0]).to(device=device)
+        self.total_log_probs = torch.Tensor([0]).to(device=device, dtype=torch.float)
         self.tp_pg = tp_pg
         self.dp_pg = dp_pg
         self.tp_local_rank = torch.distributed.get_rank(self.tp_pg)
@@ -127,6 +127,9 @@ class AccPerplex:
             predicted_logits[target_mask] = 0.0
             # All reduce is needed to get the chunks from other GPUs.
             torch.distributed.all_reduce(predicted_logits, op=torch.distributed.ReduceOp.SUM, group=self.tp_pg)
+
+            predicted_logits = predicted_logits.to(dtype=torch.float)
+            shift_logits = shift_logits.to(dtype=torch.float)
 
             pred_exp_logits = torch.exp(predicted_logits)
             # Sum of exponential of logits along vocab dimension across all GPUs.
