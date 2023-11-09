@@ -163,9 +163,9 @@ class SequenceGenerator:
         length_penalty: float = 1.0,
     ):
         if not do_sample:
-            temperature = (1,)
-            top_k = (50,)
-            top_p = (1,)
+            temperature = 1
+            top_k = 50
+            top_p = 1
         yield from _streaming_no_beam_search_generate(
             self.decoder,
             tokens=tokens,
