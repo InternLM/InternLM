@@ -49,4 +49,4 @@ jobs:
       run: |
         source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
         export PYTHONPATH=$PWD:$PYTHONPATH
-        srun -p ${SLURM_PARTITION} --job-name=internlm-acc-test-${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 8 --ntasks-per-node=8 --gpus-per-task=1  python ./train.py --config ./tests/test_training/7B_check_acc.py
+        srun -p ${SLURM_PARTITION} --job-name=internlm-acc-test-${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 8 --ntasks-per-node=8 --gpus-per-task=1  python ./tests/test_training/train_CI.py --config ./tests/test_training/7B_check_acc.py
