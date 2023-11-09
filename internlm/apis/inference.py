@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
+from typing import List, Tuple
+
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -66,11 +68,21 @@ class SequenceGenerator:
     Sequence Generator.
     """
 
-    def __init__(self, decoder, eos_token_id, pad_token_id, bos_token_id):
+    def __init__(
+        self,
+        decoder,
+        eos_token_id,
+        pad_token_id,
+        bos_token_id,
+        additional_eos_token_list=None,
+        add_eos_when_return=False,
+    ):
         self.decoder = decoder
         self.eos_token_id = eos_token_id
         self.pad_token_id = pad_token_id
         self.bos_token_id = bos_token_id
+        self.additional_eos_token_list = additional_eos_token_list
+        self.add_eos_when_return = add_eos_when_return
 
     @torch.no_grad()
     def generate(
@@ -114,6 +126,8 @@ class SequenceGenerator:
                 top_k=top_k,
                 top_p=top_p,
                 eos_token_id=self.eos_token_id,  # the ending token id
+                additional_eos_token_list=self.additional_eos_token_list,
+                add_eos_when_return=self.add_eos_when_return,
                 pad_token_id=self.pad_token_id,
                 repetition_penalty=repetition_penalty,  # the penalty degree for repetition tokens
                 length_penalty=length_penalty,  # the penalty for length. if it > 1, then encourages long sequence.
@@ -128,11 +142,46 @@ class SequenceGenerator:
                 num_beams=num_beams,
                 num_return_sequences=num_return_sequences,
                 eos_token_id=self.eos_token_id,
+                additional_eos_token_list=self.additional_eos_token_list,
+                add_eos_when_return=self.add_eos_when_return,
                 pad_token_id=self.pad_token_id,
                 repetition_penalty=repetition_penalty,
                 length_penalty=length_penalty,
                 bos_token_id=self.bos_token_id,
             )
+
+    @torch.no_grad()
+    def streaming_generate(
+        self,
+        tokens: "torch.LongTensor" = None,
+        max_length: int = 20,
+        do_sample: bool = True,
+        temperature: float = 1.0,
+        top_k: int = 50,
+        top_p: float = 1.0,
+        repetition_penalty: float = 1,
+        length_penalty: float = 1.0,
+    ):
+        if not do_sample:
+            temperature = 1
+            top_k = 50
+            top_p = 1
+        yield from _streaming_no_beam_search_generate(
+            self.decoder,
+            tokens=tokens,
+            max_length=max_length,
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p,
+            eos_token_id=self.eos_token_id,
+            additional_eos_token_list=self.additional_eos_token_list,
+            add_eos_when_return=self.add_eos_when_return,
+            do_sample=do_sample,
+            repetition_penalty=repetition_penalty,
+            length_penalty=length_penalty,
+            pad_token_id=self.pad_token_id,
+            bos_token_id=self.bos_token_id,
+        )
 
 
 @torch.no_grad()
@@ -143,13 +192,12 @@ def greedy_generate(
     num_beams=1,
     num_return_sequences=1,
     eos_token_id=None,
+    additional_eos_token_list=None,
+    add_eos_when_return=False,
     pad_token_id=0,
     repetition_penalty=1,
     length_penalty=1.0,
     bos_token_id=1,
-    feat_mask=None,
-    ffn_mask=None,
-    layer_mask=None,
 ):
     """
     Search sequence greedily.
@@ -174,14 +222,13 @@ def greedy_generate(
             top_k=50,
             top_p=1,
             eos_token_id=eos_token_id,
+            additional_eos_token_list=additional_eos_token_list,
+            add_eos_when_return=add_eos_when_return,
             do_sample=False,
             repetition_penalty=repetition_penalty,
             length_penalty=length_penalty,
             pad_token_id=pad_token_id,
             bos_token_id=bos_token_id,
-            feat_mask=feat_mask,
-            ffn_mask=ffn_mask,
-            layer_mask=layer_mask,
         )
     else:
         token_ids = _beam_search_generate(
@@ -194,14 +241,13 @@ def greedy_generate(
             top_k=50,
             top_p=1,
             eos_token_id=eos_token_id,
+            additional_eos_token_list=additional_eos_token_list,
+            add_eos_when_return=add_eos_when_return,
             do_sample=False,
             repetition_penalty=repetition_penalty,
             length_penalty=length_penalty,
             pad_token_id=pad_token_id,
             bos_token_id=bos_token_id,
-            feat_mask=feat_mask,
-            ffn_mask=ffn_mask,
-            layer_mask=layer_mask,
         )
 
     return token_ids
@@ -218,6 +264,8 @@ def sample_generate(
     top_k=50,
     top_p=1.0,
     eos_token_id=None,
+    additional_eos_token_list=None,
+    add_eos_when_return=False,
     pad_token_id=0,
     repetition_penalty=1.0,
     length_penalty=1.0,
@@ -250,6 +298,8 @@ def sample_generate(
             top_k=top_k,
             top_p=top_p,
             eos_token_id=eos_token_id,
+            additional_eos_token_list=additional_eos_token_list,
+            add_eos_when_return=add_eos_when_return,
             do_sample=True,
             repetition_penalty=repetition_penalty,
             length_penalty=length_penalty,
@@ -267,6 +317,8 @@ def sample_generate(
             top_k=top_k,
             top_p=top_p,
             eos_token_id=eos_token_id,
+            additional_eos_token_list=additional_eos_token_list,
+            add_eos_when_return=add_eos_when_return,
             do_sample=True,
             repetition_penalty=repetition_penalty,
             length_penalty=length_penalty,
@@ -277,7 +329,7 @@ def sample_generate(
 
 
 @torch.no_grad()
-def _no_beam_search_generate(
+def _streaming_no_beam_search_generate(
     decoder,
     tokens,
     inference_params=None,
@@ -286,21 +338,23 @@ def _no_beam_search_generate(
     top_k=50,
     top_p=1.0,
     eos_token_id=None,
+    additional_eos_token_list=None,
+    add_eos_when_return=False,
     do_sample=True,
     repetition_penalty=1.0,
     length_penalty=1.0,
     pad_token_id=0,
     bos_token_id=1,
-    feat_mask=None,
-    ffn_mask=None,
-    layer_mask=None,
 ):
-    # delete num_return_sequences=1 for lint check;
     batch_size = tokens.size(0)
-    if eos_token_id is None:
-        _eos_token_id = -1
-    else:
-        _eos_token_id = eos_token_id
+    if eos_token_id is not None:
+        if not isinstance(eos_token_id, (List, Tuple)):
+            eos_token_id = [eos_token_id]
+        if additional_eos_token_list is not None:
+            if not isinstance(additional_eos_token_list, (List, Tuple)):
+                additional_eos_token_list = [additional_eos_token_list]
+            eos_token_id.extend(additional_eos_token_list)
+        eos_token_id = torch.LongTensor(eos_token_id).to(tokens.device)
 
     has_bos = torch.all(tokens[:, 0].eq(bos_token_id))
     if has_bos:
@@ -309,12 +363,10 @@ def _no_beam_search_generate(
         bos_pos = torch.where(bos_sum.eq(bos_sum[:, -1:]), 0, 1)
         to_atten_x = bos_pos[:, :, None]
         to_atten_y = bos_pos[:, None, :]
-        # attention_mask = torch.einsum('bno,bom->bnm', to_atten_x, to_atten_y).eq(1)
     else:
         bos_pos = torch.where(tokens.eq(bos_token_id), 1, 0)
         to_atten_x = bos_pos[:, :, None]
         to_atten_y = bos_pos[:, None, :]
-        # attention_mask = torch.einsum('bno,bom->bnm', to_atten_x, to_atten_y).eq(1)
     attention_mask = torch.logical_or(to_atten_x, to_atten_y).eq(1)
     if inference_params is None:
         inference_params = InferenceParams(
@@ -327,40 +379,165 @@ def _no_beam_search_generate(
             attention_mask=attention_mask,
         )
 
-    if layer_mask is None:
-        if feat_mask is None and ffn_mask is None:
-            scores = decoder(**{"input_ids": tokens, "inference_params": inference_params})
-        else:
-            scores = decoder(
-                **{
-                    "input_ids": tokens,
-                    "inference_params": inference_params,
-                    "feat_mask": feat_mask,
-                    "ffn_mask": ffn_mask,
-                }
-            )
-    else:
-        scores = decoder(
-            **{
-                "input_ids": tokens,
-                "inference_params": inference_params,
-                "feat_mask": feat_mask,
-                "ffn_mask": ffn_mask,
-                "layer_mask": layer_mask,
-            }
-        )
+    scores = decoder(**{"input_ids": tokens, "inference_params": inference_params})
 
     if isinstance(scores, (list, tuple)):
         scores = scores[0]
     scores = scores[:, -1].float()
     inference_params.sequence_len_offset += tokens.size(1)
-    if _eos_token_id != -1:
-        scores[:, _eos_token_id] = -1e12
+    if eos_token_id is not None:
+        scores[:, eos_token_id] = -1e12
+
+    # The first token generated.
+    next_tokens = scores.argmax(dim=-1, keepdim=True)
+    token_ids = torch.cat([tokens, next_tokens], dim=1)
+    yield token_ids
+
+    cur_len = token_ids.size(1)
+    dones = token_ids.new_zeros(batch_size).eq(1)
+
+    real_max_length = max_length
+    max_lengths = tokens.new_full((tokens.size(0),), fill_value=max_length, dtype=torch.long)
+
+    while cur_len < real_max_length:
+        # batch_size x vocab_size
+        if has_bos:
+            bos_pos = torch.where(token_ids.eq(bos_token_id), 1, 0)
+            bos_sum = bos_pos.cumsum(dim=-1)
+            bos_pos = torch.where(bos_sum.eq(bos_sum[:, -1:]), 0, 1)
+            to_atten_x = bos_pos[:, :, None]
+            to_atten_y = bos_pos[:, None, :]
+        else:
+            bos_pos = torch.where(token_ids.eq(bos_token_id), 1, 0)
+            to_atten_x = bos_pos[:, :, None]
+            to_atten_y = bos_pos[:, None, :]
+        attention_mask = torch.logical_or(to_atten_x, to_atten_y).eq(1)
+        inference_params.attention_mask = attention_mask
+        scores = decoder(**{"input_ids": token_ids[:, -1:], "inference_params": inference_params})
+
+        if isinstance(scores, (list, tuple)):
+            scores = scores[0]
+        scores = scores[:, -1].float()
+        inference_params.sequence_len_offset += 1
+
+        if repetition_penalty != 1.0:
+            token_scores = scores.gather(dim=1, index=token_ids)
+            lt_zero_mask = token_scores.lt(0).float()
+            ge_zero_mask = lt_zero_mask.eq(0).float()
+            token_scores = (
+                lt_zero_mask * repetition_penalty * token_scores + ge_zero_mask / repetition_penalty * token_scores
+            )
+            scores.scatter_(dim=1, index=token_ids, src=token_scores)
+        # scores: [bsz, vocab_size]
+        if eos_token_id is not None and length_penalty != 1.0:
+            # batch_size x vocab_size
+            eos_token_scores = scores[:, eos_token_id].clone()
+            scores = scores / cur_len**length_penalty
+            scores[:, eos_token_id] = eos_token_scores
+            del eos_token_scores
+
+        if do_sample:
+            if temperature > 0 and temperature != 1:
+                scores = scores / temperature
+
+            scores = top_k_top_p_filtering(scores, top_k, top_p, min_tokens_to_keep=2)
+            # add 1e-12 to avoid https://github.com/pytorch/pytorch/pull/27523
+            probs = F.softmax(scores, dim=-1) + 1e-12
+
+            next_tokens = torch.multinomial(probs, num_samples=1).squeeze(1)  # batch_size
+        else:
+            next_tokens = torch.argmax(scores, dim=-1)  # batch_size
+
+        if eos_token_id is not None:
+            # When the generated result exceeds the length, its eos_token_id is set to the most basic terminator.
+            next_tokens = next_tokens.masked_fill(max_lengths.eq(cur_len + 1), eos_token_id[0])
+        next_tokens = next_tokens.masked_fill(dones, pad_token_id)
+        tokens = next_tokens.unsqueeze(1)
+        token_ids = torch.cat([token_ids, tokens], dim=-1)  # batch_size x max_len
+
+        yield token_ids
+
+        if eos_token_id is not None:
+            end_mask = torch.any(next_tokens[:, None].eq(eos_token_id), dim=-1)
+            dones = dones.__or__(end_mask)
+
+        cur_len += 1
+
+        if dones.min() == 1:
+            break
+
+    # token_ids: [bsz, seqlen]
+    if eos_token_id is not None and add_eos_when_return:
+        token_ids = torch.cat([token_ids, token_ids.new_full((token_ids.size(0), 1), eos_token_id[0])], dim=1)
+
+    yield token_ids
+
+
+@torch.no_grad()
+def _no_beam_search_generate(
+    decoder,
+    tokens,
+    inference_params=None,
+    max_length=20,
+    temperature=1.0,
+    top_k=50,
+    top_p=1.0,
+    eos_token_id=None,
+    additional_eos_token_list=None,
+    add_eos_when_return=False,
+    do_sample=True,
+    repetition_penalty=1.0,
+    length_penalty=1.0,
+    pad_token_id=0,
+    bos_token_id=1,
+):
+    batch_size = tokens.size(0)
+    if eos_token_id is not None:
+        if not isinstance(eos_token_id, (List, Tuple)):
+            eos_token_id = [eos_token_id]
+        if additional_eos_token_list is not None:
+            if not isinstance(additional_eos_token_list, (List, Tuple)):
+                additional_eos_token_list = [additional_eos_token_list]
+            eos_token_id.extend(additional_eos_token_list)
+        eos_token_id = torch.LongTensor(eos_token_id).to(tokens.device)
+
+    has_bos = torch.all(tokens[:, 0].eq(bos_token_id))
+    if has_bos:
+        bos_pos = torch.where(tokens.eq(bos_token_id), 1, 0)
+        bos_sum = bos_pos.cumsum(dim=-1)
+        bos_pos = torch.where(bos_sum.eq(bos_sum[:, -1:]), 0, 1)
+        to_atten_x = bos_pos[:, :, None]
+        to_atten_y = bos_pos[:, None, :]
+    else:
+        bos_pos = torch.where(tokens.eq(bos_token_id), 1, 0)
+        to_atten_x = bos_pos[:, :, None]
+        to_atten_y = bos_pos[:, None, :]
+    attention_mask = torch.logical_or(to_atten_x, to_atten_y).eq(1)
+    if inference_params is None:
+        inference_params = InferenceParams(
+            max_sequence_len=max_length,
+            max_batch_size=tokens.size(0),
+            sequence_len_offset=0,
+            batch_size_offset=0,
+            key_value_memory_dict=None,
+            lengths_per_sample=None,
+            attention_mask=attention_mask,
+        )
+
+    scores = decoder(**{"input_ids": tokens, "inference_params": inference_params})
+
+    if isinstance(scores, (list, tuple)):
+        scores = scores[0]
+    scores = scores[:, -1].float()
+    inference_params.sequence_len_offset += tokens.size(1)
+    if eos_token_id is not None:
+        scores[:, eos_token_id] = -1e12
+
+    # The first token generated.
     next_tokens = scores.argmax(dim=-1, keepdim=True)
     token_ids = torch.cat([tokens, next_tokens], dim=1)
     cur_len = token_ids.size(1)
     dones = token_ids.new_zeros(batch_size).eq(1)
-    # tokens = tokens[:, -1:]
 
     real_max_length = max_length
     max_lengths = tokens.new_full((tokens.size(0),), fill_value=max_length, dtype=torch.long)
@@ -381,28 +558,7 @@ def _no_beam_search_generate(
             # attention_mask = torch.einsum('bno,bom->bnm', to_atten_x, to_atten_y).eq(1)
         attention_mask = torch.logical_or(to_atten_x, to_atten_y).eq(1)
         inference_params.attention_mask = attention_mask
-        if layer_mask is None:
-            if feat_mask is None and ffn_mask is None:
-                scores = decoder(**{"input_ids": token_ids[:, -1:], "inference_params": inference_params})
-            else:
-                scores = decoder(
-                    **{
-                        "input_ids": token_ids[:, -1:],
-                        "inference_params": inference_params,
-                        "feat_mask": feat_mask,
-                        "ffn_mask": ffn_mask,
-                    }
-                )
-        else:
-            scores = decoder(
-                **{
-                    "input_ids": token_ids[:, -1:],
-                    "inference_params": inference_params,
-                    "feat_mask": feat_mask,
-                    "ffn_mask": ffn_mask,
-                    "layer_mask": layer_mask,
-                }
-            )
+        scores = decoder(**{"input_ids": token_ids[:, -1:], "inference_params": inference_params})
 
         if isinstance(scores, (list, tuple)):
             scores = scores[0]
@@ -417,15 +573,13 @@ def _no_beam_search_generate(
                 lt_zero_mask * repetition_penalty * token_scores + ge_zero_mask / repetition_penalty * token_scores
             )
             scores.scatter_(dim=1, index=token_ids, src=token_scores)
-
+        # scores: [bsz, vocab_size]
         if eos_token_id is not None and length_penalty != 1.0:
             # batch_size x vocab_size
-            token_scores = scores / cur_len**length_penalty
-            eos_mask = scores.new_ones(scores.size(1))
-            eos_mask[eos_token_id] = 0
-            eos_mask = eos_mask.unsqueeze(0).eq(1)
-
-            scores = scores.masked_scatter(eos_mask, token_scores)
+            eos_token_scores = scores[:, eos_token_id].clone()
+            scores = scores / cur_len**length_penalty
+            scores[:, eos_token_id] = eos_token_scores
+            del eos_token_scores
 
         if do_sample:
             if temperature > 0 and temperature != 1:
@@ -439,28 +593,29 @@ def _no_beam_search_generate(
         else:
             next_tokens = torch.argmax(scores, dim=-1)  # batch_size
 
-        if _eos_token_id != -1:
-            next_tokens = next_tokens.masked_fill(max_lengths.eq(cur_len + 1), _eos_token_id)
+        if eos_token_id is not None:
+            # When the generated result exceeds the length, its eos_token_id is set to the most basic terminator.
+            next_tokens = next_tokens.masked_fill(max_lengths.eq(cur_len + 1), eos_token_id[0])
         next_tokens = next_tokens.masked_fill(dones, pad_token_id)
         tokens = next_tokens.unsqueeze(1)
-
         token_ids = torch.cat([token_ids, tokens], dim=-1)  # batch_size x max_len
 
-        end_mask = next_tokens.eq(_eos_token_id)
-        dones = dones.__or__(end_mask)
+        if eos_token_id is not None:
+            end_mask = torch.any(next_tokens[:, None].eq(eos_token_id), dim=-1)
+            dones = dones.__or__(end_mask)
+
         cur_len += 1
 
         if dones.min() == 1:
             break
 
-    # if eos_token_id is not None:
-    #     # setting the eos at the maximum length position
-    #     tokens.scatter(index=max_lengths[:, None], dim=1, value=eos_token_id)
-    # if cur_len == max_length:
-    #     # If eos is not reached by the maximum length, forcibly replace the last word with eos
-    #     token_ids[:, -1].masked_fill_(~dones, eos_token_id)
-    # TODO Here we are simply adding an extra dimension for interface compatibility, but in the future it will need to
-    # be able to return multiple real results
+    # token_ids: [bsz, seqlen]
+    if eos_token_id is not None and add_eos_when_return:
+        token_ids = torch.cat([token_ids, token_ids.new_full((token_ids.size(0), 1), eos_token_id[0])], dim=1)
+
+    # In order to maintain consistency with the results returned by beam search,
+    #  a new dimension is added here representing num_return_sequences.
+    # token_ids: [bsz, num_return_sequences, seqlen]
     return token_ids[:, None]
 
 
@@ -476,23 +631,26 @@ def _beam_search_generate(
     top_k=50,
     top_p=1.0,
     eos_token_id=None,
+    additional_eos_token_list=None,
+    add_eos_when_return=False,
     do_sample=True,
     repetition_penalty=1.0,
     length_penalty=1.0,
     pad_token_id=0,
     bos_token_id=1,
-    feat_mask=None,
-    ffn_mask=None,
-    layer_mask=None,
 ) -> torch.LongTensor:
 
     device = _get_model_device(decoder)
     batch_size = tokens.size(0)
 
-    if eos_token_id is None:
-        _eos_token_id = -1
-    else:
-        _eos_token_id = eos_token_id
+    if eos_token_id is not None:
+        if not isinstance(eos_token_id, (List, Tuple)):
+            eos_token_id = [eos_token_id]
+        if additional_eos_token_list is not None:
+            if not isinstance(additional_eos_token_list, (List, Tuple)):
+                additional_eos_token_list = [additional_eos_token_list]
+            eos_token_id.extend(additional_eos_token_list)
+        eos_token_id = torch.LongTensor(eos_token_id).to(tokens.device)
 
     has_bos = torch.all(tokens[:, 0].eq(bos_token_id))
 
@@ -521,38 +679,18 @@ def _beam_search_generate(
             attention_mask=attention_mask,
         )
 
-    if layer_mask is None:
-        if feat_mask is None and ffn_mask is None:
-            scores = decoder(**{"input_ids": tokens, "inference_params": inference_params})
-        else:
-            scores = decoder(
-                **{
-                    "input_ids": tokens,
-                    "inference_params": inference_params,
-                    "feat_mask": feat_mask,
-                    "ffn_mask": ffn_mask,
-                }
-            )
-    else:
-        scores = decoder(
-            **{
-                "input_ids": tokens,
-                "inference_params": inference_params,
-                "feat_mask": feat_mask,
-                "ffn_mask": ffn_mask,
-                "layer_mask": layer_mask,
-            }
-        )
+    scores = decoder(**{"input_ids": tokens, "inference_params": inference_params})
 
     if isinstance(scores, (list, tuple)):
         scores = scores[0]
     scores = scores[:, -1].float()
     inference_params.sequence_len_offset += tokens.size(1)
-    if _eos_token_id != -1:
-        scores[:, _eos_token_id] = -1e12
+    if eos_token_id is not None:
+        scores[:, eos_token_id] = -1e12
     vocab_size = scores.size(1)
     assert vocab_size >= num_beams, "num_beams should be smaller than " "the number of vocabulary size."
 
+    # The first token generated.
     if do_sample:
         probs = F.softmax(scores, dim=-1) + 1e-12
         # (batch_size, num_beams)
@@ -605,28 +743,7 @@ def _beam_search_generate(
         inference_params.attention_mask = attention_mask
         # (bsz x num_beams, vocab_size)
 
-        if layer_mask is None:
-            if feat_mask is None and ffn_mask is None:
-                scores = decoder(**{"input_ids": token_ids[:, -1:], "inference_params": inference_params})
-            else:
-                scores = decoder(
-                    **{
-                        "input_ids": token_ids[:, -1:],
-                        "inference_params": inference_params,
-                        "feat_mask": feat_mask,
-                        "ffn_mask": ffn_mask,
-                    }
-                )
-        else:
-            scores = decoder(
-                **{
-                    "input_ids": token_ids[:, -1:],
-                    "inference_params": inference_params,
-                    "feat_mask": feat_mask,
-                    "ffn_mask": ffn_mask,
-                    "layer_mask": layer_mask,
-                }
-            )
+        scores = decoder(**{"input_ids": token_ids[:, -1:], "inference_params": inference_params})
 
         if isinstance(scores, (list, tuple)):
             scores = scores[0]
@@ -641,10 +758,11 @@ def _beam_search_generate(
             )
             scores.scatter_(dim=1, index=token_ids, src=token_scores)
 
-        if _eos_token_id != -1:
+        if eos_token_id is not None:
             max_len_eos_mask = max_lengths.eq(cur_len + 1)
-            eos_scores = scores[:, _eos_token_id]
-            scores[:, _eos_token_id] = torch.where(max_len_eos_mask, eos_scores + 1e32, eos_scores)
+            # When the generated result exceeds the length, its eos_token_id is set to the most basic terminator.
+            eos_scores = scores[:, eos_token_id[0]]
+            scores[:, eos_token_id[0]] = torch.where(max_len_eos_mask, eos_scores + 1e32, eos_scores)
 
         if do_sample:
             if temperature > 0 and temperature != 1:
@@ -682,11 +800,7 @@ def _beam_search_generate(
             from_which_beam = torch.floor(ids.float() / vocab_size).long()
             next_tokens = ids % vocab_size  # (batch_size, 2*num_beams)
 
-        # next_scores, sorted_inds = next_scores.sort(dim=-1, descending=True)
-        # next_tokens = next_tokens.gather(dim=1, index=sorted_inds)
-        # from_which_beam = from_which_beam.gather(dim=1, index=sorted_inds)
-
-        not_eos_mask = next_tokens.ne(_eos_token_id)
+        not_eos_mask = torch.all(next_tokens[..., None].ne(eos_token_id), dim=-1)
         keep_mask = not_eos_mask.cumsum(dim=1).le(num_beams)
         keep_mask = not_eos_mask.__and__(keep_mask)
 
@@ -701,7 +815,9 @@ def _beam_search_generate(
             eos_beam_ind = torch.arange(num_beams).to(token_ids).repeat(batch_size)
             eos_beam_idx = from_which_beam[:, :num_beams].reshape(-1)
         else:
-            effective_eos_mask = next_tokens[:, :num_beams].eq(_eos_token_id)  # batch_size x num_beams
+            effective_eos_mask = torch.any(
+                next_tokens[:, :num_beams][..., None].eq(eos_token_id), dim=-1
+            )  # batch_size x num_beams
             if effective_eos_mask.sum().gt(0):
                 eos_batch_idx, eos_beam_ind = effective_eos_mask.nonzero(as_tuple=True)
                 eos_beam_idx = eos_batch_idx * num_beams * 2 + eos_beam_ind
@@ -716,7 +832,7 @@ def _beam_search_generate(
             ):
                 if not dones[batch_idx]:
                     score = next_scores[batch_idx, beam_ind].item()
-                    if _eos_token_id != -1:
+                    if eos_token_id is not None:
                         hypos[batch_idx].add(_token_ids[batch_idx * num_beams + beam_idx, :cur_len].clone(), score)
                     else:
                         hypos[batch_idx].add(_token_ids[batch_idx * num_beams + beam_idx].clone(), score)
@@ -747,8 +863,9 @@ def _beam_search_generate(
         _best = []
         for j, hyp in zip(range(num_return_sequences), sorted_hyp):
             hyp = hyp[1]
-            if _eos_token_id != -1:
-                hyp = torch.cat([hyp, token_ids.new_ones(1) * _eos_token_id])
+            if eos_token_id is not None and add_eos_when_return:
+                # When forcing eos to be added at the end of the generated result, use the most basic text terminator.
+                hyp = torch.cat([hyp, token_ids.new_ones(1) * eos_token_id[0]])
             tgt_len[i, j] = len(hyp)
             _best.append(hyp)
         best.append(_best)
@@ -759,6 +876,7 @@ def _beam_search_generate(
         for j, _hypo in enumerate(hypo):
             decoded[i, j, : tgt_len[i, j]] = _hypo
 
+    # decoded: [bsz, num_return_sequences, seqlen]
     return decoded
 
 

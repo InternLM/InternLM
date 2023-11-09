@@ -136,6 +136,12 @@ streamlit run web_demo.py
 
 ![demo](https://github.com/InternLM/InternLM/assets/9102141/11b60ee0-47e4-42c0-8278-3051b2f17fe4)
 
+`web_demo_internlm.py` を使用して、InternLM 形式のモデルと直接対話できるようになりました。
+まず、モデルの重みを InternLM 形式でダウンロードし、`web_demo_internlm.py` の `ckpt_dir` を置き換えてください。 次のコマンドを実行して対話します。
+```python
+torchrun --master_port 12331 --nnodes=1 --node_rank=0 --nproc_per_node=1 -m streamlit run web_demo_internlm.py
+```
+
 ### デプロイ
 
 [LMDeploy](https://github.com/InternLM/LMDeploy) を使って、InternLM をワンクリックでデプロイする。

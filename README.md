@@ -44,13 +44,13 @@ Based on the InternLM training framework, we have released two open-sourced pret
 
 ## News
 
-[20230920] InternLM-20B is released with base and chat versions.  
+[20230920] InternLM-20B is released with base and chat versions.
 [20230822] InternLM-7B-Chat v1.1 is released with code interpreter and function calling capability. You can try it with [Lagent](https://github.com/InternLM/lagent).
 
 
 ## Model Zoo
 
-Our models are released in three platforms: Transformers, ModelScope and OpenXLab.  
+Our models are released in three platforms: Transformers, ModelScope and OpenXLab.
 
 | Model                     | Transformers                                                               | ModelScope                                                                                                                          | OpenXLab                                                                                                                                      | Release Date |
 |---------------------------|------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------|
@@ -113,7 +113,7 @@ Overall, InternLM-20B comprehensively outperforms open-source models in the 13B 
 </details>
 
 
-<details> 
+<details>
 <summary> InternLM-7B </summary>
 
 #### News
@@ -224,6 +224,13 @@ streamlit run web_demo.py
 The effect is as follows
 
 ![demo](https://github.com/InternLM/InternLM/assets/9102141/11b60ee0-47e4-42c0-8278-3051b2f17fe4)
+
+Now you can interact with models directly in InternLM format using `web_demo_internlm.py`.
+First, please download the model weights in InternLM format, and then replace `ckpt_dir` in `web_demo_internlm.py`. Start by running the following command:
+```bash
+torchrun --master_port 12331 --nnodes=1 --node_rank=0 --nproc_per_node=1 -m streamlit run web_demo_internlm.py
+```
+
 
 ### Deployment
 
