@@ -163,19 +163,22 @@ InternLM-7B 包含了一个拥有70亿参数的基础模型和一个为实际场
 通过以下的代码从 Transformers 加载 InternLM 模型 （可修改模型名称替换不同的模型）
 
 ```python
->>> from transformers import AutoTokenizer, AutoModelForCausalLM
->>> tokenizer = AutoTokenizer.from_pretrained("internlm/internlm-chat-7b", trust_remote_code=True)
->>> model = AutoModelForCausalLM.from_pretrained("internlm/internlm-chat-7b", trust_remote_code=True).cuda()
->>> model = model.eval()
->>> response, history = model.chat(tokenizer, "你好", history=[])
->>> print(response)
-你好！有什么我可以帮助你的吗？
->>> response, history = model.chat(tokenizer, "请提供三个管理时间的建议。", history=history)
->>> print(response)
-当然可以！以下是三个管理时间的建议：
-1. 制定计划：制定一个详细的计划，包括每天要完成的任务和活动。这将有助于您更好地组织时间，并确保您能够按时完成任务。
-2. 优先级：将任务按照优先级排序，先完成最重要的任务。这将确保您能够在最短的时间内完成最重要的任务，从而节省时间。
-3. 集中注意力：避免分心，集中注意力完成任务。关闭社交媒体和电子邮件通知，专注于任务，这将帮助您更快地完成任务，并减少错误的可能性。
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
+tokenizer = AutoTokenizer.from_pretrained("internlm/internlm-chat-7b", trust_remote_code=True)
+# `torch_dtype=torch.float16` 可以令模型以 float16 精度加载，否则 transformers 会将模型加载为 float32 格式，有可能导致显存不足
+model = AutoModelForCausalLM.from_pretrained("internlm/internlm-chat-7b", torch_dtype=torch.float16, trust_remote_code=True).cuda()
+model = model.eval()
+response, history = model.chat(tokenizer, "你好", history=[])
+print(response)
+# 你好！有什么我可以帮助你的吗？
+
+response, history = model.chat(tokenizer, "请提供三个管理时间的建议。", history=history)
+print(response)
+# 当然可以！以下是三个管理时间的建议：
+# 1. 制定计划：制定一个详细的计划，包括每天要完成的任务和活动。这将有助于您更好地组织时间，并确保您能够按时完成任务。
+# 2. 优先级：将任务按照优先级排序，先完成最重要的任务。这将确保您能够在最短的时间内完成最重要的任务，从而节省时间。
+# 3. 集中注意力：避免分心，集中注意力完成任务。关闭社交媒体和电子邮件通知，专注于任务，这将帮助您更快地完成任务，并减少错误的可能性。
 ```
 
 如果想进行流式生成，则可以使用 `stream_chat` 接口：
@@ -184,7 +187,7 @@ InternLM-7B 包含了一个拥有70亿参数的基础模型和一个为实际场
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 model_path = "internlm/internlm-chat-7b"
-model = AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True)
+model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=torch.float16, trust_remote_code=True)
 tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
 
 model = model.eval()
@@ -201,9 +204,9 @@ for response, history in model.stream_chat(tokenizer, "你好", history=[]):
 ```python
 from modelscope import snapshot_download, AutoTokenizer, AutoModelForCausalLM
 import torch
-model_dir = snapshot_download('Shanghai_AI_Laboratory/internlm-chat-7b-v1_1', revision='v1.0.0')
-tokenizer = AutoTokenizer.from_pretrained(model_dir, device_map="auto", trust_remote_code=True,torch_dtype=torch.float16)
-model = AutoModelForCausalLM.from_pretrained(model_dir,device_map="auto",  trust_remote_code=True,torch_dtype=torch.float16)
+model_dir = snapshot_download('Shanghai_AI_Laboratory/internlm-chat-7b-v1_1', revision='v1.0.2')
+tokenizer = AutoTokenizer.from_pretrained(model_dir, device_map="auto", trust_remote_code=True)
+model = AutoModelForCausalLM.from_pretrained(model_dir,device_map="auto", trust_remote_code=True, torch_dtype=torch.float16)
 model = model.eval()
 response, history = model.chat(tokenizer, "hello", history=[])
 print(response)
