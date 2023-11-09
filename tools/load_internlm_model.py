@@ -137,8 +137,8 @@ def initialize_internlm_model(
         model_type (str): The types of models supported by train_internlm, such as "LLAMA" or "INTERNLM". Note that
             when loading these models, ``model_type`` can only be "LLAMA".
         ckpt_dir (str): Directory where model checkpoints are stored. Its format needs to be like this:
-            (a) local path, such as: "local:/mnt/petrelfs/share_data/llm_llama/codellama_raw/codellama-7b";
-            (b) boto3 path, such as: "boto3:s3://checkpoints_ssd_02.10.135.7.249/0831/origin_llama/7B".
+            (a) local path, such as: "local:{your local path}";
+            (b) boto3 path, such as: "boto3:s3://{bucket name}.{ip}/{your ceph path}".
         model_config (Optional[Union[Dict, str]], optional): Configuration of models. Defaults to None.
         del_model_prefix (bool, optional):  Whether to remove the "model." string in the key in state_dict.
             Defaults to False.
