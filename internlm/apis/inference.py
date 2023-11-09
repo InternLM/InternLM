@@ -472,6 +472,8 @@ def _streaming_no_beam_search_generate(
     if eos_token_id is not None and add_eos_when_return:
         token_ids = torch.cat([token_ids, token_ids.new_full((token_ids.size(0), 1), eos_token_id[0])], dim=1)
 
+    yield token_ids
+
 
 @torch.no_grad()
 def _no_beam_search_generate(
