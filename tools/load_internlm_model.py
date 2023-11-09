@@ -134,8 +134,7 @@ def initialize_internlm_model(
     """Initialize internlm model.
 
     Args:
-        model_type (str): The types of models supported by train_internlm, such as "LLAMA" or "INTERNLM". Note that
-            when loading these models, ``model_type`` can only be "LLAMA".
+        model_type (str): The types of models supported by train_internlm, such as "INTERNLM".
         ckpt_dir (str): Directory where model checkpoints are stored. Its format needs to be like this:
             (a) local path, such as: "local:{your local path}";
             (b) boto3 path, such as: "boto3:s3://{bucket name}.{ip}/{your ceph path}".

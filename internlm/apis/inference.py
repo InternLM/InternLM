@@ -407,12 +407,10 @@ def _streaming_no_beam_search_generate(
             bos_pos = torch.where(bos_sum.eq(bos_sum[:, -1:]), 0, 1)
             to_atten_x = bos_pos[:, :, None]
             to_atten_y = bos_pos[:, None, :]
-            # attention_mask = torch.einsum('bno,bom->bnm', to_atten_x, to_atten_y).eq(1)
         else:
             bos_pos = torch.where(token_ids.eq(bos_token_id), 1, 0)
             to_atten_x = bos_pos[:, :, None]
             to_atten_y = bos_pos[:, None, :]
-            # attention_mask = torch.einsum('bno,bom->bnm', to_atten_x, to_atten_y).eq(1)
         attention_mask = torch.logical_or(to_atten_x, to_atten_y).eq(1)
         inference_params.attention_mask = attention_mask
         scores = decoder(**{"input_ids": token_ids[:, -1:], "inference_params": inference_params})
