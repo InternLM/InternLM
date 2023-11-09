@@ -114,7 +114,6 @@ def check_block(args):
     # create input
     cu_seqlens = torch.tensor([0, 2, 4], dtype=torch.int32).to(device)  # [0, 8, 16]
     indexes = torch.tensor([0, 1, 0, 1]).to(device)  # [0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7]
-    hidden_states = torch.tensor([[0, 3, 2, 1]]).to(device)  # [[4, 118, 0, 1, 2, 3, 0, 1, 1, 97, 0, 0, 0, 0, 0, 0]]
     max_seqlen = (cu_seqlens[1:] - cu_seqlens[:-1]).max().item()
 
     hidden_states = torch.tensor(
@@ -130,19 +129,29 @@ def check_block(args):
 
     hidden_states = hidden_states.squeeze(0).to(device).requires_grad_()
 
-    # forward
-    for _, block in enumerate(blocks):
-        block = block.to(torch.bfloat16)
-        block = block.to(device)
-        hidden_states = block(
-            hidden_states,
-            cu_seqlens=cu_seqlens,
-            indexes=indexes,
-            inference_params=None,
-            max_seqlen=max_seqlen,
-        )
+    hid2 = hidden_states
+    output_list = []
+    for i in range(10):
+        hidden_states = hid2
+        # forward
+        for _, block in enumerate(blocks):
+            block = block.to(torch.bfloat16)
+            block = block.to(device)
+            hidden_states = block(
+                hidden_states,
+                cu_seqlens=cu_seqlens,
+                indexes=indexes,
+                inference_params=None,
+                max_seqlen=max_seqlen,
+            )
+        result = hidden_states
+        output_list.append(result)
 
-    result = hidden_states
+    # check only forward logits
+    first_output = output_list[0]
+    for i in range(1, 10):
+        assert torch.equal(first_output, output_list[i])
+
     standard_result = torch.tensor(
         [
             [-1.1621, 1.3111, 0.1509, 2.2697],
@@ -248,8 +257,16 @@ def check_head(args):
         requires_grad=True,
     ).to(device)
 
-    # forward
-    result = head(hidden_states)
+    output_list = []
+    for _ in range(10):
+        # forward
+        result = head(hidden_states)
+        output_list.append(result)
+
+    # check only forward logits
+    first_output = output_list[0]
+    for i in range(1, 10):
+        assert torch.equal(first_output, output_list[i])
 
     # check output
     assert torch.allclose(result, standard_result, rtol=rtol, atol=atol)
@@ -334,8 +351,16 @@ def check_gather_forward(args):
         requires_grad=True,
     ).to(device)
 
-    # forward
-    result = gather_forward_split_backward(hidden_states, ParallelMode.TENSOR, dim=-1)
+    output_list = []
+    for _ in range(10):
+        # forward
+        result = gather_forward_split_backward(hidden_states, ParallelMode.TENSOR, dim=-1)
+        output_list.append(result)
+
+    # check only forward logits
+    first_output = output_list[0]
+    for i in range(1, 10):
+        assert torch.equal(first_output, output_list[i])
 
     # check output
     assert torch.allclose(result, standard_result, rtol=rtol, atol=atol)

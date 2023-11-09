@@ -31,7 +31,15 @@ def check_embedding(args):
 
     # create input
     input_ids = torch.tensor([[0, 2], [1, 3]]).to(device)
-    result = embedding(input_ids)
+    output_list = []
+    for _ in range(10):
+        result = embedding(input_ids)
+        output_list.append(result)
+
+    # check only forward logits
+    first_output = output_list[0]
+    for i in range(1, 10):
+        assert torch.equal(first_output, output_list[i])
 
     standard_list = [[[-1.4837, 0.2671], [0.6002, -0.5496]], [[-1.8337, -0.1047], [1.0391, 0.2261]]]
     standard_result = torch.tensor(standard_list).to(device)
