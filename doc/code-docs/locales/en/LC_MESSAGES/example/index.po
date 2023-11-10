@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: InternLM \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-09-07 10:56+0800\n"
+"POT-Creation-Date: 2023-11-10 11:54+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -18,15 +18,14 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.12.1\n"
 
-#: ../../source/example/index.rst:2 de54695e8bde40ffb8878043072197e6
+#: ../../source/example/index.rst:2
 msgid "训练样例"
 msgstr "Training Example"
 
-#: ../../source/example/index.rst:5 da388b3209ff4bd39fd0700a7fba413a
+#: ../../source/example/index.rst:5
 msgid "7B Demo"
 msgstr ""
 
-#: ../../source/example/index.rst:13 b095e27dfc924a7a943b7cba5361700a
-msgid "30B Demo"
+#: ../../source/example/index.rst:13
+msgid "20B Demo"
 msgstr ""
-
