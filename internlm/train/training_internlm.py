@@ -226,6 +226,7 @@ def get_train_data_loader(
     dataset_types = list(get_dataset_type_ids_map(train_folder).keys())
 
     if not train_folder:
+        dataset_types = ["en", "cn", "code"]
         train_ds = RandomDataset(num_samples=1000000, max_len=data_cfg.seq_len)
         if data_cfg.pack_sample_into_one:
             train_ds = PackedDatasetWithoutCuSeqlen(
