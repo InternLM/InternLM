@@ -36,10 +36,10 @@ class BaseScheduler(ABC):
         """
         pass
 
-    def _load_micro_batch(self, data, label, offset, micro_bsz):
+    def _load_micro_batch(self, data, label, offset):
         assert isinstance(data, dict) and isinstance(label, torch.Tensor)
-        micro_batch_data = {k: v[offset : offset + micro_bsz] for k, v in data.items()}
-        micro_batch_label = label[offset : offset + micro_bsz]
+        micro_batch_data = {k: v[offset : offset + 1] for k, v in data.items()}
+        micro_batch_label = label[offset : offset + 1]
 
         return micro_batch_data, micro_batch_label
 
