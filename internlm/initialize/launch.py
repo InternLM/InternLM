@@ -311,7 +311,12 @@ def args_sanity_check():
     monitor_default_config = {
         "alert_address": None,  # compatible with old alert config
         "monitor": {  # new monitoring config
-            "alert": {"enable_feishu_alert": False, "feishu_alert_address": None, "light_monitor_address": None}
+            "alert": {
+                "enable_feishu_alert": False,
+                "feishu_alert_address": None,
+                "light_monitor_address": None,
+                "alert_file_path": None,
+            }
         },
     }
 
