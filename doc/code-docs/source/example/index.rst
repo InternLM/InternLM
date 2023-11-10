@@ -9,10 +9,10 @@
 
    7B_demo
 
-30B Demo
+20B Demo
 ------------
 
 .. toctree::
    :maxdepth: 2
 
-   30B_demo
+   20B_demo
