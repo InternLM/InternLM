@@ -145,3 +145,4 @@ core.*
 llm_ckpts
 events.*
 memory_trace
+RUN*/
