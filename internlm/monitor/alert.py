@@ -7,6 +7,7 @@ from typing import Dict
 
 import requests
 
+from internlm.core.context import global_context as gpc
 from internlm.utils.logger import get_logger
 
 logger = get_logger(__file__)
@@ -29,7 +30,7 @@ def initialize_light_monitor(monitor_address: str = None):
     try:
         from uniscale_monitoring import init_monitor
 
-        init_monitor(monitor_address)
+        init_monitor(monitor_address, is_root_rank=gpc.is_rank_for_log())
     except Exception as e:
         logger.warning(f"init monitor meet error: {e}")
 

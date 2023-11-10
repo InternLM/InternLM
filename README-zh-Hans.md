@@ -44,7 +44,7 @@ InternLM 是一个开源的轻量级训练框架，旨在支持大模型训练�
 
 ## 更新
 
-[20230920] InternLM-20B 已发布，包括基础版和对话版。  
+[20230920] InternLM-20B 已发布，包括基础版和对话版。
 [20230822] InternLM-7B-Chat v1.1 已发布，增加了代码解释器和函数调用能力。您可以使用 [Lagent](https://github.com/InternLM/lagent) 进行尝试。
 
 
@@ -62,13 +62,13 @@ InternLM 是一个开源的轻量级训练框架，旨在支持大模型训练�
 | **InternLM Chat 7B 8k**   | [🤗internlm/internlm-chat-7b-8k](https://huggingface.co/internlm/internlm-chat-7b-8k)     | [<img src="./doc/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-chat-7b-8k](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-chat-7b-8k/summary)     | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b-8k)   | 2023-07-06   |
 
 
-<details> 
+<details>
 <summary> InternLM-20B </summary>
 
 #### 简介
-InternLM-20B 在超过 **2.3T** Tokens 包含高质量英文、中文和代码的数据上进行预训练，其中 Chat 版本还经过了 SFT 和 RLHF 训练，使其能够更好、更安全地满足用户的需求。  
+InternLM-20B 在超过 **2.3T** Tokens 包含高质量英文、中文和代码的数据上进行预训练，其中 Chat 版本还经过了 SFT 和 RLHF 训练，使其能够更好、更安全地满足用户的需求。
 
-InternLM 20B 在模型结构上选择了深结构，InternLM-20B 的层数设定为60层，超过常规7B和13B模型所使用的32层或者40层。在参数受限的情况下，提高层数有利于提高模型的综合能力。此外，相较于InternLM-7B，InternLM-20B使用的预训练数据经过了更高质量的清洗，并补充了高知识密度和用于强化理解和推理能力的训练数据。因此，它在理解能力、推理能力、数学能力、编程能力等考验语言模型技术水平的方面都得到了显著提升。总体而言，InternLM-20B具有以下的特点： 
+InternLM 20B 在模型结构上选择了深结构，InternLM-20B 的层数设定为60层，超过常规7B和13B模型所使用的32层或者40层。在参数受限的情况下，提高层数有利于提高模型的综合能力。此外，相较于InternLM-7B，InternLM-20B使用的预训练数据经过了更高质量的清洗，并补充了高知识密度和用于强化理解和推理能力的训练数据。因此，它在理解能力、推理能力、数学能力、编程能力等考验语言模型技术水平的方面都得到了显著提升。总体而言，InternLM-20B具有以下的特点：
 - 优异的综合性能
 - 很强的工具调用功能
 - 支持16k语境长度（通过推理时外推）
@@ -117,7 +117,7 @@ InternLM 20B 在模型结构上选择了深结构，InternLM-20B 的层数设定
 </details>
 
 
-<details> 
+<details>
 <summary> InternLM-7B </summary>
 
 #### 模型更新
@@ -163,19 +163,22 @@ InternLM-7B 包含了一个拥有70亿参数的基础模型和一个为实际场
 通过以下的代码从 Transformers 加载 InternLM 模型 （可修改模型名称替换不同的模型）
 
 ```python
->>> from transformers import AutoTokenizer, AutoModelForCausalLM
->>> tokenizer = AutoTokenizer.from_pretrained("internlm/internlm-chat-7b", trust_remote_code=True)
->>> model = AutoModelForCausalLM.from_pretrained("internlm/internlm-chat-7b", trust_remote_code=True).cuda()
->>> model = model.eval()
->>> response, history = model.chat(tokenizer, "你好", history=[])
->>> print(response)
-你好！有什么我可以帮助你的吗？
->>> response, history = model.chat(tokenizer, "请提供三个管理时间的建议。", history=history)
->>> print(response)
-当然可以！以下是三个管理时间的建议：
-1. 制定计划：制定一个详细的计划，包括每天要完成的任务和活动。这将有助于您更好地组织时间，并确保您能够按时完成任务。
-2. 优先级：将任务按照优先级排序，先完成最重要的任务。这将确保您能够在最短的时间内完成最重要的任务，从而节省时间。
-3. 集中注意力：避免分心，集中注意力完成任务。关闭社交媒体和电子邮件通知，专注于任务，这将帮助您更快地完成任务，并减少错误的可能性。
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
+tokenizer = AutoTokenizer.from_pretrained("internlm/internlm-chat-7b", trust_remote_code=True)
+# `torch_dtype=torch.float16` 可以令模型以 float16 精度加载，否则 transformers 会将模型加载为 float32 格式，有可能导致显存不足
+model = AutoModelForCausalLM.from_pretrained("internlm/internlm-chat-7b", torch_dtype=torch.float16, trust_remote_code=True).cuda()
+model = model.eval()
+response, history = model.chat(tokenizer, "你好", history=[])
+print(response)
+# 你好！有什么我可以帮助你的吗？
+
+response, history = model.chat(tokenizer, "请提供三个管理时间的建议。", history=history)
+print(response)
+# 当然可以！以下是三个管理时间的建议：
+# 1. 制定计划：制定一个详细的计划，包括每天要完成的任务和活动。这将有助于您更好地组织时间，并确保您能够按时完成任务。
+# 2. 优先级：将任务按照优先级排序，先完成最重要的任务。这将确保您能够在最短的时间内完成最重要的任务，从而节省时间。
+# 3. 集中注意力：避免分心，集中注意力完成任务。关闭社交媒体和电子邮件通知，专注于任务，这将帮助您更快地完成任务，并减少错误的可能性。
 ```
 
 如果想进行流式生成，则可以使用 `stream_chat` 接口：
@@ -184,7 +187,7 @@ InternLM-7B 包含了一个拥有70亿参数的基础模型和一个为实际场
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 model_path = "internlm/internlm-chat-7b"
-model = AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True)
+model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=torch.float16, trust_remote_code=True)
 tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
 
 model = model.eval()
@@ -194,16 +197,16 @@ for response, history in model.stream_chat(tokenizer, "你好", history=[]):
     length = len(response)
 ```
 
-### 通过 ModelScope 加载 
+### 通过 ModelScope 加载
 
 通过以下的代码从 ModelScope 加载 InternLM 模型 （可修改模型名称替换不同的模型）
 
 ```python
 from modelscope import snapshot_download, AutoTokenizer, AutoModelForCausalLM
 import torch
-model_dir = snapshot_download('Shanghai_AI_Laboratory/internlm-chat-7b-v1_1', revision='v1.0.0')
-tokenizer = AutoTokenizer.from_pretrained(model_dir, device_map="auto", trust_remote_code=True,torch_dtype=torch.float16)
-model = AutoModelForCausalLM.from_pretrained(model_dir,device_map="auto",  trust_remote_code=True,torch_dtype=torch.float16)
+model_dir = snapshot_download('Shanghai_AI_Laboratory/internlm-chat-7b-v1_1', revision='v1.0.2')
+tokenizer = AutoTokenizer.from_pretrained(model_dir, device_map="auto", trust_remote_code=True)
+model = AutoModelForCausalLM.from_pretrained(model_dir,device_map="auto", trust_remote_code=True, torch_dtype=torch.float16)
 model = model.eval()
 response, history = model.chat(tokenizer, "hello", history=[])
 print(response)
@@ -225,6 +228,12 @@ streamlit run web_demo.py
 效果如下
 
 ![效果](https://github.com/InternLM/InternLM/assets/9102141/11b60ee0-47e4-42c0-8278-3051b2f17fe4)
+
+现在您可以使用 `web_demo_internlm.py` 直接与 InternLM 格式的模型进行交互。
+首先请下载 InternLM 格式的模型权重，然后替换 `web_demo_internlm.py` 中的 `ckpt_dir`。运行以下命令进行交互：
+````bash
+torchrun --master_port 12331 --nnodes=1 --node_rank=0 --nproc_per_node=1 -m streamlit run web_demo_internlm.py
+````
 
 ### 基于InternLM高性能部署
 

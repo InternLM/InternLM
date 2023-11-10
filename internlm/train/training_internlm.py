@@ -226,6 +226,7 @@ def get_train_data_loader(
     dataset_types = list(get_dataset_type_ids_map(train_folder).keys())
 
     if not train_folder:
+        dataset_types = ["en", "cn", "code"]
         train_ds = RandomDataset(num_samples=1000000, max_len=data_cfg.seq_len)
         if data_cfg.pack_sample_into_one:
             train_ds = PackedDatasetWithoutCuSeqlen(
@@ -533,8 +534,8 @@ def record_current_batch_training_metrics(
         if grad_profiling_config.get("grad_norm_profiling", False) or grad_profiling_config.get(
             "zero_grad_profiling", False
         ):
-            layer_metrics = ["layer_norm", "layer_zero_grad"]
-            param_metrics = ["param_norm", "param_zero_grad"]
+            layer_metrics = ["layer_grad_norm", "layer_zero_grad"]
+            param_metrics = ["param_grad_norm", "param_zero_grad"]
             layer_names = grad_profiling_config.get("layers", [])
             for layer_metric_name in layer_metrics:
                 layer_metric = grad_norm.get(layer_metric_name, {})
