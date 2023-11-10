@@ -42,7 +42,7 @@ jobs:
 
 
   unit_tests_core_pipeline:
-    if: ${{ always() }}
+    if: ${{ !cancelled() }}
     needs: check-requirements
     runs-on: [t_cluster]
     timeout-minutes: 20
@@ -56,10 +56,10 @@ jobs:
       run: |
         source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
         export PYTHONPATH=$PWD:$PYTHONPATH
-        srun -p ${SLURM_PARTITION} --job-name=internlm-ut-${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 1 --gres=gpu:8 python -m pytest -s -v ./tests/test_core/test_pipeline.py
+        srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=internlm-ut-${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 1 --gres=gpu:8 python -m pytest -s -v ./tests/test_core/test_pipeline.py
 
   unit_tests_utils_storage_manager:
-    if: ${{ always() }}
+    if: ${{ !cancelled() }}
     needs: check-requirements
     runs-on: [t_cluster]
     timeout-minutes: 20
@@ -73,4 +73,4 @@ jobs:
       run: |
         source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
         export PYTHONPATH=$PWD:$PYTHONPATH
-        srun -p ${SLURM_PARTITION} --job-name=internlm-ut-${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 1 --gres=gpu:8 python -m pytest -s -v ./tests/test_utils/test_storage_manager.py
+        srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=internlm-ut-${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 1 --gres=gpu:8 python -m pytest -s -v ./tests/test_utils/test_storage_manager.py
