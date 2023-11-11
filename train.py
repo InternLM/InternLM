@@ -176,7 +176,7 @@ def main(args):
         memory_profiler = SimpleMemoryProfiler(
             model,
             optimizer.optim,
-            log_folder=f"memory_trace/rank{gpc.get_global_rank()}_"
+            log_folder=f"RUN/{gpc.config.JOB_NAME}/{current_time}/memory_trace/rank{gpc.get_global_rank()}_"
             + f"dp{gpc.get_local_rank(ParallelMode.DATA)}_"
             + f"tp{gpc.get_local_rank(ParallelMode.TENSOR)}",
         )
