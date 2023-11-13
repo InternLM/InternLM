@@ -132,7 +132,7 @@ def all_gather_raw_memory_pool(
     module: nn.Module = None,
 ):
     handle = torch.distributed.all_gather_into_tensor(
-        gpc.fstp_handler.get_all_gather_memory(module=module),
+        gpc.fstp_handler.get_weight_all_gather(module=module),
         input_.contiguous(),
         group=process_group,
         async_op=async_op,
@@ -147,7 +147,7 @@ def all_gather_raw_bias_memory_pool(
     module: nn.Module = None,
 ):
     handle = torch.distributed.all_gather_into_tensor(
-        gpc.fstp_handler.get_bias_memory(module=module),
+        gpc.fstp_handler.get_bias_all_gather(module=module),
         input_.contiguous(),
         group=process_group,
         async_op=async_op,
@@ -177,8 +177,13 @@ def reduce_scatter_raw(input_: Tensor, process_group: ProcessGroup, async_op: bo
 def reduce_scatter_raw_memory_pool(input_: Tensor, process_group: ProcessGroup, async_op: bool = False):
     world_size = torch.distributed.get_world_size(process_group)
     assert input_.shape[0] % world_size == 0
-    size = (input_.shape[0] // world_size, *input_.shape[1:])
-    output = gpc.fstp_handler.get_reduce_scatter_memory(size)
+    if gpc.fstp_handler.enable_memory_pool:
+        size = (input_.shape[0] // world_size, *input_.shape[1:])
+        output = gpc.fstp_handler.get_reduce_scatter_memory(size)
+    else:
+        output = torch.empty(
+            input_.shape[0] // world_size, *input_.shape[1:], dtype=input_.dtype, device=input_.device
+        ).contiguous()
     handle = torch.distributed.reduce_scatter_tensor(
         output, input_.contiguous(), group=process_group, async_op=async_op
     )
@@ -493,14 +498,14 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
         if world_size > 1:
             # do all_gather for weight and bias before actual computation
             if overlap_handler is not None:
-                total_weight = gpc.fstp_handler.get_all_gather_memory(module=module)
+                total_weight = gpc.fstp_handler.get_weight_all_gather(module=module)
             else:
                 total_weight, handle_weight = all_gather_raw(weight, process_group, async_op=True)
                 handle_weight.wait()
-            # TODO memory pool for bias
+
             if bias is not None:
                 if overlap_handler is not None:
-                    total_bias = gpc.fstp_handler.get_bias_memory(module=module)
+                    total_bias = gpc.fstp_handler.get_bias_all_gather(module=module)
                 else:
                     total_bias, handle_bias = all_gather_raw(bias, process_group, async_op=True)
                     handle_bias.wait()
@@ -554,7 +559,7 @@ class FSTPFusedDenseFunc(torch.autograd.Function):
         world_size = gpc.get_world_size(ParallelMode.TENSOR)
         if world_size > 1:
             if overlap_handler is not None:
-                total_weight = gpc.fstp_handler.get_all_gather_memory(module=module)
+                total_weight = gpc.fstp_handler.get_weight_all_gather(module=module)
             else:
                 total_weight, handle_weight = all_gather_raw(weight, process_group, async_op=True)
                 handle_weight.wait()
@@ -655,7 +660,7 @@ class FSTPFusedDenseFuncTorch(FSTPFusedDenseFunc):
         world_size = gpc.get_world_size(ParallelMode.TENSOR)
         if world_size > 1:
             if overlap_handler is not None:
-                total_weight = gpc.fstp_handler.get_all_gather_memory(module=module)
+                total_weight = gpc.fstp_handler.get_weight_all_gather(module=module)
             else:
                 total_weight, handle_weight = all_gather_raw(weight, process_group, async_op=True)
                 handle_weight.wait()
