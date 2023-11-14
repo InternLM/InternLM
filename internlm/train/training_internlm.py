@@ -208,8 +208,6 @@ def get_train_data_loader(num_worker: int = 0, dataset_generate_func: Optional[C
     Args:
         num_worker (:class:`int`): number of subprocesses used for dataloader.
         dataset_generate_func (:class:`Callable`, optional): generate function for dataset.
-        train_sampler (:class:`torch.utils.data.sampler`, optional): dataset sampler for training dataloader.
-        train_collate_fn (:class:`Callable`, optional): collate function for training dataloader.
 
     Returns:
         A tuple of (train_dl, dataset_types).
