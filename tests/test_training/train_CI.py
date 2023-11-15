@@ -2,7 +2,7 @@
 # -*- encoding: utf-8 -*-
 import os
 
-# pylint: disable=C0413,W0612,W0611,E402
+# pylint: disable=C0413,W0612,W0611
 import socket
 import sys
 import time
