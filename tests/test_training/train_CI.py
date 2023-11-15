@@ -1,14 +1,10 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 import os
-import sys
 
-script_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.abspath(os.path.join(script_dir, "../../"))
-sys.path.append(project_root)
-
-# pylint: disable=C0413,W0612,W0611
+# pylint: disable=C0413,W0612,W0611,E402
 import socket
+import sys
 import time
 import traceback
 from functools import partial
@@ -16,39 +12,45 @@ from functools import partial
 import torch
 import torch.distributed as dist
 
-import internlm
-from internlm.core.context import ParallelMode
-from internlm.core.context import global_context as gpc
-from internlm.core.scheduler import SchedulerMetricHook
-from internlm.core.trainer import TrainState
-from internlm.initialize import initialize_distributed_env
-from internlm.model.loss import FlashGPTLMLoss
-from internlm.model.metrics import AccPerplex
-from internlm.monitor import initialize_monitor_manager, send_alert_message
-from internlm.monitor.monitor import monitor_manager as mm
-from internlm.train import (
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(script_dir, "../../"))
+sys.path.append(project_root)
+
+import internlm  # noqa: E402
+from internlm.core.context import ParallelMode  # noqa: E402
+from internlm.core.context import global_context as gpc  # noqa: E402
+from internlm.core.scheduler import SchedulerMetricHook  # noqa: E402
+from internlm.core.trainer import TrainState  # noqa: E402
+from internlm.initialize import initialize_distributed_env  # noqa: E402
+from internlm.model.loss import FlashGPTLMLoss  # noqa: E402
+from internlm.model.metrics import AccPerplex  # noqa: E402
+from internlm.monitor import (  # noqa: E402
+    initialize_monitor_manager,
+    send_alert_message,
+)
+from internlm.monitor.monitor import monitor_manager as mm  # noqa: E402
+from internlm.train import (  # noqa: E402
     get_train_data_loader,
     get_validation_data_loader,
     initialize_llm_profile,
     initialize_model,
     initialize_optimizer,
-    load_new_batch,
     record_current_batch_training_metrics,
 )
-from internlm.utils.common import (
+from internlm.utils.common import (  # noqa: E402
     BatchSkipper,
     get_megatron_flops,
     launch_time,
     parse_args,
 )
-from internlm.utils.evaluation import evaluate_on_val_dls
-from internlm.utils.gputest import empty_cache_and_diag
-from internlm.utils.logger import get_logger, initialize_uniscale_logger
-from internlm.utils.megatron_timers import megatron_timer as timer
-from internlm.utils.model_checkpoint import CheckpointManager
-from internlm.utils.parallel import get_parallel_log_file_name
-from internlm.utils.simple_memory_profiler import SimpleMemoryProfiler
-from internlm.utils.writer import Writer
+from internlm.utils.evaluation import evaluate_on_val_dls  # noqa: E402
+from internlm.utils.gputest import empty_cache_and_diag  # noqa: E402
+from internlm.utils.logger import get_logger, initialize_uniscale_logger  # noqa: E402
+from internlm.utils.megatron_timers import megatron_timer as timer  # noqa: E402
+from internlm.utils.model_checkpoint import CheckpointManager  # noqa: E402
+from internlm.utils.parallel import get_parallel_log_file_name  # noqa: E402
+from internlm.utils.simple_memory_profiler import SimpleMemoryProfiler  # noqa: E402
+from internlm.utils.writer import Writer  # noqa: E402
 
 # global llm logger
 logger = get_logger(__file__)
@@ -74,7 +76,7 @@ def initialize_llm_logger(start_time: str):
     return uniscale_logger
 
 
-def check_model_weights(model, ckpt_path):
+def check_model_weights(model, ckpt_path, total_equal=False):
     model1_dict = torch.load(ckpt_path, map_location="cuda")
     model2_dict = model.state_dict()
 
@@ -82,7 +84,16 @@ def check_model_weights(model, ckpt_path):
         if key in model2_dict:
             tensor1 = model1_dict[key]
             tensor2 = model2_dict[key]
-            assert torch.allclose(tensor1, tensor2, rtol=3e-2, atol=3e-2)
+            if total_equal:
+                assert torch.equal(tensor1, tensor2), "model weights are not equal"
+            else:
+                assert torch.allclose(tensor1, tensor2, rtol=3e-2, atol=3e-2), "model weights are not close"
+        else:
+            if gpc.is_rank_for_log():
+                logger.warning(f"The old key {key} no longer exists!")
+
+    if gpc.is_rank_for_log():
+        logger.info("Weight check passed")
 
 
 def main(args):
@@ -207,7 +218,15 @@ def main(args):
     trainer.train()
 
     # transfer the train data loader into train data iterator
-    train_iter = iter(train_dl)
+    # train_iter = iter(train_dl)
+
+    # check model init weights
+    if hasattr(gpc.config, "CHECK_INIT") and gpc.config.CHECK_INIT == 1:
+        ckpt_name = (
+            f"model_tp{gpc.get_local_rank(ParallelMode.TENSOR)}_pp{gpc.get_local_rank(ParallelMode.PIPELINE)}.pt"
+        )
+        ckpt_path = os.path.join("/mnt/petrelfs/share/quailty_assurance/7B_init_8_tp=4_pp=2_ckpt", ckpt_name)
+        check_model_weights(model, ckpt_path, total_equal=True)
 
     with initialize_llm_profile(profiling=args.profiling, start_time=current_time) as prof:
         # start iterating the train data and begin training
@@ -223,7 +242,10 @@ def main(args):
             if batch_index == 0:
                 data_local_rank = gpc.get_local_rank(ParallelMode.DATA)
                 batch_step = (batch_count // 1000 + 1) * 1000
-                data_path = f"/mnt/petrelfs/share/quailty_assurance/debug_Qiansanqiang_7B_v16/dp-11{data_local_rank}/batch-{batch_step}.pt"
+                data_path = (
+                    "/mnt/petrelfs/share/quailty_assurance/debug_Qiansanqiang_7B_v16/"
+                    f"dp-11{data_local_rank}/batch-{batch_step}.pt"
+                )
                 data_1000 = torch.load(data_path, map_location=torch.device("cpu"))
             batch = data_1000[batch_index]
 
@@ -311,6 +333,7 @@ def main(args):
                     update_panel=uniscale_logger is not None,
                 )
 
+            # check model weights
             if batch_count > 0 and batch_count % 100 == 0:
                 ckpt_path = os.path.join(
                     "/mnt/petrelfs/share/quailty_assurance/7B_model_weights_ckpt", str(batch_count), "model_tp0_pp0.pt"
