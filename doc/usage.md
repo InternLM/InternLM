@@ -371,33 +371,17 @@ $ torchrun --nnodes=1 --nproc_per_node=8 train.py --config ./configs/7B_sft.py -
 
 ### 长文本生成
 
-在推理阶段，您可以在模型配置中通过设置 `use_dynamic_ntk_rope=True` 开启 RoPE 的 Dynamic NTK 选项，从而使得模型适应长文本输入输出，达到 16K 的外推效果:
-```python #21
-model_type = "INTERNLM"  # 模型类型，默认值为 "INTERNLM"，对应模型结构初始化接口函数
-NUM_ATTENTION_HEAD = 32
-VOCAB_SIZE = 103168
-HIDDEN_SIZE = 4096
-NUM_LAYER = 32
-MLP_RATIO = 8 / 3
-model = dict(
-    checkpoint=False,   # 进行重计算的模型层数比例，可选值为 True/False/[0-1]
-    num_attention_heads=NUM_ATTENTION_HEAD,
-    embed_split_hidden=True,
-    vocab_size=VOCAB_SIZE,
-    embed_grad_scale=1,
-    parallel_output=True,
-    hidden_size=HIDDEN_SIZE,
-    num_layers=NUM_LAYER,
-    mlp_ratio=MLP_RATIO,
-    apply_post_layer_norm=False,
-    dtype="torch.bfloat16",
-    norm_type="rmsnorm",
-    layer_norm_epsilon=1e-5,
-    use_dynamic_ntk_rope=True
-)
-```
+在推理阶段，我们可以使用 Dynamic NTK RoPE 来代替原始的 RoPE，从而使得模型能够适应长文本的输入输出，达到 16K 的外推效果。
+目前 InternLM 支持在 huggingface 格式和 InternLM 本身格式的模型中使用 Dynamic NTK RoPE。
+
+1. 对于 huggingface 格式的模型，dynamic ntk rope 目前是被默认使用的。如果用户想要关闭该行为，请将 `config.json` 中的 `rotary.type` 修改为 `origin`；
+2. 对于 InternLM 本身格式的模型，在推理时，通过在初始化模型的配置字典中添加`use_dynamic_ntk_rope=True`来开启这一行为。
+
+用户可以直接通过 web_demo 来直观地对比查看 Dynamic NTK RoPE 是如何生效的。例如文件[长文本示例](./aux_%20materials/long_text_example.txt)中存放着一个token长度超过2200的文本，如果不使用 Dynamic NTK，
+模型是完全无法回答该文本对应的问题。而使用 Dynamic NTK RoPE 后 InternLM Chat 7B v1.1 模型的回答如下所示：
+
+![dynamic_ntk_answer](./imgs/dynamic_ntk_answer.png)
 
 关于 Dyanmic NTK 的原理，详细请参考
-
 1. https://www.reddit.com/r/LocalLLaMA/comments/14mrgpr/dynamically_scaled_rope_further_increases
 2. https://kexue.fm/archives/9675

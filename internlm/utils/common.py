@@ -118,7 +118,7 @@ def filter_kwargs(func, kwargs):
 def launch_time():
     global CURRENT_TIME
     if not CURRENT_TIME:
-        CURRENT_TIME = datetime.now().strftime("%b%d_%H-%M-%S")
+        CURRENT_TIME = datetime.now().strftime("%m-%d:%H:%M:%S")
     return CURRENT_TIME
 
 

@@ -9,12 +9,13 @@ from typing import Dict
 
 import numpy as np
 import torch
+import torch.distributed as dist
 from torch.utils.data import ConcatDataset
 from tqdm import tqdm
 
 from internlm.core.context import global_context as gpc
 from internlm.data.single_dataset import JsonlDataset
-from internlm.data.utils import get_dataset_type_id
+from internlm.data.utils import get_dataset_type_id, get_dataset_type_ids_map
 from internlm.utils.logger import get_logger
 
 DEFAULT_SEED = 1024
@@ -372,7 +373,16 @@ def get_packed_dataset_without_short_length(
     datasets = []
     delete_samples = 0
 
-    for root, dirs, files in os.walk(folder, followlinks=True):
+    DATASET_TYPE_IDS_MAP = get_dataset_type_ids_map(folder)
+
+    if gpc.get_global_rank() == 0:
+        triples = [list(os.walk(folder, followlinks=True))]
+    else:
+        triples = [None]
+    dist.broadcast_object_list(triples, src=0)
+    triples = triples[0]
+
+    for root, dirs, files in triples:
         dirs.sort()  # Let the folder need to be returned in a fixed order
         if gpc.is_rank_for_log():
             logger.info(f"Reading {root}...")
@@ -392,7 +402,7 @@ def get_packed_dataset_without_short_length(
                         len(catch_ml_keys) < 2
                     ), f"The file name `{fp}` matched the following resample keys:{catch_ml_keys}"
 
-                ds_type_id = get_dataset_type_id(path=fp)
+                ds_type_id = get_dataset_type_id(DATASET_TYPE_IDS_MAP, path=fp)
                 ds = JsonlDataset(fp, ds_type_id, min_length=min_length_num)
 
                 if hasattr(ds, "old_length"):

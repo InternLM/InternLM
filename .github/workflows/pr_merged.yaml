@@ -1,13 +1,6 @@
-name: unit-tests
+name: pr-merged
 on:
   push:
-    branches:
-      - "develop"
-      - "main"
-    paths-ignore:
-      - "cmds/**"
-      - "**.md"
-  pull_request:
     branches:
       - "develop"
       - "main"
@@ -41,36 +34,19 @@ jobs:
         fi
 
 
-  unit_tests_core_pipeline:
+  acc_tests:
     if: ${{ !cancelled() }}
     needs: check-requirements
     runs-on: [t_cluster]
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
     - name: mask env
       run: |
         echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
     - uses: actions/checkout@v3
 
-    - name: core_pipeline
+    - name: acc_tests
       run: |
         source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
         export PYTHONPATH=$PWD:$PYTHONPATH
-        srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=internlm-ut-${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 1 --gres=gpu:8 python -m pytest -s -v ./tests/test_core/test_pipeline.py
-
-  unit_tests_utils_storage_manager:
-    if: ${{ !cancelled() }}
-    needs: check-requirements
-    runs-on: [t_cluster]
-    timeout-minutes: 20
-    steps:
-    - name: mask env
-      run: |
-        echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
-    - uses: actions/checkout@v3
-
-    - name: utils_storage_manager
-      run: |
-        source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
-        export PYTHONPATH=$PWD:$PYTHONPATH
-        srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=internlm-ut-${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 1 --gres=gpu:8 python -m pytest -s -v ./tests/test_utils/test_storage_manager.py
+        srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=internlm-acc-test-${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 8 --ntasks-per-node=8 --gpus-per-task=1  python ./tests/test_training/train_CI.py --config ./tests/test_training/7B_check_acc.py

@@ -8,11 +8,13 @@ MLP_RATIO = 8 / 3
 NUM_LAYER = 32
 VOCAB_SIZE = 103168
 
-MODEL_ONLY_FOLDER = "local:llm_ckpts/xxxx"
+CHECK_INIT = 1
+
+# MODEL_ONLY_FOLDER = "llm_ckpts_test_3/2"
 # Ckpt folder format:
 # fs: 'local:/mnt/nfs/XXX'
-SAVE_CKPT_FOLDER = "local:llm_ckpts"
-LOAD_CKPT_FOLDER = "local:llm_ckpts/49"
+# SAVE_CKPT_FOLDER = "local:llm_ckpts_test_3"
+# LOAD_CKPT_FOLDER = "local:llm_ckpts_test_3"
 
 # boto3 Ckpt folder format:
 # import os
@@ -22,14 +24,15 @@ LOAD_CKPT_FOLDER = "local:llm_ckpts/49"
 CHECKPOINT_EVERY = 50
 ckpt = dict(
     enable_save_ckpt=False,  # enable ckpt save.
-    save_ckpt_folder=SAVE_CKPT_FOLDER,  # Path to save training ckpt.
+    auto_resume=False,
+    # save_ckpt_folder=SAVE_CKPT_FOLDER,  # Path to save training ckpt.
     # load_ckpt_folder= dict(path=MODEL_ONLY_FOLDER, content=["model"], ckpt_type="normal"),
-    load_ckpt_folder="local:llm_ckpts/",
+    # load_ckpt_folder="local:llm_ckpts/",
     # 'load_ckpt_info' setting guide:
     # 1. the 'path' indicate ckpt path,
     # 2. the 'content‘ means what states will be loaded, support: "model", "sampler", "optimizer", "scheduler", "all"
     # 3. the ’ckpt_type‘ means the type of checkpoint to be loaded, now only 'normal' type is supported.
-    load_ckpt_info=dict(path=MODEL_ONLY_FOLDER, content=("model",), ckpt_type="internlm"),
+    # load_ckpt_info=dict(path=MODEL_ONLY_FOLDER, content=("all",), ckpt_type="internlm"),
     # 'auto_resume' is designed to automatically load the latest checkpoint from 'save_ckpt_folder' when encountering
     # training interruptions/hangs caused by hardware failures, using a scheduling system (such as k8s/slurm)
     # with an automatic restart mechanism upon training reboot.
@@ -37,11 +40,11 @@ ckpt = dict(
     # path specified in `load_ckpt_info` by default.
     # If you want to initialize your model weights from another model, you must set `auto_resume` to False.
     # If you want to train from scratch, please set `auto_resume` to False and 'load_ckpt_info' to None.
-    auto_resume=True,
+    # auto_resume=False,
     checkpoint_every=CHECKPOINT_EVERY,
-    async_upload=True,  # async ckpt upload. (only work for boto3 ckpt)
-    async_upload_tmp_folder="/dev/shm/internlm_tmp_ckpt/",  # path for temporarily files during asynchronous upload.
-    oss_snapshot_freq=int(CHECKPOINT_EVERY / 2),  # snapshot ckpt save frequency.
+    # async_upload=True,  # async ckpt upload. (only work for boto3 ckpt)
+    # async_upload_tmp_folder="/dev/shm/internlm_tmp_ckpt/",  # path for temporarily files during asynchronous upload.
+    # oss_snapshot_freq=int(CHECKPOINT_EVERY / 2),  # snapshot ckpt save frequency.
 )
 
 TRAIN_FOLDER = "/path/to/dataset"
@@ -57,7 +60,7 @@ data = dict(
     # defaults to 0, means disable evaluate
     valid_every=50,
     pack_sample_into_one=False,
-    total_steps=50000,
+    total_steps=0,
     skip_batches="",
     rampup_batch_size="",
     # Datasets with less than 50 rows will be discarded
@@ -154,9 +157,9 @@ pipeline parallel (dict):
 tensor parallel: tensor parallel size, usually the number of GPUs per node.
 """
 parallel = dict(
-    zero1=dict(size=8, fsdp=False),
-    tensor=1,
-    pipeline=dict(size=1, interleaved_overlap=True),
+    zero1=dict(size=-1, fsdp=False),
+    tensor=4,
+    pipeline=dict(size=2, interleaved_overlap=True),
     sequence_parallel=False,
 )
 
@@ -169,6 +172,5 @@ monitor = dict(
         enable_feishu_alert=DO_ALERT,
         feishu_alert_address=None,  # feishu webhook to send alert message
         light_monitor_address=None,  # light_monitor address to send heartbeat
-        alert_file_path=f"llm_alter/{JOB_NAME}_alert.log",
     ),
 )

@@ -33,7 +33,7 @@ def init_tb_writer(
 ):
     tb_log_file_name = file_name
     if not tensorboard_folder:
-        tb_folder = os.path.join(job_name, launch_time, "tensorboards")
+        tb_folder = os.path.join("RUN", job_name, launch_time, "tensorboards")
     else:
         tb_folder = tensorboard_folder
 

@@ -4,7 +4,7 @@
 import functools
 import time
 from functools import partial
-from typing import Callable, Iterable, Union
+from typing import Callable, Iterable, Optional, Union
 
 import torch
 import torch.distributed as dist
@@ -33,7 +33,7 @@ from internlm.data.packed_dataset import (
     PackedDatasetWithoutCuSeqlen,
     get_packed_dataset_without_short_length,
 )
-from internlm.data.utils import DATASET_TYPE_IDS_MAP, unpack_data
+from internlm.data.utils import get_dataset_type_ids_map, unpack_data
 from internlm.model.embedding import Embedding1D
 from internlm.model.linear import (
     FeedForward,
@@ -133,7 +133,7 @@ def wrap_FSDP_model(model: Union[nn.Module, nn.ModuleList]):
 
         # wrap the model
         grp = gpc.get_group(ParallelMode.ZERO1)
-        model = FSDP(
+        model = FSDP(  # pylint: disable=unexpected-keyword-arg
             module=model,
             process_group=grp,
             sharding_strategy=ShardingStrategy.FULL_SHARD,
@@ -158,7 +158,10 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
     Returns:
         A tuple of (optimizer, beta2_scheduler, lr_scheduler).
     """
-    if gpc.config.get("grad_norm_profiling", False) or gpc.config.get("zero_grad_profiling", False):
+    grad_profiling_config = gpc.config.get("grad_profiling", {})
+    if grad_profiling_config.get("grad_norm_profiling", False) or grad_profiling_config.get(
+        "zero_grad_profiling", False
+    ):
         # set the layer name as an attribute of the model parameters
         set_model_params_layer_name(model)
 
@@ -198,43 +201,37 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
 
 
 @llm_timeout(func_name="get_train_data_loader")
-def get_train_data_loader(
-    num_worker: int = 0, dataset_generate_func: Callable = None, train_sampler=None, train_collate_fn=None
-):
+def get_train_data_loader(num_worker: int = 0, dataset_generate_func: Optional[Callable] = None):
     """
     Generate and return the training data loader.
 
     Args:
         num_worker (:class:`int`): number of subprocesses used for dataloader.
         dataset_generate_func (:class:`Callable`, optional): generate function for dataset.
-        train_sampler (:class:`torch.utils.data.sampler`, optional): dataset sampler for training dataloader.
-        train_collate_fn (:class:`Callable`, optional): collate function for training dataloader.
 
     Returns:
         A tuple of (train_dl, dataset_types).
     """
 
     # Get the dataset types
-    dataset_types = None
-    dataset_types = list(DATASET_TYPE_IDS_MAP.keys())
     data_cfg = gpc.config.data
-
-    # Get the sample weight dictionary
     train_folder = data_cfg.train_folder
+    dataset_types = list(get_dataset_type_ids_map(train_folder).keys())
 
-    if not train_folder:
-        train_ds = RandomDataset(num_samples=1000000, max_len=data_cfg.seq_len)
-        if data_cfg.pack_sample_into_one:
-            train_ds = PackedDatasetWithoutCuSeqlen(
-                train_ds, max_length_per_sample=data_cfg.seq_len, packed_length=data_cfg.packed_length
-            )
-        else:
-            train_ds = PackedDataset(
-                train_ds, max_length_per_sample=data_cfg.seq_len, packed_length=data_cfg.packed_length
-            )
+    if dataset_generate_func is not None:
+        train_ds, train_sampler, train_collate_fn = dataset_generate_func()
     else:
-        if dataset_generate_func is not None:
-            train_ds = dataset_generate_func()
+        if train_folder is None:
+            dataset_types = ["en", "cn", "code"]
+            train_ds = RandomDataset(num_samples=1000000, max_len=data_cfg.seq_len)
+            if data_cfg.pack_sample_into_one:
+                train_ds = PackedDatasetWithoutCuSeqlen(
+                    train_ds, max_length_per_sample=data_cfg.seq_len, packed_length=data_cfg.packed_length
+                )
+            else:
+                train_ds = PackedDataset(
+                    train_ds, max_length_per_sample=data_cfg.seq_len, packed_length=data_cfg.packed_length
+                )
         else:
             train_ds = get_packed_dataset_without_short_length(
                 folder=data_cfg.train_folder,
@@ -245,11 +242,6 @@ def get_train_data_loader(
                 min_length_dict=data_cfg.get("min_length_dict", {}),
                 pack_into_one_sample=data_cfg.pack_sample_into_one,
             )
-
-    if dataset_generate_func is None or not train_folder:
-        # partition already completed
-        assert isinstance(train_ds, (PackedDataset, PackedDatasetWithoutCuSeqlen, ConcatDataset))
-        # Create the training dataset sampler
         train_sampler = StaticBatchSampler(
             train_ds.datasets if isinstance(train_ds, ConcatDataset) else [train_ds],
             batch_size=data_cfg.micro_num,
@@ -260,8 +252,6 @@ def get_train_data_loader(
             data_rank=gpc.get_local_rank(ParallelMode.DATA),
             data_world_size=gpc.get_world_size(ParallelMode.DATA),
         )
-
-    if dataset_generate_func is None or not train_folder:
         train_collate_fn = partial(packed_collate_fn, packed_length=data_cfg.packed_length)
 
     # Create the training data loader
@@ -387,7 +377,7 @@ def initialize_llm_profile(profiling: bool = False, start_time: str = None):
         activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
         schedule=torch.profiler.schedule(skip_first=5, wait=1, warmup=1, active=1, repeat=1),
         on_trace_ready=torch.profiler.tensorboard_trace_handler(
-            f"{gpc.config.JOB_NAME}/{start_time}/traces/rank{gpc.get_global_rank()}_"
+            f"RUN/{gpc.config.JOB_NAME}/{start_time}/traces/rank{gpc.get_global_rank()}_"
             + f"dp{gpc.get_local_rank(ParallelMode.DATA)}_"
             + f"tp{gpc.get_local_rank(ParallelMode.TENSOR)}_"
             + f"pp{gpc.get_local_rank(ParallelMode.PIPELINE)}",
@@ -526,26 +516,42 @@ def record_current_batch_training_metrics(
         for key, value in acc_perplex.items():
             infos[key] = value
 
-        if gpc.config.get("grad_norm_profiling", False) or gpc.config.get("zero_grad_profiling", False):
-            layer_metrics = ["layer_norm", "layer_zero_grad"]
-            param_metrics = ["param_norm", "param_zero_grad"]
-
+        grad_profiling_config = gpc.config.get("grad_profiling", {})
+        if grad_profiling_config.get("grad_norm_profiling", False) or grad_profiling_config.get(
+            "zero_grad_profiling", False
+        ):
+            layer_metrics = ["layer_grad_norm", "layer_zero_grad"]
+            param_metrics = ["param_grad_norm", "param_zero_grad"]
+            layer_names = grad_profiling_config.get("layers", [])
             for layer_metric_name in layer_metrics:
                 layer_metric = grad_norm.get(layer_metric_name, {})
                 if layer_metric:
-                    for group_name, value in layer_metric.items():
-                        if value:
+                    for group_name, layer_group in layer_metric.items():
+                        if layer_group:
                             title = f"{layer_metric_name}/{group_name}"
-                            writer.add_scalars(key=title, value=value, step=train_state.step_count)
+                            if layer_names:
+                                filter_layer_metrics = {}
+                                for layer_name, metric_value in layer_group.items():
+                                    if layer_name in layer_names:
+                                        filter_layer_metrics[layer_name] = metric_value
+                                writer.add_scalars(key=title, value=filter_layer_metrics, step=train_state.step_count)
+                            else:
+                                writer.add_scalars(key=title, value=layer_group, step=train_state.step_count)
                     del grad_norm[layer_metric_name]
 
             for param_metric_name in param_metrics:
                 param_metric = grad_norm.get(param_metric_name, {})
                 if param_metric:
                     for group_name, layer_group in param_metric.items():
-                        if layer_group:
-                            for param_name, param_group in layer_group.items():
-                                title = f"{param_name}/{group_name}_{param_metric_name}"
+                        for param_name, param_group in layer_group.items():
+                            title = f"{param_name}/{group_name}_{param_metric_name}"
+                            if layer_names:
+                                filter_param_group = {}
+                                for layer_name, metric_value in param_group.items():
+                                    if layer_name in layer_names:
+                                        filter_param_group[layer_name] = param_group[layer_name]
+                                writer.add_scalars(key=title, value=filter_param_group, step=train_state.step_count)
+                            else:
                                 writer.add_scalars(key=title, value=param_group, step=train_state.step_count)
                     del grad_norm[param_metric_name]
 

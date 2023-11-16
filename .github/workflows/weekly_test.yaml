@@ -17,7 +17,7 @@ jobs:
     - name: training_8GPU
       run: |
         source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
-        srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -n8 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_8GPU" ./tests/test_training
+        srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -n8 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_8GPU" ./tests/test_training
 
   training_16GPU_8DP2TP:
     runs-on: [t_cluster]
@@ -29,7 +29,7 @@ jobs:
       run: |
         source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
         sed -i 's/^.*tensor=.*/    tensor=2,/' ./configs/7B_sft.py
-        srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -n16 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_16GPU_8DP2TP" ./tests/test_training
+        srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -n16 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_16GPU_8DP2TP" ./tests/test_training
 
   training_16GPU_8DP2TPSP:
     runs-on: [t_cluster]
@@ -42,7 +42,7 @@ jobs:
         source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
         sed -i 's/^.*tensor=.*/    tensor=2,/' ./configs/7B_sft.py
         sed -i 's/^.*sequence_parallel=.*/    sequence_parallel=True,/' ./configs/7B_sft.py
-        srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -n16 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_16GPU_8DP2TPSP" ./tests/test_training
+        srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -n16 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_16GPU_8DP2TPSP" ./tests/test_training
             
   training_16GPU_8DP2PP:
     runs-on: [t_cluster]
@@ -54,7 +54,7 @@ jobs:
       run: |
         source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
         sed -i 's/^.*pipeline=.*/    pipeline=dict(size=2),/' ./configs/7B_sft.py
-        srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -n16 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_16GPU_8DP2PP" ./tests/test_training
+        srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -n16 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_16GPU_8DP2PP" ./tests/test_training
 
   training_16GPU_8DP2PP_InterleavedOverlap:
     runs-on: [t_cluster]
@@ -67,7 +67,7 @@ jobs:
         source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
         sed -i 's/^.*pipeline=.*/    pipeline=dict(size=2, interleaved_overlap=True),/' ./configs/7B_sft.py
         sed -i 's/^.*num_chunks=.*/    num_chunks=2,/' ./configs/7B_sft.py
-        srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -n16 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_16GPU_8DP2PP_InterleavedOverlap" ./tests/test_training
+        srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -n16 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_16GPU_8DP2PP_InterleavedOverlap" ./tests/test_training
 
   unit_test_optimizer:
     runs-on: [t_cluster]
@@ -78,7 +78,7 @@ jobs:
     - name: test_optimizer
       run: |
         source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
-        srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 1 --gres=gpu:8 python -m pytest -s ./tests/test_solver/test_optimizer.py
+        srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 1 --gres=gpu:8 python -m pytest -s ./tests/test_solver/test_optimizer.py
 
   unit_test_model:
     runs-on: [t_cluster]
@@ -89,14 +89,14 @@ jobs:
     - name: test_embedding_accuracy
       run: |
         source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
-        srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 1 --gres=gpu:8 python -m pytest -s ./tests/test_model/test_embedding.py
+        srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 1 --gres=gpu:8 python -m pytest -s ./tests/test_model/test_embedding.py
         
     - name: test_model_internlm_accuracy
       run: |
         source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
-        srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 1 --gres=gpu:8 python -m pytest -s ./tests/test_model/test_model_internlm.py
+        srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 1 --gres=gpu:8 python -m pytest -s ./tests/test_model/test_model_internlm.py
         
     - name: test_norm_accuracy
       run: |
         source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
-        srun -p ${SLURM_PARTITION} --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 1 --gres=gpu:8 python -m pytest -s ./tests/test_model/test_norm.py
+        srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 1 --gres=gpu:8 python -m pytest -s ./tests/test_model/test_norm.py

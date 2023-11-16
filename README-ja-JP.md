@@ -85,22 +85,41 @@ InternLM 7B と InternLM 7B チャットは、InternLM を使って訓練され�
 Transformers を使用して InternLM 7B チャットモデルをロードするには、以下のコードを使用します:
 
 ```python
->>> from transformers import AutoTokenizer, AutoModelForCausalLM
->>> tokenizer = AutoTokenizer.from_pretrained("internlm/internlm-chat-7b-v1_1", trust_remote_code=True)
->>> model = AutoModelForCausalLM.from_pretrained("internlm/internlm-chat-7b-v1_1", trust_remote_code=True).cuda()
->>> model = model.eval()
->>> response, history = model.chat(tokenizer, "こんにちは", history=[])
->>> print(response)
-こんにちは！どのようにお手伝いできますか？
->>> response, history = model.chat(tokenizer, "時間管理について3つの提案をお願いします", history=history)
->>> print(response)
-もちろんです！以下に簡潔な形で時間管理に関する3つの提案を示します。
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
+tokenizer = AutoTokenizer.from_pretrained("internlm/internlm-chat-7b-v1_1", trust_remote_code=True)
+# `torch_dtype=torch.float16` はモデルを float16 精度でロードできます。そうでない場合、transformers はモデルを float32 精度でロードするため、ビデオ メモリが不足する可能性があります。
+model = AutoModelForCausalLM.from_pretrained("internlm/internlm-chat-7b-v1_1", torch_dtype=torch.float16, trust_remote_code=True).cuda()
+model = model.eval()
+response, history = model.chat(tokenizer, "こんにちは", history=[])
+print(response)
+# こんにちは！どのようにお手伝いできますか？
 
-1. To-Doリストを作成し、優先順位を付ける: タスクを明確にリストアップし、それぞれの優先度を判断しましょう。重要で緊急なタスクから順に取り組むことで、効率的に作業を進めることができます。
-2. 時間のブロック化を実践する: 作業を特定の時間枠に集中させるため、時間をブロック化しましょう。例えば、朝の2時間をメール対応に割り当て、午後の3時間をプロジェクトに集中するなど、タスクごとに時間を確保することが効果的です。
-3. ディストラクションを排除する: 集中力を保つために、ディストラクションを最小限に抑えましょう。通知をオフにし、SNSやメールに気を取られないようにすることで、作業効率を向上させることができます。
+response, history = model.chat(tokenizer, "時間管理について3つの提案をお願いします", history=history)
+print(response)
+# もちろんです！以下に簡潔な形で時間管理に関する3つの提案を示します。
+# 
+# 1. To-Doリストを作成し、優先順位を付ける: タスクを明確にリストアップし、それぞれの優先度を判断しましょう。重要で緊急なタスクから順に取り組むことで、効率的に作業を進めることができます。
+# 2. 時間のブロック化を実践する: 作業を特定の時間枠に集中させるため、時間をブロック化しましょう。例えば、朝の2時間をメール対応に割り当て、午後の3時間をプロジェクトに集中するなど、タスクごとに時間を確保することが効果的です。
+# 3. ディストラクションを排除する: 集中力を保つために、ディストラクションを最小限に抑えましょう。通知をオフにし、SNSやメールに気を取られないようにすることで、作業効率を向上させることができます。
+#
+# これらの提案を実践することで、時間管理のスキルを向上させ、効果的に日々のタスクをこなしていくことができます。
+```
 
-これらの提案を実践することで、時間管理のスキルを向上させ、効果的に日々のタスクをこなしていくことができます。
+ストリーミング生成を行いたい場合は、「stream_chat」関数を使用できます。
+
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+model_path = "internlm/internlm-chat-7b"
+model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=torch.float16, trust_remote_code=True)
+tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+
+model = model.eval()
+length = 0
+for response, history in model.stream_chat(tokenizer, "你好", history=[]):
+    print(response[length:], flush=True, end="")
+    length = len(response)
 ```
 
 ### 対話
@@ -116,6 +135,12 @@ streamlit run web_demo.py
 その効果は以下の通り
 
 ![demo](https://github.com/InternLM/InternLM/assets/9102141/11b60ee0-47e4-42c0-8278-3051b2f17fe4)
+
+`web_demo_internlm.py` を使用して、InternLM 形式のモデルと直接対話できるようになりました。
+まず、モデルの重みを InternLM 形式でダウンロードし、`web_demo_internlm.py` の `ckpt_dir` を置き換えてください。 次のコマンドを実行して対話します。
+```python
+torchrun --master_port 12331 --nnodes=1 --node_rank=0 --nproc_per_node=1 -m streamlit run web_demo_internlm.py
+```
 
 ### デプロイ
 

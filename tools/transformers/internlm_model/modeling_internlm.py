@@ -19,30 +19,30 @@
 # limitations under the License.
 """ PyTorch InternLM model."""
 import math
+import queue
+import threading
 from typing import List, Optional, Tuple, Union
-import threading, queue
 
 import torch
 import torch.utils.checkpoint
 from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
-
 from transformers.activations import ACT2FN
+from transformers.generation.streamers import BaseStreamer
 from transformers.modeling_outputs import (
     BaseModelOutputWithPast,
     CausalLMOutputWithPast,
     SequenceClassifierOutputWithPast,
 )
 from transformers.modeling_utils import PreTrainedModel
-from transformers.generation.streamers import BaseStreamer
 from transformers.utils import (
     add_start_docstrings,
     add_start_docstrings_to_model_forward,
     logging,
     replace_return_docstrings,
 )
-from configuration_internlm import InternLMConfig
 
+from .configuration_internlm import InternLMConfig
 
 logger = logging.get_logger(__name__)
 
@@ -83,6 +83,8 @@ def _expand_mask(mask: torch.Tensor, dtype: torch.dtype, tgt_len: Optional[int] 
 
 
 class InternLMRMSNorm(nn.Module):
+    """RMSNorm implemention."""
+
     def __init__(self, hidden_size, eps=1e-6):
         """
         InternLMRMSNorm is equivalent to T5LayerNorm
@@ -103,10 +105,18 @@ class InternLMRMSNorm(nn.Module):
 
 
 class InternLMRotaryEmbedding(torch.nn.Module):
+    """Implement InternLM's rotary embedding.
+
+    Args:
+        dim (int): Characteristic dimension of each self-attentional head.
+        max_position_embeddings (int, optional): Model's training length. Defaults to 2048.
+        base (int, optional): The rotation position encodes the rotation Angle base number. Defaults to 10000.
+        device (Any, optional): Running device. Defaults to None.
+    """
     def __init__(self, dim, max_position_embeddings=2048, base=10000, device=None):
         super().__init__()
         inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2).float().to(device) / dim))
-        self.register_buffer("inv_freq", inv_freq)
+        self.register_buffer("inv_freq", inv_freq, persistent=False)
 
         # Build here to make `torch.jit.trace` work.
         self.max_seq_len_cached = max_position_embeddings
@@ -134,6 +144,66 @@ class InternLMRotaryEmbedding(torch.nn.Module):
         )
 
 
+class InternLMDynamicNTKScalingRotaryEmbedding(torch.nn.Module):
+    """Implement InternLM's DyanmicNTK extrapolation method, thereby broadening the model support context to 16K.
+
+    Args:
+        dim (int): Characteristic dimension of each self-attentional head.
+        max_position_embeddings (int, optional): Model's training length. Defaults to 2048.
+        base (int, optional): The rotation position encodes the rotation Angle base number. Defaults to 10000.
+        device (Any, optional): Running device. Defaults to None.
+        scaling_factor (float, optional): NTK method extrapolation coefficient. Defaults to 1.0.
+    """
+
+    def __init__(self, dim, max_position_embeddings=2048, base=10000, device=None, scaling_factor=1.0):
+        super().__init__()
+        inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2).float().to(device) / dim))
+        self.register_buffer("inv_freq", inv_freq)
+        self.dim = dim
+        self.base = base
+        self.scaling_factor = scaling_factor
+
+        # Build here to make `torch.jit.trace` work.
+        self.max_position_embeddings = max_position_embeddings
+        self.max_seq_len_cached = max_position_embeddings
+        t = torch.arange(self.max_seq_len_cached, device=self.inv_freq.device, dtype=self.inv_freq.dtype)
+        freqs = torch.einsum("i,j->ij", t, self.inv_freq)
+        # Different from paper, but it uses a different permutation in order to obtain the same calculation
+        emb = torch.cat((freqs, freqs), dim=-1)
+        self.register_buffer("cos_cached", emb.cos()[None, None, :, :], persistent=False)
+        self.register_buffer("sin_cached", emb.sin()[None, None, :, :], persistent=False)
+
+    def _update_cached(self, x, seq_len=None):
+        self.max_seq_len_cached = max(seq_len, self.max_position_embeddings)
+        if seq_len > self.max_position_embeddings:
+            base = self.base * (
+                (self.scaling_factor * seq_len / self.max_position_embeddings) - (self.scaling_factor - 1)
+            ) ** (self.dim / (self.dim - 2))
+            inv_freq = 1.0 / (base ** (torch.arange(0, self.dim, 2).float().to(x.device) / self.dim))
+        else:
+            inv_freq = self.inv_freq
+        t = torch.arange(self.max_seq_len_cached, device=inv_freq.device, dtype=inv_freq.dtype)
+        freqs = torch.einsum("i,j->ij", t, inv_freq)
+        emb = torch.cat((freqs, freqs), dim=-1)
+        self.register_buffer("cos_cached", emb.cos()[None, None, :, :], persistent=False)
+        self.register_buffer("sin_cached", emb.sin()[None, None, :, :], persistent=False)
+
+    def forward(self, x, seq_len=None):
+        # x: [bs, num_attention_heads, seq_len, head_size]
+        # This `if` block is unlikely to be run after we build sin/cos in `__init__`. Keep the logic here just in case.
+        if seq_len <= self.max_position_embeddings:
+            # Reset the tables if the sequence length has changed,
+            if self.max_seq_len_cached > self.max_position_embeddings:
+                self._update_cached(x, seq_len)
+        else:
+            self._update_cached(x, seq_len)
+
+        return (
+            self.cos_cached[:, :, :seq_len, ...].to(dtype=x.dtype),
+            self.sin_cached[:, :, :seq_len, ...].to(dtype=x.dtype),
+        )
+
+
 def rotate_half(x):
     """Rotates half the hidden dims of the input."""
     x1 = x[..., : x.shape[-1] // 2]
@@ -145,10 +215,18 @@ def apply_rotary_pos_emb(q, k, cos, sin, position_ids):
     # The first two dimensions of cos and sin are always 1, so we can `squeeze` them.
     cos = cos.squeeze(1).squeeze(0)  # [seq_len, dim]
     sin = sin.squeeze(1).squeeze(0)  # [seq_len, dim]
-    cos = cos[position_ids].unsqueeze(1)  # [bs, 1, seq_len, dim]
-    sin = sin[position_ids].unsqueeze(1)  # [bs, 1, seq_len, dim]
-    q_embed = (q * cos) + (rotate_half(q) * sin)
-    k_embed = (k * cos) + (rotate_half(k) * sin)
+    cos = cos.unsqueeze(0).unsqueeze(0).expand(len(position_ids), -1, -1, -1)
+    sin = sin.unsqueeze(0).unsqueeze(0).expand(len(position_ids), -1, -1, -1)
+    if q.size(2) == 1:
+        q_embed = (q * cos[:, :, -1, :]) + (rotate_half(q) * sin[:, :, -1, :])
+    else:
+        q_embed = (q * cos) + (rotate_half(q) * sin)
+
+    if k.size(2) == 1:
+        k_embed = (k * cos[:, :, -1, :]) + (rotate_half(k) * sin[:, :, -1, :])
+    else:
+        k_embed = (k * cos) + (rotate_half(k) * sin)
+
     return q_embed, k_embed
 
 
@@ -189,7 +267,25 @@ class InternLMAttention(nn.Module):
         self.k_proj = nn.Linear(self.hidden_size, self.num_heads * self.head_dim, bias=config.bias)
         self.v_proj = nn.Linear(self.hidden_size, self.num_heads * self.head_dim, bias=config.bias)
         self.o_proj = nn.Linear(self.num_heads * self.head_dim, self.hidden_size, bias=config.bias)
-        self.rotary_emb = InternLMRotaryEmbedding(self.head_dim, max_position_embeddings=self.max_position_embeddings)
+        self.rotary_emb = self._init_rope()
+
+    def _init_rope(self):
+        if self.config.rotary["type"] == "origin":
+            self.rotary_emb = InternLMRotaryEmbedding(
+                self.head_dim,
+                max_position_embeddings=self.max_position_embeddings,
+                base=self.config.rotary["base"],
+            )
+        elif self.config.rotary["type"] == "dynamic":
+            self.rotary_emb = InternLMDynamicNTKScalingRotaryEmbedding(
+                self.head_dim,
+                max_position_embeddings=self.max_position_embeddings,
+                base=self.config.rotary["base"],
+                scaling_factor=self.config.rotary.get("scaling_factor", 1.0),
+            )
+        else:
+            raise ValueError("Currently we only support rotary embedding's type being one of ('origin', 'dynamic').")
+        return self.rotary_emb
 
     def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
         return tensor.view(bsz, seq_len, self.num_heads, self.head_dim).transpose(1, 2).contiguous()
@@ -209,19 +305,17 @@ class InternLMAttention(nn.Module):
         key_states = self.k_proj(hidden_states).view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
         value_states = self.v_proj(hidden_states).view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
 
-        kv_seq_len = key_states.shape[-2]
-        if past_key_value is not None:
-            kv_seq_len += past_key_value[0].shape[-2]
-        cos, sin = self.rotary_emb(value_states, seq_len=kv_seq_len)
-        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
-        # [bsz, nh, t, hd]
-
         if past_key_value is not None:
             # reuse k, v, self_attention
             key_states = torch.cat([past_key_value[0], key_states], dim=2)
             value_states = torch.cat([past_key_value[1], value_states], dim=2)
 
+        # print(use_cache)
         past_key_value = (key_states, value_states) if use_cache else None
+
+        kv_seq_len = key_states.shape[-2]
+        cos, sin = self.rotary_emb(value_states, seq_len=kv_seq_len)
+        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
 
         attn_weights = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(self.head_dim)
 
@@ -332,11 +426,9 @@ INTERNLM_START_DOCSTRING = r"""
     This model inherits from [`PreTrainedModel`]. Check the superclass documentation for the generic methods the
     library implements for all its model (such as downloading or saving, resizing the input embeddings, pruning heads
     etc.)
-
     This model is also a PyTorch [torch.nn.Module](https://pytorch.org/docs/stable/nn.html#torch.nn.Module) subclass.
     Use it as a regular PyTorch Module and refer to the PyTorch documentation for all matter related to general usage
     and behavior.
-
     Parameters:
         config ([`InternLMConfig`]):
             Model configuration class with all the parameters of the model. Initializing with a config file does not
@@ -377,44 +469,34 @@ INTERNLM_INPUTS_DOCSTRING = r"""
         input_ids (`torch.LongTensor` of shape `(batch_size, sequence_length)`):
             Indices of input sequence tokens in the vocabulary. Padding will be ignored by default should you provide
             it.
-
             Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
             [`PreTrainedTokenizer.__call__`] for details.
-
             [What are input IDs?](../glossary#input-ids)
         attention_mask (`torch.Tensor` of shape `(batch_size, sequence_length)`, *optional*):
             Mask to avoid performing attention on padding token indices. Mask values selected in `[0, 1]`:
-
             - 1 for tokens that are **not masked**,
             - 0 for tokens that are **masked**.
-
             [What are attention masks?](../glossary#attention-mask)
-
             Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
             [`PreTrainedTokenizer.__call__`] for details.
-
             If `past_key_values` is used, optionally only the last `decoder_input_ids` have to be input (see
             `past_key_values`).
-
             If you want to change padding behavior, you should read [`modeling_opt._prepare_decoder_attention_mask`]
             and modify to your needs. See diagram 1 in [the paper](https://arxiv.org/abs/1910.13461) for more
             information on the default strategy.
-
             - 1 indicates the head is **not masked**,
             - 0 indicates the head is **masked**.
         position_ids (`torch.LongTensor` of shape `(batch_size, sequence_length)`, *optional*):
             Indices of positions of each input sequence tokens in the position embeddings. Selected in the range `[0,
             config.n_positions - 1]`.
-
             [What are position IDs?](../glossary#position-ids)
-        past_key_values (`tuple(tuple(torch.FloatTensor))`, *optional*, returned when `use_cache=True` is passed or when `config.use_cache=True`):
+        past_key_values (`tuple(tuple(torch.FloatTensor))`, *optional*, returned when `use_cache=True` is passed or
+            when `config.use_cache=True`):
             Tuple of `tuple(torch.FloatTensor)` of length `config.n_layers`, with each tuple having 2 tensors of shape
             `(batch_size, num_heads, sequence_length, embed_size_per_head)`) and 2 additional tensors of shape
             `(batch_size, num_heads, encoder_sequence_length, embed_size_per_head)`.
-
             Contains pre-computed hidden-states (key and values in the self-attention blocks and in the cross-attention
             blocks) that can be used (see `past_key_values` input) to speed up sequential decoding.
-
             If `past_key_values` are used, the user can optionally input only the last `decoder_input_ids` (those that
             don't have their past key value states given to this model) of shape `(batch_size, 1)` instead of all
             `decoder_input_ids` of shape `(batch_size, sequence_length)`.
@@ -443,7 +525,6 @@ INTERNLM_INPUTS_DOCSTRING = r"""
 class InternLMModel(InternLMPreTrainedModel):
     """
     Transformer decoder consisting of *config.num_hidden_layers* layers. Each layer is a [`InternLMDecoderLayer`]
-
     Args:
         config: InternLMConfig
     """
@@ -673,20 +754,14 @@ class InternLMForCausalLM(InternLMPreTrainedModel):
                 Labels for computing the masked language modeling loss. Indices should either be in `[0, ...,
                 config.vocab_size]` or -100 (see `input_ids` docstring). Tokens with indices set to `-100` are ignored
                 (masked), the loss is only computed for the tokens with labels in `[0, ..., config.vocab_size]`.
-
         Returns:
-
         Example:
-
         ```python
         >>> from transformers import AutoTokenizer, InternLMForCausalLM
-
         >>> model = InternLMForCausalLM.from_pretrained(PATH_TO_CONVERTED_WEIGHTS)
         >>> tokenizer = AutoTokenizer.from_pretrained(PATH_TO_CONVERTED_TOKENIZER)
-
         >>> prompt = "Hey, are you consciours? Can you talk to me?"
         >>> inputs = tokenizer(prompt, return_tensors="pt")
-
         >>> # Generate
         >>> generate_ids = model.generate(inputs.input_ids, max_length=30)
         >>> tokenizer.batch_decode(generate_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
@@ -780,9 +855,7 @@ class InternLMForCausalLM(InternLMPreTrainedModel):
     def build_inputs(self, tokenizer, query: str, history: List[Tuple[str, str]] = []):
         prompt = ""
         for record in history:
-            prompt += f"""<s><|User|>:{record[0]}<eoh>\n<|Bot|>:{record[1]}<eoa>\n"""
-        if len(prompt) == 0:
-            prompt += "<s>"
+            prompt += f"""<|User|>:{record[0]}<eoh>\n<|Bot|>:{record[1]}<eoa>\n"""
         prompt += f"""<|User|>:{query}<eoh>\n<|Bot|>:"""
         return tokenizer([prompt], return_tensors="pt")
 
@@ -886,7 +959,7 @@ class InternLMForCausalLM(InternLMPreTrainedModel):
             producer.start()
             while True:
                 res = response_queue.get()
-                if res is not None:
+                if res is None:
                     return
                 yield res
 
@@ -896,10 +969,8 @@ class InternLMForCausalLM(InternLMPreTrainedModel):
 @add_start_docstrings(
     """
     The InternLM Model transformer with a sequence classification head on top (linear layer).
-
     [`InternLMForSequenceClassification`] uses the last token in order to do the classification, as other causal models
     (e.g. GPT-2) do.
-
     Since it does classification on the last token, it requires to know the position of the last token. If a
     `pad_token_id` is defined in the configuration, it finds the last token that is not a padding token in each row. If
     no `pad_token_id` is defined, it simply takes the last value in each row of the batch. Since it cannot guess the

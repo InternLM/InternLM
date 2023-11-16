@@ -8,40 +8,33 @@ MLP_RATIO = 8 / 3
 NUM_LAYER = 32
 VOCAB_SIZE = 103168
 
-MODEL_ONLY_FOLDER = "local:llm_ckpts/xxxx"
+MODEL_ONLY_FOLDER = "/mnt/petrelfs/share/quailty_assurance/7B_model_weights_ckpt/init"
 # Ckpt folder format:
 # fs: 'local:/mnt/nfs/XXX'
-SAVE_CKPT_FOLDER = "local:llm_ckpts"
-LOAD_CKPT_FOLDER = "local:llm_ckpts/49"
+# SAVE_CKPT_FOLDER = "local:llm_ckpts_0925_9"
+# LOAD_CKPT_FOLDER = "local:llm_ckpts/49"
 
 # boto3 Ckpt folder format:
 # import os
 # BOTO3_IP = os.environ["BOTO3_IP"] # boto3 bucket endpoint
 # SAVE_CKPT_FOLDER = f"boto3:s3://model_weights.{BOTO3_IP}/internlm"
 # LOAD_CKPT_FOLDER = f"boto3:s3://model_weights.{BOTO3_IP}/internlm/snapshot/1/"
-CHECKPOINT_EVERY = 50
+CHECKPOINT_EVERY = 100
 ckpt = dict(
     enable_save_ckpt=False,  # enable ckpt save.
-    save_ckpt_folder=SAVE_CKPT_FOLDER,  # Path to save training ckpt.
+    auto_resume=False,
+    # save_ckpt_folder=SAVE_CKPT_FOLDER,  # Path to save training ckpt.
     # load_ckpt_folder= dict(path=MODEL_ONLY_FOLDER, content=["model"], ckpt_type="normal"),
-    load_ckpt_folder="local:llm_ckpts/",
-    # 'load_ckpt_info' setting guide:
-    # 1. the 'path' indicate ckpt path,
-    # 2. the 'content‘ means what states will be loaded, support: "model", "sampler", "optimizer", "scheduler", "all"
-    # 3. the ’ckpt_type‘ means the type of checkpoint to be loaded, now only 'normal' type is supported.
+    # load_ckpt_folder="local:llm_ckpts/",
+    # # 'load_ckpt_info' setting guide:
+    # # 1. the 'path' indicate ckpt path,
+    # # 2. the 'content‘ means what states will be loaded, support: "model", "sampler", "optimizer", "scheduler", "all"
+    # # 3. the ’ckpt_type‘ means the type of checkpoint to be loaded, now only 'normal' type is supported.
     load_ckpt_info=dict(path=MODEL_ONLY_FOLDER, content=("model",), ckpt_type="internlm"),
-    # 'auto_resume' is designed to automatically load the latest checkpoint from 'save_ckpt_folder' when encountering
-    # training interruptions/hangs caused by hardware failures, using a scheduling system (such as k8s/slurm)
-    # with an automatic restart mechanism upon training reboot.
-    # Please be aware that if `auto_resume` is not set (its default value is True), it will not load the checkpoint
-    # path specified in `load_ckpt_info` by default.
-    # If you want to initialize your model weights from another model, you must set `auto_resume` to False.
-    # If you want to train from scratch, please set `auto_resume` to False and 'load_ckpt_info' to None.
-    auto_resume=True,
-    checkpoint_every=CHECKPOINT_EVERY,
-    async_upload=True,  # async ckpt upload. (only work for boto3 ckpt)
-    async_upload_tmp_folder="/dev/shm/internlm_tmp_ckpt/",  # path for temporarily files during asynchronous upload.
-    oss_snapshot_freq=int(CHECKPOINT_EVERY / 2),  # snapshot ckpt save frequency.
+    # checkpoint_every=CHECKPOINT_EVERY,
+    # async_upload=True,  # async ckpt upload. (only work for boto3 ckpt)
+    # async_upload_tmp_folder="/dev/shm/internlm_tmp_ckpt/",  # path for temporarily files during asynchronous upload.
+    # oss_snapshot_freq=int(CHECKPOINT_EVERY / 2),  # snapshot ckpt save frequency.
 )
 
 TRAIN_FOLDER = "/path/to/dataset"
@@ -49,23 +42,24 @@ VALID_FOLDER = "/path/to/dataset"
 data = dict(
     seq_len=SEQ_LEN,
     # micro_num means the number of micro_batch contained in one gradient update
-    micro_num=4,
+    micro_num=2,
     # packed_length = micro_bsz * SEQ_LEN
     micro_bsz=2,
     # defaults to the value of micro_num
-    valid_micro_num=4,
+    valid_micro_num=2,
     # defaults to 0, means disable evaluate
-    valid_every=50,
+    valid_every=5000,
     pack_sample_into_one=False,
-    total_steps=50000,
+    total_steps=501,
     skip_batches="",
     rampup_batch_size="",
     # Datasets with less than 50 rows will be discarded
     min_length=50,
     # train_folder=TRAIN_FOLDER,
     # valid_folder=VALID_FOLDER,
-    empty_cache_and_diag_interval=10,
+    empty_cache_and_diag_interval=500,
     diag_outlier_ratio=1.1,
+    num_worker=4,
 )
 
 grad_scaler = dict(
@@ -169,6 +163,5 @@ monitor = dict(
         enable_feishu_alert=DO_ALERT,
         feishu_alert_address=None,  # feishu webhook to send alert message
         light_monitor_address=None,  # light_monitor address to send heartbeat
-        alert_file_path=f"llm_alter/{JOB_NAME}_alert.log",
     ),
 )
