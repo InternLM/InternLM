@@ -4,7 +4,7 @@ https://github.com/microsoft/DeepSpeed/blob/master/deepspeed/moe/experts.py
  Git commit hash: f3943cf9109226ed3ecf2d5dbb639a11cd925555
  We retain the following license from the original files:
 """
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Callable, Dict, Optional, Tuple
 
 import torch
 import torch.distributed as dist
@@ -12,8 +12,17 @@ import torch.nn.functional as F
 from torch import Tensor
 from torch.nn import Module
 
+from internlm.core.context.parallel_context import global_context as gpc
 from internlm.utils.logger import get_logger
-from internlm.utils.megatron_timers import megatron_timer as timer
+
+from .forward_func import no_overlap_moe_forward, overlap_moe_forward
+
+try:
+    from tutel.impls.overlap import a2a_ffn_overlap_forward as tutel_overlap_moe_forward
+
+    TUTEL_INSTALLED = True
+except (ModuleNotFoundError, ImportError):
+    TUTEL_INSTALLED = False
 
 # global llm logger
 logger = get_logger(__file__)
@@ -60,30 +69,6 @@ def gumbel_rsample(shape: Tuple, device: torch.device) -> Tensor:
         gumbel = torch.distributions.gumbel.Gumbel(zero, one).rsample  # type: ignore
         gumbel_map[device] = gumbel
     return gumbel(shape)
-
-
-# Based on https://github.com/pytorch/pytorch/pull/40762
-class _AllToAll(torch.autograd.Function):
-    """
-    All to all communication
-    """
-
-    @staticmethod
-    def forward(
-        ctx: Any,
-        # TODO: replace with DS process group
-        group: torch.distributed.ProcessGroup,
-        inputs: Tensor,
-    ) -> Tensor:  # type: ignore
-        ctx.group = group
-        inputs = inputs.contiguous()
-        output = torch.empty_like(inputs)
-        dist.all_to_all_single(output, inputs, group=group)
-        return output
-
-    @staticmethod
-    def backward(ctx: Any, *grad_output: Tensor) -> Tuple[None, Tensor]:
-        return (None, _AllToAll.apply(ctx.group, *grad_output))
 
 
 # einsum rewrites are on par or more performant
@@ -347,18 +332,12 @@ class TopKGate(Module):
         self.eval_capacity_factor = eval_capacity_factor
         self.min_capacity = min_capacity
         self.noisy_gate_policy = noisy_gate_policy
-        self.wall_clock_breakdown = False
-        self.gate_time = 0.0
         self.drop_tokens = drop_tokens
         self.use_rts = use_rts
 
     def forward(
         self, inputs: torch.Tensor, used_token: torch.Tensor = None
     ) -> Tuple[Tensor, Tensor, Tensor]:  # type: ignore
-
-        if self.wall_clock_breakdown:
-            timer("TopKGate").start()
-
         # input jittering
         if self.noisy_gate_policy == "Jitter" and self.training:
             inputs = multiplicative_jitter(inputs, device=inputs.device)
@@ -379,10 +358,6 @@ class TopKGate(Module):
             gate_output = top2gating(
                 logits, self.capacity_factor if self.training else self.eval_capacity_factor, self.min_capacity
             )
-
-        if self.wall_clock_breakdown:
-            timer("TopKGate").stop()
-            self.gate_time = timer("TopKGate").elapsed(reset=False)
 
         return gate_output
 
@@ -412,16 +387,13 @@ class MOELayer(Base):
         self.ep_group = ep_group
         self.ep_size = ep_size
         self.num_local_experts = num_local_experts
-        self.time_falltoall = 0.0
-        self.time_salltoall = 0.0
-        self.time_moe = 0.0
-        self.wall_clock_breakdown = False
+        self.use_tutel = gpc.config.model.use_tutel and TUTEL_INSTALLED
+        self.overlap_degree = gpc.config.model.moe_overlap_degree
+
+        # TODO tutel does not reshape inputs for each expert, so its logic will be different with current experts.py
+        assert (not self.use_tutel) or self.num_local_experts == 1, "only support num_local_experts=1 when enable tutel"
 
     def forward(self, *inputs: Tensor) -> Tensor:
-
-        if self.wall_clock_breakdown:
-            timer("moe").start()
-
         # Implement Algorithm 2 from GShard paper.
         d_model = inputs[0].shape[-1]
 
@@ -435,38 +407,32 @@ class MOELayer(Base):
             "sec,sm->ecm", dispatch_mask.type_as(inputs[0]), reshaped_inputs
         )  # TODO: heavy memory usage due to long sequence length
 
-        if self.wall_clock_breakdown:
-            timer("falltoall").start()
-
-        dispatched_inputs = _AllToAll.apply(self.ep_group, dispatched_inputs)
-
-        if self.wall_clock_breakdown:
-            timer("falltoall").stop()
-            self.time_falltoall = timer("falltoall").elapsed(reset=False)
-
-        # Re-shape after all-to-all: ecm -> gecm
-        dispatched_inputs = dispatched_inputs.reshape(self.ep_size, self.num_local_experts, -1, d_model)
-
-        expert_output = self.experts(dispatched_inputs)
-
-        if self.wall_clock_breakdown:
-            timer("salltoall").start()
-
-        expert_output = _AllToAll.apply(self.ep_group, expert_output)
-
-        if self.wall_clock_breakdown:
-            timer("salltoall").stop()
-            self.time_salltoall = timer("salltoall").elapsed(reset=False)
+        if self.overlap_degree == 1:
+            expert_output = no_overlap_moe_forward(
+                dispatched_inputs, self.experts, self.ep_group, self.ep_size, self.num_local_experts, d_model
+            )
+        elif self.overlap_degree > 1 and not self.use_tutel:
+            expert_output = overlap_moe_forward(
+                dispatched_inputs,
+                self.experts,
+                self.overlap_degree,
+                self.ep_group,
+                self.ep_size,
+                self.num_local_experts,
+                d_model,
+            )
+        elif self.overlap_degree > 1 and self.use_tutel:
+            expert_output = tutel_overlap_moe_forward(
+                dispatched_inputs, self.experts, self.overlap_degree, True, self.ep_group
+            )
+        else:
+            assert False, "unsupported moe forward strategy"
 
         # Re-shape back: gecm -> ecm
         expert_output = expert_output.reshape(self.ep_size * self.num_local_experts, -1, d_model)
 
-        combined_output = einsum("sec,ecm->sm", combine_weights.type_as(inputs[0]), expert_output)
+        combined_output = einsum("sec,ecm->sm", combine_weights.type_as(inputs[0]), expert_output.type_as(inputs[0]))
 
         out = combined_output.reshape(inputs[0].shape)
-
-        if self.wall_clock_breakdown:
-            timer("moe").stop()
-            self.time_moe = timer("moe").elapsed(reset=False)
 
         return out

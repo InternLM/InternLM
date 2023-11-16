@@ -293,6 +293,10 @@ def args_sanity_check():
             model._add_item("moe_use_residual", False)
         if "moe_gate_k" not in model:
             model._add_item("moe_gate_k", 2)
+        if "use_tutel" not in model:
+            model._add_item("use_tutel", False)
+        if "moe_overlap_degree" not in model:
+            model._add_item("moe_overlap_degree", 1)
     # process the parallel config
     if "sequence_parallel" not in gpc.config.parallel:
         gpc.config.parallel._add_item("sequence_parallel", False)

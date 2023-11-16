@@ -2,6 +2,7 @@
 # -*- encoding: utf-8 -*-
 
 import math
+import os
 from typing import Optional
 
 import torch
@@ -22,6 +23,7 @@ from internlm.model.linear import (
 from internlm.model.moe import MoE
 from internlm.model.multi_head_attention import MHA
 from internlm.model.utils import gather_forward_split_backward, try_import_RMSNorm
+from internlm.moe.sharded_moe import TUTEL_INSTALLED
 from internlm.solver.pipeline_utils import partition_uniform
 from internlm.utils.checkpoint import activation_checkpoint
 from internlm.utils.common import filter_kwargs
@@ -567,6 +569,8 @@ def build_model_with_moe_cfg(
     moe_drop_tokens: bool = True,
     moe_use_rts: bool = True,
     moe_use_residual: bool = False,
+    use_tutel=False,
+    moe_overlap_degree=1,  # pylint: disable=W0613
 ):
     """
     Build model with config.
@@ -608,6 +612,8 @@ def build_model_with_moe_cfg(
         moe_use_rts (bool, optional): default=True, whether to use Random Token Selection.
         moe_use_residual (bool, optional): default=False, make this MoE layer a Residual MoE
                                            (https://arxiv.org/abs/2201.05596) layer.
+        use_tutel (bool): whether to use tutel to do moe overlap
+        moe_overlap_degree (int): enable moe computation and communication overlap if >=1.
     """
 
     cfg = dict(
@@ -642,5 +648,17 @@ def build_model_with_moe_cfg(
         moe_use_rts=moe_use_rts,
         moe_use_residual=moe_use_residual,
     )
+
+    if use_tutel:
+        if TUTEL_INSTALLED:
+            # NOTE: disable 2DH alltoall communication for current version
+            os.environ["LOCAL_SIZE"] = "1"
+        elif gpc.is_rank_for_log():
+            logger.warning(
+                "Try import tutel failed! Package import error, if tutel is not installed, please implement: "
+                "python3 -m pip install --verbose --upgrade git+https://github.com/microsoft/tutel@main, "
+                "Ref: https://github.com/microsoft/tutel. "
+            )
+            logger.warning("Using default moe overlap strategy. Please note this!!!")
 
     return _build_generic_model_1d(num_layers=num_layers, num_chunks=num_chunks, **cfg)
