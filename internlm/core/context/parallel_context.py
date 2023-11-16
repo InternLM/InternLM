@@ -157,6 +157,18 @@ class ParallelContext(metaclass=SingletonMeta):
         return self._config
 
     @property
+    def micro_bsz(self):
+        return self._config.data.micro_bsz
+
+    @property
+    def micro_num(self):
+        return self._config.data.micro_num
+
+    @property
+    def grad_accum_num(self):
+        return self._config.data.gradient_accumulation
+
+    @property
     def expert_parallel_group_names(self):
         return self._expert_parallel_group_names
 

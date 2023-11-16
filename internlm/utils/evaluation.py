@@ -11,22 +11,19 @@ from internlm.model.metrics import AccPerplex
 
 
 @contextmanager
-def switch_evaluation_no_pipeline_scheduler(trainer, grad_accum_size, grad_accum_batch_size, metric_hook_list):
+def switch_evaluation_no_pipeline_scheduler(trainer, grad_accum_size, metric_hook_list):
     if not gpc.is_using_pp():
         prev_data_process_func = trainer.schedule.data_process_func
         prev_grad_accum_size = trainer.schedule._grad_accum_size
-        prev_grad_accum_batch_size = trainer.schedule._grad_accum_batch_size
         prev_metric_hooks = trainer.schedule._hooks
         try:
             trainer.schedule.data_process_func = None
             trainer.schedule._grad_accum_size = grad_accum_size
-            trainer.schedule._grad_accum_batch_size = grad_accum_batch_size
             trainer.schedule._hooks = metric_hook_list
             yield
         finally:
             trainer.schedule.data_process_func = prev_data_process_func
             trainer.schedule._grad_accum_size = prev_grad_accum_size
-            trainer.schedule._grad_accum_batch_size = prev_grad_accum_batch_size
             trainer.schedule._hooks = prev_metric_hooks
 
 
@@ -126,11 +123,9 @@ def evaluate_on_val_dls(
                         total_val_bsz = len(batch[1])
                         assert total_val_bsz % data_cfg.micro_bsz == 0
                         grad_accum_size = total_val_bsz // data_cfg.micro_bsz
-                        grad_accum_batch_size = data_cfg.micro_bsz
                         with switch_evaluation_no_pipeline_scheduler(
                             trainer=trainer,
                             grad_accum_size=grad_accum_size,
-                            grad_accum_batch_size=grad_accum_batch_size,
                             metric_hook_list=[val_sche_metric_hook],
                         ):
                             if hasattr(gpc.config.model, "num_experts"):
