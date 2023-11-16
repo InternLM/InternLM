@@ -274,9 +274,12 @@ def exam_pipeline_parallel(args):
     input_list = [{"input_ids": xs}, yx]
 
     # pp forward and backward
-    output, _, loss = scheduler.forward_backward_step(
-        engine, input_list, forward_only=False, return_loss=True, return_output_label=True
-    )
+    output_list = []
+    for _ in range(10):
+        output, _, loss = scheduler.forward_backward_step(
+            engine, input_list, forward_only=False, return_loss=True, return_output_label=True
+        )
+        output_list.append(output)
 
     engine.step()
 
@@ -291,6 +294,11 @@ def exam_pipeline_parallel(args):
             betas=(config.adam.adam_beta1, config.adam.adam_beta2),
             eps=config.adam.adam_eps,
         )
+
+        # check only forward logits
+        first_output = output_list[0]
+        for i in range(1, 10):
+            assert torch.equal(first_output, output_list[i])
 
         # check output
         torch_output = torch_model(input_ids=torch_xs)  # pylint: disable=E1102

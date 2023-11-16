@@ -37,7 +37,15 @@ def check_norm(args):
     ).to(device)
 
     # forward
-    result = norm(hidden_states.float())
+    output_list = []
+    for _ in range(10):
+        result = norm(hidden_states.float())
+        output_list.append(result)
+
+    # check only forward logits
+    first_output = output_list[0]
+    for i in range(1, 10):
+        assert torch.equal(first_output, output_list[i])
 
     standard = torch.tensor(
         [
