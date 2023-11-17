@@ -15,9 +15,12 @@ from internlm.core.context import global_context as gpc
 from internlm.core.engine import Engine
 from internlm.core.naive_amp import NaiveAMPModel
 from internlm.utils.common import get_current_device, move_to_device
+from internlm.utils.logger import get_logger
 from internlm.utils.timeout import llm_timeout
 
 from .base_scheduler import BaseScheduler, SchedulerHook
+
+logger = get_logger(__file__)
 
 
 def get_tensor_shape():
@@ -184,17 +187,16 @@ class PipelineScheduler(BaseScheduler):
 
     def load_batch(self, engine, data_iter):
         # Pipeline schedule just puts data in memory
-        batch_data, batch_size = engine.load_batch(data_iter, to_gpu=False)
-        assert batch_size % self.num_microbatches == 0, "Batch size should divided by the number of microbatches"
+        batch_data, actual_batch_size = engine.load_batch(data_iter, to_gpu=False)
 
+        self.num_microbatches = actual_batch_size  # Rampup or variable bsz size.
         self.microbatch_offset = 0
-        self.batch_size = batch_size
+        self.batch_size = actual_batch_size
         self.batch_data, self.batch_label = batch_data
-        self.microbatch_size = self.batch_size // self.num_microbatches
 
     def load_micro_batch(self):
         micro_batch_data, micro_batch_label = self._load_micro_batch(
-            data=self.batch_data, label=self.batch_label, offset=self.microbatch_offset, micro_bsz=self.microbatch_size
+            data=self.batch_data, label=self.batch_label, offset=self.microbatch_offset
         )
         if self.data_process_func:
             micro_batch_data["input_ids"] = self.data_process_func(
@@ -206,7 +208,7 @@ class PipelineScheduler(BaseScheduler):
             micro_batch_data.pop("indexes")
 
         micro_batch_data["label"] = micro_batch_label
-        self.microbatch_offset += self.microbatch_size
+        self.microbatch_offset += 1
 
         return move_to_device(micro_batch_data)
 
@@ -785,10 +787,9 @@ class InterleavedPipelineScheduler(PipelineScheduler):
             data=self.batch_data,
             label=self.batch_label,
             offset=self.microbatch_offset[model_chunk_id],
-            micro_bsz=self.microbatch_size,
         )
         micro_batch_data["label"] = micro_batch_label
-        self.microbatch_offset[model_chunk_id] += self.microbatch_size
+        self.microbatch_offset[model_chunk_id] += 1
         return move_to_device(micro_batch_data)
 
     def _forward_step(self, engine, chunk_id):

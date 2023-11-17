@@ -59,7 +59,12 @@ data = dict(
     pack_sample_into_one=False,
     total_steps=50000,
     skip_batches="",
-    rampup_batch_size="",
+    # rampup_batch_size (str): A string with three space-separated integers representing the
+    #       starting batch size, the increment, and the number of steps between
+    #       each increment. For example, "192 24 8" means that the batch size (micro_num)
+    #       starts at 192 and increases by 24 every 8 steps. Defaults to None.
+    #       (IMPORTANT): The interval step size is 'micro_bsz'.
+    rampup_batch_size=None,
     # Datasets with less than 50 rows will be discarded
     min_length=50,
     # train_folder=TRAIN_FOLDER,

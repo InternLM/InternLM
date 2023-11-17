@@ -27,6 +27,7 @@ else:
     get_numa = True
 
 logger = get_logger(__file__)
+GLOBAL_SEED = 1024
 
 
 def get_default_parser():
@@ -109,9 +110,15 @@ def args_sanity_check():
     if "micro_num" not in data:
         data._add_item("micro_num", 1)
 
-    data._add_item("gradient_accumulation", data.micro_num)
-    if gpc.is_rank_for_log():
-        logger.info(f"gradient_accumulation size will be setted to {data.micro_num}.")
+    if "gradient_accumulation" not in data:
+        data._add_item("gradient_accumulation", data.micro_num)
+        if gpc.is_rank_for_log():
+            logger.info(f"gradient_accumulation size will be setted to {data.micro_num}.")
+    else:
+        if pp == 1:
+            assert (
+                data.gradient_accumulation == data.micro_num
+            ), "for nopp 'gradient_accumulation' should equal with 'micro_num'"
 
     # batch_size should be equal with micro_num, should not use it directly
     data._add_item("batch_size", data.micro_num)
@@ -136,6 +143,11 @@ def args_sanity_check():
 
     if "diag_outlier_ratio" not in data:
         data._add_item("diag_outlier_ratio", 1.1)
+
+    if "rampup_batch_size" not in data or not data.rampup_batch_size or len(data.rampup_batch_size) == 0:
+        bsz = data.micro_num
+        data._add_item("rampup_batch_size", f"{bsz} {bsz} 1")
+
     data.diag_outlier_ratio = max(1, data.diag_outlier_ratio)
 
     if gpc.is_rank_for_log():
@@ -148,6 +160,7 @@ def args_sanity_check():
         logger.info(f"min_length: {data.min_length}")
         logger.info(f"valid_micro_num: {data.valid_micro_num}")
         logger.info(f"valid_every: {data.valid_every}")
+        logger.info(f"rampup_batch_size: {data.rampup_batch_size}")
 
     # processing the checkpoint config
     ckpt = gpc.config.ckpt
@@ -530,6 +543,9 @@ def initialize_distributed_env(
         )
     else:
         assert launcher in ["slurm", "torch"], "launcher only support slurm or torch"
+
+    global GLOBAL_SEED
+    GLOBAL_SEED = seed
 
     if args_check:
         args_sanity_check()
