@@ -91,3 +91,67 @@ When `Activation Ckpt` is turned off, the test results are as shown in the table
     <img src="../imgs/flops.png" width="580"/>
 </div>
 
+
+### GPU Memory Usage Test
+Test configuration:
+| Configuration | Description |
+| :-------: | :-----: |
+| branch    | develop |
+| tag       | v0.2.1dev20231121 |
+| GPU       | A800    |
+| Checkpoint| True    |
+| micro_bsz | 1       |
+| micro_num | 4       |
+| dtype     | bfloat16|
+
+```python
+# InternLM/configs/7B_sft.py
+data = dict(
+    # micro_num means the number of micro_batch contained in one gradient update
+    micro_num=4,
+    # packed_length = micro_bsz * SEQ_LEN
+    micro_bsz=1,
+    ...
+)
+
+model = dict(
+    checkpoint=True,
+    dtype="torch.bfloat16",
+    ...
+)
+
+parallel = dict(
+    zero1=dict(size=8, fsdp=False),
+    tensor=1,
+    pipeline=dict(size=1, interleaved_overlap=True),
+    sequence_parallel=False,
+)
+```
+
+Pre-training & Fine-tuning test:
+|model|Number of GPU|zero1|tp|pp|fsdp|GPU Memory (GB)|
+|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| 7B | 3 | -1 | 1 | 3 |False| 75 |
+| 7B | 3 | -1 | 1 | 1 |True | 72 |
+| 7B | 4 | -1 | 4 | 1 |True | 52 |
+| 7B | 4 | -1 | 4 | 1 |False| 61 |
+| 7B | 4 | -1 | 1 | 4 |False| 69 |
+| 7B | 4 | -1 | 1 | 1 |True | 56 |
+| 7B | 5 | -1 | 1 | 1 |True | 49 |
+| 7B | 5 | -1 | 1 | 5 |False| 62 |
+| 7B | 6 | -1 | 1 | 1 |True | 39 |
+| 7B | 6 | -1 | 2 | 1 |True | 38 |
+| 7B | 6 | -1 | 1 | 6 |False| 56 |
+| 20B | 8 | -1 | 1 | 1 |True | 78 |
+| 20B | 8 | -1 | 8 | 1 |True | 71 |
+| 20B | 16 | -1 | 1 | 1 |True | 40 |
+| 20B | 16 | -1 | 8 | 1 |True | 39 |
+| 20B | 16 | -1 | 1 | 16 |False| 52 |
+
+
+Web_demo test:
+
+|model|GPU|GPU Memory (GB)|System Memory (MB)|
+|:-:|:-:|:-:|:-:|
+| 7B | A800 | 14.5 | 2465 |
+| 20B | A800 | 39 | 9547 |
