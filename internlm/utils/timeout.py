@@ -39,14 +39,14 @@ ENABLE_TIMEOUT = os.getenv("INTERNLM_ENABLE_TIMEOUT", None)
 
 
 timeout_threshold_dict = {
-    "initialize_distributed_env": 120,
+    "initialize_distributed_env": 240,
     "nopp_forward_backward_step": 360,
-    "initialize_model": 20,
-    "initialize_optimizer": 40,
-    "optim_step": 30,
+    "initialize_model": 60,
+    "initialize_optimizer": 60,
+    "optim_step": 60,
     "get_train_data_loader": 600,
-    "get_validation_data_loader": 60,
-    "load_new_batch": 10,
+    "get_validation_data_loader": 120,
+    "load_new_batch": 20,
     "record_current_batch_training_metrics": 10,
     "save_checkpoint": 1200,
     "interleaved_forward_backward_step": 600,
