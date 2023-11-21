@@ -98,6 +98,7 @@ Test configuration:
 | :-------: | :-----: |
 | branch    | develop |
 | commit id | 2b984ff |
+| tag       | v0.2.1dev20231121 |
 | GPU       | A800    |
 | Checkpoint| True    |
 | micro_bsz | 1       |
@@ -128,7 +129,7 @@ parallel = dict(
 )
 ```
 
-Pre-training test:
+Pre-training & Fine-tuning test:
 |model|Number of GPU|zero1|tp|pp|fsdp|GPU Memory (GB)|
 |:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | 7B | 3 | -1 | 1 | 3 |False| 75 |
@@ -154,4 +155,4 @@ Web_demo test:
 |model|GPU|GPU Memory (GB)|System Memory (MB)|
 |:-:|:-:|:-:|:-:|
 | 7B | A800 | 14.5 | 2465 |
-| 7B | A800 | 39 | 9547 |
+| 20B | A800 | 39 | 9547 |
