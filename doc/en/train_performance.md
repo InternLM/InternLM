@@ -97,7 +97,6 @@ Test configuration:
 | Configuration | Description |
 | :-------: | :-----: |
 | branch    | develop |
-| commit id | 2b984ff |
 | tag       | v0.2.1dev20231121 |
 | GPU       | A800    |
 | Checkpoint| True    |
