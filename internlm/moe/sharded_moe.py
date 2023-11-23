@@ -16,7 +16,7 @@ from internlm.core.context.parallel_context import ParallelMode
 from internlm.core.context.parallel_context import global_context as gpc
 from internlm.utils.logger import get_logger
 
-from .forward_func import no_overlap_moe_forward, overlap_moe_forward
+from .forward_func import einsum, no_overlap_moe_forward, overlap_moe_forward
 
 try:
     from tutel.impls.overlap import a2a_ffn_overlap_forward as tutel_overlap_moe_forward
@@ -70,49 +70,6 @@ def gumbel_rsample(shape: Tuple, device: torch.device) -> Tensor:
         gumbel = torch.distributions.gumbel.Gumbel(zero, one).rsample  # type: ignore
         gumbel_map[device] = gumbel
     return gumbel(shape)
-
-
-# einsum rewrites are on par or more performant
-# switch can be bubbled up in future
-USE_EINSUM = True
-
-
-# einsum dimensions: (g)roup, (s)equence, (e)xpert, (m)odel, (c)apacity
-# See https://arxiv.org/pdf/2006.16668.pdf for details.
-def einsum(rule, a, b):
-    if USE_EINSUM:
-        return torch.einsum(rule, a, b)
-    elif rule == "s,se->se":
-        # [1, s] * [s, e]
-        return a.reshape(a.shape[0], -1) * b
-    elif rule == "se,sc->sec":
-        # [s,e,1] * [s,1,c]
-        return a.unsqueeze(2) * b.unsqueeze(1)
-    elif rule == "se,se->s":
-        # [s,1,e] * [s,e,1]
-        return torch.bmm(a.unsqueeze(1), b.unsqueeze(2)).reshape(-1)
-    elif rule == "sec,sm->ecm":
-        # [e*c, s] * [s, m]
-        s = a.shape[0]
-        e = a.shape[1]
-        c = a.shape[2]
-        m = b.shape[1]
-        return torch.matmul(a.reshape(s, -1).t(), b).reshape(e, c, m)
-    elif rule == "sec,ecm->sm":
-        # [s, e*c] * [e*c, m]
-        return torch.matmul(a.reshape(a.shape[0], -1), b.reshape(-1, b.shape[-1]))
-    elif rule == "ks,ksm->sm":
-        k = b.shape[0]
-        s = b.shape[1]
-        m = b.shape[2]
-        # [k, s] -> [s, k] -> [s, 1, k]
-        a = a.t().unsqueeze(1)
-        # [k,s,m] -> [k, sm] -> [sm, k] -> [s, m, k]
-        b = b.reshape(k, -1).t().reshape(s, m, k)
-        # bmm([s, 1, k], [s, m, k]^t) -> [s, m, 1]
-        return torch.bmm(a, b.transpose(1, 2)).squeeze(2)
-    else:
-        return torch.einsum(rule, a, b)
 
 
 # The following functions are extracted and scripted
@@ -405,18 +362,10 @@ class MOELayer(Base):
         # group_size = kwargs['group_size'] if 'group_size' in kwargs.keys() else 1
         reshaped_inputs = inputs[0].reshape(-1, d_model)
 
-        self.l_aux, combine_weights, dispatch_mask, self.exp_counts = self.gate(reshaped_inputs, inputs[1])
-        dispatched_inputs = einsum(
-            "sec,sm->ecm", dispatch_mask.type_as(inputs[0]), reshaped_inputs
-        )  # TODO: heavy memory usage due to long sequence length
-
-        if self.overlap_degree == 1:
-            expert_output = no_overlap_moe_forward(
-                dispatched_inputs, self.experts, self.ep_group, self.ep_size, self.num_local_experts, d_model
-            )
-        elif self.overlap_degree > 1 and not self.use_tutel:
-            expert_output = overlap_moe_forward(
-                dispatched_inputs,
+        if self.overlap_degree > 1 and not self.use_tutel:
+            combined_output, self.l_aux, self.exp_counts = overlap_moe_forward(
+                reshaped_inputs,
+                self.gate,
                 self.experts,
                 self.overlap_degree,
                 self.ep_group,
@@ -424,17 +373,29 @@ class MOELayer(Base):
                 self.num_local_experts,
                 d_model,
             )
-        elif self.overlap_degree > 1 and self.use_tutel:
-            expert_output = tutel_overlap_moe_forward(
-                dispatched_inputs, self.experts, self.overlap_degree, True, self.ep_group
-            )
         else:
-            assert False, "unsupported moe forward strategy"
+            self.l_aux, combine_weights, dispatch_mask, self.exp_counts = self.gate(reshaped_inputs, inputs[1])
+            dispatched_inputs = einsum(
+                "sec,sm->ecm", dispatch_mask.type_as(inputs[0]), reshaped_inputs
+            )  # TODO: heavy memory usage due to long sequence length
 
-        # Re-shape back: gecm -> ecm
-        expert_output = expert_output.reshape(self.ep_size * self.num_local_experts, -1, d_model)
+            if self.overlap_degree == 1:
+                expert_output = no_overlap_moe_forward(
+                    dispatched_inputs, self.experts, self.ep_group, self.ep_size, self.num_local_experts, d_model
+                )
+            elif self.overlap_degree > 1 and self.use_tutel:
+                expert_output = tutel_overlap_moe_forward(
+                    dispatched_inputs, self.experts, self.overlap_degree, True, self.ep_group
+                )
+            else:
+                assert False, "unsupported moe forward strategy"
 
-        combined_output = einsum("sec,ecm->sm", combine_weights.type_as(inputs[0]), expert_output.type_as(inputs[0]))
+            # Re-shape back: gecm -> ecm
+            expert_output = expert_output.reshape(self.ep_size * self.num_local_experts, -1, d_model)
+
+            combined_output = einsum(
+                "sec,ecm->sm", combine_weights.type_as(inputs[0]), expert_output.type_as(inputs[0])
+            )
 
         out = combined_output.reshape(inputs[0].shape)
 
