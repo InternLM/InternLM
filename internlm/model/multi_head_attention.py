@@ -63,6 +63,7 @@ class MHA(nn.Module):
         device (Optional[Union[str, torch.device]]): The device will be used.
         dtype (Optional[torch.dtype]): The type of data.
         use_flash_attn (bool): Whether to use flash-attn. True by default.
+        rope_base (int): The value of `base` for rotary position embeddings. 10000 by default.
 
     """
 
@@ -80,6 +81,7 @@ class MHA(nn.Module):
         rotary_emb_dim: int = 0,
         rotary_emb_scale_base: int = 0,
         use_flash_attn: bool = True,
+        rope_base: int = 10000,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
@@ -100,13 +102,16 @@ class MHA(nn.Module):
             if self.use_dynamic_ntk_rope:
                 self.rotary_emb = DynamicNTKScalingRotaryEmbedding(
                     self.rotary_emb_dim,
+                    base=rope_base,
                     scale_base=rotary_emb_scale_base,
                     device=device,
                     max_position_embeddings=max_position_embeddings,
                     scaling_factor=1.0,  # Currently do not support dynamic scaling.
                 )
             else:
-                self.rotary_emb = RotaryEmbedding(self.rotary_emb_dim, scale_base=rotary_emb_scale_base, device=device)
+                self.rotary_emb = RotaryEmbedding(
+                    self.rotary_emb_dim, base=rope_base, scale_base=rotary_emb_scale_base, device=device
+                )
 
         # notice here should change bias=True
         self.Wqkv = ColumnParallelLinearTorch(
