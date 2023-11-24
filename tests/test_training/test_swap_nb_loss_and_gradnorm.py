@@ -411,4 +411,4 @@ def test_loss():
 
 
 if __name__ == "__main__":
-    pytest.main(["-s", "-q", "test_diff_num_bsz_loss.py"])
+    pytest.main(["-s", "-q", "test_swap_nb_loss_and_gradnorm.py"])
