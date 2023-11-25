@@ -4,6 +4,7 @@
 import argparse
 import gc
 import os
+import warnings
 from pathlib import Path
 from typing import Dict, Union
 
@@ -100,12 +101,21 @@ def args_sanity_check():
     data = gpc.config.data
 
     assert data.seq_len is not None, "'seq_len' must be given a value"
-    assert data.micro_bsz is not None, "'micro_bsz' must be given a value"
-
-    if "packed_length" in data and gpc.is_rank_for_log():
-        logger.warning("packed_length would be ignored and will be setted as seq_len * micro_bsz.")
-
-    data._add_item("packed_length", data.seq_len * data.micro_bsz)
+    if "micro_bsz" in data:
+        warnings.warn(
+            "The parameter `micro_bsz` will be deprecated in the future, please use `packed_length` instead, "
+            "and set `packed_length` to `seq_len * micro_bsz`.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        if data.get("packed_length", None) is None:
+            data._add_item("packed_length", data.seq_len * data.micro_bsz)
+        else:
+            assert (
+                data.packed_length == data.seq_len * data.micro_bsz
+            ), "'packed_length' must be equal to 'seq_len * micro_bsz'"
+    else:
+        assert data.packed_length is not None, "'packed_length' must be given a value"
 
     if "micro_num" not in data:
         data._add_item("micro_num", 1)
@@ -154,7 +164,6 @@ def args_sanity_check():
         logger.info("+" * 15 + " Data Info " + "+" * 15)  # pylint: disable=W1201
         logger.info(f"seq_len: {data.seq_len}")
         logger.info(f"micro_num: {data.micro_num}")
-        logger.info(f"micro_bsz: {data.micro_bsz}")
         logger.info(f"packed_length: {data.packed_length}")
         logger.info(f"pack_sample_into_one: {data.pack_sample_into_one}")
         logger.info(f"min_length: {data.min_length}")

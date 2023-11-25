@@ -187,7 +187,6 @@ class StaticBatchSampler:
                                  each increment. For example, "192 24 8" means that the batch size
                                  starts at 192 and increases by 24 every 8 steps. Defaults to
                                  "6 2 8", which corresponds to a batch size of 2 for the first 6 steps.
-        micro_bsz (int): The micro-batch size. Defaults to 2.
         seed (int): The random seed for shuffling the indices. Defaults to 0.
         drop_last (bool): If True, drop the last incomplete batch. Currently only supports True. Defaults to True.
         data_rank (int): The rank of the current process in the data parallel group. Defaults to 0.
@@ -199,40 +198,32 @@ class StaticBatchSampler:
         datasets,
         batch_size=192,
         rampup_batch_size="6 2 8",
-        micro_bsz=2,
         seed=0,
         drop_last=True,
         data_rank=0,
         data_world_size=1,
     ):
         assert drop_last is True, "Currently only support drop last"
+        self.raw_rampup_batch_size = rampup_batch_size
         if rampup_batch_size:
             # In the process increase to batch_size
             start_bsz, bsz_incre, incre_every = map(int, rampup_batch_size.split())
         else:
             start_bsz, bsz_incre, incre_every = batch_size, batch_size, 1
-        self.raw_rampup_batch_size = rampup_batch_size
         self.start_bsz = start_bsz
         self.bsz_incre = bsz_incre
         self.incre_every = incre_every
+
         if gpc.is_initialized(ParallelMode.PIPELINE):
             assert (
                 batch_size - self.start_bsz
             ) % self.bsz_incre == 0, f"{batch_size} - {self.start_bsz} should be multiple of {self.bsz_incre}"
-            assert batch_size % micro_bsz == 0, f"batch_size({batch_size}) should be multiple of micro_bsz({micro_bsz})"
-            assert (
-                self.start_bsz % micro_bsz == 0
-            ), f"start_bsz({self.start_bsz}) should be multiple of micro_bsz({micro_bsz})"
-            assert (
-                self.bsz_incre % micro_bsz == 0
-            ), f"bsz_incre({self.bsz_incre}) should be multiple of micro_bsz({micro_bsz})"
 
         self.batch_size = batch_size
         self.epoch = 0
         self.seed = seed
         self.rng = np.random.RandomState(seed)
         self.batch_count = 0
-        self.micro_bsz = micro_bsz
         self.data_rank = data_rank
         self.data_world_size = data_world_size
         self.num_consumed_samples_in_epoch = 0
@@ -343,7 +334,6 @@ Vs. self.num_samples: {self.num_samples}"
             self.datasets,
             self.batch_size,
             self.raw_rampup_batch_size,
-            self.micro_bsz,
             self.seed,
             drop_last=True,
             data_rank=self.data_rank,

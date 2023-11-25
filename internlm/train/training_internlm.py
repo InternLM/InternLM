@@ -246,7 +246,6 @@ def get_train_data_loader(num_worker: int = 0, dataset_generate_func: Optional[C
             train_ds.datasets if isinstance(train_ds, ConcatDataset) else [train_ds],
             batch_size=data_cfg.micro_num,
             rampup_batch_size=data_cfg.rampup_batch_size,
-            micro_bsz=data_cfg.micro_bsz,
             seed=1024,
             drop_last=True,
             data_rank=gpc.get_local_rank(ParallelMode.DATA),
@@ -302,10 +301,9 @@ def get_validation_data_loader(
         else:
             # making the batch_size of validate larger can speed up the evaluation, but it should not be too large,
             # otherwise too much data may be dropped
-            batch_size = min(
-                data_cfg.valid_micro_num * data_cfg.micro_bsz, len(ds) // gpc.get_world_size(ParallelMode.DATA)
-            )
-            batch_size = batch_size // data_cfg.micro_bsz * data_cfg.micro_bsz
+            micro_bsz = data_cfg.packed_length // gpc.config.SEQ_LEN
+            batch_size = min(data_cfg.valid_micro_num * micro_bsz, len(ds) // gpc.get_world_size(ParallelMode.DATA))
+            batch_size = batch_size // micro_bsz * micro_bsz
 
             if batch_size == 0 and gpc.is_rank_for_log():
                 logger.info(f"skip validate {val_name}.")
