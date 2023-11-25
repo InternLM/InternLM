@@ -301,9 +301,7 @@ def get_validation_data_loader(
         else:
             # making the batch_size of validate larger can speed up the evaluation, but it should not be too large,
             # otherwise too much data may be dropped
-            micro_bsz = data_cfg.packed_length // gpc.config.SEQ_LEN
-            batch_size = min(data_cfg.valid_micro_num * micro_bsz, len(ds) // gpc.get_world_size(ParallelMode.DATA))
-            batch_size = batch_size // micro_bsz * micro_bsz
+            batch_size = min(data_cfg.valid_micro_num, len(ds) // gpc.get_world_size(ParallelMode.DATA))
 
             if batch_size == 0 and gpc.is_rank_for_log():
                 logger.info(f"skip validate {val_name}.")

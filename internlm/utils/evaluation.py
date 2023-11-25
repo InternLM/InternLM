@@ -70,7 +70,6 @@ def evaluate_on_val_dls(
         torch.cuda.empty_cache()
         trainer.eval()
         verbose = gpc.is_rank_for_log()
-        data_cfg = gpc.config.data
 
         for val_name, val_dl in val_dls.items():
             if not streaming and len(val_dl) == 0 and verbose:
@@ -96,12 +95,9 @@ def evaluate_on_val_dls(
             ):
                 moe_loss = None
                 with torch.inference_mode():
-                    micro_bsz = data_cfg.packed_length // gpc.config.SEQ_LEN
                     if gpc.is_using_pp():
-                        total_val_bsz = len(batch[1])
-                        assert total_val_bsz % micro_bsz == 0
-                        num_microbatches = total_val_bsz // micro_bsz
-                        tensor_shape = torch.Size([micro_bsz, batch[0]["input_ids"].shape[1], gpc.config.HIDDEN_SIZE])
+                        num_microbatches = len(batch[1])
+                        tensor_shape = torch.Size([1, batch[0]["input_ids"].shape[1], gpc.config.HIDDEN_SIZE])
 
                         with switch_evaluation_pipeline_scheduler(
                             trainer=trainer,
@@ -119,8 +115,7 @@ def evaluate_on_val_dls(
                                     batch, forward_only=True, return_loss=True, return_output_label=False
                                 )
                     else:
-                        total_val_bsz = len(batch[1])
-                        grad_accum_size = total_val_bsz // micro_bsz
+                        grad_accum_size = len(batch[1])
                         with switch_evaluation_no_pipeline_scheduler(
                             trainer=trainer,
                             grad_accum_size=grad_accum_size,

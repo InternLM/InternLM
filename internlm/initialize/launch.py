@@ -115,7 +115,8 @@ def args_sanity_check():
                 data.packed_length == data.seq_len * data.micro_bsz
             ), "'packed_length' must be equal to 'seq_len * micro_bsz'"
     else:
-        assert data.packed_length is not None, "'packed_length' must be given a value"
+        assert data.get("packed_length", None) is not None, "'packed_length' must be given a value"
+        assert data.packed_length % data.seq_len == 0, "'packed_length' must be divisible by 'seq_len'"
 
     if "micro_num" not in data:
         data._add_item("micro_num", 1)
