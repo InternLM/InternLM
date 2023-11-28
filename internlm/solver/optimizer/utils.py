@@ -241,9 +241,11 @@ def reduce_grads(gradients, parameters, fine_grained=False, only_output=False):
             parallel_grads[param_name].append(g.data.float())
         elif only_output:
             param_name = p.param_name if hasattr(p, "param_name") else "unknown-padding"
-            grad_profiling_config = gpc.config.get("grad_profiling", {})
-            layer_names = grad_profiling_config.get("layers", [])
-            if gpc.config.model["vocab_size"] == g.shape[0] and param_name.split("-")[0] in layer_names:
+            if (
+                gpc.config.model["vocab_size"] == g.shape[0]
+                and gpc.config.model["hidden_size"] == g.shape[1]
+                and "embedding" not in param_name.lower()
+            ):
                 parallel_grads.append(g.data.float())
         else:
             parallel_grads.append(g.data.float())

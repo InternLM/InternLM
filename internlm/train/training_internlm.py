@@ -521,55 +521,39 @@ def record_current_batch_training_metrics(
             infos[key] = value
 
         grad_profiling_config = gpc.config.get("grad_profiling", {})
-        if grad_profiling_config.get("grad_norm_profiling", False) or grad_profiling_config.get(
-            "zero_grad_profiling", False
-        ):
-            layer_metrics = ["layer_grad_norm", "layer_zero_grad"]
-            param_metrics = ["param_grad_norm", "param_zero_grad"]
+        interval_steps = grad_profiling_config.get("interval_steps", 1)
+        if batch_count % interval_steps == 0:
+            layer_metrics = [metric for metric in ["layer_grad_norm", "layer_zero_grad"] if metric in grad_norm]
+            param_metrics = [metric for metric in ["param_grad_norm", "param_zero_grad"] if metric in grad_norm]
             layer_names = grad_profiling_config.get("layers", [])
-            for layer_metric_name in layer_metrics:
-                layer_metric = grad_norm.get(layer_metric_name, {})
-                if layer_metric:
-                    for group_name, layer_group in layer_metric.items():
-                        if layer_group:
-                            title = f"{layer_metric_name}/{group_name}"
-                            if layer_names:
-                                filter_layer_metrics = {}
-                                for layer_name, metric_value in layer_group.items():
-                                    if layer_name in layer_names:
-                                        filter_layer_metrics[layer_name] = metric_value
-                                if filter_layer_metrics:
-                                    writer.add_scalars(
-                                        key=title, value=filter_layer_metrics, step=train_state.step_count
-                                    )
-                            else:
-                                writer.add_scalars(key=title, value=layer_group, step=train_state.step_count)
-                    del grad_norm[layer_metric_name]
-
-            for param_metric_name in param_metrics:
-                param_metric = grad_norm.get(param_metric_name, {})
-                if param_metric:
-                    for group_name, layer_group in param_metric.items():
-                        for param_name, param_group in layer_group.items():
-                            title = f"{param_name}/{group_name}_{param_metric_name}"
-                            if layer_names:
-                                filter_param_group = {}
-                                for layer_name, metric_value in param_group.items():
-                                    if layer_name in layer_names:
-                                        filter_param_group[layer_name] = param_group[layer_name]
-                                if filter_param_group:
-                                    writer.add_scalars(key=title, value=filter_param_group, step=train_state.step_count)
-                            else:
-                                writer.add_scalars(key=title, value=param_group, step=train_state.step_count)
-                    del grad_norm[param_metric_name]
-        if grad_profiling_config.get("vocab_grad_norm_profiling", False):
-            local_save_path = f"RUN/{gpc.config.JOB_NAME}/{launch_time()}/grad_norm"
-            os.makedirs(local_save_path, exist_ok=True)
-            local_save_file = f"{local_save_path}/vocab_grad_norm.pt"
-            vocab_grad_norms = grad_norm.get("vocab_grad_norm", {})
-            if vocab_grad_norms:
-                with open(local_save_file, "ab+") as vocab_f:
-                    pickle.dump((train_state.step_count, vocab_grad_norms), vocab_f)
+            for metric_name in layer_metrics:
+                metric = grad_norm.get(metric_name)
+                for group_name, layer_group in metric.items():
+                    title = f"{metric_name}/{group_name}"
+                    metrics = {k: v for k, v in layer_group.items() if not layer_names or k in layer_names}
+                    if metrics:
+                        writer.add_scalars(key=title, value=metrics, step=train_state.step_count)
+                del grad_norm[metric_name]
+            for metric_name in param_metrics:
+                metric = grad_norm.get(metric_name)
+                for group_name, layer_group in metric.items():
+                    for param_name, param_group in layer_group.items():
+                        title = f"{param_name}/{group_name}_{metric_name}"
+                        metrics = {k: v for k, v in param_group.items() if not layer_names or k in layer_names}
+                        if metrics:
+                            writer.add_scalars(key=title, value=metrics, step=train_state.step_count)
+                del grad_norm[metric_name]
+            if grad_profiling_config.get("vocab_grad_norm_profiling", False):
+                local_save_path = f"RUN/{gpc.config.JOB_NAME}/{launch_time()}/grad_norm"
+                os.makedirs(local_save_path, exist_ok=True)
+                local_save_file = f"{local_save_path}/vocab_grad_norm.pt"
+                vocab_grad_norms = grad_norm.get("vocab_grad_norm")
+                if vocab_grad_norms:
+                    try:
+                        with open(local_save_file, "ab+") as vocab_f:
+                            pickle.dump((train_state.step_count, vocab_grad_norms), vocab_f)
+                    except IOError as e:
+                        logger.warning(f"Error saving vocab_grad_norm: {e}")
                 del grad_norm["vocab_grad_norm"]
 
         line = ""

@@ -639,14 +639,18 @@ class HybridZeroOptimizer(BaseOptimizer):
         groups_param_norms = []
         group_param_zero_grad_count = []
         group_vocab_norms = []
+        batch_count = gpc.config.batch_count
+        interval_steps = grad_profiling_config.get("interval_steps", 1)
+        is_profiling = batch_count % interval_steps == 0
         for group_id in range(self.num_param_groups):
             groups_norms.append(self._compute_norm_with_stage(group_id=group_id))
-            if grad_profiling_config.get("grad_norm_profiling", False):
-                groups_param_norms.append(self._compute_param_norm_stage(group_id=group_id))
-            if grad_profiling_config.get("zero_grad_profiling", False):
-                group_param_zero_grad_count.append(self._count_zero_grads_stage(group_id=group_id))
-            if grad_profiling_config.get("vocab_grad_norm_profiling", False):
-                group_vocab_norms.append(self._compute_vocab_grad_norm_stage(group_id=group_id))
+            if is_profiling:
+                if grad_profiling_config.get("grad_norm_profiling", False):
+                    groups_param_norms.append(self._compute_param_norm_stage(group_id=group_id))
+                if grad_profiling_config.get("zero_grad_profiling", False):
+                    group_param_zero_grad_count.append(self._count_zero_grads_stage(group_id=group_id))
+                if grad_profiling_config.get("vocab_grad_norm_profiling", False):
+                    group_vocab_norms.append(self._compute_vocab_grad_norm_stage(group_id=group_id))
 
         # clear reduced grads
         # grads in the last bucket is reduced
@@ -673,54 +677,56 @@ class HybridZeroOptimizer(BaseOptimizer):
                 last_stage=True,
                 previous_norm=groups_norms[group_id],
             )
-            if grad_profiling_config.get("grad_norm_profiling", False):
-                param_norms = self._compute_param_norm_stage(
-                    group_id=group_id,
-                    last_bucket=True,
-                    last_stage=True,
-                    previous_param_norms=groups_param_norms[group_id],
-                )
-                total_layer_grad_norms[group_name], total_param_grad_norms[group_name] = compute_layer_norm(
-                    param_norms=param_norms, loss_scale=self.loss_scale.item()
-                )
-            if grad_profiling_config.get("zero_grad_profiling", False):
-                zero_grad_count = self._count_zero_grads_stage(
-                    group_id=group_id,
-                    last_bucket=True,
-                    last_stage=True,
-                    previous_zero_grad_count=group_param_zero_grad_count[group_id],
-                )
-                (
-                    total_layer_zero_grad_count[group_name],
-                    total_param_zero_grad_count[group_name],
-                ) = compute_layer_zero_grad_count(zero_grad_count)
-            if grad_profiling_config.get("vocab_grad_norm_profiling", False):
-                vocab_grad_norms = self._compute_vocab_grad_norm_stage(
-                    group_id=group_id,
-                    last_bucket=True,
-                    last_stage=True,
-                    previous_vocab_grad_norm=group_vocab_norms[group_id],
-                )
-                inf_mask = vocab_grad_norms == -1
-                nan_mask = vocab_grad_norms == -2
-                vocab_grad_norms = vocab_grad_norms**0.5 / self.loss_scale.item()
-                vocab_grad_norms[inf_mask] = -1
-                vocab_grad_norms[nan_mask] = -2
-                total_vocab_grad_norms[group_name] = vocab_grad_norms.to("cpu")
+            if is_profiling:
+                if grad_profiling_config.get("grad_norm_profiling", False):
+                    param_norms = self._compute_param_norm_stage(
+                        group_id=group_id,
+                        last_bucket=True,
+                        last_stage=True,
+                        previous_param_norms=groups_param_norms[group_id],
+                    )
+                    total_layer_grad_norms[group_name], total_param_grad_norms[group_name] = compute_layer_norm(
+                        param_norms=param_norms, loss_scale=self.loss_scale.item()
+                    )
+                if grad_profiling_config.get("zero_grad_profiling", False):
+                    zero_grad_count = self._count_zero_grads_stage(
+                        group_id=group_id,
+                        last_bucket=True,
+                        last_stage=True,
+                        previous_zero_grad_count=group_param_zero_grad_count[group_id],
+                    )
+                    (
+                        total_layer_zero_grad_count[group_name],
+                        total_param_zero_grad_count[group_name],
+                    ) = compute_layer_zero_grad_count(zero_grad_count)
+                if grad_profiling_config.get("vocab_grad_norm_profiling", False):
+                    vocab_grad_norms = self._compute_vocab_grad_norm_stage(
+                        group_id=group_id,
+                        last_bucket=True,
+                        last_stage=True,
+                        previous_vocab_grad_norm=group_vocab_norms[group_id],
+                    )
+                    inf_mask = vocab_grad_norms == -1
+                    nan_mask = vocab_grad_norms == -2
+                    vocab_grad_norms = vocab_grad_norms**0.5 / self.loss_scale.item()
+                    vocab_grad_norms[inf_mask] = -1
+                    vocab_grad_norms[nan_mask] = -2
+                    total_vocab_grad_norms[group_name] = vocab_grad_norms.to("cpu")
 
         timer("sync_grad").start()
         self._sync_grad()
         timer("sync_grad").stop()
 
         state, global_norms = self._step(closure=closure, norms=total_norms)
-        if grad_profiling_config.get("grad_norm_profiling", False):
-            global_norms["layer_grad_norm"] = total_layer_grad_norms
-            global_norms["param_grad_norm"] = total_param_grad_norms
-        if grad_profiling_config.get("zero_grad_profiling", False):
-            global_norms["layer_zero_grad"] = total_layer_zero_grad_count
-            global_norms["param_zero_grad"] = total_param_zero_grad_count
-        if grad_profiling_config.get("vocab_grad_norm_profiling", False):
-            global_norms["vocab_grad_norm"] = total_vocab_grad_norms
+        if is_profiling:
+            if grad_profiling_config.get("grad_norm_profiling", False):
+                global_norms["layer_grad_norm"] = total_layer_grad_norms
+                global_norms["param_grad_norm"] = total_param_grad_norms
+            if grad_profiling_config.get("zero_grad_profiling", False):
+                global_norms["layer_zero_grad"] = total_layer_zero_grad_count
+                global_norms["param_zero_grad"] = total_param_zero_grad_count
+            if grad_profiling_config.get("vocab_grad_norm_profiling", False):
+                global_norms["vocab_grad_norm"] = total_vocab_grad_norms
 
         return state, global_norms
 

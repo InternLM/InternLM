@@ -355,6 +355,9 @@ def args_sanity_check():
             f"overlap_sync_grad:{optim_ckpt.overlap_sync_grad}, overlap_sync_param:{optim_ckpt.overlap_sync_param}"
         )
 
+    if "batch_count" not in gpc.config:
+        gpc.config._add_item("batch_count", 0)
+
     if "moe_loss_coeff" not in gpc.config.loss:
         gpc.config.loss._add_item("moe_loss_coeff", 1.0)
 
