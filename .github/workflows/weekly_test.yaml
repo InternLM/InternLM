@@ -12,10 +12,11 @@ jobs:
     timeout-minutes: 10
     steps:
     - uses: actions/checkout@v3
+      with:
+         ref: ${{ github.event_name == 'schedule' && 'develop' || github.event_name == 'workflow_dispatch' && '' }}
 
     - name: training_8GPU
       run: |
-        git checkout develop && git rev-parse HEAD
         source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
         srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} -n8 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_8GPU" ./tests/test_training
 
@@ -24,10 +25,11 @@ jobs:
     timeout-minutes: 10
     steps:
     - uses: actions/checkout@v3
+      with:
+         ref: ${{ github.event_name == 'schedule' && 'develop' || github.event_name == 'workflow_dispatch' && '' }}
 
     - name: training_16GPU_8DP2TP
       run: |
-        git checkout develop && git rev-parse HEAD
         source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
         sed -i 's/^.*tensor=.*/    tensor=2,/' ./configs/7B_sft.py
         srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} -n16 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_16GPU_8DP2TP" ./tests/test_training
@@ -37,10 +39,11 @@ jobs:
     timeout-minutes: 10
     steps:
     - uses: actions/checkout@v3
+      with:
+         ref: ${{ github.event_name == 'schedule' && 'develop' || github.event_name == 'workflow_dispatch' && '' }}
 
     - name: training_16GPU_8DP2TPSP
       run: |
-        git checkout develop && git rev-parse HEAD
         source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
         sed -i 's/^.*tensor=.*/    tensor=2,/' ./configs/7B_sft.py
         sed -i 's/^.*sequence_parallel=.*/    sequence_parallel=True,/' ./configs/7B_sft.py
@@ -51,10 +54,11 @@ jobs:
     timeout-minutes: 10
     steps:
     - uses: actions/checkout@v3
+      with:
+         ref: ${{ github.event_name == 'schedule' && 'develop' || github.event_name == 'workflow_dispatch' && '' }}
 
     - name: training_16GPU_8DP2PP
       run: |
-        git checkout develop && git rev-parse HEAD
         source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
         sed -i 's/^.*pipeline=.*/    pipeline=dict(size=2),/' ./configs/7B_sft.py
         srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} -n16 --ntasks-per-node=8 --cpus-per-task=4 --gpus-per-task=1 pytest -s -v --color=yes -m "training_16GPU_8DP2PP" ./tests/test_training
@@ -64,10 +68,11 @@ jobs:
     timeout-minutes: 10
     steps:
     - uses: actions/checkout@v3
+      with:
+         ref: ${{ github.event_name == 'schedule' && 'develop' || github.event_name == 'workflow_dispatch' && '' }}
 
     - name: training_16GPU_8DP2PP_InterleavedOverlap
       run: |
-        git checkout develop && git rev-parse HEAD
         source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
         sed -i 's/^.*pipeline=.*/    pipeline=dict(size=2, interleaved_overlap=True),/' ./configs/7B_sft.py
         sed -i 's/^.*num_chunks=.*/    num_chunks=2,/' ./configs/7B_sft.py
@@ -78,10 +83,11 @@ jobs:
     timeout-minutes: 35
     steps:
     - uses: actions/checkout@v3
+      with:
+         ref: ${{ github.event_name == 'schedule' && 'develop' || github.event_name == 'workflow_dispatch' && '' }}
 
     - name: test_optimizer
       run: |
-        git checkout develop && git rev-parse HEAD
         source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
         srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} -N 1 -n 1 --gres=gpu:8 python -m pytest -s ./tests/test_solver/test_optimizer.py
 
@@ -90,10 +96,11 @@ jobs:
     timeout-minutes: 10
     steps:
     - uses: actions/checkout@v3
+      with:
+         ref: ${{ github.event_name == 'schedule' && 'develop' || github.event_name == 'workflow_dispatch' && '' }}
 
     - name: test_embedding_accuracy
       run: |
-        git checkout develop && git rev-parse HEAD
         source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
         srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} -N 1 -n 1 --gres=gpu:8 python -m pytest -s ./tests/test_model/test_embedding.py
         
