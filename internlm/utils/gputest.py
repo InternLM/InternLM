@@ -27,10 +27,17 @@ from internlm.utils.common import get_current_device
 logger = get_logger(__file__)
 
 
+# Gloabl cuda cache flush counter
+n_caching_allocator_flushes = 0
+
+
 def empty_cache_and_diag(batch_count, interval=50):
     """empty cuda cache and run diag bench or tests."""
     if interval <= 0:
         interval = 50
+
+    cuda_memory_analyze(batch_count, batch_count % int(interval) == 0 or batch_count <= 5)
+
     if batch_count % int(interval) == 0:
         # there is no need to do diag on the first batch
         if batch_count > 0:
@@ -259,3 +266,75 @@ def bench_gpu(use_flash_attn=True):
             address=gpc.config.monitor.alert.feishu_alert_address,
             message=msg,
         )
+
+
+"""
+Useful utility functions migrated from deepseped.
+"""
+
+
+def warmup_process_group():
+    # Prevent OOM from nccl communication.
+    if dist.is_initialized():
+        buffer = torch.ones([64]).cuda()
+        if gpc.is_initialized(ParallelMode.DATA):
+            dist.all_reduce(buffer, group=gpc.get_group(ParallelMode.DATA))
+        if gpc.is_initialized(ParallelMode.TENSOR):
+            dist.all_reduce(buffer, group=gpc.get_group(ParallelMode.TENSOR))
+        if gpc.is_initialized(ParallelMode.PIPELINE):
+            dist.all_reduce(buffer, group=gpc.get_group(ParallelMode.PIPELINE))
+        if gpc.is_initialized(ParallelMode.ZERO1):
+            dist.all_reduce(buffer, group=gpc.get_group(ParallelMode.ZERO1))
+        if gpc.is_initialized(ParallelMode.MODEL):
+            dist.all_reduce(buffer, group=gpc.get_group(ParallelMode.MODEL))
+        if gpc.is_initialized(ParallelMode.ZERO3_DP):
+            dist.all_reduce(buffer, group=gpc.get_group(ParallelMode.ZERO3_DP))
+        if gpc.is_initialized(ParallelMode.EXPERT_DATA):
+            dist.all_reduce(buffer, group=gpc.get_group(ParallelMode.EXPERT_DATA))
+        if gpc.is_initialized(ParallelMode.EXPERT):
+            dist.all_reduce(buffer, group=gpc.get_group(ParallelMode.EXPERT))
+
+        dist.barrier()
+        del buffer
+        torch.cuda.empty_cache()
+
+
+def cuda_memory_analyze(step=0, print_mm_suage=False):
+    global n_caching_allocator_flushes
+    torch.cuda.synchronize()
+
+    g_rank = gpc.get_global_rank()
+    tp_rank = gpc.get_local_rank(ParallelMode.TENSOR)
+    pp_rank = gpc.get_local_rank(ParallelMode.PIPELINE)
+    dp_rank = gpc.get_local_rank(ParallelMode.DATA)
+    rank_id = f"Rank:{g_rank}-tp{tp_rank}-pp{pp_rank}-dp{dp_rank}"
+
+    if print_mm_suage and gpc.get_local_rank(ParallelMode.DATA) == 0:
+        logger.info(
+            f"{rank_id}: Step {step}: "
+            f"Allocated {round(torch.cuda.memory_allocated() / (1024 * 1024 * 1024),4 )} GB, "
+            f"Max_Allocated {round(torch.cuda.max_memory_allocated() / (1024 * 1024 * 1024),4)} GB, "
+            f"Reserved {round(torch.cuda.memory_reserved()/ (1024 * 1024 * 1024),4)} GB, "
+            f"Max_Reserved {round(torch.cuda.max_memory_reserved()/ (1024 * 1024 * 1024),4)} GB "
+        )
+
+        torch.cuda.reset_peak_memory_stats()
+
+    # warn user about caching allocator flushes
+    memory_stats = torch.cuda.memory_stats()
+    alloc_retries = memory_stats.get("num_alloc_retries")
+    if alloc_retries is None:
+        alloc_retries = 0
+    if alloc_retries > n_caching_allocator_flushes:
+        retry_count = alloc_retries - n_caching_allocator_flushes
+        if gpc.get_global_rank() == 0:
+            logger.warning(
+                f"{rank_id}: pytorch allocator cache flushes {retry_count} times since last step."
+                "this happens when there is high memory pressure and is detrimental to "
+                "performance. if this is happening frequently consider adjusting "
+                "settings to reduce memory consumption. If you are unable to "
+                "make the cache flushes go away consider adding "
+                "torch.cuda.empty_cache() calls in your training loop to ensure "
+                "that all ranks flush their caches at the same time"
+            )
+        n_caching_allocator_flushes = alloc_retries
