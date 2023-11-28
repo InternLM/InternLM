@@ -2,6 +2,8 @@
 # -*- encoding: utf-8 -*-
 
 import functools
+import os
+import pickle
 import time
 from functools import partial
 from typing import Callable, Iterable, Optional, Union
@@ -49,7 +51,7 @@ from internlm.solver.lr_scheduler import FineTuneCosineAnnealingWarmupLR
 from internlm.solver.optimizer import FSDPadaptOptimizer, HybridZeroOptimizer
 from internlm.solver.optimizer.utils import ParamBcastSyncHandler
 from internlm.train.utils import create_param_groups
-from internlm.utils.common import DummyProfile
+from internlm.utils.common import DummyProfile, launch_time
 from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
 from internlm.utils.parallel import (
@@ -159,8 +161,10 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
         A tuple of (optimizer, beta2_scheduler, lr_scheduler).
     """
     grad_profiling_config = gpc.config.get("grad_profiling", {})
-    if grad_profiling_config.get("grad_norm_profiling", False) or grad_profiling_config.get(
-        "zero_grad_profiling", False
+    if (
+        grad_profiling_config.get("grad_norm_profiling", False)
+        or grad_profiling_config.get("zero_grad_profiling", False)
+        or grad_profiling_config.get("vocab_grad_norm_profiling", False)
     ):
         # set the layer name as an attribute of the model parameters
         set_model_params_layer_name(model)
@@ -534,7 +538,10 @@ def record_current_batch_training_metrics(
                                 for layer_name, metric_value in layer_group.items():
                                     if layer_name in layer_names:
                                         filter_layer_metrics[layer_name] = metric_value
-                                writer.add_scalars(key=title, value=filter_layer_metrics, step=train_state.step_count)
+                                if filter_layer_metrics:
+                                    writer.add_scalars(
+                                        key=title, value=filter_layer_metrics, step=train_state.step_count
+                                    )
                             else:
                                 writer.add_scalars(key=title, value=layer_group, step=train_state.step_count)
                     del grad_norm[layer_metric_name]
@@ -550,10 +557,20 @@ def record_current_batch_training_metrics(
                                 for layer_name, metric_value in param_group.items():
                                     if layer_name in layer_names:
                                         filter_param_group[layer_name] = param_group[layer_name]
-                                writer.add_scalars(key=title, value=filter_param_group, step=train_state.step_count)
+                                if filter_param_group:
+                                    writer.add_scalars(key=title, value=filter_param_group, step=train_state.step_count)
                             else:
                                 writer.add_scalars(key=title, value=param_group, step=train_state.step_count)
                     del grad_norm[param_metric_name]
+        if grad_profiling_config.get("vocab_grad_norm_profiling", False):
+            local_save_path = f"RUN/{gpc.config.JOB_NAME}/{launch_time()}/grad_norm"
+            os.makedirs(local_save_path, exist_ok=True)
+            local_save_file = f"{local_save_path}/vocab_grad_norm.pt"
+            vocab_grad_norms = grad_norm.get("vocab_grad_norm", {})
+            if vocab_grad_norms:
+                with open(local_save_file, "ab+") as vocab_f:
+                    pickle.dump((train_state.step_count, vocab_grad_norms), vocab_f)
+                del grad_norm["vocab_grad_norm"]
 
         line = ""
         for key, value in infos.items():
