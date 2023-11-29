@@ -721,8 +721,8 @@ class CheckpointManager:
             self.load_ckpt_info["ckpt_type"] = CheckpointLoadMethod.convet_load_type(self.load_ckpt_info["ckpt_type"])
 
         # test storage setting is ok.
-        if self.enable_save_ckpt:
-            self.try_ping_storage()
+        # if self.enable_save_ckpt:
+        #     self.try_ping_storage()
 
     def quit_signal_handler(self, train_state) -> bool:
         """

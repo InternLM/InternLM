@@ -178,7 +178,8 @@ def args_sanity_check():
         else:
             if ckpt.async_upload:
                 assert "save_ckpt_folder" in ckpt
-                if "boto3:" not in ckpt.save_ckpt_folder:
+                prefix_list = ["boto3:", "volc:", "oss2:"]
+                if not any(ckpt.save_ckpt_folder.startswith(prefix) for prefix in prefix_list):
                     if gpc.is_rank_for_log():
                         logger.warning(
                             "Storing ckpt on file system does not support asynchronous storage, will use sync save!"
