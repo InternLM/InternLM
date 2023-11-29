@@ -150,13 +150,9 @@ def sort_node_id_list(node_id_list, node_switch_dict):
 
 
 def get_info_for_rank_assign(access_key_id, access_key_secret, endpoint, protocol):
-    print('begin2', flush=True)
     node_switch_dict = torch.load('node_switch_dict.pt')
-    print('finish read_excel', flush=True)
     node_id_dict, node_id_list = get_sort_info(access_key_id, access_key_secret, endpoint, protocol)
-    print('finish get_sort_info', flush=True)
     sorted_node_id_list = sort_node_id_list(node_id_list, node_switch_dict)
-    print('finish sort_node_id_list', flush=True)
-    
+ 
     return node_id_dict, sorted_node_id_list
     
