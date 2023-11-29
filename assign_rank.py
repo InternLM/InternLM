@@ -159,21 +159,4 @@ def get_info_for_rank_assign(access_key_id, access_key_secret, endpoint, protoco
     print('finish sort_node_id_list', flush=True)
     
     return node_id_dict, sorted_node_id_list
-
-
-if __name__ == "__main__":
-    print('main', flush=True)
-    access_key_id = 'lijiaxing'
-    access_key_secret = 'cYMx8hgulMVD0RA0RSNp'
-    endpoint = 'pai-proxy.cb210e3f99cd7403f8de2a630dcc99fc3.cn-wulanchabu.alicontainer.com:80'
-    protocol = 'http'
-    pod_id = os.getenv("KUBERNETES_POD_NAME")
-    print('begin', flush=True)
-    node_id_dict, sorted_node_id_list = get_info_for_rank_assign(access_key_id, access_key_secret, endpoint, protocol)
-    currentu_node_id = node_id_dict[pod_id]
-    node_index = sorted_node_id_list.index(currentu_node_id)
-    print(f'currentu node id: {currentu_node_id}', flush=True)
-    # print(f'local rank: {local_rank}', flush=True)
-    print(f'node index: {node_index}', flush=True)
-    # print(f'global rank: {node_index * 8 + local_rank}', flush=True)
     
