@@ -17,6 +17,8 @@ from internlm.utils.gputest import warmup_process_group
 from internlm.utils.logger import get_logger
 from internlm.utils.timeout import llm_timeout
 
+from assign_rank import get_info_for_rank_assign
+
 # check package
 try:
     import numa
@@ -489,8 +491,21 @@ def launch_from_torch(
         seed (int, optional): Specified random seed for every process. Defaults to 1024.
     """
     try:
-        rank = int(os.environ["RANK"])
+        
+        # rank = int(os.environ["RANK"])
+        
         local_rank = int(os.environ["LOCAL_RANK"])
+        access_key_id = os.environ["access_key_id"]
+        access_key_secret = os.environ["access_key_secret"]
+        endpoint = os.environ["endpoint"]
+        protocol = os.environ["protocol"]
+        pod_id = os.getenv("KUBERNETES_POD_NAME")
+        node_id_dict, sorted_node_id_list = get_info_for_rank_assign(access_key_id, access_key_secret, endpoint, protocol)
+        currentu_node_id = node_id_dict[pod_id]
+        node_index = sorted_node_id_list.index(currentu_node_id)
+        rank = node_index * 8 + local_rank
+
+
         world_size = int(os.environ["WORLD_SIZE"])
         host = os.environ["MASTER_ADDR"]
         port = int(os.environ["MASTER_PORT"])
