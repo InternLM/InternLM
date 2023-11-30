@@ -13,6 +13,7 @@ from torch import nn
 from internlm.core.context import IS_SEQUENCE_PARALLEL, IS_TENSOR_PARALLEL, ParallelMode
 from internlm.core.context.parallel_context import global_context as gpc
 from internlm.core.context.random import _SEED_MANAGER
+from internlm.core.naive_amp import set_output_attr_to_module
 from internlm.initialize.initialize_tensor import normal_, scaled_init_method_normal
 from internlm.initialize.launch import GLOBAL_SEED
 from internlm.model.embedding import Embedding1D
@@ -368,6 +369,7 @@ class PackedFlashInternLm1D(nn.Module):
                 dtype=dtype,
                 weight_scale=embed_grad_scale,
             )
+            set_output_attr_to_module(self.head)
             for _, param in self.head.named_parameters():
                 normal_(std=0.0052)(param)
                 if gpc.get_world_size(ParallelMode.TENSOR) > 1:

@@ -24,6 +24,14 @@ def module_has_fp32_attr(module: nn.Module):
     return hasattr(module, "is_fp32_module") and getattr(module, "is_fp32_module")
 
 
+def set_output_attr_to_module(module: nn.Module):
+    setattr(module, "is_output", True)
+
+
+def module_is_output(module: nn.Module):
+    return hasattr(module, "is_output") and getattr(module, "is_output")
+
+
 class NaiveAMPModel(nn.Module):
     """
     This is a wrapper class for a model that automatically casts the model, its inputs, and outputs into fp16.
@@ -189,3 +197,8 @@ class NaiveAMPModel(nn.Module):
                 sub_module.to(fp32_dtype)
                 sub_module.register_forward_pre_hook(partial(_pre_forward_hook_for_fp32))
                 sub_module.register_forward_hook(partial(_post_forward_hook_for_fp32))
+            if gpc.config.get("output_tf32", False) and module_is_output(sub_module):
+                sub_module.to(fp32_dtype)
+                torch.backends.cudnn.allow_tf32 = True
+                torch.backends.cuda.matmul.allow_tf32 = True
+                sub_module.register_forward_pre_hook(partial(_pre_forward_hook_for_fp32))
