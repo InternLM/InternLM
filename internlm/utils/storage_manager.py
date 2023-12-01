@@ -569,7 +569,7 @@ class VolcClient(StorageClient):
             upload_id = multi_result.upload_id
             parts = []
 
-            # 上传分片数据
+            # Upload shard data
             with open(local_nvme_path, "rb") as f:
                 part_number = 1
                 offset = 0
@@ -586,7 +586,7 @@ class VolcClient(StorageClient):
                     offset += num_to_upload
                     part_number += 1
 
-            # 完成分片上传任务
+            # Complete the multipart upload task
             handler.client.complete_multipart_upload(bucket_name, fp, upload_id, parts)
 
         except handler.handler.exceptions.TosClientError as exc:
@@ -703,7 +703,8 @@ class AliClient(StorageClient):
                 offset = 0
                 while offset < total_size:
                     num_to_upload = min(part_size, total_size - offset)
-                    # 调用SizedFileAdapter(fileobj, size)方法会生成一个新的文件对象，重新计算起始追加位置。
+                    # Calling the SizedFileAdapter method will generate a new file object
+                    # and recalculate the starting append position.
                     result = handler.client.upload_part(
                         fp, upload_id, part_number, SizedFileAdapter(fileobj, num_to_upload)
                     )
