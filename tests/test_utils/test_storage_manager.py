@@ -100,7 +100,6 @@ def test_storage_mm_save_load(ckpt_config):  # noqa # pylint: disable=unused-arg
         init_storage_manager,
         llm_load,
         llm_save,
-        wait_async_upload_finish,
     )
 
     ckpt_config = Config(ckpt_config)
@@ -118,8 +117,6 @@ def test_storage_mm_save_load(ckpt_config):  # noqa # pylint: disable=unused-arg
     tobj = torch.rand(64, 64)
     save_fn = os.path.join(ckpt_config.save_folder, "test.pt")
     llm_save(save_fn, tobj)
-    if ckpt_config.test_id == 0:
-        wait_async_upload_finish()
     check_folder(save_fn)
     assert get_fns(ckpt_config.save_folder)[0] == "test.pt"
     load_obj = llm_load(save_fn, map_location="cpu")
