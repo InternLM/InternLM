@@ -694,8 +694,6 @@ class AliClient(StorageClient):
     @staticmethod
     def async_upload_fileobj(handler, fp: str, local_nvme_path: str):
         try:
-            # handler.client.put_object_from_file(fp, local_nvme_path)
-
             total_size = os.path.getsize(local_nvme_path)
             part_size = determine_part_size(total_size, preferred_size=5 * 1024 * 1024)
             upload_id = handler.client.init_multipart_upload(fp).upload_id
