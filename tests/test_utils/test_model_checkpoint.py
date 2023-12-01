@@ -32,7 +32,7 @@ ckpt_config_list = [
         checkpoint_every=0,
         async_upload=True,
         async_upload_tmp_folder=ASYNC_TMP_FOLDER,
-        snapshot_ckpt_folder="/".join([BOTO_SAVE_PATH, "snapshot"]),
+        snapshot_ckpt_folder="/".join([BOTO_SAVE_PATH, "snapshot"]) if BOTO_SAVE_PATH is not None else None,
         oss_snapshot_freq=0,
         stop_file_path=None,
         load_model_only_folder=None,
@@ -207,6 +207,9 @@ def test_ckpt_mm(step_info, ckpt_config, init_dist_and_model):  # noqa # pylint:
     ckpt_config.checkpoint_every = checkpoint_every
     ckpt_config.oss_snapshot_freq = oss_snapshot_freq
 
+    if ckpt_config.save_ckpt_folder is None:
+        return
+
     bond_return_latest_save_path = partial(
         return_latest_save_path,
         ckpt_config.save_ckpt_folder,
@@ -298,12 +301,12 @@ def query_quit_file(rank, world_size=2):
     ckpt_config = Config(
         dict(
             enable_save_ckpt=True,
-            save_ckpt_folder=BOTO_SAVE_PATH,
+            save_ckpt_folder=LOCAL_SAVE_PATH,
             load_optimizer=True,
             checkpoint_every=0,
             async_upload=True,
             async_upload_tmp_folder=ASYNC_TMP_FOLDER,
-            snapshot_ckpt_folder="/".join([BOTO_SAVE_PATH, "snapshot"]),
+            snapshot_ckpt_folder="/".join([LOCAL_SAVE_PATH, "snapshot"]),
             oss_snapshot_freq=0,
             stop_file_path=STOP_FILE_PATH,
             load_model_only_folder=None,

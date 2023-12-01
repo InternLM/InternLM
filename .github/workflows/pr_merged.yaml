@@ -50,3 +50,20 @@ jobs:
         source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
         export PYTHONPATH=$PWD:$PYTHONPATH
         srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=internlm-acc-test-${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 8 --ntasks-per-node=8 --gpus-per-task=1  python ./tests/test_training/train_CI.py --config ./tests/test_training/7B_check_acc.py
+
+  check_loss_when_swapping_micro_num_and_micro_bsz:
+    if: ${{ !cancelled() }}
+    needs: check-requirements
+    runs-on: [t_cluster]
+    timeout-minutes: 40
+    steps:
+    - name: mask env
+      run: |
+        echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
+    - uses: actions/checkout@v3
+
+    - name: loss_tests
+      run: |
+        source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
+        export PYTHONPATH=$PWD:$PYTHONPATH
+        srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=internlm-loss-test-${GITHUB_RUN_ID}-${GITHUB_JOB} -N 1 -n 1 --gres=gpu:8 python -m pytest -s ./tests/test_training/test_swap_nb_loss_and_gradnorm.py
