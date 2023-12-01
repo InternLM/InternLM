@@ -720,6 +720,7 @@ class CheckpointManager:
             self.load_ckpt_info["content"] = CheckpointLoadMask(self.load_ckpt_info["content"])
             self.load_ckpt_info["ckpt_type"] = CheckpointLoadMethod.convet_load_type(self.load_ckpt_info["ckpt_type"])
 
+        torch.distributed.barrier()
         # test storage setting is ok.
         if self.enable_save_ckpt:
             self.try_ping_storage()
@@ -1016,7 +1017,7 @@ now step_count is {train_state.step_count}",
         self.storage_manager.latest_save_step = step
 
     def try_ping_storage(self):
-        if gpc.get_global_rank() % 8 == 0:
+        if gpc.is_rank_for_log():
             buff = torch.ones((1, 64, 64), dtype=torch.bfloat16)
             test_fn = os.path.join(self.save_ckpt_folder, f"pings/{socket.gethostname()}.ping")
             self.storage_manager.save(test_fn, buff)

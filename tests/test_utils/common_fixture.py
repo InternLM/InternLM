@@ -9,7 +9,7 @@ from internlm.core.context import global_context as gpc
 from internlm.core.context.parallel_context import Config
 from internlm.solver.optimizer.hybrid_zero_optim import HybridZeroOptimizer
 from internlm.train.utils import create_param_groups
-from internlm.utils.common import SingletonMeta
+from internlm.utils.storage_manager import SingletonMeta
 
 OSS_NAME = os.environ.get("OSS_BUCKET_NAME", None)
 OSS_IP = os.environ.get("OSS_IP", None)
