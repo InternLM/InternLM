@@ -328,8 +328,8 @@ class Boto3Client(StorageClient):
         """S3 object/file storage management class
 
         Args:
-            s3_access_keys_id (str): S3 access key ID.
-            s3_secret_access_key (str): S3 secret access key.
+            ACCESS_KEY (str): S3 access key ID.
+            SECRET_ACCESS_KEY (str): S3 secret access key.
             use_threads (bool, optional): Whether to enable multipart. Defaults to True.
             multipart_chunksize (_type_, optional): Defaults to 8*MB.
             max_concurrency (int, optional): Defaults to 10.
@@ -340,11 +340,11 @@ class Boto3Client(StorageClient):
         super().__init__(boto3)
         self.botocore = botocore
         try:
-            s3_access_key_id = os.environ["S3_ACCESS_KEY_ID"]
-            s3_secret_access_key = os.environ["S3_SECRET_ACCESS_KEY_ID"]
+            s3_access_key_id = os.environ["ACCESS_KEY "]
+            s3_secret_access_key = os.environ["SECRET_ACCESS_KEY "]
         except KeyError as exc:
             raise RuntimeError(
-                "Please set boto3 bucket 'S3_ACCESS_KEY_ID' and 'S3_SECRET_ACCESS_KEY_ID' using environment variable!"
+                "Please set boto3 bucket 'ACCESS_KEY' and 'SECRET_ACCESS_KEY' using environment variable!"
             ) from exc
 
         self.client = self.handler.client(
