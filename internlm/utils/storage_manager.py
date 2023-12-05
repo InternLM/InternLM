@@ -342,7 +342,7 @@ class Boto3Client(StorageClient):
         try:
             if os.environ.get["S3_ACCESS_KEY_ID"] is not None and os.environ.get["ACCESS_KEY"] is not None:
                 s3_access_key_id = os.environ["ACCESS_KEY"]
-                logger.warning("Both 'S3_ACCESS_KEY_ID' and 'ACCESS_KEY' exit, 'ACCESS_KEY' will be used by default")
+                logger.warning("Both 'S3_ACCESS_KEY_ID' and 'ACCESS_KEY' exist, 'ACCESS_KEY' will be used by default")
             elif os.environ.get["ACCESS_KEY"] is None:
                 s3_access_key_id = os.environ["S3_ACCESS_KEY_ID"]
             else:
@@ -354,7 +354,7 @@ class Boto3Client(StorageClient):
             ):
                 s3_secret_access_key = os.environ["SECRET_ACCESS_KEY"]
                 logger.warning(
-                    "Both 'S3_SECRET_ACCESS_KEY_ID' and 'SECRET_ACCESS_KEY' exit, "
+                    "Both 'S3_SECRET_ACCESS_KEY_ID' and 'SECRET_ACCESS_KEY' exist, "
                     "'SECRET_ACCESS_KEY' will be used by default"
                 )
             elif os.environ.get["SECRET_ACCESS_KEY"] is None:
@@ -487,7 +487,7 @@ class VolcClient(StorageClient):
         try:
             if os.environ.get["VOLC_ACCESS_KEY_ID"] is not None and os.environ.get["ACCESS_KEY"] is not None:
                 access_key = os.environ["ACCESS_KEY"]
-                logger.warning("Both 'VOLC_ACCESS_KEY_ID' and 'ACCESS_KEY' exit, 'ACCESS_KEY' will be used by default")
+                logger.warning("Both 'VOLC_ACCESS_KEY_ID' and 'ACCESS_KEY' exist, 'ACCESS_KEY' will be used by default")
             elif os.environ.get["ACCESS_KEY"] is None:
                 access_key = os.environ["VOLC_ACCESS_KEY_ID"]
             else:
@@ -499,7 +499,7 @@ class VolcClient(StorageClient):
             ):
                 secret_key = os.environ["SECRET_ACCESS_KEY"]
                 logger.warning(
-                    "Both 'VOLC_SECRET_ACCESS_KEY_ID' and 'SECRET_ACCESS_KEY' exit, "
+                    "Both 'VOLC_SECRET_ACCESS_KEY_ID' and 'SECRET_ACCESS_KEY' exist, "
                     "'SECRET_ACCESS_KEY' will be used by default"
                 )
             elif os.environ.get["SECRET_ACCESS_KEY"] is None:
@@ -672,7 +672,7 @@ class AliClient(StorageClient):
         try:
             if os.environ.get["ALI_ACCESS_KEY_ID"] is not None and os.environ.get["ACCESS_KEY"] is not None:
                 access_key = os.environ["ACCESS_KEY"]
-                logger.warning("Both 'ALI_ACCESS_KEY_ID' and 'ACCESS_KEY' exit, 'ACCESS_KEY' will be used by default")
+                logger.warning("Both 'ALI_ACCESS_KEY_ID' and 'ACCESS_KEY' exist, 'ACCESS_KEY' will be used by default")
             elif os.environ.get["ACCESS_KEY"] is None:
                 access_key = os.environ["ALI_ACCESS_KEY_ID"]
             else:
@@ -684,7 +684,7 @@ class AliClient(StorageClient):
             ):
                 secret_key = os.environ["SECRET_ACCESS_KEY"]
                 logger.warning(
-                    "Both 'ALI_SECRET_ACCESS_KEY_ID' and 'SECRET_ACCESS_KEY' exit, "
+                    "Both 'ALI_SECRET_ACCESS_KEY_ID' and 'SECRET_ACCESS_KEY' exist, "
                     "'SECRET_ACCESS_KEY' will be used by default"
                 )
             elif os.environ.get["SECRET_ACCESS_KEY"] is None:
