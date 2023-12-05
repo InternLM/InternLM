@@ -4,10 +4,13 @@
 import torch.distributed as dist
 from torch import nn
 
-from internlm.core.context import IS_TENSOR_PARALLEL, ParallelMode
+from internlm.core.context import IS_SEQUENCE_PARALLEL, IS_TENSOR_PARALLEL, ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.core.naive_amp import NaiveAMPModel
+from internlm.model.utils import try_import_RMSNorm
 from internlm.solver.pipeline_utils import partition_uniform
+
+RMSNorm = try_import_RMSNorm()
 
 
 def is_model_parallel_parameter(p):
@@ -98,3 +101,41 @@ def set_model_params_layer_name(model):
                     layer_param_name = f"{layer_name}-{param_name}"
                     param.__setattr__("layer_name", layer_name)
                     param.__setattr__("param_name", f"{layer_name}-{param_name}")
+
+
+def check_sequence_parallel(model):
+    """
+    check whether the norm module has IS_SEQUENC_PARALLEL attribute.
+    when the sequence_parallel is True, the norm module should have the IS_SEQUENC_PARALLEL attribute
+    to illustrate the norm should conduct the all-reduce for its grad.
+    """
+
+    if gpc.config.parallel.sequence_parallel is False:
+        return
+
+    if not isinstance(model, nn.ModuleList):
+        model = [model]
+
+    for _chunk in model:
+        if isinstance(_chunk, NaiveAMPModel):
+            _chunk = _chunk.model
+        for _, children in _chunk.named_children():
+            # import pdb; pdb.set_trace()
+            if isinstance(children, (RMSNorm, nn.LayerNorm)):
+                for param in children.parameters():
+                    assert hasattr(
+                        param, IS_SEQUENCE_PARALLEL
+                    ), ("when the sequence parallel is True,"
+                        "the params of norm module should have IS_SEQUENCE_PARALLEL attribute")
+                continue
+            elif not isinstance(children, nn.ModuleList):
+                continue
+            # transformer block
+            for _, block in enumerate(children):  # iterate transformer blocks
+                for _, sub in block.named_children():
+                    if isinstance(sub, (RMSNorm, nn.LayerNorm)):
+                        for param in sub.parameters():
+                            assert hasattr(
+                                param, IS_SEQUENCE_PARALLEL
+                            ), ("when the sequence parallel is True,"
+                                "the params of norm module should have IS_SEQUENCE_PARALLEL attribute")
