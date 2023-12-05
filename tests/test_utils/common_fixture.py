@@ -8,22 +8,33 @@ import torch
 from internlm.core.context import global_context as gpc
 from internlm.core.context.parallel_context import Config
 from internlm.solver.optimizer.hybrid_zero_optim import HybridZeroOptimizer
-from internlm.utils.common import SingletonMeta
+from internlm.train.utils import create_param_groups
+from internlm.utils.storage_manager import SingletonMeta
 
-OSS_NAME = os.environ.get("OSS_BUCKET_NAME")
-OSS_IP = os.environ.get("OSS_IP")
-USER = os.environ.get("USER")
+OSS_NAME = os.environ.get("OSS_BUCKET_NAME", None)
+OSS_IP = os.environ.get("OSS_IP", None)
+USER = os.environ.get("USER", None)
 JOB_NAME = "CI_TEST"
 LOCAL_SAVE_PATH = "local:local_ckpt"
 
-BOTO_SAVE_PATH = f"boto3:s3://{OSS_NAME}.{OSS_IP}/{USER}/{JOB_NAME}"
-BOTO_SAVE_PATH_NO_PRFIX = f"s3://{OSS_NAME}.{OSS_IP}/{USER}/{JOB_NAME}/"
+if OSS_NAME is None or OSS_IP is None:
+    BOTO_SAVE_PATH = None
+    BOTO_SAVE_PATH_NO_PRFIX = None
 
-VOLC_SAVE_PATH = f"volc:vc://{OSS_NAME}.{OSS_IP}/{USER}/{JOB_NAME}"
-VOLC_SAVE_PATH_NO_PRFIX = f"vc://{OSS_NAME}.{OSS_IP}/{USER}/{JOB_NAME}/"
+    VOLC_SAVE_PATH = None
+    VOLC_SAVE_PATH_NO_PRFIX = None
 
-ALI_SAVE_PATH = f"oss2:ali://{OSS_NAME}.{OSS_IP}/{USER}/{JOB_NAME}"
-ALI_SAVE_PATH_NO_PRFIX = f"ali://{OSS_NAME}.{OSS_IP}/{USER}/{JOB_NAME}/"
+    ALI_SAVE_PATH = None
+    ALI_SAVE_PATH_NO_PRFIX = None
+else:
+    BOTO_SAVE_PATH = f"boto3:s3://{OSS_NAME}.{OSS_IP}/{USER}/{JOB_NAME}"
+    BOTO_SAVE_PATH_NO_PRFIX = f"s3://{OSS_NAME}.{OSS_IP}/{USER}/{JOB_NAME}/"
+
+    VOLC_SAVE_PATH = f"volc:vc://{OSS_NAME}.{OSS_IP}/{USER}/{JOB_NAME}"
+    VOLC_SAVE_PATH_NO_PRFIX = f"vc://{OSS_NAME}.{OSS_IP}/{USER}/{JOB_NAME}/"
+
+    ALI_SAVE_PATH = f"oss2:ali://{OSS_NAME}.{OSS_IP}/{USER}/{JOB_NAME}"
+    ALI_SAVE_PATH_NO_PRFIX = f"ali://{OSS_NAME}.{OSS_IP}/{USER}/{JOB_NAME}/"
 
 ASYNC_TMP_FOLDER = "./async_tmp_folder"
 
@@ -31,7 +42,12 @@ ASYNC_TMP_FOLDER = "./async_tmp_folder"
 # 1B
 init_config = Config(
     dict(
-        parallel=dict(zero1=1, pipeline=dict(size=1, interleaved_overlap=False), sequence_parallel=False, tensor=1),
+        parallel=dict(
+            zero1=dict(size=1, fsdp=False),
+            pipeline=dict(size=1, interleaved_overlap=False),
+            sequence_parallel=False,
+            tensor=1,
+        ),
         model_type="INTERNLM",
         adam=dict(
             lr=1e-4,
@@ -90,8 +106,9 @@ def init_naive_optim(model):
 
 
 def init_hybrid_optim(model):
+    params = create_param_groups(model, 0.01)
     naive_optimizer = torch.optim.AdamW(
-        params=[{"params": model.parameters(), "weight_decay": 0.01}],
+        params=params,
         lr=1e-4,
         betas=(0.9, 0.95),
         eps=1e-8,

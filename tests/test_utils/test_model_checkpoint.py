@@ -8,9 +8,8 @@ import torch.distributed as dist
 from internlm.core.context.parallel_context import Config
 from internlm.core.trainer import TrainState
 from internlm.solver.optimizer.hybrid_zero_optim import HybridZeroOptimizer
-from internlm.utils.common import SingletonMeta
 from internlm.utils.model_checkpoint import CheckpointManager
-from internlm.utils.storage_manager import wait_async_upload_finish
+from internlm.utils.storage_manager import SingletonMeta, wait_async_upload_finish
 from tests.test_utils.common_fixture import (  # noqa # pylint: disable=unused-import
     ASYNC_TMP_FOLDER,
     BOTO_SAVE_PATH,
@@ -32,7 +31,7 @@ ckpt_config_list = [
         checkpoint_every=0,
         async_upload=True,
         async_upload_tmp_folder=ASYNC_TMP_FOLDER,
-        snapshot_ckpt_folder="/".join([BOTO_SAVE_PATH, "snapshot"]),
+        snapshot_ckpt_folder="/".join([BOTO_SAVE_PATH, "snapshot"]) if BOTO_SAVE_PATH is not None else None,
         oss_snapshot_freq=0,
         stop_file_path=None,
         load_model_only_folder=None,
@@ -207,6 +206,9 @@ def test_ckpt_mm(step_info, ckpt_config, init_dist_and_model):  # noqa # pylint:
     ckpt_config.checkpoint_every = checkpoint_every
     ckpt_config.oss_snapshot_freq = oss_snapshot_freq
 
+    if ckpt_config.save_ckpt_folder is None:
+        return
+
     bond_return_latest_save_path = partial(
         return_latest_save_path,
         ckpt_config.save_ckpt_folder,
@@ -298,12 +300,12 @@ def query_quit_file(rank, world_size=2):
     ckpt_config = Config(
         dict(
             enable_save_ckpt=True,
-            save_ckpt_folder=BOTO_SAVE_PATH,
+            save_ckpt_folder=LOCAL_SAVE_PATH,
             load_optimizer=True,
             checkpoint_every=0,
             async_upload=True,
             async_upload_tmp_folder=ASYNC_TMP_FOLDER,
-            snapshot_ckpt_folder="/".join([BOTO_SAVE_PATH, "snapshot"]),
+            snapshot_ckpt_folder="/".join([LOCAL_SAVE_PATH, "snapshot"]),
             oss_snapshot_freq=0,
             stop_file_path=STOP_FILE_PATH,
             load_model_only_folder=None,

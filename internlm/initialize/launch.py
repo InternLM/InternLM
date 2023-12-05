@@ -13,6 +13,7 @@ from internlm.core.context import Config
 from internlm.core.context import global_context as gpc
 from internlm.monitor import initialize_light_monitor
 from internlm.utils.common import get_master_node
+from internlm.utils.gputest import warmup_process_group
 from internlm.utils.logger import get_logger
 from internlm.utils.timeout import llm_timeout
 
@@ -59,6 +60,9 @@ def get_default_parser():
 
 def args_sanity_check():
     assert gpc.config is not None, "config is not load!"
+
+    if "JOB_NAME" not in gpc.config:
+        gpc.config._add_item("JOB_NAME", "AnonymousJob")
 
     # the default model type is INTERNLM
     if "model_type" not in gpc.config:
@@ -144,10 +148,6 @@ def args_sanity_check():
     if "diag_outlier_ratio" not in data:
         data._add_item("diag_outlier_ratio", 1.1)
 
-    if "rampup_batch_size" not in data or not data.rampup_batch_size or len(data.rampup_batch_size) == 0:
-        bsz = data.micro_num
-        data._add_item("rampup_batch_size", f"{bsz} {bsz} 1")
-
     data.diag_outlier_ratio = max(1, data.diag_outlier_ratio)
 
     if gpc.is_rank_for_log():
@@ -178,7 +178,8 @@ def args_sanity_check():
         else:
             if ckpt.async_upload:
                 assert "save_ckpt_folder" in ckpt
-                if "boto3:" not in ckpt.save_ckpt_folder:
+                prefix_list = ["boto3:", "volc:", "oss2:"]
+                if not any(ckpt.save_ckpt_folder.startswith(prefix) for prefix in prefix_list):
                     if gpc.is_rank_for_log():
                         logger.warning(
                             "Storing ckpt on file system does not support asynchronous storage, will use sync save!"
@@ -425,6 +426,8 @@ def launch(
     gpc.detect_num_processes_on_current_node()
 
     gpc.set_seed(seed)
+
+    warmup_process_group()
 
     if gpc.is_rank_for_log():
         logger.info(

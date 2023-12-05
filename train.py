@@ -77,13 +77,13 @@ def main(args):
     get_tflops_func = partial(
         get_megatron_flops,
         checkpoint=gpc.config.model.checkpoint,
-        seq_len=gpc.config.SEQ_LEN,
+        seq_len=gpc.config.data["seq_len"],
         hidden_size=gpc.config.model.hidden_size,
         num_layers=gpc.config.model.num_layers,
         vocab_size=gpc.config.model.vocab_size,
         global_batch_size=gpc.config.data.micro_bsz * gpc.config.data.micro_num * gpc.get_world_size(ParallelMode.DATA),
         global_world_size=gpc.get_world_size(ParallelMode.GLOBAL),
-        mlp_ratio=gpc.config.MLP_RATIO,
+        mlp_ratio=gpc.config.model["mlp_ratio"],
     )
 
     # get and broadcast current time
