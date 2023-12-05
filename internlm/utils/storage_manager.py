@@ -457,8 +457,8 @@ class VolcClient(StorageClient):
         """Volc object/file storage management class
 
         Args:
-            access_key (str): Volc access key ID.
-            secret_key (str): Volc secret access key.
+            ACCESS_KEY (str): Volc access key ID.
+            SECRET_ACCESS_KEY (str): Volc secret access key.
             endpoint (str): Volc tos endpoint.
             region (str): Volc tos region.
 
@@ -466,11 +466,11 @@ class VolcClient(StorageClient):
         super().__init__(tos)
 
         try:
-            access_key = os.environ["VOLC_ACCESS_KEY_ID"]
-            secret_key = os.environ["VOLC_SECRET_ACCESS_KEY_ID"]
+            access_key = os.environ["ACCESS_KEY"]
+            secret_key = os.environ["SECRET_ACCESS_KEY"]
         except KeyError as exc:
             raise RuntimeError(
-                "Please set 'VOLC_ACCESS_KEY_ID' and 'VOLC_SECRET_ACCESS_KEY_ID'",
+                "Please set 'ACCESS_KEY' and 'SECRET_ACCESS_KEY'",
                 "using environment variable!",
             ) from exc
 
@@ -623,8 +623,8 @@ class AliClient(StorageClient):
         """Ali object/file storage management class
 
         Args:
-            access_key (str): Ali access key ID.s
-            secret_key (str): Ali secret access key.
+            ACCESS_KEY (str): Ali access key ID.s
+            SECRET_ACCESS_KEY (str): Ali secret access key.
             endpoint (str): Ali tos endpoint.
             bucket_name (str): Ali tos bucket_name.
 
@@ -632,11 +632,11 @@ class AliClient(StorageClient):
         super().__init__(oss2)
 
         try:
-            access_key = os.environ["ALI_ACCESS_KEY_ID"]
-            secret_key = os.environ["ALI_SECRET_ACCESS_KEY_ID"]
+            access_key = os.environ["ACCESS_KEY"]
+            secret_key = os.environ["SECRET_ACCESS_KEY"]
         except KeyError as exc:
             raise RuntimeError(
-                "Please set 'ALI_ACCESS_KEY_ID' and 'ALI_SECRET_ACCESS_KEY_ID'",
+                "Please set 'ACCESS_KEY' and 'SECRET_ACCESS_KEY'",
                 "using environment variable!",
             ) from exc
 
