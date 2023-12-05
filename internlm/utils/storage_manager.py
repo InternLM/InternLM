@@ -340,8 +340,27 @@ class Boto3Client(StorageClient):
         super().__init__(boto3)
         self.botocore = botocore
         try:
-            s3_access_key_id = os.environ["ACCESS_KEY "]
-            s3_secret_access_key = os.environ["SECRET_ACCESS_KEY "]
+            if os.environ.get["S3_ACCESS_KEY_ID"] is not None and os.environ.get["ACCESS_KEY"] is not None:
+                s3_access_key_id = os.environ["ACCESS_KEY"]
+                logger.warning("Both 'S3_ACCESS_KEY_ID' and 'ACCESS_KEY' exit, 'ACCESS_KEY' will be used by default")
+            elif os.environ.get["ACCESS_KEY"] is None:
+                s3_access_key_id = os.environ["S3_ACCESS_KEY_ID"]
+            else:
+                s3_access_key_id = os.environ["ACCESS_KEY"]
+
+            if (
+                os.environ.get["S3_SECRET_ACCESS_KEY_ID"] is not None
+                and os.environ.get["SECRET_ACCESS_KEY"] is not None
+            ):
+                s3_secret_access_key = os.environ["SECRET_ACCESS_KEY"]
+                logger.warning(
+                    "Both 'S3_SECRET_ACCESS_KEY_ID' and 'SECRET_ACCESS_KEY' exit, "
+                    "'SECRET_ACCESS_KEY' will be used by default"
+                )
+            elif os.environ.get["SECRET_ACCESS_KEY"] is None:
+                s3_secret_access_key = os.environ["S3_SECRET_ACCESS_KEY_ID"]
+            else:
+                s3_secret_access_key = os.environ["SECRET_ACCESS_KEY"]
         except KeyError as exc:
             raise RuntimeError(
                 "Please set boto3 bucket 'ACCESS_KEY' and 'SECRET_ACCESS_KEY' using environment variable!"
@@ -466,8 +485,27 @@ class VolcClient(StorageClient):
         super().__init__(tos)
 
         try:
-            access_key = os.environ["ACCESS_KEY"]
-            secret_key = os.environ["SECRET_ACCESS_KEY"]
+            if os.environ.get["VOLC_ACCESS_KEY_ID"] is not None and os.environ.get["ACCESS_KEY"] is not None:
+                access_key = os.environ["ACCESS_KEY"]
+                logger.warning("Both 'VOLC_ACCESS_KEY_ID' and 'ACCESS_KEY' exit, 'ACCESS_KEY' will be used by default")
+            elif os.environ.get["ACCESS_KEY"] is None:
+                access_key = os.environ["VOLC_ACCESS_KEY_ID"]
+            else:
+                access_key = os.environ["ACCESS_KEY"]
+
+            if (
+                os.environ.get["VOLC_SECRET_ACCESS_KEY_ID"] is not None
+                and os.environ.get["SECRET_ACCESS_KEY"] is not None
+            ):
+                secret_key = os.environ["SECRET_ACCESS_KEY"]
+                logger.warning(
+                    "Both 'VOLC_SECRET_ACCESS_KEY_ID' and 'SECRET_ACCESS_KEY' exit, "
+                    "'SECRET_ACCESS_KEY' will be used by default"
+                )
+            elif os.environ.get["SECRET_ACCESS_KEY"] is None:
+                secret_key = os.environ["VOLC_SECRET_ACCESS_KEY_ID"]
+            else:
+                secret_key = os.environ["SECRET_ACCESS_KEY"]
         except KeyError as exc:
             raise RuntimeError(
                 "Please set 'ACCESS_KEY' and 'SECRET_ACCESS_KEY'",
@@ -632,8 +670,27 @@ class AliClient(StorageClient):
         super().__init__(oss2)
 
         try:
-            access_key = os.environ["ACCESS_KEY"]
-            secret_key = os.environ["SECRET_ACCESS_KEY"]
+            if os.environ.get["ALI_ACCESS_KEY_ID"] is not None and os.environ.get["ACCESS_KEY"] is not None:
+                access_key = os.environ["ACCESS_KEY"]
+                logger.warning("Both 'ALI_ACCESS_KEY_ID' and 'ACCESS_KEY' exit, 'ACCESS_KEY' will be used by default")
+            elif os.environ.get["ACCESS_KEY"] is None:
+                access_key = os.environ["ALI_ACCESS_KEY_ID"]
+            else:
+                access_key = os.environ["ACCESS_KEY"]
+
+            if (
+                os.environ.get["ALI_SECRET_ACCESS_KEY_ID"] is not None
+                and os.environ.get["SECRET_ACCESS_KEY"] is not None
+            ):
+                secret_key = os.environ["SECRET_ACCESS_KEY"]
+                logger.warning(
+                    "Both 'ALI_SECRET_ACCESS_KEY_ID' and 'SECRET_ACCESS_KEY' exit, "
+                    "'SECRET_ACCESS_KEY' will be used by default"
+                )
+            elif os.environ.get["SECRET_ACCESS_KEY"] is None:
+                secret_key = os.environ["ALI_SECRET_ACCESS_KEY_ID"]
+            else:
+                secret_key = os.environ["SECRET_ACCESS_KEY"]
         except KeyError as exc:
             raise RuntimeError(
                 "Please set 'ACCESS_KEY' and 'SECRET_ACCESS_KEY'",
