@@ -328,8 +328,8 @@ class Boto3Client(StorageClient):
         """S3 object/file storage management class
 
         Args:
-            s3_access_keys_id (str): S3 access key ID.
-            s3_secret_access_key (str): S3 secret access key.
+            ACCESS_KEY (str): S3 access key ID.
+            SECRET_ACCESS_KEY (str): S3 secret access key.
             use_threads (bool, optional): Whether to enable multipart. Defaults to True.
             multipart_chunksize (_type_, optional): Defaults to 8*MB.
             max_concurrency (int, optional): Defaults to 10.
@@ -340,11 +340,30 @@ class Boto3Client(StorageClient):
         super().__init__(boto3)
         self.botocore = botocore
         try:
-            s3_access_key_id = os.environ["S3_ACCESS_KEY_ID"]
-            s3_secret_access_key = os.environ["S3_SECRET_ACCESS_KEY_ID"]
+            if os.environ.get("S3_ACCESS_KEY_ID") is not None and os.environ.get("ACCESS_KEY") is not None:
+                s3_access_key_id = os.environ["ACCESS_KEY"]
+                logger.warning("Both 'S3_ACCESS_KEY_ID' and 'ACCESS_KEY' exist, 'ACCESS_KEY' will be used by default")
+            elif os.environ.get("ACCESS_KEY") is None:
+                s3_access_key_id = os.environ["S3_ACCESS_KEY_ID"]
+            else:
+                s3_access_key_id = os.environ["ACCESS_KEY"]
+
+            if (
+                os.environ.get("S3_SECRET_ACCESS_KEY_ID") is not None
+                and os.environ.get("SECRET_ACCESS_KEY") is not None
+            ):
+                s3_secret_access_key = os.environ["SECRET_ACCESS_KEY"]
+                logger.warning(
+                    "Both 'S3_SECRET_ACCESS_KEY_ID' and 'SECRET_ACCESS_KEY' exist, "
+                    "'SECRET_ACCESS_KEY' will be used by default"
+                )
+            elif os.environ.get("SECRET_ACCESS_KEY") is None:
+                s3_secret_access_key = os.environ["S3_SECRET_ACCESS_KEY_ID"]
+            else:
+                s3_secret_access_key = os.environ["SECRET_ACCESS_KEY"]
         except KeyError as exc:
             raise RuntimeError(
-                "Please set boto3 bucket 'S3_ACCESS_KEY_ID' and 'S3_SECRET_ACCESS_KEY_ID' using environment variable!"
+                "Please set boto3 bucket 'ACCESS_KEY' and 'SECRET_ACCESS_KEY' using environment variable!"
             ) from exc
 
         self.client = self.handler.client(
@@ -457,8 +476,8 @@ class VolcClient(StorageClient):
         """Volc object/file storage management class
 
         Args:
-            access_key (str): Volc access key ID.
-            secret_key (str): Volc secret access key.
+            ACCESS_KEY (str): Volc access key ID.
+            SECRET_ACCESS_KEY (str): Volc secret access key.
             endpoint (str): Volc tos endpoint.
             region (str): Volc tos region.
 
@@ -466,15 +485,34 @@ class VolcClient(StorageClient):
         super().__init__(tos)
 
         try:
-            access_key = os.environ["VOLC_ACCESS_KEY_ID"]
-            secret_key = os.environ["VOLC_SECRET_ACCESS_KEY_ID"]
+            if os.environ.get("VOLC_ACCESS_KEY_ID") is not None and os.environ.get("ACCESS_KEY") is not None:
+                access_key = os.environ["ACCESS_KEY"]
+                logger.warning("Both 'VOLC_ACCESS_KEY_ID' and 'ACCESS_KEY' exist, 'ACCESS_KEY' will be used by default")
+            elif os.environ.get("ACCESS_KEY") is None:
+                access_key = os.environ["VOLC_ACCESS_KEY_ID"]
+            else:
+                access_key = os.environ["ACCESS_KEY"]
+
+            if (
+                os.environ.get("VOLC_SECRET_ACCESS_KEY_ID") is not None
+                and os.environ.get("SECRET_ACCESS_KEY") is not None
+            ):
+                secret_key = os.environ["SECRET_ACCESS_KEY"]
+                logger.warning(
+                    "Both 'VOLC_SECRET_ACCESS_KEY_ID' and 'SECRET_ACCESS_KEY' exist, "
+                    "'SECRET_ACCESS_KEY' will be used by default"
+                )
+            elif os.environ.get("SECRET_ACCESS_KEY") is None:
+                secret_key = os.environ["VOLC_SECRET_ACCESS_KEY_ID"]
+            else:
+                secret_key = os.environ["SECRET_ACCESS_KEY"]
         except KeyError as exc:
             raise RuntimeError(
-                "Please set 'VOLC_ACCESS_KEY_ID' and 'VOLC_SECRET_ACCESS_KEY_ID'",
+                "Please set 'ACCESS_KEY' and 'SECRET_ACCESS_KEY'",
                 "using environment variable!",
             ) from exc
 
-        self.client = self.handler.TosClientV2(access_key, secret_key, endpoint, region)
+        self.client = self.handler.TosClientV2(access_key, secret_key, endpoint, region, enable_crc=False)
 
     @staticmethod
     def sync_upload_fileobj(handler, bucket_name: str, fp: str, saved_obj=None, **kwargs):
@@ -623,8 +661,8 @@ class AliClient(StorageClient):
         """Ali object/file storage management class
 
         Args:
-            access_key (str): Ali access key ID.s
-            secret_key (str): Ali secret access key.
+            ACCESS_KEY (str): Ali access key ID.s
+            SECRET_ACCESS_KEY (str): Ali secret access key.
             endpoint (str): Ali tos endpoint.
             bucket_name (str): Ali tos bucket_name.
 
@@ -632,16 +670,35 @@ class AliClient(StorageClient):
         super().__init__(oss2)
 
         try:
-            access_key = os.environ["ALI_ACCESS_KEY_ID"]
-            secret_key = os.environ["ALI_SECRET_ACCESS_KEY_ID"]
+            if os.environ.get("ALI_ACCESS_KEY_ID") is not None and os.environ.get("ACCESS_KEY") is not None:
+                access_key = os.environ["ACCESS_KEY"]
+                logger.warning("Both 'ALI_ACCESS_KEY_ID' and 'ACCESS_KEY' exist, 'ACCESS_KEY' will be used by default")
+            elif os.environ.get("ACCESS_KEY") is None:
+                access_key = os.environ["ALI_ACCESS_KEY_ID"]
+            else:
+                access_key = os.environ["ACCESS_KEY"]
+
+            if (
+                os.environ.get("ALI_SECRET_ACCESS_KEY_ID") is not None
+                and os.environ.get("SECRET_ACCESS_KEY") is not None
+            ):
+                secret_key = os.environ["SECRET_ACCESS_KEY"]
+                logger.warning(
+                    "Both 'ALI_SECRET_ACCESS_KEY_ID' and 'SECRET_ACCESS_KEY' exist, "
+                    "'SECRET_ACCESS_KEY' will be used by default"
+                )
+            elif os.environ.get("SECRET_ACCESS_KEY") is None:
+                secret_key = os.environ["ALI_SECRET_ACCESS_KEY_ID"]
+            else:
+                secret_key = os.environ["SECRET_ACCESS_KEY"]
         except KeyError as exc:
             raise RuntimeError(
-                "Please set 'ALI_ACCESS_KEY_ID' and 'ALI_SECRET_ACCESS_KEY_ID'",
+                "Please set 'ACCESS_KEY' and 'SECRET_ACCESS_KEY'",
                 "using environment variable!",
             ) from exc
 
         self.auth = self.handler.Auth(access_key, secret_key)
-        self.client = self.handler.Bucket(self.auth, endpoint, bucket_name)
+        self.client = self.handler.Bucket(self.auth, endpoint, bucket_name, enable_crc=False)
 
     @staticmethod
     def sync_upload_fileobj(handler, fp: str, saved_obj=None, **kwargs):
