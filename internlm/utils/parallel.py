@@ -119,7 +119,7 @@ def check_sequence_parallel(model):
     for _chunk in model:
         if isinstance(_chunk, NaiveAMPModel):
             _chunk = _chunk.model
-        
+
         for _, module in _chunk.named_modules():
             if isinstance(module, (RMSNorm, nn.LayerNorm)):
                 for param in module.parameters():
