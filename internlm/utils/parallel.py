@@ -105,13 +105,10 @@ def set_model_params_layer_name(model):
 
 def check_sequence_parallel(model):
     """
-    check whether the norm module has IS_SEQUENC_PARALLEL attribute.
-    when the sequence_parallel is True, the norm module should have the IS_SEQUENC_PARALLEL attribute
+    check whether the norm module has IS_SEQUENCE_PARALLEL attribute.
+    when the sequence_parallel is True, the norm module should have the IS_SEQUENCE_PARALLEL attribute
     to illustrate the norm should conduct the all-reduce for its grad.
     """
-
-    if gpc.config.parallel.sequence_parallel is False:
-        return
 
     if not isinstance(model, nn.ModuleList):
         model = [model]
@@ -124,6 +121,6 @@ def check_sequence_parallel(model):
             if isinstance(module, (RMSNorm, nn.LayerNorm)):
                 for param in module.parameters():
                     assert hasattr(param, IS_SEQUENCE_PARALLEL), (
-                        "when the sequence parallel is True,"
+                        "when the gpc.config.parallel.sequence parallel is True,"
                         "the params of norm module should have IS_SEQUENCE_PARALLEL attribute"
                     )

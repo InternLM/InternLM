@@ -113,7 +113,8 @@ def initialize_model():
     model = wrap_FSDP_model(model)
 
     # check whether the norm module has IS_SEQUENCE_PARALLEL attribute
-    check_sequence_parallel(model)
+    if gpc.config.parallel.sequence_parallel is True:
+        check_sequence_parallel(model)
 
     return model
 
