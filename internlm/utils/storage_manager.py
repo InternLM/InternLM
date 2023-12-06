@@ -512,7 +512,7 @@ class VolcClient(StorageClient):
                 "using environment variable!",
             ) from exc
 
-        self.client = self.handler.TosClientV2(access_key, secret_key, endpoint, region)
+        self.client = self.handler.TosClientV2(access_key, secret_key, endpoint, region, enable_crc=False)
 
     @staticmethod
     def sync_upload_fileobj(handler, bucket_name: str, fp: str, saved_obj=None, **kwargs):
@@ -698,7 +698,7 @@ class AliClient(StorageClient):
             ) from exc
 
         self.auth = self.handler.Auth(access_key, secret_key)
-        self.client = self.handler.Bucket(self.auth, endpoint, bucket_name)
+        self.client = self.handler.Bucket(self.auth, endpoint, bucket_name, enable_crc=False)
 
     @staticmethod
     def sync_upload_fileobj(handler, fp: str, saved_obj=None, **kwargs):
