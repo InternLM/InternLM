@@ -120,7 +120,6 @@ def check_sequence_parallel(model):
         if isinstance(_chunk, NaiveAMPModel):
             _chunk = _chunk.model
         for _, children in _chunk.named_children():
-            # import pdb; pdb.set_trace()
             if isinstance(children, (RMSNorm, nn.LayerNorm)):
                 for param in children.parameters():
                     assert hasattr(param, IS_SEQUENCE_PARALLEL), (
