@@ -53,6 +53,7 @@ from internlm.utils.common import DummyProfile
 from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
 from internlm.utils.parallel import (
+    check_sequence_parallel,
     set_model_params_layer_name,
     sync_model_param,
     sync_model_param_within_tp,
@@ -110,6 +111,10 @@ def initialize_model():
 
     # if fsdp enabled, wrap the model
     model = wrap_FSDP_model(model)
+
+    # check whether the norm module has IS_SEQUENCE_PARALLEL attribute
+    if gpc.config.parallel.sequence_parallel is True:
+        check_sequence_parallel(model)
 
     return model
 
