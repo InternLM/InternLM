@@ -218,7 +218,17 @@ def calc_zero_grad(grads):
     return torch.tensor([zero_count, grad_size])
 
 
-def reduce_grads(gradients, parameters, fine_grained=False):
+def get_norm(grads, norm_type, enable_cuda_kernels):
+    if norm_type == inf:
+        grad_norm = max(g.data.abs().max() for g in grads)
+    elif norm_type == 2.0 and enable_cuda_kernels:
+        grad_norm = calc_l2_norm(grads) ** norm_type
+    else:
+        grad_norm = calc_lp(grads, norm_type)
+    return grad_norm
+
+
+def reduce_grads(gradients, parameters, fine_grained=False, only_output=False):
     parallel_grads = []
     if fine_grained:
         parallel_grads = {}
@@ -229,6 +239,14 @@ def reduce_grads(gradients, parameters, fine_grained=False):
             if param_name not in parallel_grads:
                 parallel_grads[param_name] = []
             parallel_grads[param_name].append(g.data.float())
+        elif only_output:
+            param_name = p.param_name if hasattr(p, "param_name") else "unknown-padding"
+            if (
+                gpc.config.model["vocab_size"] == g.shape[0]
+                and gpc.config.model["hidden_size"] == g.shape[1]
+                and "embedding" not in param_name.lower()
+            ):
+                parallel_grads.append(g.data.float())
         else:
             parallel_grads.append(g.data.float())
 
@@ -306,10 +324,7 @@ def compute_norm(
     else:
         tensor_parallel_grads = reduce_grads(gradients, parameters)
 
-        if norm_type == 2.0 and enable_cuda_kernels:
-            tensor_parallel_norm = calc_l2_norm(tensor_parallel_grads) ** norm_type
-        else:
-            tensor_parallel_norm = calc_lp(tensor_parallel_grads, norm_type)
+        tensor_parallel_norm = get_norm(tensor_parallel_grads, norm_type, enable_cuda_kernels)
 
         # If norm is type of float, then we convert them into torch.Tensor.
         tensor_parallel_norm = get_tensor_norm(tensor_parallel_norm, enable_cuda_kernels)
@@ -359,6 +374,59 @@ def compute_norm(
     return total_norm
 
 
+def compute_vocab_grad_norm(
+    gradients,
+    parameters,
+    last_stage=False,
+    previous_vocab_grad_norm=None,
+    norm_type=2,
+    zero_mode=ParallelMode.ZERO1,
+):
+    enable_cuda_kernels = gradients[0].device.type == "cuda"
+    # Norm parameters.
+    norm_type = float(norm_type)
+    vocab_size = gpc.config.model["vocab_size"]
+
+    param_grads = reduce_grads(gradients, parameters, only_output=True)
+
+    vocab_grad_norm = torch.zeros((vocab_size,), dtype=torch.float32).to(get_current_device())
+    if param_grads:
+        for grad in param_grads:
+            # get grad norm of each vocab
+            for i in range(vocab_size):
+                cur_vocab_grad_norm = get_norm([grad[i, :]], norm_type, enable_cuda_kernels)[0]
+                vocab_grad_norm[i] += get_tensor_norm(cur_vocab_grad_norm, move_to_cuda=True)
+
+    if last_stage is False:
+        return vocab_grad_norm
+
+    if previous_vocab_grad_norm is not None:
+        vocab_grad_norm = vocab_grad_norm + previous_vocab_grad_norm
+
+    if gpc.is_initialized(ParallelMode.MODEL):
+        dist.all_reduce(
+            vocab_grad_norm,
+            op=dist.ReduceOp.SUM,
+            group=gpc.get_group(ParallelMode.MODEL),
+        )
+
+    dist.all_reduce(vocab_grad_norm, op=dist.ReduceOp.SUM, group=gpc.get_group(zero_mode))
+
+    if zero_mode == ParallelMode.EXPERT_DATA:
+        pg = gpc.get_group(ParallelMode.EXPERT)
+        scaled_norm = vocab_grad_norm * 1.0 / float(gpc.get_world_size(ParallelMode.DATA))
+        scaled_norm_tensor = torch.tensor(scaled_norm, device=get_current_device(), dtype=torch.float)
+        dist.all_reduce(scaled_norm_tensor, group=pg)
+        vocab_grad_norm = scaled_norm_tensor.item()
+
+    # Scale.
+    vocab_grad_norm[vocab_grad_norm == float("inf")] = -1
+    vocab_grad_norm[vocab_grad_norm == -float("inf")] = -1
+    vocab_grad_norm[torch.isnan(vocab_grad_norm)] = -2
+
+    return vocab_grad_norm
+
+
 def compute_param_metric(
     gradients,
     parameters,
@@ -384,12 +452,7 @@ def compute_param_metric(
 
     for param_name, grads in param_grads.items():
         if metric_type == "norm":
-            if norm_type == inf:
-                param_metric = max(g.data.abs().max() for g in grads)
-            elif norm_type == 2.0 and enable_cuda_kernels:
-                param_metric = calc_l2_norm(grads) ** norm_type
-            else:
-                param_metric = calc_lp(grads, norm_type)
+            param_metric = get_norm(grads, norm_type, enable_cuda_kernels)
             param_metrics[param_name] = param_metric.item() if torch.is_tensor(param_metric) else param_metric
         elif metric_type == "zero_grad":
             param_zero_grad_count = calc_zero_grad(grads)
