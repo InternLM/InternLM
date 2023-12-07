@@ -24,13 +24,16 @@ def get_dataset_type_id(dataset_type_ids_map, path):
     return match_idxes[0]
 
 
-def unpack_data(input_ids, cu_seqlens):
+def unpack_data(input_ids, cu_seqlens, is_type_ids: bool = False):
     """
-    input_ids: (n, packed_length)
-    Return:
-    output: (batch_size, max_length)
-    """
+    input_ids: if input_ids is not type_ids, the shape is (1, packed_length)
+               else the shape is (micro_num, packed_length)
+    is_type_ids: whether the input_ids is type_ids
 
+    Return:
+    output: if input_ids is not type ids, the shape is (micro_bsz, max_length)
+            else the shape is (micro_num, micro_bsz, max_length)
+    """
     bsz = input_ids.shape[0]
 
     num_sequence = gpc.config.data["micro_bsz"]
@@ -45,7 +48,8 @@ def unpack_data(input_ids, cu_seqlens):
             output[j, 0:seq_length] = input_ids[0, cu_seqlens_slice[j] : cu_seqlens_slice[j + 1]]
         outputs[i] = output
 
-    if bsz == 1:
+    # if the input_ids is not type_ids, we need squeeze the first dimension if it is 1.
+    if bsz == 1 and not is_type_ids:
         outputs = outputs.squeeze(0)
 
     return outputs
