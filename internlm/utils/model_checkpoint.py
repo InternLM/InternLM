@@ -902,6 +902,14 @@ now step_count is {train_state.step_count}",
                 latest_ckpt, step = self.query_latest_snapshot_step_boto3()
                 if latest_ckpt and not latest_ckpt.startswith("boto3:"):
                     latest_ckpt = ":".join(["boto3", latest_ckpt])
+            elif backend == "oss2":
+                latest_ckpt, step = self.query_latest_snapshot_step_boto3()
+                if latest_ckpt and not latest_ckpt.startswith("oss2:"):
+                    latest_ckpt = ":".join(["oss2", latest_ckpt])
+            elif backend == "volc":
+                latest_ckpt, step = self.query_latest_snapshot_step_boto3()
+                if latest_ckpt and not latest_ckpt.startswith("volc:"):
+                    latest_ckpt = ":".join(["volc", latest_ckpt])
             elif backend == "local":
                 latest_ckpt, step = self.query_latest_snapshot_step_local()
                 if latest_ckpt and not latest_ckpt.startswith("local:"):
