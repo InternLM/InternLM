@@ -179,5 +179,5 @@ monitor = dict(
 )
 
 # metric_dtype can be "fp32" or other string
-# only when set to fp32 or unset will use fp32 to calc in metrics
-metric_dtype = "fp32"
+# only when set to "fp32" will use fp32 to calc in metrics
+# metric_dtype = "fp32"
