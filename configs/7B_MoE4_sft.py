@@ -145,18 +145,18 @@ model = dict(
     moe_use_residual=False,
     moe_gate_k=2,
 )
-"""
-zero1 parallel:
-    1. if zero1 <= 0, The size of the zero process group is equal to the size of the dp process group,
-        so parameters will be divided within the range of dp.
-    2. if zero1 == 1, zero is not used, and all dp groups retain the full amount of model parameters.
-    3. zero1 > 1 and zero1 <= dp world size, the world size of zero is a subset of dp world size.
-        For smaller models, it is usually a better choice to split the parameters within nodes with a setting <= 8.
-pipeline parallel (dict):
-    1. size: int, the size of pipeline parallel.
-    2. interleaved_overlap: bool, enable/disable communication overlap when using interleaved pipeline scheduler.
-tensor parallel: tensor parallel size, usually the number of GPUs per node.
-"""
+
+# zero1 parallel:
+#     1. if zero1 <= 0, The size of the zero process group is equal to the size of the dp process group,
+#         so parameters will be divided within the range of dp.
+#     2. if zero1 == 1, zero is not used, and all dp groups retain the full amount of model parameters.
+#     3. zero1 > 1 and zero1 <= dp world size, the world size of zero is a subset of dp world size.
+#         For smaller models, it is usually a better choice to split the parameters within nodes with a setting <= 8.
+# pipeline parallel (dict):
+#     1. size: int, the size of pipeline parallel.
+#     2. interleaved_overlap: bool, enable/disable communication overlap when using interleaved pipeline scheduler.
+# tensor parallel: tensor parallel size, usually the number of GPUs per node.
+
 parallel = dict(
     zero1=dict(size=-1, fsdp=False),
     tensor=1,
@@ -177,3 +177,7 @@ monitor = dict(
 )
 
 model_type = "INTERNLM_MoE"
+
+# metric_dtype can be "fp32" or other string
+# only when set to "fp32" will use fp32 to calc in metrics
+# metric_dtype = "fp32"
