@@ -44,7 +44,7 @@ try:
     from flash_attn.modules.mlp import ParallelFusedMLP
     from flash_attn.ops.layer_norm import dropout_add_layer_norm
 except ImportError:
-    raise ImportError("Please check your flash_attn version >= 2.0.0.")
+    pass
 
 MODEL_TYPE = "LLAMA"
 
