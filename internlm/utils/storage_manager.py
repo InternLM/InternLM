@@ -739,10 +739,9 @@ class AliClient(StorageClient):
         if AliClient.is_fp_exists(handler, fp):
             folder_name_list = []
             for obj in handler.handler.ObjectIteratorV2(handler.client, prefix=fp):
-                folder_name_list.append(obj.key.split("/")[-1])
+                folder_name_list.append(obj.key.split(fp, maxsplit=1)[1].strip("/").split("/", maxsplit=1)[0])
 
             return list(set(folder_name_list))
-
         else:
             if is_rank_for_log():
                 logger.warning(f"'{fp}' not found!")
