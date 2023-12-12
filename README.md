@@ -44,8 +44,8 @@ Based on the InternLM training framework, we have released two open-sourced pret
 
 ## News
 
+[20231213] InternLM-7B-Chat and InternLM-20B-Chat checkpoints are updated. With an improved finetuning strategy, the new chat models can generate higher quality responces with greater stylistic diversity.
 [20230920] InternLM-20B is released with base and chat versions.  
-[20230822] InternLM-7B-Chat v1.1 is released with code interpreter and function calling capability. You can try it with [Lagent](https://github.com/InternLM/lagent).
 
 
 ## Model Zoo
@@ -57,12 +57,10 @@ Our models are released in three platforms: Transformers, ModelScope and OpenXLa
 
 | Model | Transformers(HF) | ModelScope(HF) | OpenXLab(HF) | OpenXLab(Original) | Release Date |
 |---------------------------|------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------|
-| **InternLM Chat 20B**     | [🤗internlm/internlm-chat-20b](https://huggingface.co/internlm/internlm-20b-chat)         | [<img src="./doc/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-chat-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-20b-chat/summary)         | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-20b)     | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-20b-original)     | 2023-09-20   |
+| **InternLM Chat 20B**     | [🤗internlm/internlm-chat-20b](https://huggingface.co/internlm/internlm-20b-chat)         | [<img src="./doc/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-chat-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-20b-chat/summary)         | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-20b)     | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-20b-original)     | 2023-12-12   |
 | **InternLM 20B** | [🤗internlm/internlm-20b](https://huggingface.co/internlm/internlm-20b) | [<img src="./doc/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-20b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-20b) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-20b-original) | 2023-09-20 |
-| **InternLM Chat 7B v1.1** | [🤗internlm/internlm-chat-7b-v1.1](https://huggingface.co/internlm/internlm-chat-7b-v1.1) | [<img src="./doc/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-chat-7b-v1_1](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-chat-7b-v1_1/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b-v1.1) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b-v1.1-original) | 2023-08-22   |
+| **InternLM Chat 7B**      | [🤗internlm/internlm-chat-7b](https://huggingface.co/internlm/internlm-chat-7b)           | [<img src="./doc/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-chat-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-chat-7b/summary)           | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b)      | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b-original)      | 2023-12-12   |
 | **InternLM 7B**           | [🤗internlm/internlm-7b](https://huggingface.co/internlm/internlm-7b)                     | [<img src="./doc/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-7b/summary)                     | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-7b)           | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-7b-original)           | 2023-07-06   |
-| **InternLM Chat 7B**      | [🤗internlm/internlm-chat-7b](https://huggingface.co/internlm/internlm-chat-7b)           | [<img src="./doc/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-chat-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-chat-7b/summary)           | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b)      | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b-original)      | 2023-07-06   |
-| **InternLM Chat 7B 8k**   | [🤗internlm/internlm-chat-7b-8k](https://huggingface.co/internlm/internlm-chat-7b-8k)     | [<img src="./doc/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-chat-7b-8k](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-chat-7b-8k/summary)     | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b-8k)   | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b-8k-original)   | 2023-07-06   |
 
 #### Introduction
 InternLM-20B was pre-trained on over **2.3T** Tokens containing high-quality English, Chinese, and code data. Additionally, the Chat version has undergone SFT and RLHF training, enabling it to better and more securely meet users' needs.
@@ -120,7 +118,6 @@ Overall, InternLM-20B comprehensively outperforms open-source models in the 13B 
 <summary> InternLM-7B </summary>
 
 #### News
-[20230822] By utilizing richer SFT-type data, the InternLM-7B-Chat v1.1 model supports code interpretation and function invocation. The model structure and code remain unchanged, so the more powerful InternLM-7B-Chat v1.1 can be used in exactly the same way as InternLM-7B-Chat.
 
 #### Introduction
 InternLM-7B contains a 7 billion parameter base model and a chat model tailored for practical scenarios. The model has the following characteristics:
@@ -133,18 +130,18 @@ InternLM-7B contains a 7 billion parameter base model and a chat model tailored 
 
 We conducted a comprehensive evaluation of InternLM using the open-source evaluation tool [OpenCompass](https://github.com/internLM/OpenCompass/). The evaluation covered five dimensions of capabilities: disciplinary competence, language competence, knowledge competence, inference competence, and comprehension competence. Here are some of the evaluation results, and you can visit the [OpenCompass leaderboard](https://opencompass.org.cn/rank) for more evaluation results.
 
-| Datasets\Models | **InternLM-Chat-7B** | **InternLM-7B** | LLaMA-7B | Baichuan-7B | ChatGLM2-6B | Alpaca-7B | Vicuna-7B |
-| --------------- | -------------------------- | --------------------- | -------- | ----------- | ----------- | --------- | --------- |
-| C-Eval(Val)     | 53.2                       | 53.4                  | 24.2     | 42.7        | 50.9        | 28.9      | 31.2      |
-| MMLU            | 50.8                       | 51.0                  | 35.2*    | 41.5        | 46.0        | 39.7      | 47.3      |
-| AGIEval         | 42.5                       | 37.6                  | 20.8     | 24.6        | 39.0        | 24.1      | 26.4      |
-| CommonSenseQA   | 75.2                       | 59.5                  | 65.0     | 58.8        | 60.0        | 68.7      | 66.7      |
-| BUSTM           | 74.3                       | 50.6                  | 48.5     | 51.3        | 55.0        | 48.8      | 62.5      |
-| CLUEWSC         | 78.6                       | 59.1                  | 50.3     | 52.8        | 59.8        | 50.3      | 52.2      |
-| MATH            | 6.4                        | 7.1                   | 2.8      | 3.0         | 6.6         | 2.2       | 2.8       |
-| GSM8K           | 34.5                       | 31.2                  | 10.1     | 9.7         | 29.2        | 6.0       | 15.3      |
-| HumanEval       | 14.0                       | 10.4                  | 14.0     | 9.2         | 9.2         | 9.2       | 11.0      |
-| RACE(High)      | 76.3                       | 57.4                  | 46.9*    | 28.1        | 66.3        | 40.7      | 54.0      |
+| Datasets\Models | **InternLM-7B** | LLaMA-7B | Baichuan-7B | ChatGLM2-6B | Alpaca-7B | Vicuna-7B |
+| --------------- | --------------------- | -------- | ----------- | ----------- | --------- | --------- |
+| C-Eval(Val)     | 53.4                  | 24.2     | 42.7        | 50.9        | 28.9      | 31.2      |
+| MMLU            | 51.0                  | 35.2*    | 41.5        | 46.0        | 39.7      | 47.3      |
+| AGIEval         | 37.6                  | 20.8     | 24.6        | 39.0        | 24.1      | 26.4      |
+| CommonSenseQA   | 59.5                  | 65.0     | 58.8        | 60.0        | 68.7      | 66.7      |
+| BUSTM           | 50.6                  | 48.5     | 51.3        | 55.0        | 48.8      | 62.5      |
+| CLUEWSC         | 59.1                  | 50.3     | 52.8        | 59.8        | 50.3      | 52.2      |
+| MATH            | 7.1                   | 2.8      | 3.0         | 6.6         | 2.2       | 2.8       |
+| GSM8K           | 31.2                  | 10.1     | 9.7         | 29.2        | 6.0       | 15.3      |
+| HumanEval       | 10.4                  | 14.0     | 9.2         | 9.2         | 9.2       | 11.0      |
+| RACE(High)      | 57.4                  | 46.9*    | 28.1        | 66.3        | 40.7      | 54.0      |
 
 - The evaluation results were obtained from [OpenCompass 20230706](https://github.com/internLM/OpenCompass/) (some data marked with *, which means come from the original papers), and evaluation configuration can be found in the configuration files provided by [OpenCompass](https://github.com/internLM/OpenCompass/).
 - The evaluation data may have numerical differences due to the version iteration of [OpenCompass](https://github.com/internLM/OpenCompass/), so please refer to the latest evaluation results of [OpenCompass](https://github.com/internLM/OpenCompass/).
