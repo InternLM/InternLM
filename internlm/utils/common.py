@@ -110,6 +110,17 @@ def get_batch_size(data):
         return data[list(data.keys())[0]].size(0)
 
 
+def check_data_is_packed(data):
+    if isinstance(data, torch.Tensor):
+        return False
+    elif isinstance(data, (list, tuple)):
+        if isinstance(data[0], dict):
+            return "indexes" in data[0]
+        return False
+    elif isinstance(data, dict):
+        return "indexes" in data[0]
+
+
 def filter_kwargs(func, kwargs):
     sig = inspect.signature(func)
     return {k: v for k, v in kwargs.items() if k in sig.parameters}

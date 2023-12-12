@@ -4,7 +4,7 @@
 # adopted from https://github.com/hpcaitech/ColossalAI/blob/main/colossalai/engine
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Iterable, Optional
+from typing import Any, Callable, Dict, Iterable, Optional
 
 import torch
 
@@ -36,10 +36,18 @@ class BaseScheduler(ABC):
         """
         pass
 
-    def _load_micro_batch(self, data, label, offset):
+    def _load_micro_batch(self, data: Dict, label: torch.Tensor, offset: int, bsz_stride: int):
+        """
+        For pp, it will cut one fully batch into micro batch in pipeline concept.
+        For nopp, it will cut one fully batch into small batch based on gradient accumulate size.
+
+        A special case is that pp uses a 'non-packed-dateset' (such as evaluation dataset),
+        so the data of batch is unpacked and 'bsz_stride' is equal to 'micro_bsz'.
+        In all other cases 'bsz_stride' should be equal to 1.
+        """
         assert isinstance(data, dict) and isinstance(label, torch.Tensor)
-        micro_batch_data = {k: v[offset : offset + 1] for k, v in data.items()}
-        micro_batch_label = label[offset : offset + 1]
+        micro_batch_data = {k: v[offset : offset + bsz_stride] for k, v in data.items()}
+        micro_batch_label = label[offset : offset + bsz_stride]
 
         return micro_batch_data, micro_batch_label
 
