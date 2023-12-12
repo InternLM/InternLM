@@ -45,13 +45,13 @@ Based on the InternLM training framework, we have released two open-sourced pret
 ## News
 
 [20231213] InternLM-7B-Chat and InternLM-20B-Chat checkpoints are updated. With an improved finetuning strategy, the new chat models can generate higher quality responces with greater stylistic diversity.
-[20230920] InternLM-20B is released with base and chat versions.  
+[20230920] InternLM-20B is released with base and chat versions.
 
 
 ## Model Zoo
 
-Our models are released in three platforms: Transformers, ModelScope and OpenXLab.  
-- There are two kinds of model weights: 
+Our models are released in three platforms: Transformers, ModelScope and OpenXLab.
+- There are two kinds of model weights:
   1. huggingface type(marked as HF)
   2. original model weight(marked as Original), providing in OpenXLab, which can be loaded by InternLM and finetuned directly.
 
@@ -114,7 +114,7 @@ Overall, InternLM-20B comprehensively outperforms open-source models in the 13B 
 </details>
 
 
-<details> 
+<details>
 <summary> InternLM-7B </summary>
 
 #### News

@@ -19,9 +19,8 @@
 # limitations under the License.
 """ InternLM model configuration"""
 
-from transformers.utils import logging
 from transformers.configuration_utils import PretrainedConfig
-
+from transformers.utils import logging
 
 logger = logging.get_logger(__name__)
 
@@ -30,9 +29,9 @@ INTERNLM_PRETRAINED_CONFIG_ARCHIVE_MAP = {}
 
 class InternLMConfig(PretrainedConfig):
     r"""
-    This is the configuration class to store the configuration of a [`InternLMModel`]. It is used to instantiate an InternLM
-    model according to the specified arguments, defining the model architecture. Instantiating a configuration with the
-    defaults will yield a similar configuration to that of the InternLM-7B.
+    This is the configuration class to store the configuration of a [`InternLMModel`]. It is used to instantiate an
+    InternLM model according to the specified arguments, defining the model architecture. Instantiating a
+    configuration with the defaults will yield a similar configuration to that of the InternLM-7B.
 
     Configuration objects inherit from [`PretrainedConfig`] and can be used to control the model outputs. Read the
     documentation from [`PretrainedConfig`] for more information.

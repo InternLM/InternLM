@@ -35,8 +35,8 @@ It is recommended to build a Python-3.10 virtual environment using conda and ins
 conda create --name internlm-env python=3.10 -y
 conda activate internlm-env
 cd internlm
-pip install -r requirements/torch.txt 
-pip install -r requirements/runtime.txt 
+pip install -r requirements/torch.txt
+pip install -r requirements/runtime.txt
 ```
 
 Install flash-attention (version v1.0.5):
@@ -65,7 +65,7 @@ Users can use the provided dockerfile combined with docker.Makefile to build the
 The configuration and build of the Dockerfile are implemented through the docker.Makefile. To build the image, execute the following command in the root directory of InternLM:
 ``` bash
 make -f docker.Makefile BASE_OS=centos7
-``` 
+```
 In docker.Makefile, you can customize the basic image, environment version, etc., and the corresponding parameters can be passed directly through the command line. For BASE_OS, ubuntu20.04 and centos7 are respectively supported.
 
 #### Pull Standard Image

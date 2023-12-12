@@ -19,25 +19,34 @@
 # limitations under the License.
 """ PyTorch InternLM model."""
 import math
+import queue
+import threading
 from typing import List, Optional, Tuple, Union
-import threading, queue
 
 import torch
 import torch.utils.checkpoint
+from configuration_internlm import InternLMConfig
 from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
-
 from transformers.activations import ACT2FN
-from transformers.modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast, SequenceClassifierOutputWithPast
-from transformers.modeling_utils import PreTrainedModel
 from transformers.generation.streamers import BaseStreamer
-from transformers.utils import add_start_docstrings, add_start_docstrings_to_model_forward, logging, replace_return_docstrings
-from configuration_internlm import InternLMConfig
-
+from transformers.modeling_outputs import (
+    BaseModelOutputWithPast,
+    CausalLMOutputWithPast,
+    SequenceClassifierOutputWithPast,
+)
+from transformers.modeling_utils import PreTrainedModel
+from transformers.utils import (
+    add_start_docstrings,
+    add_start_docstrings_to_model_forward,
+    logging,
+    replace_return_docstrings,
+)
 
 logger = logging.get_logger(__name__)
 
 _CONFIG_FOR_DOC = "InternLMConfig"
+
 
 # Copied from transformers.models.bart.modeling_bart._make_causal_mask
 def _make_causal_mask(
@@ -423,7 +432,7 @@ INTERNLM_INPUTS_DOCSTRING = r"""
             more detail.
         return_dict (`bool`, *optional*):
             Whether or not to return a [`~utils.ModelOutput`] instead of a plain tuple.
-"""
+"""  # noqa: E501
 
 
 @add_start_docstrings(
@@ -437,6 +446,7 @@ class InternLMModel(InternLMPreTrainedModel):
     Args:
         config: InternLMConfig
     """
+
     _auto_class = "AutoModel"
 
     def __init__(self, config: InternLMConfig):
@@ -765,7 +775,7 @@ class InternLMForCausalLM(InternLMPreTrainedModel):
         for layer_past in past_key_values:
             reordered_past += (tuple(past_state.index_select(0, beam_idx) for past_state in layer_past),)
         return reordered_past
-    
+
     def build_inputs(self, tokenizer, query: str, history: List[Tuple[str, str]] = []):
         prompt = ""
         for record in history:
@@ -774,43 +784,49 @@ class InternLMForCausalLM(InternLMPreTrainedModel):
             prompt += "<s>"
         prompt += f"""<|User|>:{query}<eoh>\n<|Bot|>:"""
         return tokenizer([prompt], return_tensors="pt")
-    
+
     @torch.no_grad()
-    def chat(self, 
-             tokenizer, 
-             query: str,
-             history: List[Tuple[str, str]] = [], 
-             streamer: Optional[BaseStreamer] = None,
-             max_new_tokens: int = 1024,
-             do_sample: bool = True,
-             temperature: float = 0.8,
-             top_p: float = 0.8,
-             **kwargs):
+    def chat(
+        self,
+        tokenizer,
+        query: str,
+        history: List[Tuple[str, str]] = [],
+        streamer: Optional[BaseStreamer] = None,
+        max_new_tokens: int = 1024,
+        do_sample: bool = True,
+        temperature: float = 0.8,
+        top_p: float = 0.8,
+        **kwargs,
+    ):
         inputs = self.build_inputs(tokenizer, query, history)
         inputs = {k: v.to(self.device) for k, v in inputs.items() if torch.is_tensor(v)}
-        outputs = self.generate(**inputs, 
-                                streamer=streamer, 
-                                max_new_tokens=max_new_tokens, 
-                                do_sample=do_sample, 
-                                temperature=temperature, 
-                                top_p=top_p, 
-                                **kwargs)
-        outputs = outputs[0].cpu().tolist()[len(inputs["input_ids"][0]):]
+        outputs = self.generate(
+            **inputs,
+            streamer=streamer,
+            max_new_tokens=max_new_tokens,
+            do_sample=do_sample,
+            temperature=temperature,
+            top_p=top_p,
+            **kwargs,
+        )
+        outputs = outputs[0].cpu().tolist()[len(inputs["input_ids"][0]) :]
         response = tokenizer.decode(outputs, skip_special_tokens=True)
         response = response.split("<eoa>")[0]
         history = history + [(query, response)]
         return response, history
-    
+
     @torch.no_grad()
-    def stream_chat(self, 
-                    tokenizer,
-                    query: str,
-                    history: List[Tuple[str, str]] = [], 
-                    max_new_tokens: int = 1024,
-                    do_sample: bool = True,
-                    temperature: float = 0.8,
-                    top_p: float = 0.8,
-                    **kwargs):
+    def stream_chat(
+        self,
+        tokenizer,
+        query: str,
+        history: List[Tuple[str, str]] = [],
+        max_new_tokens: int = 1024,
+        do_sample: bool = True,
+        temperature: float = 0.8,
+        top_p: float = 0.8,
+        **kwargs,
+    ):
         """
         Return a generator in format: (response, history)
         Eg.
@@ -856,12 +872,12 @@ class InternLMForCausalLM(InternLMPreTrainedModel):
                 tokenizer=tokenizer,
                 query=query,
                 streamer=ChatStreamer(tokenizer=tokenizer),
-                history=history, 
+                history=history,
                 max_new_tokens=max_new_tokens,
                 do_sample=do_sample,
                 temperature=temperature,
                 top_p=top_p,
-                **kwargs
+                **kwargs,
             )
 
         def consumer():

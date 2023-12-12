@@ -195,4 +195,3 @@ msgstr ""
 #: internlm.monitor.alert.send_feishu_msg_with_webhook:12 of
 msgid "An exception rasied by the HTTP post request."
 msgstr ""
-

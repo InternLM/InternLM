@@ -1,5 +1,5 @@
 name: demo-in-readme
-on: 
+on:
   pull_request:
     branches:
       - "main"
@@ -83,7 +83,7 @@ jobs:
         source activate internlm-env-test
         export PYTHONPATH=$PWD:$PYTHONPATH
         sh ./ci_scripts/train/load_ckpt.sh 7B_load_new_ckpt ${GITHUB_RUN_ID}-${GITHUB_JOB}
-        rsync -av --remove-source-files $GITHUB_WORKSPACE/llm_ckpts ${{env.WORKSPACE_PREFIX}}/ci_clean_bak 
+        rsync -av --remove-source-files $GITHUB_WORKSPACE/llm_ckpts ${{env.WORKSPACE_PREFIX}}/ci_clean_bak
 
     - name: torchrun-train
       run: |

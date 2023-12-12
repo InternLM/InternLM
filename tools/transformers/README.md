@@ -1,7 +1,7 @@
 # InternLM Transformers
 
 [English](./README.md) |
-[简体中文](./README-zh-Hans.md) 
+[简体中文](./README-zh-Hans.md)
 
 This folder contains the `InternLM` model in transformers format.
 
