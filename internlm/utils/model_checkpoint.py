@@ -910,7 +910,7 @@ now step_count is {train_state.step_count}",
                     f"Unsupported backend: {backend}, " "Currently only support `boto3`, `oss2`, `volc` and `local`"
                 )
 
-            if latest_ckpt and not latest_ckpt.startswith(backend):
+            if latest_ckpt and not latest_ckpt.startswith(backend + ":"):
                 latest_ckpt = ":".join([backend, latest_ckpt])
 
         if gpc.is_rank_for_log():
