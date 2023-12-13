@@ -186,7 +186,7 @@ class Engine:
         if to_gpu:
             batch_data = move_to_device(batch_data)
 
-        # For packed-dataset, batch_data is (micro_num, micro_num*micro_bsz),
+        # For packed-dataset, batch_data is (micro_num, micro_bsz*seq_len),
         #   therefore 'batch_size' is equal to 'micro_num'
         # For nopacked-dataset, batch_data is (micro_num*micro_bsz, seq_len),
         #   therefore 'batch_size' is equal to 'micro_num*micro_bsz'

@@ -193,6 +193,9 @@ class PipelineScheduler(BaseScheduler):
         # Pipeline schedule just puts data in memory,
         batch_data, actual_batch_size = engine.load_batch(data_iter, to_gpu=False)
 
+        # Even if 'use_flash_attn' is False, the data seen when the 'load_batch' is called is still packed,
+        # because internlm's current train dataset is packed, even using dummy data.
+        # The unpack operation is performed in load_micro_batch().
         if check_data_is_packed(batch_data):
             micro_num = actual_batch_size
         else:
