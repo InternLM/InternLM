@@ -364,7 +364,7 @@ def load_llama_pretrained_weights(folder, model):
 
     current_states = {}
     for idx, i in enumerate(range(model.first_layer, model.last_layer)):
-        if gpc.config.model_type == "LLAMA":
+        if gpc.config.model_type == "LLAMA2":
             # LLAMA's w2 and w3 are in reverse order
             w2 = states.pop(f"layers.{i}.feed_forward.w2.weight")
             w3 = states.pop(f"layers.{i}.feed_forward.w3.weight")
@@ -419,7 +419,7 @@ def load_hf_llama_pretrained_weights(folder, model):
 
     current_states = {}
     for idx, i in enumerate(range(model.first_layer, model.last_layer)):
-        if gpc.config.model_type == "LLAMA":
+        if gpc.config.model_type == "LLAMA2":
             if deep_split:
                 layer_ids = i // 2
             else:
