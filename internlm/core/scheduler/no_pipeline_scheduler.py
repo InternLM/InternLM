@@ -72,7 +72,7 @@ class NonPipelineScheduler(BaseScheduler):
             label (Any): The label to be loaded.
         """
 
-        _data, _label = self._load_micro_batch(data=data, label=label, offset=self._grad_accum_offset)
+        _data, _label = self._load_micro_batch(data=data, label=label, offset=self._grad_accum_offset, bsz_stride=1)
         self._grad_accum_offset += 1
 
         if self.data_process_func:
@@ -167,7 +167,7 @@ class NonPipelineScheduler(BaseScheduler):
             forward_only or return_loss
         ), "The argument 'return_loss' has to be True when 'forward_only' is False, but got False."
 
-        batch_data, actual_batch_size = engine.load_batch(data_iter)
+        batch_data, actual_batch_size = engine.load_batch(data_iter)  # actual_batch_size is micro_num
 
         self._grad_accum_size = actual_batch_size  # Rampup or variable bsz size.
 

@@ -10,7 +10,15 @@ from internlm.core.context import global_context as gpc
 # from internlm.core.context import ParallelMode
 from internlm.core.context.parallel_context import Config
 from internlm.core.trainer import TrainState
-from internlm.train import get_train_data_loader, load_new_batch
+from internlm.train import (
+    get_train_data_loader,
+    get_validation_data_loader,
+    load_new_batch,
+)
+from internlm.utils.evaluation import (
+    switch_evaluation_no_pipeline_scheduler,
+    switch_evaluation_pipeline_scheduler,
+)
 
 # from internlm.core.context.parallel_context import global_context as gpc
 from tests.test_core.utils import build_environment, init_model_and_optim
@@ -20,12 +28,17 @@ use_flash_attens = [True, False]
 answers = [[1] * 8, [1, 1, 1, 1, 2, 2, 2, 2], [4] * 8, [2, 2, 4, 4, 6, 6, 8, 8]]
 test_case_group = [
     # format: micro_nums, rampup_batch_size, should sccuess, answer, pp size, sql len
-    # (1, "1 1 1", True, answers[0], 1, 8),
+    (1, "1 1 1", True, answers[0], 1, 8),
     (4, "1 1 4", True, answers[1], 1, 8),
     (4, None, True, answers[2], 1, 8),
     (8, "2 2 2", True, answers[3], 1, 8),
     (8, "2 2 2", True, answers[3], 2, 8),
 ]
+
+
+class DummyTrainer:
+    def __init__(self, scheduler) -> None:
+        self.schedule = scheduler
 
 
 def do_warmup(args):
@@ -44,9 +57,11 @@ def do_warmup(args):
     )
     scheduler.pre_processing(engine)
     engine.train()
+    trainer = DummyTrainer(scheduler)
 
     try:
         train_dl, _ = get_train_data_loader(num_worker=0)
+        val_dls = get_validation_data_loader(num_worker=0)
     except Exception as e:
         assert should_sccuess is False, f"{e}"
     else:
@@ -105,6 +120,38 @@ def do_warmup(args):
             tokens_num == answer[i] * gpc.config.data.seq_len * micro_bsz
         ), f"{tokens_num} == {answer[i] * gpc.config.data.seq_len * micro_bsz}"
 
+    # test no-packed datasets.
+    for _, val_dl in val_dls.items():
+        for _, batch in enumerate(val_dl):
+            if gpc.is_using_pp():
+                total_val_bsz = len(batch[1])
+                batch[0]["input_ids"] = batch[0]["input_ids"].to(torch.bfloat16)
+                assert total_val_bsz % micro_bsz == 0
+                num_microbatches = total_val_bsz // micro_bsz
+                tensor_shape = torch.Size([micro_bsz, batch[0]["input_ids"].shape[1]])  # toy model hidden size is 8.
+                with switch_evaluation_pipeline_scheduler(
+                    trainer=trainer,
+                    num_microbatches=num_microbatches,
+                    tensor_shape=tensor_shape,
+                    metric_hook_list=[],
+                ):
+                    scheduler.forward_backward_step(
+                        engine, batch, forward_only=True, return_loss=False, return_output_label=False
+                    )
+            else:
+                total_val_bsz = len(batch[1])
+                batch[0]["input_ids"] = batch[0]["input_ids"].to(torch.bfloat16)
+                assert total_val_bsz % micro_bsz == 0
+                grad_accum_size = total_val_bsz // micro_bsz
+                with switch_evaluation_no_pipeline_scheduler(
+                    trainer=trainer,
+                    grad_accum_size=grad_accum_size,
+                    metric_hook_list=[],
+                ):
+                    scheduler.forward_backward_step(
+                        engine, batch, forward_only=True, return_loss=False, return_output_label=False
+                    )
+
 
 @pytest.mark.parametrize("use_flash_atten_case", use_flash_attens)
 @pytest.mark.parametrize("group_case", test_case_group)
@@ -121,7 +168,14 @@ def test_warmup(use_flash_atten_case, group_case, micro_bsz_case):
                 sequence_parallel=False,
                 tensor=1,
             ),
-            data=dict(train_folder=None, pack_sample_into_one=False, min_length=0, total_steps=8),
+            data=dict(
+                train_folder=None,
+                valid_folder=None,
+                valid_micro_num=4,
+                pack_sample_into_one=False,
+                min_length=0,
+                total_steps=8,
+            ),
             model=dict(
                 dtype=torch.bfloat16,
             ),
