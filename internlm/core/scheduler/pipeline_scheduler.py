@@ -14,7 +14,11 @@ from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.core.engine import Engine
 from internlm.core.naive_amp import NaiveAMPModel
-from internlm.utils.common import get_current_device, move_to_device
+from internlm.utils.common import (
+    check_data_is_packed,
+    get_current_device,
+    move_to_device,
+)
 from internlm.utils.logger import get_logger
 from internlm.utils.timeout import llm_timeout
 
@@ -186,17 +190,28 @@ class PipelineScheduler(BaseScheduler):
             raise TypeError(f"Expected data to be of type torch.Tensor, list, tuple, or dict, but got {type(data)}")
 
     def load_batch(self, engine, data_iter):
-        # Pipeline schedule just puts data in memory
+        # Pipeline schedule just puts data in memory,
         batch_data, actual_batch_size = engine.load_batch(data_iter, to_gpu=False)
 
-        self.num_microbatches = actual_batch_size  # Rampup or variable bsz size.
+        # Even if 'use_flash_attn' is False, the data seen when the 'load_batch' is called is still packed,
+        # because internlm's current train dataset is packed, even using dummy data.
+        # The unpack operation is performed in load_micro_batch().
+        if check_data_is_packed(batch_data):
+            micro_num = actual_batch_size
+        else:
+            micro_num = actual_batch_size // gpc.config.data["micro_bsz"]
+
         self.microbatch_offset = 0
         self.batch_size = actual_batch_size
         self.batch_data, self.batch_label = batch_data
+        self.bsz_stride = self.batch_size // micro_num
+        # 'num_microbatches' is no longer an initialization parameter,
+        # but is determined on the fly by the Scheduler.
+        self.num_microbatches = micro_num  # Rampup or variable bsz size.
 
     def load_micro_batch(self):
         micro_batch_data, micro_batch_label = self._load_micro_batch(
-            data=self.batch_data, label=self.batch_label, offset=self.microbatch_offset
+            data=self.batch_data, label=self.batch_label, offset=self.microbatch_offset, bsz_stride=self.bsz_stride
         )
         if self.data_process_func:
             micro_batch_data["input_ids"] = self.data_process_func(
@@ -208,7 +223,7 @@ class PipelineScheduler(BaseScheduler):
             micro_batch_data.pop("indexes")
 
         micro_batch_data["label"] = micro_batch_label
-        self.microbatch_offset += 1
+        self.microbatch_offset += self.bsz_stride
 
         return move_to_device(micro_batch_data)
 
@@ -787,9 +802,10 @@ class InterleavedPipelineScheduler(PipelineScheduler):
             data=self.batch_data,
             label=self.batch_label,
             offset=self.microbatch_offset[model_chunk_id],
+            bsz_stride=self.bsz_stride,
         )
         micro_batch_data["label"] = micro_batch_label
-        self.microbatch_offset[model_chunk_id] += 1
+        self.microbatch_offset[model_chunk_id] += self.bsz_stride
         return move_to_device(micro_batch_data)
 
     def _forward_step(self, engine, chunk_id):
