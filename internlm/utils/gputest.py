@@ -36,7 +36,8 @@ def empty_cache_and_diag(batch_count, interval=50):
     if interval <= 0:
         interval = 50
 
-    cuda_memory_analyze(batch_count, batch_count % int(interval) == 0 or batch_count <= 5)
+    if not gpc.config.hybrid_zero_optimizer.overlap_sync_param:
+        cuda_memory_analyze(batch_count, batch_count % int(interval) == 0 or batch_count <= 5)
 
     if batch_count % int(interval) == 0:
         # there is no need to do diag on the first batch

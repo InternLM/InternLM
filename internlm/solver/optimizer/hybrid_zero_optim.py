@@ -837,8 +837,7 @@ class HybridZeroOptimizer(BaseOptimizer):
                     fp16_param.data.copy_(fp32_param)
 
         torch.cuda.synchronize()
-        with torch.cuda.stream(self._comm_bcast_stream):
-            self.broadcast_params()
+        self.broadcast_params()
 
         timer("step").stop()
 
@@ -874,8 +873,6 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         for handle in handles:
             handle.wait()
-
-        torch.cuda.synchronize()
 
     ##################
     # FP16 Utilities #
