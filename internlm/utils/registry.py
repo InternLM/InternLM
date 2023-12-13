@@ -29,7 +29,7 @@ class Registry:
             AssertionError: Raises an AssertionError if the module has already been registered before.
         """
 
-        assert module_name not in self._registry, f"{module_name} not found in {self.name}"
+        assert module_name not in self._registry, f"{module_name} already registered in {self.name}"
 
         def decorator_wrapper(original_func):
             self._registry[module_name] = original_func

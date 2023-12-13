@@ -46,7 +46,7 @@ try:
 except ImportError:
     pass
 
-MODEL_TYPE = "LLAMA"
+MODEL_TYPE = "LLAMA2"
 
 logger = get_logger(__file__)
 RMSNorm = try_import_RMSNorm()
