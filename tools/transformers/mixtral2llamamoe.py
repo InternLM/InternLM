@@ -131,7 +131,7 @@ def revert(src, tgt, tp_size, embed_split_hidden, adapt_hf, use_flash):
     )
     print("Model Config:", model_config)
 
-    # split
+    # save
     os.makedirs(tgt, exist_ok=True)
     print(f"Saving to {tgt}...")
     for tp in tqdm(range(tp_size)):
@@ -159,14 +159,13 @@ def print_args(args):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    # model
+
     parser.add_argument("--src", type=str, help="Input folder")
     parser.add_argument("--tgt", type=str, help="Output folder")
     parser.add_argument("--tp_size", type=int, help="world_size of tensor parallel")
     parser.add_argument("--embed_split", action="store_true", help="embed_split_hidden of InternLM")
     parser.add_argument("--adapt_hf", action="store_true", help="adapt_hf of InternLM")
     parser.add_argument("--use_flash", action="store_true", help="use_flash_attn of InternLM")
-    parser.add_argument("--version", type=int, help="Determine the relavance between w2, w3 and up_gate, down_fate.")
 
     args = parser.parse_args()
 
