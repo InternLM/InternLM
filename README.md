@@ -44,7 +44,7 @@ Based on the InternLM training framework, we have released two open-sourced pret
 
 ## News
 
-[20231213] InternLM-7B-Chat and InternLM-20B-Chat checkpoints are updated. With an improved finetuning strategy, the new chat models can generate higher quality responces with greater stylistic diversity.
+[20231213] InternLM-7B-Chat and InternLM-20B-Chat checkpoints are updated. With an improved finetuning strategy, the new chat models can generate higher quality responses with greater stylistic diversity.
 [20230920] InternLM-20B is released with base and chat versions.
 
 
