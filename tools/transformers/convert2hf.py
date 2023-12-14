@@ -1,6 +1,6 @@
 import argparse
-import math
 import json
+import math
 import os
 import re
 import tempfile
@@ -110,7 +110,7 @@ def merge_pp(states_tp_pp):
             states = states_tp_pp[tp][pp]
             keys = list(states.keys())
             for key in keys:
-                match = re.search("\.\d+\.", key)
+                match = re.search("\.\d+\.", key)  # noqa: W605
                 if match is not None:
                     s, e = match.span()
                     layer_idx = int(key[s + 1 : e - 1]) + layer_shift
@@ -126,9 +126,9 @@ def merge_pp(states_tp_pp):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--src_folder', type=str, default='~/test/') # 需要转换为hf格式的checkpoint文件夹
-    parser.add_argument('--tgt_folder', type=str, default='~/output/') # 存放转换后checkpoint的目标文件夹
-    parser.add_argument('--tokenizer', type=str, default='~/test/tokenizer.model') # Tokenizer 文件的路径
+    parser.add_argument("--src_folder", type=str, default="~/test/")  # 需要转换为hf格式的checkpoint文件夹
+    parser.add_argument("--tgt_folder", type=str, default="~/output/")  # 存放转换后checkpoint的目标文件夹
+    parser.add_argument("--tokenizer", type=str, default="~/test/tokenizer.model")  # Tokenizer 文件的路径
     args = parser.parse_args()
 
     def load(fp):

@@ -47,4 +47,3 @@ msgstr "Training Results"
 #: ../../source/example/7B_demo.rst:173 33ec81f34e3c4340beacdb5254069d08
 msgid "基于以上训练配置和启动命令，单节点 8GPU 下的模型训练部分日志展示如下："
 msgstr "Taking the configuration of the demo training on a single machine with 8 GPUs on slurm as an example, the training result log is shown below:"
-

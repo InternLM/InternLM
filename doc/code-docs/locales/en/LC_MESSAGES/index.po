@@ -78,4 +78,3 @@ msgstr ""
 #: ../../source/index.rst:95 a164b772960f4ab8b18c7e8820f69f55
 msgid ":ref:`search`"
 msgstr ""
-

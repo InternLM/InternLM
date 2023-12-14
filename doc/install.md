@@ -35,8 +35,8 @@ git clone git@github.com:InternLM/InternLM.git --recurse-submodules
 conda create --name internlm-env python=3.10 -y
 conda activate internlm-env
 cd internlm
-pip install -r requirements/torch.txt 
-pip install -r requirements/runtime.txt 
+pip install -r requirements/torch.txt
+pip install -r requirements/runtime.txt
 ```
 
 安装 flash-attention (version v1.0.5)：
@@ -65,7 +65,7 @@ cd ../../
 dockerfile 的配置以及构造均通过 docker.Makefile 文件实现，在 InternLM 根目录下执行如下命令即可 build 镜像：
 ``` bash
 make -f docker.Makefile BASE_OS=centos7
-``` 
+```
 在 docker.Makefile 中可自定义基础镜像，环境版本等内容，对应参数可直接通过命令行传递。对于 BASE_OS 分别支持 ubuntu20.04 和 centos7。
 
 #### 镜像拉取

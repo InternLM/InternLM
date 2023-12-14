@@ -44,8 +44,8 @@ InternLM 是一个开源的轻量级训练框架，旨在支持大模型训练�
 
 ## 更新
 
-[20230920] InternLM-20B 已发布，包括基础版和对话版。  
-[20230822] InternLM-7B-Chat v1.1 已发布，增加了代码解释器和函数调用能力。您可以使用 [Lagent](https://github.com/InternLM/lagent) 进行尝试。
+[20231213] 我们更新了 InternLM-7B-Chat 和 InternLM-20B-Chat 模型权重。通过改进微调数据和训练策略，新版对话模型生成的回复质量更高、语言风格更加多元。
+[20230920] InternLM-20B 已发布，包括基础版和对话版。
 
 
 ## Model Zoo
@@ -54,21 +54,19 @@ InternLM 是一个开源的轻量级训练框架，旨在支持大模型训练�
 
 | Model                     | Transformers                        | ModelScope                                                                                                                        | OpenXLab                                                                              |发布日期 |
 |---------------------------|------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------|
-| **InternLM Chat 20B**     | [🤗internlm/internlm-chat-20b](https://huggingface.co/internlm/internlm-20b-chat)         | [<img src="./doc/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-chat-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-20b-chat/summary)         | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-20b)     | 2023-09-20   |
+| **InternLM Chat 20B**     | [🤗internlm/internlm-chat-20b](https://huggingface.co/internlm/internlm-20b-chat)         | [<img src="./doc/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-chat-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-20b-chat/summary)         | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-20b)     | 2023-12-12   |
 | **InternLM 20B**          | [🤗internlm/internlm-20b](https://huggingface.co/internlm/internlm-20b)                   | [<img src="./doc/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-20b/summary)                   | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-20b)          | 2023-09-20   |
-| **InternLM Chat 7B v1.1** | [🤗internlm/internlm-chat-7b-v1.1](https://huggingface.co/internlm/internlm-chat-7b-v1.1) | [<img src="./doc/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-chat-7b-v1_1](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-chat-7b-v1_1/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b-v1.1) | 2023-08-22   |
+| **InternLM Chat 7B**      | [🤗internlm/internlm-chat-7b](https://huggingface.co/internlm/internlm-chat-7b)           | [<img src="./doc/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-chat-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-chat-7b/summary)           | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b)      | 2023-12-12   |
 | **InternLM 7B**           | [🤗internlm/internlm-7b](https://huggingface.co/internlm/internlm-7b)                     | [<img src="./doc/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-7b/summary)                     | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-7b)           | 2023-07-06   |
-| **InternLM Chat 7B**      | [🤗internlm/internlm-chat-7b](https://huggingface.co/internlm/internlm-chat-7b)           | [<img src="./doc/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-chat-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-chat-7b/summary)           | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b)      | 2023-07-06   |
-| **InternLM Chat 7B 8k**   | [🤗internlm/internlm-chat-7b-8k](https://huggingface.co/internlm/internlm-chat-7b-8k)     | [<img src="./doc/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-chat-7b-8k](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-chat-7b-8k/summary)     | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b-8k)   | 2023-07-06   |
 
 
-<details> 
+<details>
 <summary> InternLM-20B </summary>
 
 #### 简介
-InternLM-20B 在超过 **2.3T** Tokens 包含高质量英文、中文和代码的数据上进行预训练，其中 Chat 版本还经过了 SFT 和 RLHF 训练，使其能够更好、更安全地满足用户的需求。  
+InternLM-20B 在超过 **2.3T** Tokens 包含高质量英文、中文和代码的数据上进行预训练，其中 Chat 版本还经过了 SFT 和 RLHF 训练，使其能够更好、更安全地满足用户的需求。
 
-InternLM 20B 在模型结构上选择了深结构，InternLM-20B 的层数设定为60层，超过常规7B和13B模型所使用的32层或者40层。在参数受限的情况下，提高层数有利于提高模型的综合能力。此外，相较于InternLM-7B，InternLM-20B使用的预训练数据经过了更高质量的清洗，并补充了高知识密度和用于强化理解和推理能力的训练数据。因此，它在理解能力、推理能力、数学能力、编程能力等考验语言模型技术水平的方面都得到了显著提升。总体而言，InternLM-20B具有以下的特点： 
+InternLM 20B 在模型结构上选择了深结构，InternLM-20B 的层数设定为60层，超过常规7B和13B模型所使用的32层或者40层。在参数受限的情况下，提高层数有利于提高模型的综合能力。此外，相较于InternLM-7B，InternLM-20B使用的预训练数据经过了更高质量的清洗，并补充了高知识密度和用于强化理解和推理能力的训练数据。因此，它在理解能力、推理能力、数学能力、编程能力等考验语言模型技术水平的方面都得到了显著提升。总体而言，InternLM-20B具有以下的特点：
 - 优异的综合性能
 - 很强的工具调用功能
 - 支持16k语境长度（通过推理时外推）
@@ -117,11 +115,10 @@ InternLM 20B 在模型结构上选择了深结构，InternLM-20B 的层数设定
 </details>
 
 
-<details> 
+<details>
 <summary> InternLM-7B </summary>
 
 #### 模型更新
-[20230822] 通过使用更丰富的SFT类型数据，InternLM-7B-Chat v1.1模型支持代码解释和函数调用。模型结构与代码没有任何变化，因此可以使用与InternLM-7B-Chat完全一样的方式使用更强大的InternLM-7B-Chat v1.1。
 
 #### 简介
 InternLM-7B 包含了一个拥有70亿参数的基础模型和一个为实际场景量身定制的对话模型。该模型具有以下特点：
@@ -134,18 +131,18 @@ InternLM-7B 包含了一个拥有70亿参数的基础模型和一个为实际场
 
 我们使用开源评测工具 [OpenCompass](https://github.com/internLM/OpenCompass/) 从学科综合能力、语言能力、知识能力、推理能力、理解能力五大能力维度对InternLM开展全面评测，部分评测结果如下表所示，欢迎访问[OpenCompass 榜单](https://opencompass.org.cn/rank)获取更多的评测结果。
 
-| 数据集\模型           |  **InternLM-Chat-7B** |  **InternLM-7B**  |  LLaMA-7B | Baichuan-7B | ChatGLM2-6B | Alpaca-7B | Vicuna-7B |
-| -------------------- | --------------------- | ---------------- | --------- |  --------- | ------------ | --------- | ---------- |
-| C-Eval(Val)          |      53.2             |        53.4       | 24.2      | 42.7       |  50.9       |  28.9     | 31.2     |
-| MMLU                 |      50.8             |       51.0        | 35.2*     |  41.5      |  46.0       |  39.7     | 47.3     |
-| AGIEval              |      42.5             |       37.6        | 20.8      | 24.6       |  39.0       | 24.1      | 26.4     |
-| CommonSenseQA        |      75.2             |      59.5         | 65.0      | 58.8       | 60.0        | 68.7      | 66.7     |
-| BUSTM                |      74.3             |       50.6        | 48.5      | 51.3        | 55.0        | 48.8      | 62.5     |
-| CLUEWSC              |      78.6             |      59.1         |  50.3     |  52.8     |  59.8     |   50.3    |  52.2     |
-| MATH                 |      6.4            |         7.1        |  2.8       | 3.0       | 6.6       |  2.2      | 2.8       |
-| GSM8K                |      34.5           |        31.2        | 10.1       | 9.7       | 29.2      |  6.0      | 15.3  |
-|  HumanEval           |      14.0           |        10.4        |   14.0     | 9.2       | 9.2       | 9.2       | 11.0  |
-| RACE(High)           |      76.3           |        57.4        | 46.9*      | 28.1      | 66.3      | 40.7      | 54.0  |
+| 数据集\模型 | **InternLM-Chat-7B** | **InternLM-7B** | LLaMA-7B | Baichuan-7B | ChatGLM2-6B | Alpaca-7B | Vicuna-7B |
+| --------------- | -------------------------- | --------------------- | -------- | ----------- | ----------- | --------- | --------- |
+| C-Eval(Val)     | 52.0                       | 53.4                  | 24.2     | 42.7        | 50.9        | 28.9      | 31.2      |
+| MMLU            | 52.6                       | 51.0                  | 35.2*    | 41.5        | 46.0        | 39.7      | 47.3      |
+| AGIEval         | 46.4                       | 37.6                  | 20.8     | 24.6        | 39.0        | 24.1      | 26.4      |
+| CommonSenseQA   | 80.8                       | 59.5                  | 65.0     | 58.8        | 60.0        | 68.7      | 66.7      |
+| BUSTM           | 80.6                       | 50.6                  | 48.5     | 51.3        | 55.0        | 48.8      | 62.5      |
+| CLUEWSC         | 81.8                       | 59.1                  | 50.3     | 52.8        | 59.8        | 50.3      | 52.2      |
+| MATH            | 5.0                        | 7.1                   | 2.8      | 3.0         | 6.6         | 2.2       | 2.8       |
+| GSM8K           | 36.2                       | 31.2                  | 10.1     | 9.7         | 29.2        | 6.0       | 15.3      |
+| HumanEval       | 15.9                       | 10.4                  | 14.0     | 9.2         | 9.2         | 9.2       | 11.0      |
+| RACE(High)      | 80.3                       | 57.4                  | 46.9*    | 28.1        | 66.3        | 40.7      | 54.0      |
 
 - 以上评测结果基于 [OpenCompass 20230706](https://github.com/internLM/OpenCompass/) 获得（部分数据标注`*`代表数据来自原始论文），具体测试细节可参见 [OpenCompass](https://github.com/internLM/OpenCompass/) 中提供的配置文件。
 - 评测数据会因 [OpenCompass](https://github.com/internLM/OpenCompass/) 的版本迭代而存在数值差异，请以 [OpenCompass](https://github.com/internLM/OpenCompass/) 最新版的评测结果为主。
@@ -178,7 +175,7 @@ InternLM-7B 包含了一个拥有70亿参数的基础模型和一个为实际场
 3. 集中注意力：避免分心，集中注意力完成任务。关闭社交媒体和电子邮件通知，专注于任务，这将帮助您更快地完成任务，并减少错误的可能性。
 ```
 
-### 通过 ModelScope 加载 
+### 通过 ModelScope 加载
 
 通过以下的代码从 ModelScope 加载 InternLM 模型 （可修改模型名称替换不同的模型）
 

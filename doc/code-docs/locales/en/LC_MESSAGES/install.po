@@ -137,4 +137,3 @@ msgstr "For the local standard image built with dockerfile or pulled, use the fo
 #: ../../../install.md:87 66613606256e4094a6be5ab2af1269ae
 msgid "容器内默认目录即 `/InternLM`，根据[使用文档](./usage.md)即可启动训练。"
 msgstr "The default directory in the container is `/InternLM`, please start training according to the [Usage](./usage.md)."
-

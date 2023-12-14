@@ -1,3 +1,5 @@
+# flake8: noqa
+
 # This file is modified from:
 # hhttps://github.com/reasoning-machines/pal/blob/main/pal/core/interface.py
 #
@@ -27,8 +29,8 @@ import tqdm
 from datasets import load_dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from tools.transformers.interface import GenerationConfig, generate_interactive
 from internlm.utils.timeout import Timeout
+from tools.transformers.interface import GenerationConfig, generate_interactive
 
 
 def parse_args():

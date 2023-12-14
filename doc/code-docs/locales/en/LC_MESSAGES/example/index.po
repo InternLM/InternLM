@@ -30,4 +30,3 @@ msgstr ""
 #: ../../source/example/index.rst:13 b095e27dfc924a7a943b7cba5361700a
 msgid "30B Demo"
 msgstr ""
-

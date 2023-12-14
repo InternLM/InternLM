@@ -22,4 +22,3 @@ msgstr ""
 #: ../../source/qa.rst:2 e3b22a39640a40cfb527068a7f4bbfc9
 msgid "问&答"
 msgstr "Q&A"
-
