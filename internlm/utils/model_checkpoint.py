@@ -971,7 +971,11 @@ now step_count is {train_state.step_count}",
 
     def is_now_to_save_ckpt(self, train_state) -> (bool, CheckpointSaveType, bool):
         save_ckpts, save_type, now_break = False, CheckpointSaveType.NORMAL_CHECKPOINT, False
-        if self.oss_snapshot_freq > 1 and train_state.step_count % self.oss_snapshot_freq == 0:
+        if (
+            self.oss_snapshot_freq != "auto"
+            and self.oss_snapshot_freq > 1
+            and train_state.step_count % self.oss_snapshot_freq == 0
+        ):
             save_ckpts, save_type = True, CheckpointSaveType.SNAPSHOT_CHECKPOINT
         if train_state.step_count % self.checkpoint_every == 0 or train_state.step_count == train_state.total_steps:
             save_ckpts, save_type = True, CheckpointSaveType.NORMAL_CHECKPOINT
@@ -985,6 +989,15 @@ now step_count is {train_state.step_count}",
     def try_save_checkpoint(self, train_state):
         if not self.enable_save_ckpt:
             return False
+
+        if self.checkpoint_every == "auto":
+            if gpc.config.ckpt.checkpoint_every == "auto":
+                return False
+            else:
+                self.checkpoint_every = gpc.config.ckpt.checkpoint_every
+        elif self.oss_snapshot_freq == "auto":
+            if gpc.config.ckpt.oss_snapshot_freq != "auto":
+                self.oss_snapshot_freq = gpc.config.ckpt.oss_snapshot_freq
 
         save_ckpts, save_type, now_break = self.is_now_to_save_ckpt(train_state)
 

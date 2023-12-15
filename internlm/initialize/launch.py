@@ -169,8 +169,10 @@ def args_sanity_check():
 
     # Saving checkpoint args.
     if ckpt.enable_save_ckpt:
-        assert "checkpoint_every" in ckpt, "If enable save checkpoint, must give checkpoint_every in config.data!"
-        assert ckpt.checkpoint_every > 0
+        # assert "checkpoint_every" in ckpt, "If enable save checkpoint, must give checkpoint_every in config.data!"
+        # assert ckpt.checkpoint_every > 0
+        if "checkpoint_every" not in ckpt or ckpt.checkpoint_every <= 0:
+            ckpt.checkpoint_every = "auto"
         assert "save_ckpt_folder" in ckpt, "If enable save checkpoint, must give save_ckpt_folder in config.data!"
 
         if "async_upload" not in ckpt:
@@ -192,8 +194,13 @@ def args_sanity_check():
         if not ckpt.async_upload:
             ckpt._add_item("async_upload_tmp_folder", None)
 
-        if "oss_snapshot_freq" not in ckpt:
-            ckpt._add_item("oss_snapshot_freq", float("inf"))  # if oss_snapshot_freq not given, we disable.
+        if ckpt.checkpoint_every != "auto":
+            if "oss_snapshot_freq" not in ckpt:
+                ckpt._add_item("oss_snapshot_freq", "auto")
+            else:
+                ckpt.oss_snapshot_freq = "auto"
+        else:
+            ckpt.oss_snapshot_freq = float("inf")
     else:
         ckpt._add_item("checkpoint_every", float("inf"))
         ckpt._add_item("oss_snapshot_freq", float("inf"))

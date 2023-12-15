@@ -427,6 +427,44 @@ def record_current_batch_training_metrics(
     if gpc.is_no_pp_or_last_stage():
         acc_perplex = metric.get_metric()
 
+    # compute auto save_frequency
+    if success_update and (gpc.config.ckpt.checkpoint_every == "auto" or gpc.config.ckpt.oss_snapshot_freq == "auto"):
+        ckpt_statistic = train_state.ckpt_statistic
+        ckpt_statistic["total_step"] += 1
+
+        # only global rank 0 need to compute save_frequency
+        if gpc.get_global_rank() == 0 and ckpt_statistic["total_step"] < 10 and batch_count >= 5:
+            ckpt_statistic["sum_step"] += 1
+            ckpt_statistic["sum_time"] += time.time() - start_time
+
+        # broadcast and assign save_frequency at the 10th step from start
+        elif ckpt_statistic["total_step"] == 10:
+
+            # compute save_frequency
+            if gpc.get_global_rank() == 0:
+                avg_step_time = ckpt_statistic["sum_time"] / ckpt_statistic["sum_step"]
+                check_time = int(os.getenv("LLM_CKPT_SAVE_TIME", "1200"))
+                save_frequency = torch.tensor(
+                    [int(10 * -(-check_time // (avg_step_time * 10)))], device=torch.device("cuda")
+                )
+            else:
+                save_frequency = torch.tensor([-1], device=torch.device("cuda"))
+
+            ranks = gpc.get_ranks_in_group(ParallelMode.GLOBAL)
+            dist.broadcast(save_frequency, src=ranks[0], group=gpc.get_group(ParallelMode.GLOBAL))
+            save_frequency = int(save_frequency[0])
+
+            # assign save_frequency
+            # when the "checkpoint_every" is "auto", no snapshot will be implemented
+            # when the "save_frequency" is less than the "checkpoint_every" passed in, no snapshot will be implemented
+            if gpc.config.ckpt.checkpoint_every == "auto":
+                gpc.config.ckpt.checkpoint_every = save_frequency
+            else:
+                if save_frequency < gpc.config.ckpt.checkpoint_every:
+                    gpc.config.ckpt.oss_snapshot_freq = save_frequency
+                else:
+                    gpc.config.ckpt.oss_snapshot_freq = float("inf")
+
     if success_update and gpc.is_rank_for_log():
         lr = optimizer.param_groups[0]["lr"]
         if hasattr(trainer.engine.optimizer, "grad_scaler"):
@@ -440,6 +478,7 @@ def record_current_batch_training_metrics(
         max_samples_in_batch = max([len(b) - 1 for b in batch[0]["cu_seqlens"]])
         min_samples_in_batch = min([len(b) - 1 for b in batch[0]["cu_seqlens"]])
         time_cost = time.time() - start_time
+
         tk_per_gpu = round(
             num_tokens_in_batch * gpc.get_world_size(ParallelMode.DATA) / gpc.get_world_size(ParallelMode.GLOBAL),
             4,
@@ -507,6 +546,7 @@ def record_current_batch_training_metrics(
             "loss_scale": scaler,
             "grad_norm": grad_norm,
         }
+
         if moe_loss is not None:
             infos["moe_loss"] = moe_loss.item()
 

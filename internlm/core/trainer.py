@@ -78,6 +78,13 @@ class TrainState:
             "last_tgs_50": 0,
         }
 
+        # ckpt statistic
+        self.ckpt_statistic = {
+            "total_step": 0,
+            "sum_step": 0,
+            "sum_time": 0,
+        }
+
     def init_batch_sampler(self, batch_sampler):
         """
         Args:

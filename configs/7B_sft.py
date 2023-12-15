@@ -38,10 +38,9 @@ ckpt = dict(
     # If you want to initialize your model weights from another model, you must set `auto_resume` to False.
     # If you want to train from scratch, please set `auto_resume` to False and 'load_ckpt_info' to None.
     auto_resume=True,
-    checkpoint_every=CHECKPOINT_EVERY,
+    checkpoint_every=CHECKPOINT_EVERY,  # if checkpoint_every is not set, auto checkpoint_every will be executed
     async_upload=True,  # async ckpt upload. (only work for boto3 ckpt)
     async_upload_tmp_folder="/dev/shm/internlm_tmp_ckpt/",  # path for temporarily files during asynchronous upload.
-    oss_snapshot_freq=int(CHECKPOINT_EVERY / 2),  # snapshot ckpt save frequency.
 )
 
 TRAIN_FOLDER = None  # "/path/to/dataset"
