@@ -859,8 +859,10 @@ class CheckpointManager:
 
         self.async_upload = get_config_value(ckpt_config, "async_upload", False)
 
+        if self.save_ckpt_folder.startswith("volc:") or self.save_ckpt_folder.startswith("oss2:"):
+            use_processpool = True
         # initialization storage manager
-        init_storage_manager(self.enable_save_ckpt, self.async_upload_tmp_folder, self.async_upload)
+        init_storage_manager(self.enable_save_ckpt, self.async_upload_tmp_folder, self.async_upload, use_processpool)
 
         self.feishu_address = feishu_address
         self.storage_manager = get_storage_manager()
