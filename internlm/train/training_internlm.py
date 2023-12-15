@@ -263,8 +263,8 @@ def get_train_data_loader(num_worker: int = 0, dataset_generate_func: Optional[C
             data_world_size=gpc.get_world_size(ParallelMode.DATA),
         )
         train_collate_fn = partial(packed_collate_fn, packed_length=data_cfg.packed_length)
-    
-    def dl_worker_init(worker_id):
+
+    def dl_worker_init(worker_id):  # pylint: disable=unused-argument
         gc.enable()
 
     # Create the training data loader
@@ -275,7 +275,7 @@ def get_train_data_loader(num_worker: int = 0, dataset_generate_func: Optional[C
         pin_memory=True,
         collate_fn=train_collate_fn,
         persistent_workers=num_worker > 0,
-        worker_init_fn = dl_worker_init,
+        worker_init_fn=dl_worker_init,
     )
 
     return train_dl, dataset_types
