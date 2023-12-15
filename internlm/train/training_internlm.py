@@ -455,8 +455,8 @@ def record_current_batch_training_metrics(
             save_frequency = int(save_frequency[0])
 
             # assign save_frequency
-            # when the "checkpoint_every" is "auto", no snapshot will be implemented
-            # when the "save_frequency" is less than the "checkpoint_every" passed in, no snapshot will be implemented
+            # when the "checkpoint_every" is "auto", no snapshot will be performed
+            # when the "save_frequency" is less than the "checkpoint_every" passed in, no snapshot will be performed
             if gpc.config.ckpt.checkpoint_every == "auto":
                 gpc.config.ckpt.checkpoint_every = save_frequency
             else:
