@@ -150,7 +150,7 @@ class HybridZeroOptimizer(BaseOptimizer):
             # if zero is used, expert dp group will use ParallelMode.EXPERT_DATA as the real zero mode
             zero_mode = (
                 ParallelMode.ZERO1
-                if param_group["dp_mode"] == gpc.get_world_size(ParallelMode.ZERO1) == 1 or ParallelMode.DATA
+                if gpc.get_world_size(ParallelMode.ZERO1) == 1 or param_group["dp_mode"] == ParallelMode.DATA
                 else ParallelMode.EXPERT_DATA
             )
             self._zero_local_rank.append(gpc.get_local_rank(zero_mode))
