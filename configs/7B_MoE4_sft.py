@@ -141,7 +141,7 @@ model = dict(
     layer_norm_epsilon=1e-5,
     use_flash_attn=True,
     num_chunks=1,  # if num_chunks > 1, interleaved pipeline scheduler is used.
-    num_experts=8,
+    num_experts=4,
     moe_use_residual=False,
     moe_gate_k=2,
 )
