@@ -100,8 +100,6 @@ class HybridZeroOptimizer(BaseOptimizer):
         # self._overlap_communication = overlap_communication
         self._reduce_bucket_size = reduce_bucket_size
 
-        self._comm_bcast_stream = torch.cuda.Stream()
-
         # gradient scaler
         self.grad_scaler = DynamicGradScaler(
             initial_scale=initial_scale,
@@ -859,16 +857,21 @@ class HybridZeroOptimizer(BaseOptimizer):
                 # grank = gpc.get_ranks_in_group(group_type)[rank]  # need to convert to the global rank
                 # assert grank == rank, f"{grank} == {rank}"
                 g_rank = gpc.get_ranks_in_group(self._broadcast_parallel_mode[group_id])[rank]
-                handle = dist.broadcast(
-                    fp16_param,
-                    src=g_rank,
-                    group=gpc.get_group(self._broadcast_parallel_mode[group_id]),
-                    async_op=True,
-                )
 
                 if self._overlap_sync_param:
+                    handle = dict()
+                    handle["tensor"] = fp16_param
+                    handle["src"] = g_rank
+                    handle["group"] = gpc.get_group(self._broadcast_parallel_mode[group_id])
+                    handle["async_op"] = True
                     self._param_bcast_sync_handler.add_bcast_handle(rank, handle)
                 else:
+                    handle = dist.broadcast(
+                        fp16_param,
+                        src=g_rank,
+                        group=gpc.get_group(self._broadcast_parallel_mode[group_id]),
+                        async_op=True,
+                    )
                     handles.append(handle)
 
         for handle in handles:

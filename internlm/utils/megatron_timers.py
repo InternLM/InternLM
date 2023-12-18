@@ -5,8 +5,6 @@ import time
 
 import torch
 
-from internlm.core.context import global_context as gpc
-
 
 class _Timer:
     """Timer."""
@@ -25,16 +23,14 @@ class _Timer:
             megatron_timer.reset()
 
         assert not self.started_, "timer has already been started"
-        if not gpc.config.hybrid_zero_optimizer.overlap_sync_param:
-            self.stream.synchronize()
+        self.stream.synchronize()
         self.start_time = time.time()
         self.started_ = True
 
     def stop(self):
         """Stop the timer."""
         assert self.started_, "timer is not started"
-        if not gpc.config.hybrid_zero_optimizer.overlap_sync_param:
-            self.stream.synchronize()
+        self.stream.synchronize()
         self.elapsed_ += time.time() - self.start_time
         self.started_ = False
 

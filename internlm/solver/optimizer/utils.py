@@ -803,6 +803,8 @@ class ParamBcastSyncHandler:
         self._param_to_rank = dict()  # <key: param> <value: rank)>
         self._block_to_rank = dict()  # <key: nn.Module> <value: rank)>
         self._bcast_handles = dict()  # <key: rank> <value: list(bcast handles))>
+        self._block_next_block = dict()  # <key: nn.Module> <value: nn.Module>
+        self._block_to_handles = dict()  # <key: nn.Module> <value: list(bcast handles)>
 
         zero1_size = gpc.get_world_size(ParallelMode.ZERO1)
         total_param_num = sum(p.numel() for p in model.parameters())
@@ -824,10 +826,18 @@ class ParamBcastSyncHandler:
                     for _, block in enumerate(children):
                         # self._block_to_param[f"{name}.{idx}"] = list(block.parameters())
                         self._block_to_param[block] = list(block.parameters())
+                        key_list = list(self._block_to_param.keys())
+                        if len(key_list) > 1:
+                            up_layer = key_list[-2]
+                            self._block_next_block[up_layer] = key_list[-1]
                 else:
                     # record the block that a parameter belongs to
                     # self._block_to_param[name] = list(children.parameters())
                     self._block_to_param[children] = list(children.parameters())
+                    key_list = list(self._block_to_param.keys())
+                    if len(key_list) > 1:
+                        up_layer = key_list[-2]
+                        self._block_next_block[up_layer] = key_list[-1]
 
         alloc_num = 0
         rank_to_go = 0
@@ -857,16 +867,35 @@ class ParamBcastSyncHandler:
         # register_forward_pre_hook for transformer/embeding/norm/xxx block
         self._register_sync_parameters_hook()
 
+    def _launch_handle(self, layer):
+        handle_metas = []
+        for rank in self._block_to_rank[layer]:
+            handle_metas.extend(self._bcast_handles[rank])
+            # need to clear _bcast_handles since they would be processed later
+            self._bcast_handles[rank] = []
+        # wait all required broadcast handles to be completed
+        handles = []
+        for handle_meta in handle_metas:
+            handle = dist.broadcast(**handle_meta)
+            handles.append(handle)
+        self._block_to_handles[layer] = handles
+
     def _register_sync_parameters_hook(self) -> None:
         def _pre_forward_hook(model: nn.Module, inputs: Any):  # pylint: disable=W0613
-            bcast_handles = []
-            # gather all required broadcast hanles into a list
-            for rank in self._block_to_rank[model]:
-                bcast_handles.extend(self._bcast_handles[rank])
-                # need to clear _bcast_handles since they would be processed later
-                self._bcast_handles[rank] = []
-            # wait all required broadcast handles to be completed
-            for handle in bcast_handles:
+            current_layer = model
+            next_layer = self._block_next_block[current_layer] if current_layer in self._block_next_block else None
+
+            # if this is the first layer
+            # launch broadcast for current layer
+            if current_layer == list(self._block_to_param.keys())[0]:
+                self._launch_handle(current_layer)
+
+            # if this is not the last layer
+            # launch broadcast for next layer
+            if next_layer:
+                self._launch_handle(next_layer)
+
+            for handle in self._block_to_handles[current_layer]:
                 handle.wait()
 
         # register_forward_pre_hook for transformer/embeding/norm/xxx block
