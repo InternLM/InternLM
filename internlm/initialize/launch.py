@@ -2,7 +2,6 @@
 # -*- encoding: utf-8 -*-
 
 import argparse
-import gc
 import os
 from pathlib import Path
 from typing import Dict, Union
