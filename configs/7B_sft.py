@@ -176,6 +176,9 @@ monitor = dict(
         light_monitor_address=None,  # light_monitor address to send heartbeat
         alert_file_path=f"llm_alter/{JOB_NAME}_alert.log",
     ),
+    tensorboard=dict(
+        queue_max_length=10,
+    ),
 )
 
 # metric_dtype can be "fp32" or other string
