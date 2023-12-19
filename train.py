@@ -138,7 +138,7 @@ def main(args):
         config=config_lines,
         logger=logger,
         enable_tb=gpc.config.enable_tb,
-        queue_max_length=gpc.config.monitor.tensorboard.queue_max_length,
+        queue_max_length=gpc.config.tensorboard.queue_max_length,
         total_steps=total_steps,
     )
 
