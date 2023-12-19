@@ -195,9 +195,9 @@ class Trainer:
         """Sets the gradient of all parameters in the model to zero."""
         self._engine.zero_grad()
 
-    def step(self):
+    def step(self, disable_overlap=False):
         """Executes the parameter update step."""
-        return self._engine.step()
+        return self._engine.step(disable_overlap=disable_overlap)
 
     def execute_schedule(self, data_iter: Iterable, **kwargs):
         """Runs the forward, loss computation, and backward for the model.

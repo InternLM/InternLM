@@ -607,7 +607,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         return total_zero_grad_count
 
     @llm_timeout(func_name="optim_step")
-    def step(self, closure=None):
+    def step(self, closure=None, disable_overlap=False):
         """Performs a single optimization step.
 
         Args:
@@ -715,7 +715,7 @@ class HybridZeroOptimizer(BaseOptimizer):
         self._sync_grad()
         timer("sync_grad").stop()
 
-        state, global_norms = self._step(closure=closure, norms=total_norms)
+        state, global_norms = self._step(closure=closure, norms=total_norms, disable_overlap=disable_overlap)
         if is_profiling:
             if grad_profiling_config.get("grad_norm_profiling", False):
                 global_norms["layer_grad_norm"] = total_layer_grad_norms
@@ -728,7 +728,7 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         return state, global_norms
 
-    def _step(self, closure=None, norms=None):
+    def _step(self, closure=None, norms=None, disable_overlap=False):
         assert closure is None, "closure is not supported by step()"
 
         # check for overflow
@@ -835,7 +835,7 @@ class HybridZeroOptimizer(BaseOptimizer):
                     fp16_param.data.copy_(fp32_param)
 
         torch.cuda.synchronize()
-        self.broadcast_params()
+        self.broadcast_params(disable_overlap=disable_overlap)
 
         timer("step").stop()
 
@@ -845,9 +845,11 @@ class HybridZeroOptimizer(BaseOptimizer):
             global_norm_groups[group_name] = global_norm / loss_scale
         return True, global_norm_groups
 
-    def broadcast_params(self):
+    def broadcast_params(self, disable_overlap=False):
         handles = []
-
+        assert all(
+            isinstance(value, list) and not value for value in self._param_bcast_sync_handler._bcast_handles.values()
+        )
         for group_id in range(self.num_param_groups):
             for rank in range(self._zero_world_size[group_id]):
                 # The following operations are performed only on the rank to which parameters are assigned.
@@ -858,12 +860,13 @@ class HybridZeroOptimizer(BaseOptimizer):
                 # assert grank == rank, f"{grank} == {rank}"
                 g_rank = gpc.get_ranks_in_group(self._broadcast_parallel_mode[group_id])[rank]
 
-                if self._overlap_sync_param:
-                    handle = dict()
-                    handle["tensor"] = fp16_param
-                    handle["src"] = g_rank
-                    handle["group"] = gpc.get_group(self._broadcast_parallel_mode[group_id])
-                    handle["async_op"] = True
+                if self._overlap_sync_param and not disable_overlap:
+                    handle = {
+                        "tensor": fp16_param,
+                        "src": g_rank,
+                        "group": gpc.get_group(self._broadcast_parallel_mode[group_id]),
+                        "async_op": True,
+                    }
                     self._param_bcast_sync_handler.add_bcast_handle(rank, handle)
                 else:
                     handle = dist.broadcast(

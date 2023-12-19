@@ -921,7 +921,7 @@ class CheckpointManager:
         if self.enable_save_ckpt:
             self.try_ping_storage()
 
-    def quit_signal_handler(self, train_state) -> bool:
+    def quit_signal_handler(self, train_state, step_count=None) -> bool:
         """
         Exit signal detection function, if we write the exit step in the 'QUIT_FILE_PATH' file,
         all ranks will save ckpt and exit.
@@ -933,6 +933,9 @@ class CheckpointManager:
         Returns:
             bool: whether to quit.
         """
+        if step_count is None:
+            step_count = train_state.step_count
+
         now_break, now_save_ckpt, save_type = False, False, CheckpointSaveType.NORMAL_CHECKPOINT
 
         if self.stop_file_path is None:
@@ -950,32 +953,34 @@ class CheckpointManager:
             action_step = action_step_t.item()
             del action_step_t
 
-        if action_step < 0 and abs(action_step) == train_state.step_count:
+        if action_step < 0 and abs(action_step) == step_count:
             now_save_ckpt = True
 
-        if action_step > 0 and action_step == train_state.step_count:
+        if action_step > 0 and action_step == step_count:
             now_break, now_save_ckpt = True, True
 
         if action_step != 0 and gpc.is_rank_for_log():
             msg = "Stop" if action_step > 0 else "Save"
             action_step = abs(action_step)
-            if train_state.step_count <= action_step:
+            if step_count <= action_step:
                 if self.feishu_address:
                     send_alert_message(
                         address=self.feishu_address,
                         message=f"training will {msg} at step_count {action_step}!\
-now step_count is {train_state.step_count}",
+now step_count is {step_count}",
                     )
 
         return now_break, now_save_ckpt, save_type
 
-    def is_now_to_save_ckpt(self, train_state) -> (bool, CheckpointSaveType, bool):
+    def is_now_to_save_ckpt(self, train_state, step_count=None) -> (bool, CheckpointSaveType, bool):
+        if step_count is None:
+            step_count = train_state.step_count
         save_ckpts, save_type, now_break = False, CheckpointSaveType.NORMAL_CHECKPOINT, False
-        if self.oss_snapshot_freq > 1 and train_state.step_count % self.oss_snapshot_freq == 0:
+        if self.oss_snapshot_freq > 1 and step_count % self.oss_snapshot_freq == 0:
             save_ckpts, save_type = True, CheckpointSaveType.SNAPSHOT_CHECKPOINT
-        if train_state.step_count % self.checkpoint_every == 0 or train_state.step_count == train_state.total_steps:
+        if step_count % self.checkpoint_every == 0 or step_count == train_state.total_steps:
             save_ckpts, save_type = True, CheckpointSaveType.NORMAL_CHECKPOINT
-        now_break, singal_save_ckpts, singal_save_type = self.quit_signal_handler(train_state)
+        now_break, singal_save_ckpts, singal_save_type = self.quit_signal_handler(train_state, step_count)
         if save_ckpts is False:
             save_ckpts = singal_save_ckpts
             save_type = singal_save_type

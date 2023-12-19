@@ -238,7 +238,9 @@ def main(args):
             timer("fwd-bwd").stop()
 
             # update parameters, and returns (success_update, grad_norm)
-            trainer_result = trainer.step()
+            trainer_result = trainer.step(
+                disable_overlap=ckpt_manager.is_now_to_save_ckpt(train_state, train_state.step_count + 1)[0]
+            )
             assert trainer_result is not None
 
             success_update, grad_norm_groups = trainer_result

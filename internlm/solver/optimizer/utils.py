@@ -824,18 +824,14 @@ class ParamBcastSyncHandler:
             # BUG: The order of traversal is not necessarily the order of actual fwd/bwd execution!!!
             last_module = None
             for module_idx, children in _chunk.named_children():
-                if gpc.get_global_rank() == 0:
-                    print(f"children: {children.__class__.__name__}", flush=True)
                 # should be the transformer block definaton in modeling_xxx.py
                 if isinstance(children, nn.ModuleList):
                     assert module_idx != 0
                     # record the block that a parameter belongs to
-                    for layer_idx, block in enumerate(children):
+                    for _, block in enumerate(children):
                         # self._block_to_param[f"{name}.{idx}"] = list(block.parameters())
                         self._block_to_param[block] = list(block.parameters())
                         self._block_next_block[last_module] = block
-                        if gpc.get_global_rank() == 0:
-                            print(f"{block.__class__.__name__}_layer_{layer_idx}", flush=True)
                         last_module = block
                 else:
                     # record the block that a parameter belongs to
@@ -843,7 +839,6 @@ class ParamBcastSyncHandler:
                     if module_idx == 0:
                         assert "embedding" in f"{children.__class__.__name__}"
                         assert last_module is None
-                        self._block_next_block[children] = children
                     else:
                         self._block_next_block[last_module] = children
 
