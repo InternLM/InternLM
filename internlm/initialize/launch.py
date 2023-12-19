@@ -533,9 +533,6 @@ def initialize_distributed_env(
         seed (int, optional): Specified random seed for every process. 1024 by default.
     """
 
-    # close automatic garbage collection
-    gc.disable()
-
     torch.cuda.empty_cache()
 
     if launcher == "torch":

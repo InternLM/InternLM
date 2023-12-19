@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
+import gc
 import socket
 import time
 import traceback
@@ -190,6 +191,9 @@ def main(args):
 
     # transfer the train data loader into train data iterator
     train_iter = iter(train_dl)
+
+    # close automatic garbage collection
+    gc.disable()
 
     with initialize_llm_profile(profiling=args.profiling, start_time=current_time) as prof:
         # start iterating the train data and begin training
