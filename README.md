@@ -212,23 +212,22 @@ We use [LMDeploy](https://github.com/InternLM/LMDeploy) to complete the one-clic
 
 1. First, install LMDeploy:
 
-```
-  python3 -m pip install lmdeploy
-```
-
-2. Use the following command for quick deployment:
-
-```
-  python3 -m lmdeploy.serve.turbomind.deploy InternLM-7B /path/to/internlm-7b/model hf
+```shell
+python3 -m pip install lmdeploy
 ```
 
-3. After exporting the model, you can start a server and have a conversation with the deployed model using the following command:
+2. Use the following command for iteractive communication with `internlm-chat-7b` model on localhost:
 
-```
-  python3 -m lmdeploy.serve.client {server_ip_addresss}:33337
+```shell
+lmdeploy chat turbomind InternLM/internlm-chat-7b --model-name internlm-chat-7b
 ```
 
-[LMDeploy](https://github.com/InternLM/LMDeploy) provides a complete workflow for deploying InternLM. Please refer to the [deployment tutorial](https://github.com/InternLM/LMDeploy) for more details on deploying InternLM.
+3. Besides chatting via command line, you can start lmdeploy `api_server` as below:
+
+```shell
+lmdeploy serve api_server InternLM/internlm-chat-7b --model-name internlm-chat-7b
+```
+For a comprehensive understanding of the `api_server` RESTful API, kindly consult [this](https://github.com/InternLM/lmdeploy/blob/main/docs/en/restful_api.md) guide. For additional deployment tutorials, feel free to explore [here](https://github.com/InternLM/LMDeploy).
 
 ## Fine-tuning & Training
 

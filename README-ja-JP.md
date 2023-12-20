@@ -123,20 +123,20 @@ streamlit run web_demo.py
 
 1. まず、LMDeploy をインストールする:
 
-```
-  python3 -m pip install lmdeploy
+```shell
+python3 -m pip install lmdeploy
 ```
 
 2. クイックデプロイには以下のコマンドを使用します:
 
-```
-  python3 -m lmdeploy.serve.turbomind.deploy InternLM-7B /path/to/internlm-7b/model hf
+```shell
+lmdeploy chat turbomind InternLM/internlm-chat-7b --model-name internlm-chat-7b
 ```
 
 3. モデルをエクスポートした後、以下のコマンドを使ってサーバーを起動し、デプロイされたモデルと会話することができます:
 
-```
-  python3 -m lmdeploy.serve.client {server_ip_addresss}:33337
+```shell
+lmdeploy serve api_server InternLM/internlm-chat-7b --model-name internlm-chat-7b
 ```
 
 [LMDeploy](https://github.com/InternLM/LMDeploy) は、InternLM をデプロイするための完全なワークフローを提供します。InternLM のデプロイの詳細については、[デプロイチュートリアル](https://github.com/InternLM/LMDeploy)を参照してください。
