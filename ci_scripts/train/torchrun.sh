@@ -22,7 +22,7 @@ if [[ -d ${CKPTS20_PATH} ]]; then
     fi
 fi
 
-srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --exclusive --quotatype=spot --job-name=$1 -N 1 torchrun --nnodes=1 --nproc_per_node=8 --master_port=29501 train.py --config ./ci_scripts/train/ci_7B_sft.py --launcher torch
+srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --exclusive --job-name=$1 -N 1 torchrun --nnodes=1 --nproc_per_node=8 --master_port=29501 train.py --config ./ci_scripts/train/ci_7B_sft.py --launcher torch
 [[ $? -ne 0 ]] && { echo "test torch training failed.";  exit_code=$(($exit_code + 1)); }
 
 num=$(num_files "${CKPTS_OUTPUT}")

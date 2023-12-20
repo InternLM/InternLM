@@ -56,7 +56,7 @@ jobs:
       run: |
         source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
         export PYTHONPATH=$PWD:$PYTHONPATH
-        srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=internlm-ut-${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 1 --gres=gpu:8 python -m pytest -s -v ./tests/test_core/test_pipeline.py
+        srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=internlm-ut-${GITHUB_RUN_ID}-${GITHUB_JOB} -N 1 -n 1 --gres=gpu:8 python -m pytest -s -v ./tests/test_core/test_pipeline.py
 
   unit_tests_utils_storage_manager:
     if: ${{ !cancelled() }}
@@ -73,7 +73,7 @@ jobs:
       run: |
         source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
         export PYTHONPATH=$PWD:$PYTHONPATH
-        srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=internlm-ut-${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 1 --gres=gpu:8 python -m pytest -s -v ./tests/test_utils/test_storage_manager.py
+        srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=internlm-ut-${GITHUB_RUN_ID}-${GITHUB_JOB} -N 1 -n 1 --gres=gpu:8 python -m pytest -s -v ./tests/test_utils/test_storage_manager.py
 
   unit_tests_model_fused_precision:
     if: ${{ !cancelled() }}
@@ -90,7 +90,7 @@ jobs:
       run: |
         source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
         export PYTHONPATH=$PWD:$PYTHONPATH
-        srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=internlm-ut-${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 1 --gres=gpu:8 python -m pytest -s -v ./tests/test_model/test_fused_precision/test_fused_precision.py
+        srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=internlm-ut-${GITHUB_RUN_ID}-${GITHUB_JOB} -N 1 -n 1 --gres=gpu:8 python -m pytest -s -v ./tests/test_model/test_fused_precision/test_fused_precision.py
 
   unit_tests_data_batch_sampler:
     if: ${{ !cancelled() }}
@@ -107,7 +107,7 @@ jobs:
       run: |
         source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
         export PYTHONPATH=$PWD:$PYTHONPATH
-        srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=internlm-ut-${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 1 --gres=gpu:8 python -m pytest -s -v ./tests/test_data/test_batch_sampler.py
+        srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=internlm-ut-${GITHUB_RUN_ID}-${GITHUB_JOB} -N 1 -n 1 --gres=gpu:8 python -m pytest -s -v ./tests/test_data/test_batch_sampler.py
 
   unit_tests_utils_timeout:
     if: ${{ !cancelled() }}
@@ -124,7 +124,7 @@ jobs:
       run: |
         source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
         export PYTHONPATH=$PWD:$PYTHONPATH
-        srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=internlm-ut-${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 1 --gres=gpu:1 python -m pytest -s -v ./tests/test_utils/test_timeout.py
+        srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=internlm-ut-${GITHUB_RUN_ID}-${GITHUB_JOB} -N 1 -n 1 --gres=gpu:1 python -m pytest -s -v ./tests/test_utils/test_timeout.py
 
   unit_tests_utils_model_checkpoint:
     if: ${{ !cancelled() }}
@@ -141,4 +141,4 @@ jobs:
       run: |
         source /mnt/petrelfs/share_data/llm_env/env/llm-flash2.0
         export PYTHONPATH=$PWD:$PYTHONPATH
-        srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=internlm-ut-${GITHUB_RUN_ID}-${GITHUB_JOB} --quotatype=spot -N 1 -n 1 --gres=gpu:2 python -m pytest -s -v  ./tests/test_utils/test_model_checkpoint.py
+        srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=internlm-ut-${GITHUB_RUN_ID}-${GITHUB_JOB} -N 1 -n 1 --gres=gpu:2 python -m pytest -s -v  ./tests/test_utils/test_model_checkpoint.py
