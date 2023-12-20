@@ -428,7 +428,7 @@ def record_current_batch_training_metrics(
         acc_perplex = metric.get_metric()
 
     # compute auto save_frequency
-    if success_update and (gpc.config.ckpt.checkpoint_every == "auto" or gpc.config.ckpt.oss_snapshot_freq == "auto"):
+    if success_update and gpc.config.ckpt.oss_snapshot_freq <= 0:
         ckpt_statistic = train_state.ckpt_statistic
         ckpt_statistic["total_step"] += 1
 
@@ -443,7 +443,7 @@ def record_current_batch_training_metrics(
             # compute save_frequency
             if gpc.get_global_rank() == 0:
                 avg_step_time = ckpt_statistic["sum_time"] / ckpt_statistic["sum_step"]
-                check_time = int(os.getenv("LLM_CKPT_SAVE_TIME", "1200"))
+                check_time = gpc.config.ckpt.auto_save_time
                 save_frequency = torch.tensor(
                     [int(10 * -(-check_time // (avg_step_time * 10)))], device=torch.device("cuda")
                 )
@@ -455,15 +455,11 @@ def record_current_batch_training_metrics(
             save_frequency = int(save_frequency[0])
 
             # assign save_frequency
-            # when the "checkpoint_every" is "auto", no snapshot will be performed
-            # when the "save_frequency" is less than the "checkpoint_every" passed in, no snapshot will be performed
-            if gpc.config.ckpt.checkpoint_every == "auto":
-                gpc.config.ckpt.checkpoint_every = save_frequency
+            # when the "save_frequency" is larger than the "checkpoint_every" passed in, no snapshot will be performed
+            if save_frequency < gpc.config.ckpt.checkpoint_every:
+                gpc.config.ckpt.oss_snapshot_freq = save_frequency
             else:
-                if save_frequency < gpc.config.ckpt.checkpoint_every:
-                    gpc.config.ckpt.oss_snapshot_freq = save_frequency
-                else:
-                    gpc.config.ckpt.oss_snapshot_freq = float("inf")
+                gpc.config.ckpt.oss_snapshot_freq = float("inf")
 
     if success_update and gpc.is_rank_for_log():
         lr = optimizer.param_groups[0]["lr"]
