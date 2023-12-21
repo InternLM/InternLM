@@ -213,23 +213,22 @@ streamlit run web_demo.py
 
 1. 首先安装 LMDeploy:
 
-  ```
+  ```shell
   python3 -m pip install lmdeploy
   ```
+2. 直接在本地，通过命令行，交互式和 InternLM 对话：
 
-2. 快速的部署命令如下：
-
-  ```
-  python3 -m lmdeploy.serve.turbomind.deploy InternLM-7B /path/to/internlm-7b/model hf
-  ```
-
-3. 在导出模型后，你可以直接通过如下命令启动服务一个服务并和部署后的模型对话
-
-  ```
-  python3 -m lmdeploy.serve.client {server_ip_addresss}:33337
+  ```shell
+  lmdeploy chat turbomind InternLM/internlm-chat-7b --model-name internlm-chat-7b
   ```
 
-[LMDeploy](https://github.com/InternLM/LMDeploy) 支持了 InternLM 部署的完整流程，请参考 [部署教程](https://github.com/InternLM/LMDeploy) 了解 InternLM 的更多部署细节。
+1. 也可以使用如下命令启动推理服务：
+
+  ```shell
+  lmdeploy serve api_server InternLM/internlm-chat-7b --model-name internlm-chat-7b
+  ```
+请参考[此指南](https://github.com/InternLM/lmdeploy/blob/main/docs/en/restful_api.md)获取详细的api_server RESTful API信息，更多部署教程则可在[这里](https://github.com/InternLM/LMDeploy)找到。
+
 
 ## 微调&训练
 
