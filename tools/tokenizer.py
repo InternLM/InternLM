@@ -10,7 +10,9 @@ model_path = os.path.join(current_dir, "V7_sft.model")
 sys.path.append(os.path.join(current_dir, "transformers"))
 from tokenization_internlm import InternLMTokenizer
 
-tokenizer = InternLMTokenizer(vocab_file=model_path)
+tokenizer = InternLMTokenizer(
+    vocab_file=model_path, add_bos_token=True, add_eos_token=True
+)
 
 
 def write_bin(context: str, bin_file) -> None:
