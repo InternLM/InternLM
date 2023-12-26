@@ -861,7 +861,7 @@ class InternLMForCausalLM(InternLMPreTrainedModel):
 
                 self.chche.extend(value.tolist())
                 token = self.tokenizer.decode(self.chche, skip_special_tokens=True)
-                if " " in token and len(token) <= 5:
+                if "�" in token and len(token) <= 5:
                     return
                 
                 if token.strip() != "<eoa>":
