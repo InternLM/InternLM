@@ -6,7 +6,9 @@
 from typing import Any, Callable, Iterable, List, Optional
 
 import torch
+import torch.distributed as dist
 
+from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.core.engine import Engine
 from internlm.utils.common import conditional_context
@@ -125,6 +127,10 @@ class NonPipelineScheduler(BaseScheduler):
                     if hasattr(gpc.config.model, "num_experts")
                     else torch.tensor(0.0, device=torch.cuda.current_device(), dtype=gpc.config.model.get("dtype"))
                 )
+                # the moe_loss is computed among the "tensor" group if sequence parallel is enabled,
+                # so we need to do allreduce
+                if gpc.config.parallel.sequence_parallel:
+                    dist.all_reduce(moe_loss, op=dist.ReduceOp.AVG, group=gpc.get_group(ParallelMode.TENSOR))
                 moe_loss /= scale_loss
                 loss /= scale_loss
                 loss += moe_loss

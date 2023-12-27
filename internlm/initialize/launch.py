@@ -369,7 +369,6 @@ def args_sanity_check():
             not optim_ckpt.overlap_sync_grad & optim_ckpt.overlap_sync_param
         ), "not support overlap and moe at the same time"
         assert gpc.config.parallel.zero1.size == -1, "moe only support zero1, set zero1=dict(size=-1,...) can fix this"
-        assert not gpc.config.parallel.sequence_parallel, "moe not support sequence parallel for now"
 
 
 def launch(

@@ -311,6 +311,9 @@ class PipelineScheduler(BaseScheduler):
             if hasattr(gpc.config.model, "num_experts")
             else torch.tensor(0.0, device=torch.cuda.current_device(), dtype=gpc.config.model.get("dtype"))
         )
+        # the moe_loss is computed among the "tensor" group if sequence parallel is enabled, so we need to do allreduce
+        if gpc.config.parallel.sequence_parallel:
+            dist.all_reduce(moe_loss, op=dist.ReduceOp.AVG, group=gpc.get_group(ParallelMode.TENSOR))
         moe_loss /= self.num_microbatches
         accum_moe_loss.add_(moe_loss.detach())
 
@@ -858,6 +861,9 @@ class InterleavedPipelineScheduler(PipelineScheduler):
             if hasattr(gpc.config.model, "num_experts")
             else torch.tensor(0.0, device=torch.cuda.current_device(), dtype=gpc.config.model.get("dtype"))
         )
+        # the moe_loss is computed among the "tensor" group if sequence parallel is enabled, so we need to do allreduce
+        if gpc.config.parallel.sequence_parallel:
+            dist.all_reduce(moe_loss, op=dist.ReduceOp.AVG, group=gpc.get_group(ParallelMode.TENSOR))
         moe_loss /= self.num_microbatches
 
         if self._accum_moe_loss is not None:
