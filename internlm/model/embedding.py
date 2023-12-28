@@ -153,12 +153,8 @@ class RotaryEmbedding(torch.nn.Module):
         self._cos_k_cached = None
         self._sin_k_cached = None
 
-    def _update_cos_sin_cache(self, x, indexes):
+    def _update_cos_sin_cache(self, x, seqlen):
         """x: (batch, seqlen, nheads, headdim) or (batch, seqlen, 3, nheads, headdim)"""
-        if not isinstance(indexes, int):
-            seqlen = indexes.max().item() + 1
-        else:
-            seqlen = indexes + 1  # eval_forward
         # Reset the tables if the sequence length has changed,
         # or if we're on a new device (possibly due to tracing for instance)
         if seqlen > self._seq_len_cached or self._cos_cached.device != x.device or self._cos_cached.dtype != x.dtype:
@@ -189,8 +185,14 @@ class RotaryEmbedding(torch.nn.Module):
         else:
             return self._eval_forward(qkv)
 
-    def _forward(self, qkv: torch.Tensor, indexes=0) -> Tuple[torch.Tensor, torch.Tensor]:
-        self._update_cos_sin_cache(qkv, indexes)
+    def _forward(self, qkv: torch.Tensor, indexes=0, seqlen=None) -> Tuple[torch.Tensor, torch.Tensor]:
+        if not isinstance(indexes, int):
+            if seqlen is None:  # We try to avoid trying item calls in fwd and bwd.
+                seqlen = indexes.max().item() + 1
+        else:
+            seqlen = indexes + 1  # eval_forward
+
+        self._update_cos_sin_cache(qkv, seqlen)
         if self.scale is None:
             return apply_rotary_emb_qkv_(qkv, self._cos_cached[indexes], self._sin_cached[indexes])
         else:
@@ -275,12 +277,8 @@ class DynamicNTKScalingRotaryEmbedding(RotaryEmbedding):
             self._cos_k_cached = (torch.cos(freqs) / scale).to(x.dtype)
             self._sin_k_cached = (torch.sin(freqs) / scale).to(x.dtype)
 
-    def _update_cos_sin_cache(self, x, indexes):
+    def _update_cos_sin_cache(self, x, seqlen):
         """x: (batch, seqlen, nheads, headdim) or (batch, seqlen, 3, nheads, headdim)"""
-        if not isinstance(indexes, int):
-            seqlen = indexes.max().item() + 1
-        else:
-            seqlen = indexes + 1  # eval_forward
         if seqlen <= self.max_position_embeddings:
             # Reset the tables if the sequence length has changed,
             # or if we're on a new device (possibly due to tracing for instance)

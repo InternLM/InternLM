@@ -81,6 +81,16 @@ class NonPipelineScheduler(BaseScheduler):
             _data.pop("cu_seqlens")
             _data.pop("indexes")
 
+        if "cu_seqlens" in _data:
+            if isinstance(_data["cu_seqlens"], list):
+                cu_seqlens = _data["cu_seqlens"][0]
+            else:
+                cu_seqlens = _data["cu_seqlens"]
+
+            cu_seqlens = cu_seqlens.squeeze(0)
+            max_seqlen = (cu_seqlens[1:] - cu_seqlens[:-1]).max().item()
+            _data.update({"max_seqlen": max_seqlen})
+
         return _data, _label
 
     def _train_one_batch(
