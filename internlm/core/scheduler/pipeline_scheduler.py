@@ -222,6 +222,18 @@ class PipelineScheduler(BaseScheduler):
             micro_batch_data.pop("cu_seqlens")
             micro_batch_data.pop("indexes")
 
+        if "cu_seqlens" in micro_batch_data:
+            # Without BC modeling interface, we try to calculate 'max_seqlen' in advance
+            # to avoid overlap being interrupted by .item() operations.
+            if isinstance(micro_batch_data["cu_seqlens"], list):
+                cu_seqlens = micro_batch_data["cu_seqlens"][0]
+            else:
+                cu_seqlens = micro_batch_data["cu_seqlens"]
+
+            cu_seqlens = cu_seqlens.squeeze(0)
+            max_seqlen = (cu_seqlens[1:] - cu_seqlens[:-1]).max().item()
+            micro_batch_data.update({"max_seqlen": max_seqlen})
+
         micro_batch_data["label"] = micro_batch_label
         self.microbatch_offset += self.bsz_stride
 

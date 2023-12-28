@@ -82,6 +82,8 @@ class NonPipelineScheduler(BaseScheduler):
             _data.pop("indexes")
 
         if "cu_seqlens" in _data:
+            # Without BC modeling interface, we try to calculate 'max_seqlen' in advance
+            # to avoid overlap being interrupted by .item() operations.
             if isinstance(_data["cu_seqlens"], list):
                 cu_seqlens = _data["cu_seqlens"][0]
             else:
