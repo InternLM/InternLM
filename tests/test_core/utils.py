@@ -33,7 +33,7 @@ class MlpModel(nn.Module):
         self.embedding = embedding
 
     def forward(
-        self, hidden_states=None, cu_seqlens=None, input_ids=None, indexes=None, inference_params=None
+        self, hidden_states=None, cu_seqlens=None, input_ids=None, indexes=None, inference_params=None, **kwargs
     ):  # pylint: disable=W0613
         if self.model_type != "torch" and self.part[0] != 0:
             input_ids = hidden_states
