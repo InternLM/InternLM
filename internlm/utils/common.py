@@ -104,10 +104,10 @@ def get_batch_size(data):
         return data.size(0)
     elif isinstance(data, (list, tuple)):
         if isinstance(data[0], dict):
-            return data[0][list(data[0].keys())[0]].size(0)
+            return data[0]["input_ids"].size(0)
         return data[0].size(0)
     elif isinstance(data, dict):
-        return data[list(data.keys())[0]].size(0)
+        return data["input_ids"].size(0)
 
 
 def check_data_is_packed(data):

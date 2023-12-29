@@ -81,6 +81,8 @@ class NonPipelineScheduler(BaseScheduler):
             _data.pop("cu_seqlens")
             _data.pop("indexes")
 
+        self.cal_max_seqlen(_data)
+
         return _data, _label
 
     def _train_one_batch(

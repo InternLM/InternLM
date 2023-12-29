@@ -222,6 +222,8 @@ class PipelineScheduler(BaseScheduler):
             micro_batch_data.pop("cu_seqlens")
             micro_batch_data.pop("indexes")
 
+        self.cal_max_seqlen(micro_batch_data)
+
         micro_batch_data["label"] = micro_batch_label
         self.microbatch_offset += self.bsz_stride
 

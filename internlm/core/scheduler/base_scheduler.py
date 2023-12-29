@@ -122,6 +122,19 @@ class BaseScheduler(ABC):
                 'but got {type(outputs)} (model outputs) and {type(labels)} (labels)"
             )
 
+    def cal_max_seqlen(self, data: dict):
+        if isinstance(data, dict) and "cu_seqlens" in data:
+            # Without BC modeling interface, we try to calculate 'max_seqlen' in advance
+            # to avoid overlap being interrupted by .item() operations.
+            if isinstance(data["cu_seqlens"], list):
+                cu_seqlens = data["cu_seqlens"][0]
+            else:
+                cu_seqlens = data["cu_seqlens"]
+
+            cu_seqlens = cu_seqlens.squeeze(0)
+            max_seqlen = (cu_seqlens[1:] - cu_seqlens[:-1]).max().item()
+            data.update({"max_seqlen": max_seqlen})
+
 
 class SchedulerHook(ABC):
     """

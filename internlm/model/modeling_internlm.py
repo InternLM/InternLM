@@ -380,7 +380,9 @@ class PackedFlashInternLm1D(nn.Module):
 
         self.parallel_output = parallel_output
 
-    def forward(self, hidden_states=None, cu_seqlens=None, input_ids=None, indexes=None, inference_params=None):
+    def forward(
+        self, hidden_states=None, cu_seqlens=None, input_ids=None, indexes=None, inference_params=None, **kwargs
+    ):
         # attention_mask: compute attention on the places where the value is 1
         if hasattr(self, "embedding"):
             hidden_states = self.embedding(input_ids)
@@ -401,7 +403,14 @@ class PackedFlashInternLm1D(nn.Module):
             assert len(indexes) == 1
             # The indexes are used to indicate the actual position IDs of each token in the packed input.
             indexes = indexes[0]
-        max_seqlen = (cu_seqlens[1:] - cu_seqlens[:-1]).max().item() if cu_seqlens is not None else None
+
+        if cu_seqlens is not None:
+            if "max_seqlen" not in kwargs:
+                max_seqlen = (cu_seqlens[1:] - cu_seqlens[:-1]).max().item()
+            else:
+                max_seqlen = kwargs.pop("max_seqlen")
+        else:
+            max_seqlen = None
 
         for _, block in enumerate(self.blocks):
             hidden_states = block(

@@ -153,12 +153,8 @@ class RotaryEmbedding(torch.nn.Module):
         self._cos_k_cached = None
         self._sin_k_cached = None
 
-    def _update_cos_sin_cache(self, x, indexes):
+    def _update_cos_sin_cache(self, x, seqlen):
         """x: (batch, seqlen, nheads, headdim) or (batch, seqlen, 3, nheads, headdim)"""
-        if not isinstance(indexes, int):
-            seqlen = indexes.max().item() + 1
-        else:
-            seqlen = indexes + 1  # eval_forward
         # Reset the tables if the sequence length has changed,
         # or if we're on a new device (possibly due to tracing for instance)
         if seqlen > self._seq_len_cached or self._cos_cached.device != x.device or self._cos_cached.dtype != x.dtype:
@@ -183,14 +179,23 @@ class RotaryEmbedding(torch.nn.Module):
 
     def forward(self, qkv: torch.Tensor, **kwargs):
         if kwargs.get("indexes", None) is not None:
-            return self._forward(qkv, kwargs.pop("indexes"))
+            return self._forward(qkv, kwargs.pop("indexes"), kwargs.get("max_seqlen", None))
         if kwargs.get("inference_params", None) is not None:
             return self._eval_forward(qkv, seqlen_offset=kwargs.get("inference_params", None).sequence_len_offset)
         else:
             return self._eval_forward(qkv)
 
-    def _forward(self, qkv: torch.Tensor, indexes=0) -> Tuple[torch.Tensor, torch.Tensor]:
-        self._update_cos_sin_cache(qkv, indexes)
+    def _cal_max_seqlen(self, indexes, max_seqlen=None):
+        if not isinstance(indexes, int):
+            if max_seqlen is None:  # We try to avoid call .item() function in fwd/bwd.
+                max_seqlen = indexes.max().item() + 1
+        else:
+            max_seqlen = indexes + 1  # eval_forward
+        return max_seqlen
+
+    def _forward(self, qkv: torch.Tensor, indexes=0, max_seqlen=None) -> Tuple[torch.Tensor, torch.Tensor]:
+        max_seqlen = self._cal_max_seqlen(indexes, max_seqlen)
+        self._update_cos_sin_cache(qkv, max_seqlen)
         if self.scale is None:
             return apply_rotary_emb_qkv_(qkv, self._cos_cached[indexes], self._sin_cached[indexes])
         else:
@@ -221,9 +226,9 @@ class RotaryEmbedding(torch.nn.Module):
                 self._sin_k_cached[seqlen_offset:],
             )
 
-    def _single_forward(self, x, indexes=0):
+    def _single_forward(self, x, indexes=0, **kwargs):
         assert self.scale is None
-        self._update_cos_sin_cache(x, indexes)
+        self._update_cos_sin_cache(x, self._cal_max_seqlen(indexes, kwargs.get("max_seqlen", None)))
         x = x[None, ...]
         ret = legacy_apply_rotary_embed(x, self._cos_cached[indexes], self._sin_cached[indexes]).squeeze(0)
         return ret
@@ -275,12 +280,8 @@ class DynamicNTKScalingRotaryEmbedding(RotaryEmbedding):
             self._cos_k_cached = (torch.cos(freqs) / scale).to(x.dtype)
             self._sin_k_cached = (torch.sin(freqs) / scale).to(x.dtype)
 
-    def _update_cos_sin_cache(self, x, indexes):
+    def _update_cos_sin_cache(self, x, seqlen):
         """x: (batch, seqlen, nheads, headdim) or (batch, seqlen, 3, nheads, headdim)"""
-        if not isinstance(indexes, int):
-            seqlen = indexes.max().item() + 1
-        else:
-            seqlen = indexes + 1  # eval_forward
         if seqlen <= self.max_position_embeddings:
             # Reset the tables if the sequence length has changed,
             # or if we're on a new device (possibly due to tracing for instance)
