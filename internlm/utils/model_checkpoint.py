@@ -231,7 +231,7 @@ def try_load_internlm_ckpt(ckpt_mm, load_info, train_state: TrainState):
         # load training states.
         load_context(load_ckpt_folder, train_state)
 
-        # load optimzier states.
+        # load optimizer states.
         if load_content.need_load(CheckpointLoadContent.OPIMIZER):
             load_optimizer_checkpoint(load_ckpt_folder, ckpt_mm.optimizer)
             load_content_str += f"{CheckpointLoadContent.OPIMIZER}, "
@@ -247,6 +247,12 @@ def try_load_internlm_ckpt(ckpt_mm, load_info, train_state: TrainState):
             else:
                 if gpc.is_rank_for_log():
                     logger.warning("CheckpointManager has no 'lr_scheduler', skip reload lr_scheduler checkpoint!")
+
+            if not load_content.need_load(CheckpointLoadContent.OPIMIZER):
+                if ckpt_mm.lr_scheduler and train_state:
+                    gpc.config.only_load_lr = True
+                    load_optimizer_checkpoint(load_ckpt_folder, ckpt_mm.optimizer)
+                    gpc.config.only_load_lr = False
 
         # load dataloader sampler states.
         if load_content.need_load(CheckpointLoadContent.SAMPLER):
