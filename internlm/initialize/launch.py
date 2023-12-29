@@ -332,6 +332,9 @@ def args_sanity_check():
                 "alert_file_path": None,
             }
         },
+        "tensorboard": {
+            "queue_max_length": 1,
+        },
     }
 
     for key, value in monitor_default_config.items():
