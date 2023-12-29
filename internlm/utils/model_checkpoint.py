@@ -859,8 +859,9 @@ class CheckpointManager:
 
         self.async_upload = get_config_value(ckpt_config, "async_upload", False)
 
-        if self.save_ckpt_folder.startswith("volc:") or self.save_ckpt_folder.startswith("oss2:"):
-            use_processpool = True
+        use_processpool = self.save_ckpt_folder is not None and (
+            self.save_ckpt_folder.startswith("volc:") or self.save_ckpt_folder.startswith("oss2:")
+        )
         # initialization storage manager
         init_storage_manager(self.enable_save_ckpt, self.async_upload_tmp_folder, self.async_upload, use_processpool)
 
