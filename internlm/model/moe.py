@@ -6,7 +6,7 @@ from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.model.linear import FeedForward
 from internlm.moe.experts import Experts
-from internlm.moe.sharded_moe import MOELayer, TopKGate
+from internlm.moe.sharded_moe import GShardMOELayer, TopKGate
 from internlm.utils.logger import get_logger
 
 # global llm logger
@@ -87,7 +87,7 @@ class MoE(torch.nn.Module):
         experts = Experts(experts, self.num_local_experts, expert_group_name)
 
         if using_default_moe:
-            self.moe_layer = MOELayer(
+            self.moe_layer = GShardMOELayer(
                 TopKGate(
                     hidden_size,
                     num_experts,

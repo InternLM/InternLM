@@ -4,7 +4,7 @@ https://github.com/microsoft/DeepSpeed/blob/master/deepspeed/moe/experts.py
  Git commit hash: f3943cf9109226ed3ecf2d5dbb639a11cd925555
  We retain the following license from the original files:
 """
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 import torch
 import torch.distributed as dist
@@ -15,13 +15,10 @@ from torch.nn import Module
 from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
 
+from .base_moe import BaseMoELayer
+
 # global llm logger
 logger = get_logger(__file__)
-
-if TYPE_CHECKING:
-    Base = Module[Tensor]
-else:
-    Base = Module
 
 uniform_map: Dict[torch.device, Callable] = {}
 gumbel_map: Dict[torch.device, Callable] = {}
@@ -387,7 +384,7 @@ class TopKGate(Module):
         return gate_output
 
 
-class MOELayer(Base):
+class GShardMOELayer(BaseMoELayer):
     """MOELayer module which implements MixtureOfExperts as described in Gshard_.
     ::
 
@@ -406,12 +403,8 @@ class MOELayer(Base):
     """
 
     def __init__(self, gate: Module, experts: Module, ep_group, ep_size, num_local_experts: int) -> None:
-        super().__init__()
-        self.gate = gate
-        self.experts = experts
-        self.ep_group = ep_group
-        self.ep_size = ep_size
-        self.num_local_experts = num_local_experts
+        super().__init__(gate, experts, ep_group, ep_size, num_local_experts)
+
         self.time_falltoall = 0.0
         self.time_salltoall = 0.0
         self.time_moe = 0.0
