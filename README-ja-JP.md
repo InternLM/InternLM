@@ -177,7 +177,7 @@ InternLMのインストール、データ処理、プレトレーニング、フ
 InternLM によって学習されたモデルは、コミュニティの様々なオープンソースプロジェクトとシームレスにドッキングするのに便利な Hugging Face Transformers 形式に簡単に変換することができます。`tools/convert2hf.py` の助けを借りて、トレーニング中に保存された weights は 1 つのコマンドで transformers 形式に変換することができます
 
 ```bash
-python convert2hf.py --src_folder origin_ckpt/ --tgt_folder hf_ckpt/ --tokenizer tokenizes/tokenizer.model
+python convert2hf.py --src origin_ckpt/ --tgt hf_ckpt/ --tokenizer tokenizes/tokenizer.model --max_pos 4096 
 ```
 
 変換後、以下のコードで transformers として読み込むことができます

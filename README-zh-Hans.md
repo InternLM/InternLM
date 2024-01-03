@@ -270,7 +270,7 @@ torchrun --master_port 12331 --nnodes=1 --node_rank=0 --nproc_per_node=1 -m stre
 通过 InternLM 进行训练的模型可以很轻松地转换为 HuggingFace Transformers 格式，方便与社区各种开源项目无缝对接。借助 `tools/transformers/convert2hf.py` 可以将训练保存的权重一键转换为 transformers 格式
 
 ```bash
-python tools/transformers/convert2hf.py --src_folder origin_ckpt/ --tgt_folder hf_ckpt/ --tokenizer ./tools/V7_sft.model
+python tools/transformers/convert2hf.py --src origin_ckpt/ --tgt hf_ckpt/ --tokenizer ./tools/V7_sft.model --max_pose 4096
 ```
 
 转换之后可以通过以下的代码加载为 transformers
