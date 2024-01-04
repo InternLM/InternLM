@@ -41,7 +41,7 @@ ckpt = dict(
     checkpoint_every=CHECKPOINT_EVERY,
     async_upload=True,  # async ckpt upload. (only work for boto3 ckpt)
     async_upload_tmp_folder="/dev/shm/internlm_tmp_ckpt/",  # path for temporarily files during asynchronous upload.
-    oss_snapshot_freq=int(CHECKPOINT_EVERY / 2),  # snapshot ckpt save frequency.
+    auto_save_time=1200,  # time to control oss_snapshot_freq. If not set, 1200 seconds by default.
 )
 
 TRAIN_FOLDER = None  # "/path/to/dataset"

@@ -997,6 +997,10 @@ now step_count is {train_state.step_count}",
         if not self.enable_save_ckpt:
             return False
 
+        if self.oss_snapshot_freq <= 0:
+            if gpc.config.ckpt.oss_snapshot_freq > 0:
+                self.oss_snapshot_freq = gpc.config.ckpt.oss_snapshot_freq
+
         save_ckpts, save_type, now_break = self.is_now_to_save_ckpt(train_state)
 
         if save_ckpts:

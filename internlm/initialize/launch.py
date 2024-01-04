@@ -193,7 +193,13 @@ def args_sanity_check():
             ckpt._add_item("async_upload_tmp_folder", None)
 
         if "oss_snapshot_freq" not in ckpt:
-            ckpt._add_item("oss_snapshot_freq", float("inf"))  # if oss_snapshot_freq not given, we disable.
+            ckpt._add_item("oss_snapshot_freq", -1)
+        else:
+            ckpt.oss_snapshot_freq = -1
+
+        if "auto_save_time" not in ckpt:
+            ckpt._add_item("auto_save_time", 1200)
+
     else:
         ckpt._add_item("checkpoint_every", float("inf"))
         ckpt._add_item("oss_snapshot_freq", float("inf"))
