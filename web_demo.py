@@ -71,7 +71,7 @@ def combine_history(prompt, system=True):
             raise RuntimeError
         total_prompt += cur_prompt
     total_prompt = total_prompt + cur_query_prompt.replace("{user}", prompt)
-    print(messages, total_prompt)
+    # print(messages, total_prompt)
     return total_prompt
 
 
