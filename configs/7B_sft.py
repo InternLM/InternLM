@@ -184,3 +184,11 @@ monitor = dict(
 # metric_dtype can be "fp32" or other string
 # only when set to "fp32" will use fp32 to calc in metrics
 # metric_dtype = "fp32"
+
+diag_all_reduce = dict(
+    enable_diag=False,
+    average_val=0.5,  # threshold for average time
+    range_val=0.05,  # threshold for the difference between max_time and min_time
+    skip_first=0,  # the number of the first tracebacks to skip
+    skip_last=0,  # the number of the last tracebacks to skip
+)
