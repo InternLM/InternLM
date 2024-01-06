@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
+import gc
 import socket
 import time
 import traceback
@@ -194,6 +195,8 @@ def main(args):
     train_iter = iter(train_dl)
 
     with initialize_llm_profile(profiling=args.profiling, start_time=current_time) as prof:
+        # close automatic garbage collection
+        gc.disable()
         # start iterating the train data and begin training
         for batch_count in range(train_state.batch_count, total_steps):
             empty_cache_and_diag(batch_count, interval=gpc.config.data.empty_cache_and_diag_interval)

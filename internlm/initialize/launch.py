@@ -2,7 +2,6 @@
 # -*- encoding: utf-8 -*-
 
 import argparse
-import gc
 import os
 from pathlib import Path
 from typing import Dict, Union
@@ -535,9 +534,6 @@ def initialize_distributed_env(
         master_port (str): The master port for distributed training. 8888 by default.
         seed (int, optional): Specified random seed for every process. 1024 by default.
     """
-
-    # close automatic garbage collection
-    gc.disable()
 
     torch.cuda.empty_cache()
 
