@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, Union
 
+import torch
 from torch import Tensor
 from torch.nn import Module, ModuleList
 
@@ -30,3 +31,5 @@ class BaseMoELayer(Base):
         self.ep_group = ep_group
         self.ep_size = ep_size
         self.num_local_experts = num_local_experts
+        self.l_aux = torch.zeros(1, device=torch.cuda.current_device())
+        self.exp_counts = None

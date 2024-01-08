@@ -5,7 +5,7 @@ import torch
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.model.linear import FeedForward
-from internlm.moe.sharded_moe import GShardMOELayer
+from internlm.moe import GShardMOELayer
 from internlm.utils.logger import get_logger
 
 # global llm logger
@@ -46,7 +46,7 @@ class MoE(torch.nn.Module):
         noisy_gate_policy: typing.Optional[str] = None,
         drop_tokens: bool = True,
         use_rts: bool = True,
-        using_default_moe: bool = True,
+        moe_type: str = None,
         use_residual=False,
         device=None,
         dtype=None,
@@ -65,7 +65,7 @@ class MoE(torch.nn.Module):
             "Unsupported noisy_gate_policy: " + noisy_gate_policy
         )
 
-        if using_default_moe:
+        if moe_type is None or moe_type == "GShard":
             self.moe_layer = GShardMOELayer(
                 hidden_size,
                 gpc.get_group(ParallelMode.EXPERT),
