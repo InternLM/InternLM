@@ -5,8 +5,7 @@ import torch
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.model.linear import FeedForward
-from internlm.moe.experts import Experts
-from internlm.moe.sharded_moe import MOELayer, TopKGate
+from internlm.moe import GShardMOELayer
 from internlm.utils.logger import get_logger
 
 # global llm logger
@@ -40,14 +39,14 @@ class MoE(torch.nn.Module):
         hidden_size,
         num_experts=1,
         ep_size=1,
-        k=1,
+        topk=1,
         capacity_factor=1.0,
         eval_capacity_factor=1.0,
         min_capacity=4,
         noisy_gate_policy: typing.Optional[str] = None,
         drop_tokens: bool = True,
         use_rts: bool = True,
-        using_default_moe: bool = True,
+        moe_type: str = None,
         use_residual=False,
         device=None,
         dtype=None,
@@ -66,43 +65,21 @@ class MoE(torch.nn.Module):
             "Unsupported noisy_gate_policy: " + noisy_gate_policy
         )
 
-        # for elastic expert paralle, experts may have multiple groups
-        expert_group_name = f"moe_ep_size_{self.ep_size}"
-        if expert_group_name not in gpc.expert_parallel_group_names:
-            gpc.expert_parallel_group_names.append(expert_group_name)
-        experts = torch.nn.ModuleList(
-            [
-                FeedForward(
-                    hidden_size,
-                    int(hidden_size * gpc.config.model.mlp_ratio),
-                    out_features=hidden_size,
-                    process_group=gpc.get_group(ParallelMode.TENSOR),
-                    bias=False,
-                    device=device,
-                    dtype=dtype,
-                )
-                for _ in range(self.num_local_experts)
-            ]
-        )
-        experts = Experts(experts, self.num_local_experts, expert_group_name)
-
-        if using_default_moe:
-            self.moe_layer = MOELayer(
-                TopKGate(
-                    hidden_size,
-                    num_experts,
-                    k,
-                    capacity_factor,
-                    eval_capacity_factor,
-                    min_capacity,
-                    noisy_gate_policy,
-                    drop_tokens,
-                    use_rts,
-                ),
-                experts,
+        if moe_type is None or moe_type == "GShard":
+            self.moe_layer = GShardMOELayer(
+                hidden_size,
                 gpc.get_group(ParallelMode.EXPERT),
-                self.ep_size,
-                self.num_local_experts,
+                ep_size,
+                num_experts,
+                topk,
+                capacity_factor,
+                eval_capacity_factor,
+                min_capacity,
+                noisy_gate_policy,
+                drop_tokens,
+                use_rts,
+                device,
+                dtype,
             )
 
         # residual network, see https://arxiv.org/pdf/2201.05596.pdf, seems useful for convergence

@@ -175,7 +175,7 @@ class PackedFlashBaseLayer1D(nn.Module):
                 hidden_size=hidden_size,
                 num_experts=num_experts,
                 ep_size=ep_size,
-                k=moe_gate_k,
+                topk=moe_gate_k,
                 capacity_factor=moe_capacity_factor,
                 eval_capacity_factor=moe_eval_capacity_factor,
                 min_capacity=moe_min_capacity,

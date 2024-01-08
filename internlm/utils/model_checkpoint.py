@@ -612,9 +612,9 @@ def try_save_moe_checkpoint(folder, model, tp_rank, pp_rank):
             # get all moe parameters
             moe_state_dict = {}
             for n, p in module.state_dict().items():
-                if "expert" in n and "moe_layer.gate.wg.weight" not in n:
+                if "expert" in n and "moe_layer.gate" not in n:
                     moe_state_dict[n_module + "." + n] = p
-            moe_str_prefix = ".moe_layer.experts.experts."
+            moe_str_prefix = ".moe_layer.experts.wrapped_experts."
             # Reorder the moe name rank, so that each checkpoint only has one expert
             experts_state_dict = defaultdict(dict)
             for key in list(moe_state_dict.keys()):
@@ -647,7 +647,7 @@ def get_non_moe_state_dict(full_state_dict):
     Get the state dict of the non-moe layers
     """
     for key in list(full_state_dict.keys()):
-        if "expert" in key and "moe_layer.gate.wg.weight" not in key:
+        if "expert" in key and "moe_layer.gate" not in key:
             full_state_dict.pop(key)
 
     return full_state_dict
@@ -696,7 +696,7 @@ def try_load_moe_checkpoint(folder, model, state_dict, tp_rank, pp_rank):
                 fp = os.path.join(folder, fn)
                 expert_state_dict = llm_load(fp, map_location=get_current_device())
                 # Updating global -> local expert ids
-                moe_str_prefix = ".moe_layer.experts.experts."
+                moe_str_prefix = ".moe_layer.experts.wrapped_experts."
                 for key in list(expert_state_dict.keys()):
                     local_key = key.replace(f"{moe_str_prefix}{global_expert_id}", f"{moe_str_prefix}{local_expert_id}")
                     expert_state_dict[local_key] = expert_state_dict.pop(key)
