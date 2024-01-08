@@ -12,6 +12,9 @@ import torch.nn.functional as F
 from torch import Tensor
 from torch.nn import Module
 
+from internlm.core.context import ParallelMode
+from internlm.core.context import global_context as gpc
+from internlm.model.linear import FeedForward
 from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
 
@@ -379,8 +382,52 @@ class GShardMOELayer(BaseMoELayer):
             expert network
     """
 
-    def __init__(self, gate: Module, experts: Module, ep_group, ep_size, num_local_experts: int) -> None:
-        super().__init__(gate, experts, ep_group, ep_size, num_local_experts)
+    def __init__(
+        self,
+        hidden_size,
+        ep_group,
+        ep_size: int,
+        num_experts: int,
+        topk,
+        capacity_factor,
+        eval_capacity_factor,
+        min_capacity,
+        noisy_gate_policy,
+        drop_tokens,
+        use_rts,
+        device=None,
+        dtype=None,
+    ) -> None:
+        super().__init__(
+            TopKGate(
+                hidden_size,
+                num_experts,
+                topk,
+                capacity_factor,
+                eval_capacity_factor,
+                min_capacity,
+                noisy_gate_policy,
+                drop_tokens,
+                use_rts,
+            ),
+            torch.nn.ModuleList(
+                [
+                    FeedForward(
+                        hidden_size,
+                        int(hidden_size * gpc.config.model.mlp_ratio),
+                        out_features=hidden_size,
+                        process_group=gpc.get_group(ParallelMode.TENSOR),
+                        bias=False,
+                        device=device,
+                        dtype=dtype,
+                    )
+                    for _ in range(num_experts // ep_size)
+                ]
+            ),
+            ep_group,
+            ep_size,
+            num_experts // ep_size,
+        )
 
         self.time_falltoall = 0.0
         self.time_salltoall = 0.0
