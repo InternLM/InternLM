@@ -2,7 +2,7 @@
 
 <div align="center">
 
-<img src="./doc/imgs/logo.svg" width="200"/>
+<img src="./docs/imgs/logo.svg" width="200"/>
   <div> </div>
   <div align="center">
     <b><font size="5">InternLM</font></b>
@@ -14,8 +14,8 @@
     <div> </div>
   </div>
 
-[![license](./doc/imgs/license.svg)](./LICENSE)
-[![evaluation](./doc/imgs/compass_support.svg)](https://github.com/internLM/OpenCompass/)
+[![license](./docs/imgs/license.svg)](./LICENSE)
+[![evaluation](./docs/imgs/compass_support.svg)](https://github.com/internLM/OpenCompass/)
 [![Documentation Status](https://readthedocs.org/projects/internlm/badge/?version=latest)](https://internlm.readthedocs.io/zh_CN/latest/?badge=latest)
 
 [📘使用法](./doc/en/usage.md) |
@@ -51,7 +51,6 @@ InternLM は、70 億のパラメータを持つベースモデルと、実用�
 ### パフォーマンス評価
 
 オープンソースの評価ツール [OpenCompass](https://github.com/internLM/OpenCompass/) を用いて、InternLM の総合的な評価を行った。この評価では、分野別能力、言語能力、知識能力、推論能力、理解能力の 5 つの次元をカバーしました。以下は評価結果の一部であり、その他の評価結果については [OpenCompass leaderboard](https://opencompass.org.cn/rank) をご覧ください。
-
 
 | データセット\モデル | **InternLM-Chat-7B** | **InternLM-7B** | LLaMA-7B | Baichuan-7B | ChatGLM2-6B | Alpaca-7B | Vicuna-7B |
 | --------------- | -------------------------- | --------------------- | -------- | ----------- | ----------- | --------- | --------- |

@@ -2,7 +2,7 @@
 
 <div align="center">
 
-<img src="./doc/imgs/logo.svg" width="200"/>
+<img src="./docs/imgs/logo.svg" width="200"/>
   <div>&nbsp;</div>
   <div align="center">
     <b><font size="5">书生·浦语 官网</font></b>
@@ -14,8 +14,8 @@
     <div>&nbsp;</div>
   </div>
 
-[![license](./doc/imgs/license.svg)](https://github.com/open-mmlab/mmdetection/blob/main/LICENSE)
-[![evaluation](./doc/imgs/compass_support.svg)](https://github.com/internLM/OpenCompass/)
+[![license](./docs/imgs/license.svg)](https://github.com/open-mmlab/mmdetection/blob/main/LICENSE)
+[![evaluation](./docs/imgs/compass_support.svg)](https://github.com/internLM/OpenCompass/)
 [![Documentation Status](https://readthedocs.org/projects/internlm/badge/?version=latest)](https://internlm.readthedocs.io/zh_CN/latest/?badge=latest)
 
 [📘使用文档](./doc/usage.md) |
@@ -47,26 +47,26 @@ InternLM 是一个开源的轻量级训练框架，旨在支持大模型训练�
 [20231213] 我们更新了 InternLM-7B-Chat 和 InternLM-20B-Chat 模型权重。通过改进微调数据和训练策略，新版对话模型生成的回复质量更高、语言风格更加多元。
 [20230920] InternLM-20B 已发布，包括基础版和对话版。
 
-
 ## Model Zoo
 
 我们的模型在三个平台上发布：Transformers、ModelScope 和 OpenXLab。
 
 | Model                     | Transformers                        | ModelScope                                                                                                                        | OpenXLab                                                                              |发布日期 |
 |---------------------------|------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------|
-| **InternLM Chat 20B**     | [🤗internlm/internlm-chat-20b](https://huggingface.co/internlm/internlm-20b-chat)         | [<img src="./doc/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-chat-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-20b-chat/summary)         | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-20b)     | 2023-12-12   |
-| **InternLM 20B**          | [🤗internlm/internlm-20b](https://huggingface.co/internlm/internlm-20b)                   | [<img src="./doc/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-20b/summary)                   | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-20b)          | 2023-09-20   |
-| **InternLM Chat 7B**      | [🤗internlm/internlm-chat-7b](https://huggingface.co/internlm/internlm-chat-7b)           | [<img src="./doc/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-chat-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-chat-7b/summary)           | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b)      | 2023-12-12   |
-| **InternLM 7B**           | [🤗internlm/internlm-7b](https://huggingface.co/internlm/internlm-7b)                     | [<img src="./doc/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-7b/summary)                     | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-7b)           | 2023-07-06   |
-
+| **InternLM Chat 20B**     | [🤗internlm/internlm-chat-20b](https://huggingface.co/internlm/internlm-20b-chat)         | [<img src="./docs/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-chat-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-20b-chat/summary)         | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-20b)     | 2023-12-12   |
+| **InternLM 20B**          | [🤗internlm/internlm-20b](https://huggingface.co/internlm/internlm-20b)                   | [<img src="./docs/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-20b/summary)                   | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-20b)          | 2023-09-20   |
+| **InternLM Chat 7B**      | [🤗internlm/internlm-chat-7b](https://huggingface.co/internlm/internlm-chat-7b)           | [<img src="./docs/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-chat-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-chat-7b/summary)           | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-chat-7b)      | 2023-12-12   |
+| **InternLM 7B**           | [🤗internlm/internlm-7b](https://huggingface.co/internlm/internlm-7b)                     | [<img src="./docs/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-7b/summary)                     | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/InternLM-7b)           | 2023-07-06   |
 
 <details>
 <summary> InternLM-20B </summary>
 
 #### 简介
+
 InternLM-20B 在超过 **2.3T** Tokens 包含高质量英文、中文和代码的数据上进行预训练，其中 Chat 版本还经过了 SFT 和 RLHF 训练，使其能够更好、更安全地满足用户的需求。
 
 InternLM 20B 在模型结构上选择了深结构，InternLM-20B 的层数设定为60层，超过常规7B和13B模型所使用的32层或者40层。在参数受限的情况下，提高层数有利于提高模型的综合能力。此外，相较于InternLM-7B，InternLM-20B使用的预训练数据经过了更高质量的清洗，并补充了高知识密度和用于强化理解和推理能力的训练数据。因此，它在理解能力、推理能力、数学能力、编程能力等考验语言模型技术水平的方面都得到了显著提升。总体而言，InternLM-20B具有以下的特点：
+
 - 优异的综合性能
 - 很强的工具调用功能
 - 支持16k语境长度（通过推理时外推）
@@ -114,13 +114,13 @@ InternLM 20B 在模型结构上选择了深结构，InternLM-20B 的层数设定
 
 </details>
 
-
 <details>
 <summary> InternLM-7B </summary>
 
 #### 模型更新
 
 #### 简介
+
 InternLM-7B 包含了一个拥有70亿参数的基础模型和一个为实际场景量身定制的对话模型。该模型具有以下特点：
 
 - 它利用数万亿的高质量令牌进行训练，建立了一个强大的知识库。
@@ -146,8 +146,6 @@ InternLM-7B 包含了一个拥有70亿参数的基础模型和一个为实际场
 
 - 以上评测结果基于 [OpenCompass 20230706](https://github.com/internLM/OpenCompass/) 获得（部分数据标注`*`代表数据来自原始论文），具体测试细节可参见 [OpenCompass](https://github.com/internLM/OpenCompass/) 中提供的配置文件。
 - 评测数据会因 [OpenCompass](https://github.com/internLM/OpenCompass/) 的版本迭代而存在数值差异，请以 [OpenCompass](https://github.com/internLM/OpenCompass/) 最新版的评测结果为主。
-
-
 
 **局限性：** 尽管在训练过程中我们非常注重模型的安全性，尽力促使模型输出符合伦理和法律要求的文本，但受限于模型大小以及概率生成范式，模型可能会产生各种不符合预期的输出，例如回复内容包含偏见、歧视等有害内容，请勿传播这些内容。由于传播不良信息导致的任何后果，本项目不承担责任。
 
@@ -192,7 +190,6 @@ response, history = model.chat(tokenizer, "please provide three suggestions abou
 print(response)
 ```
 
-
 ### 通过前端网页对话
 
 可以通过以下代码启动一个前端的界面来与 InternLM Chat 7B 模型进行交互
@@ -216,6 +213,7 @@ streamlit run web_demo.py
   ```shell
   python3 -m pip install lmdeploy
   ```
+
 2. 直接在本地，通过命令行，交互式和 InternLM 对话：
 
   ```shell
@@ -227,8 +225,8 @@ streamlit run web_demo.py
   ```shell
   lmdeploy serve api_server InternLM/internlm-chat-7b --model-name internlm-chat-7b
   ```
-请参考[此指南](https://github.com/InternLM/lmdeploy/blob/main/docs/en/restful_api.md)获取详细的api_server RESTful API信息，更多部署教程则可在[这里](https://github.com/InternLM/LMDeploy)找到。
 
+请参考[此指南](https://github.com/InternLM/lmdeploy/blob/main/docs/en/restful_api.md)获取详细的api_server RESTful API信息，更多部署教程则可在[这里](https://github.com/InternLM/LMDeploy)找到。
 
 ## 微调&训练
 
