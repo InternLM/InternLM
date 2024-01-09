@@ -122,7 +122,7 @@ class NonPipelineScheduler(BaseScheduler):
                 self._call_hooks("after_criterion", loss)
                 moe_loss = (
                     sum(moe_losses) * gpc.config.loss.moe_loss_coeff
-                    if hasattr(gpc.config.model, "num_experts")
+                    if hasattr(gpc.config.model, "num_experts") and gpc.config.model.num_experts > 1
                     else torch.tensor(0.0, device=torch.cuda.current_device(), dtype=gpc.config.model.get("dtype"))
                 )
                 moe_loss /= scale_loss
