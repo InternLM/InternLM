@@ -1,5 +1,3 @@
-import typing
-
 import torch
 
 from internlm.core.context import ParallelMode
@@ -39,17 +37,9 @@ class MoE(torch.nn.Module):
         hidden_size,
         num_experts=1,
         ep_size=1,
-        topk=1,
-        capacity_factor=1.0,
-        eval_capacity_factor=1.0,
-        min_capacity=4,
-        noisy_gate_policy: typing.Optional[str] = None,
-        drop_tokens: bool = True,
-        use_rts: bool = True,
-        moe_type: str = None,
-        use_residual=False,
         device=None,
         dtype=None,
+        moe_type: str = None,
     ):
 
         super().__init__()
@@ -61,30 +51,19 @@ class MoE(torch.nn.Module):
         self.num_experts = num_experts
         self.num_local_experts = num_experts // self.ep_size
 
-        assert noisy_gate_policy is None or noisy_gate_policy in ["None", "Jitter", "RSample"], (
-            "Unsupported noisy_gate_policy: " + noisy_gate_policy
-        )
-
         if moe_type is None or moe_type == "GShard":
             self.moe_layer = GShardMOELayer(
                 hidden_size,
                 gpc.get_group(ParallelMode.EXPERT),
                 ep_size,
                 num_experts,
-                topk,
-                capacity_factor,
-                eval_capacity_factor,
-                min_capacity,
-                noisy_gate_policy,
-                drop_tokens,
-                use_rts,
                 device,
                 dtype,
             )
 
         # residual network, see https://arxiv.org/pdf/2201.05596.pdf, seems useful for convergence
-        self.use_residual = use_residual
-        if use_residual:
+        self.use_residual = getattr(gpc.config.model, "moe_use_residual", False)
+        if self.use_residual:
             self.residual_mlp = FeedForward(
                 hidden_size,
                 int(hidden_size * gpc.config.model.mlp_ratio),

@@ -304,7 +304,7 @@ class TopKGate(Module):
         self,
         model_dim: int,
         num_experts: int,
-        k: int = 1,
+        topk: int = 1,
         capacity_factor: float = 1.0,
         eval_capacity_factor: float = 1.0,
         min_capacity: int = 8,
@@ -315,11 +315,11 @@ class TopKGate(Module):
         super().__init__()
 
         # Only top-1 and top-2 are supported at the moment.
-        if k not in (1, 2):
+        if topk not in (1, 2):
             raise ValueError("Only top-1 and top-2 gatings are supported.")
         # Deepspeed's mechisms, alway use fp32
         self.wg = torch.nn.Linear(model_dim, num_experts, bias=False)
-        self.k = k
+        self.k = topk
         self.capacity_factor = capacity_factor
         self.eval_capacity_factor = eval_capacity_factor
         self.min_capacity = min_capacity
@@ -388,27 +388,24 @@ class GShardMOELayer(BaseMoELayer):
         ep_group,
         ep_size: int,
         num_experts: int,
-        topk,
-        capacity_factor,
-        eval_capacity_factor,
-        min_capacity,
-        noisy_gate_policy,
-        drop_tokens,
-        use_rts,
         device=None,
         dtype=None,
     ) -> None:
+        noisy_gate_policy = getattr(gpc.config.model, "noisy_gate_policy", None)
+        assert noisy_gate_policy is None or noisy_gate_policy in ["None", "Jitter", "RSample"], (
+            "Unsupported noisy_gate_policy: " + noisy_gate_policy
+        )
         super().__init__(
             TopKGate(
                 hidden_size,
                 num_experts,
-                topk,
-                capacity_factor,
-                eval_capacity_factor,
-                min_capacity,
-                noisy_gate_policy,
-                drop_tokens,
-                use_rts,
+                topk=getattr(gpc.config.model, "moe_gate_k", 1),
+                capacity_factor=getattr(gpc.config.model, "moe_capacity_factor", 1.0),
+                eval_capacity_factor=getattr(gpc.config.model, "moe_eval_capacity_factor", 1.0),
+                min_capacity=getattr(gpc.config.model, "moe_min_capacity", 4),
+                noisy_gate_policy=getattr(gpc.config.model, "moe_noisy_gate_policy", None),
+                drop_tokens=getattr(gpc.config.model, "moe_drop_tokens", True),
+                use_rts=getattr(gpc.config.model, "moe_use_rts", True),
             ),
             torch.nn.ModuleList(
                 [

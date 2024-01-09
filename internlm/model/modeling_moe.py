@@ -86,14 +86,6 @@ class PackedFlashBaseLayer1D(nn.Module):
         use_swiglu: bool = True,
         use_flash_attn: bool = True,
         num_experts: int = 1,
-        moe_gate_k: int = 1,
-        moe_capacity_factor: float = 1.0,
-        moe_eval_capacity_factor: float = 1.0,
-        moe_min_capacity: int = 4,
-        moe_noisy_gate_policy: str = None,
-        moe_drop_tokens: bool = True,
-        moe_use_rts: bool = True,
-        moe_use_residual: bool = False,
     ):
         super().__init__()
         self.checkpoint = checkpoint
@@ -131,14 +123,6 @@ class PackedFlashBaseLayer1D(nn.Module):
         set_fp32_attr_to_module(self.norm2)
 
         self.num_experts = num_experts
-        self.moe_gate_k = moe_gate_k
-        self.moe_capacity_factor = moe_capacity_factor
-        self.moe_eval_capacity_factor = moe_eval_capacity_factor
-        self.moe_min_capacity = moe_min_capacity
-        self.moe_noisy_gate_policy = moe_noisy_gate_policy
-        self.moe_drop_tokens = moe_drop_tokens
-        self.moe_use_rts = moe_use_rts
-        self.moe_use_residual = moe_use_residual
         ep_size = gpc.get_world_size(ParallelMode.EXPERT)
         if num_experts <= 1:  # dense, not MoE
             if use_swiglu:
@@ -175,14 +159,6 @@ class PackedFlashBaseLayer1D(nn.Module):
                 hidden_size=hidden_size,
                 num_experts=num_experts,
                 ep_size=ep_size,
-                topk=moe_gate_k,
-                capacity_factor=moe_capacity_factor,
-                eval_capacity_factor=moe_eval_capacity_factor,
-                min_capacity=moe_min_capacity,
-                noisy_gate_policy=moe_noisy_gate_policy,
-                drop_tokens=moe_drop_tokens,
-                use_rts=moe_use_rts,
-                use_residual=moe_use_residual,
                 device=device,
                 dtype=dtype,
             )
@@ -357,14 +333,6 @@ class PackedFlashInternLm1D(nn.Module):
         use_swiglu: bool = True,
         use_flash_attn: bool = True,
         num_experts: bool = 1,
-        moe_gate_k: int = 1,
-        moe_capacity_factor: float = 1.0,
-        moe_eval_capacity_factor: float = 1.0,
-        moe_min_capacity: int = 4,
-        moe_noisy_gate_policy: str = None,
-        moe_drop_tokens: bool = True,
-        moe_use_rts: bool = True,
-        moe_use_residual: bool = False,
     ):
         super().__init__()
 
@@ -415,14 +383,6 @@ class PackedFlashInternLm1D(nn.Module):
                     use_swiglu=use_swiglu,
                     use_flash_attn=use_flash_attn,
                     num_experts=num_experts,
-                    moe_gate_k=moe_gate_k,
-                    moe_capacity_factor=moe_capacity_factor,
-                    moe_eval_capacity_factor=moe_eval_capacity_factor,
-                    moe_min_capacity=moe_min_capacity,
-                    moe_noisy_gate_policy=moe_noisy_gate_policy,
-                    moe_drop_tokens=moe_drop_tokens,
-                    moe_use_rts=moe_use_rts,
-                    moe_use_residual=moe_use_residual,
                 )
                 for lid in range(num_layers)
             ]
@@ -559,14 +519,14 @@ def build_model_with_moe_cfg(
     use_swiglu: bool = True,
     use_flash_attn: bool = True,
     num_experts: int = 1,
-    moe_gate_k: int = 1,
-    moe_capacity_factor: float = 1.0,
-    moe_eval_capacity_factor: float = 1.0,
-    moe_min_capacity: int = 4,
-    moe_noisy_gate_policy: str = None,
-    moe_drop_tokens: bool = True,
-    moe_use_rts: bool = True,
-    moe_use_residual: bool = False,
+    moe_gate_k: int = 1,  # pylint: disable=W0613
+    moe_capacity_factor: float = 1.0,  # pylint: disable=W0613
+    moe_eval_capacity_factor: float = 1.0,  # pylint: disable=W0613
+    moe_min_capacity: int = 4,  # pylint: disable=W0613
+    moe_noisy_gate_policy: str = None,  # pylint: disable=W0613
+    moe_drop_tokens: bool = True,  # pylint: disable=W0613
+    moe_use_rts: bool = True,  # pylint: disable=W0613
+    moe_use_residual: bool = False,  # pylint: disable=W0613
 ):
     """
     Build model with config.
@@ -633,14 +593,6 @@ def build_model_with_moe_cfg(
         use_swiglu=use_swiglu,
         use_flash_attn=use_flash_attn,
         num_experts=num_experts,
-        moe_gate_k=moe_gate_k,
-        moe_capacity_factor=moe_capacity_factor,
-        moe_eval_capacity_factor=moe_eval_capacity_factor,
-        moe_min_capacity=moe_min_capacity,
-        moe_noisy_gate_policy=moe_noisy_gate_policy,
-        moe_drop_tokens=moe_drop_tokens,
-        moe_use_rts=moe_use_rts,
-        moe_use_residual=moe_use_residual,
     )
 
     return _build_generic_model_1d(num_layers=num_layers, num_chunks=num_chunks, **cfg)
