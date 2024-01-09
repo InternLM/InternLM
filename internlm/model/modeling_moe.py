@@ -527,6 +527,7 @@ def build_model_with_moe_cfg(
     moe_drop_tokens: bool = True,  # pylint: disable=W0613
     moe_use_rts: bool = True,  # pylint: disable=W0613
     moe_use_residual: bool = False,  # pylint: disable=W0613
+    moe_type: str = None,  # pylint: disable=W0613
 ):
     """
     Build model with config.

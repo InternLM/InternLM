@@ -39,7 +39,6 @@ class MoE(torch.nn.Module):
         ep_size=1,
         device=None,
         dtype=None,
-        moe_type: str = None,
     ):
 
         super().__init__()
@@ -50,6 +49,8 @@ class MoE(torch.nn.Module):
         self.ep_size = ep_size
         self.num_experts = num_experts
         self.num_local_experts = num_experts // self.ep_size
+
+        moe_type = getattr(gpc.config.model, "moe_type", None)
 
         if moe_type is None or moe_type == "GShard":
             self.moe_layer = GShardMOELayer(
