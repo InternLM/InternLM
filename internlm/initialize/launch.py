@@ -305,8 +305,8 @@ def args_sanity_check():
             model._add_item("num_experts", 1)
         if "moe_use_residual" not in model:
             model._add_item("moe_use_residual", False)
-        if "moe_gate_k" not in model:
-            model._add_item("moe_gate_k", 2)
+        if "moe_type" not in model:
+            model._add_item("moe_type", None)
     # process the parallel config
     if "sequence_parallel" not in gpc.config.parallel:
         gpc.config.parallel._add_item("sequence_parallel", False)

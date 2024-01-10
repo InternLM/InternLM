@@ -385,27 +385,36 @@ class GShardMOELayer(BaseMoELayer):
     def __init__(
         self,
         hidden_size,
+        num_experts: int,
         ep_group,
         ep_size: int,
-        num_experts: int,
+        top_k: int = 1,
+        capacity_factor: float = 1.0,
+        eval_capacity_factor: float = 1.0,
+        min_capacity: int = 4,
+        noisy_gate_policy: str = None,
+        drop_tokens: bool = True,
+        use_rts: bool = True,
         device=None,
         dtype=None,
     ) -> None:
-        noisy_gate_policy = getattr(gpc.config.model, "noisy_gate_policy", None)
         assert noisy_gate_policy is None or noisy_gate_policy in ["None", "Jitter", "RSample"], (
             "Unsupported noisy_gate_policy: " + noisy_gate_policy
         )
+        assert (
+            num_experts % ep_size == 0
+        ), f"Number of experts ({num_experts}) should be divisible by expert parallel size ({ep_size})"
         super().__init__(
             TopKGate(
                 hidden_size,
                 num_experts,
-                topk=getattr(gpc.config.model, "moe_gate_k", 1),
-                capacity_factor=getattr(gpc.config.model, "moe_capacity_factor", 1.0),
-                eval_capacity_factor=getattr(gpc.config.model, "moe_eval_capacity_factor", 1.0),
-                min_capacity=getattr(gpc.config.model, "moe_min_capacity", 4),
-                noisy_gate_policy=getattr(gpc.config.model, "moe_noisy_gate_policy", None),
-                drop_tokens=getattr(gpc.config.model, "moe_drop_tokens", True),
-                use_rts=getattr(gpc.config.model, "moe_use_rts", True),
+                top_k,
+                capacity_factor,
+                eval_capacity_factor,
+                min_capacity,
+                noisy_gate_policy,
+                drop_tokens,
+                use_rts,
             ),
             torch.nn.ModuleList(
                 [

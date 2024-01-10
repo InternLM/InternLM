@@ -36,6 +36,7 @@ class MoE(torch.nn.Module):
         self,
         hidden_size,
         num_experts=1,
+        ep_group=None,
         ep_size=1,
         device=None,
         dtype=None,
@@ -43,27 +44,23 @@ class MoE(torch.nn.Module):
 
         super().__init__()
 
-        assert (
-            num_experts % ep_size == 0
-        ), f"Number of experts ({num_experts}) should be divisible by expert parallel size ({ep_size})"
-        self.ep_size = ep_size
-        self.num_experts = num_experts
-        self.num_local_experts = num_experts // self.ep_size
+        moe_impl = self.get_moe(getattr(gpc.config.model, "moe_type", None))
 
-        moe_type = getattr(gpc.config.model, "moe_type", None)
+        if not hasattr(gpc.config, "moe"):
+            gpc.config.moe = dict()
 
-        if moe_type is None or moe_type == "GShard":
-            self.moe_layer = GShardMOELayer(
-                hidden_size,
-                gpc.get_group(ParallelMode.EXPERT),
-                ep_size,
-                num_experts,
-                device,
-                dtype,
-            )
+        self.moe_layer = moe_impl(
+            hidden_size=hidden_size,
+            num_experts=num_experts,
+            ep_group=ep_group,
+            ep_size=ep_size,
+            device=device,
+            dtype=dtype,
+            **(gpc.config.moe)
+        )
 
         # residual network, see https://arxiv.org/pdf/2201.05596.pdf, seems useful for convergence
-        self.use_residual = getattr(gpc.config.model, "moe_use_residual", False)
+        self.use_residual = gpc.config.model.moe_use_residual
         if self.use_residual:
             self.residual_mlp = FeedForward(
                 hidden_size,
@@ -76,6 +73,10 @@ class MoE(torch.nn.Module):
             )
             # coefficient is used for weighted sum of the output of expert and residual mlp
             self.coefficient = torch.nn.Linear(hidden_size, 2)
+
+    def get_moe(self, moe_type):
+        if moe_type is None or moe_type == "GShard":
+            return GShardMOELayer
 
     def forward(self, hidden_states, used_token=None):
         """MoE forward
