@@ -1,5 +1,6 @@
 import torch
 
+import internlm.moe  # noqa # pylint: disable=W0611
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.model.linear import FeedForward
