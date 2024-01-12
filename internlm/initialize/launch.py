@@ -306,7 +306,7 @@ def args_sanity_check():
         if "moe_use_residual" not in model:
             model._add_item("moe_use_residual", False)
         if "moe_type" not in model:
-            model._add_item("moe_type", None)
+            model._add_item("moe_type", "GShard")
     # process the parallel config
     if "sequence_parallel" not in gpc.config.parallel:
         gpc.config.parallel._add_item("sequence_parallel", False)

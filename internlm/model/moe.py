@@ -3,8 +3,8 @@ import torch
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
 from internlm.model.linear import FeedForward
-from internlm.moe import GShardMOELayer
 from internlm.utils.logger import get_logger
+from internlm.utils.registry import MODEL_INITIALIZER
 
 # global llm logger
 logger = get_logger(__file__)
@@ -44,12 +44,10 @@ class MoE(torch.nn.Module):
 
         super().__init__()
 
-        moe_impl = self.get_moe_impl(gpc.config.model.moe_type)
-
         if not hasattr(gpc.config, "moe"):
             gpc.config.moe = dict()
 
-        self.moe_layer = moe_impl(
+        self.moe_layer = MODEL_INITIALIZER.get_module(module_name=gpc.config.model.moe_type)(
             hidden_size=hidden_size,
             num_experts=num_experts,
             ep_group=ep_group,
@@ -73,12 +71,6 @@ class MoE(torch.nn.Module):
             )
             # coefficient is used for weighted sum of the output of expert and residual mlp
             self.coefficient = torch.nn.Linear(hidden_size, 2)
-
-    def get_moe_impl(self, moe_type):
-        if moe_type is None or moe_type == "GShard":
-            return GShardMOELayer
-        else:
-            assert False, "unsupported moe type"
 
     def forward(self, hidden_states, used_token=None):
         """MoE forward

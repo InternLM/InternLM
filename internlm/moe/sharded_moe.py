@@ -17,6 +17,7 @@ from internlm.core.context import global_context as gpc
 from internlm.model.linear import FeedForward
 from internlm.utils.logger import get_logger
 from internlm.utils.megatron_timers import megatron_timer as timer
+from internlm.utils.registry import MODEL_INITIALIZER
 
 from .base_moe import BaseMoELayer
 from .utils import _AllToAll
@@ -364,6 +365,7 @@ class TopKGate(Module):
         return gate_output
 
 
+@MODEL_INITIALIZER.register_module(module_name="GShard")
 class GShardMOELayer(BaseMoELayer):
     """MOELayer module which implements MixtureOfExperts as described in Gshard_.
     ::
