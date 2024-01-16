@@ -1,11 +1,10 @@
 # Inference by LMDeploy
 
-English | [简体中文](lmdeploy_zh_cn.md)
+English | [简体中文](lmdeploy_zh_zh-CN.md)
 
 [LMDeploy](https://github.com/InternLM/lmdeploy) is an efficient, user-friendly toolkit designed for compressing, deploying, and serving LLM models.
 
 This article primarily highlights the basic usage of LMDeploy. For a comprehensive understanding of the toolkit, we invite you to refer to [the tutorials](https://lmdeploy.readthedocs.io/en/latest/).
-
 
 ## Installation
 
