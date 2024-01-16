@@ -47,7 +47,7 @@
 
 ## News
 
-[2024.01.16] We release InternLM2-7B and InternLM2-20B and their corresponding chat models with stronger capabilities in all dimensions. See [model zoo below](#model-zoo) or [model cards](./model_cards/) for more details.
+[2024.01.17] We release InternLM2-7B and InternLM2-20B and their corresponding chat models with stronger capabilities in all dimensions. See [model zoo below](#model-zoo) or [model cards](./model_cards/) for more details.
 
 [2023.12.13] InternLM-7B-Chat and InternLM-20B-Chat checkpoints are updated. With an improved finetuning strategy, the new chat models can generate higher quality responses with greater stylistic diversity.
 
@@ -55,23 +55,28 @@
 
 ## Model Zoo
 
-| Model | Transformers(HF) | ModelScope(HF) | OpenXLab(HF) | OpenXLab(Original) | Release Date |
+| Model | Transformers(HF) | ModelScope(HF) | OpenXLab(HF) | Release Date |
 |---------------------------|------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------|
-| **InternLM2 Chat 20B**     | [🤗internlm/internlm-chat-20b](https://huggingface.co/internlm/internlm2-20b-chat)         | [<img src="./docs/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm2-chat-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-20b-chat/summary)         | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-20b)     | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-20b-original)     | 2024-01-16   |
-| **InternLM2 20B** | [🤗internlm/internlm2-20b](https://huggingface.co/internlm/internlm2-20b) | [<img src="./docs/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm2-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-20b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-20b) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-20b-original) | 2024-01-16 |
-| **InternLM2 Chat 7B**      | [🤗internlm/internlm2-chat-7b](https://huggingface.co/internlm/internlm2-chat-7b)           | [<img src="./docs/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm2-chat-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-7b/summary)           | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-7b)      | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-7b-original)      | 2024-01-16  |
-| **InternLM2 7B**           | [🤗internlm/internlm2-7b](https://huggingface.co/internlm/internlm2-7b)                     | [<img src="./docs/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm2-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-7b/summary)                     | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-7b)           | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-7b-original)           | 2024-01-16   |
+| **InternLM2 Chat 20B**     | [🤗internlm/internlm-chat-20b](https://huggingface.co/internlm/internlm2-chat-20b)         | [<img src="./docs/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm2-chat-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-20b/summary)         | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-20b)     | 2024-01-17   |
+| **InternLM2 20B** | [🤗internlm/internlm2-20b](https://huggingface.co/internlm/internlm2-20b) | [<img src="./docs/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm2-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-20b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-20b) | 2024-01-17 |
+| **InternLM2 Chat 20B SFT**     | [🤗internlm/internlm-chat-20b-sft](https://huggingface.co/internlm/internlm2-chat-20b-sft)         | [<img src="./docs/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm2-chat-20b-sft](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-20b-sft/summary)         | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-20b-sft)     | 2024-01-17   |
+| **InternLM2 Base 20B** | [🤗internlm/internlm2-base-20b](https://huggingface.co/internlm/internlm2-base-20b) | [<img src="./docs/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm2-base-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-base-20b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-base-20b) | 2024-01-17 |
+| **InternLM2 Chat 7B**      | [🤗internlm/internlm2-chat-7b](https://huggingface.co/internlm/internlm2-chat-7b)           | [<img src="./docs/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm2-chat-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-7b/summary)           | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-7b)      | 2024-01-17  |
+| **InternLM2 7B**           | [🤗internlm/internlm2-7b](https://huggingface.co/internlm/internlm2-7b)                     | [<img src="./docs/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm2-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-7b/summary)                     | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-7b)           |  2024-01-17   |
+| **InternLM2 Chat 7B SFT**      | [🤗internlm/internlm2-chat-7b-sft](https://huggingface.co/internlm/internlm2-chat-7b-sft)           | [<img src="./docs/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm2-chat-7b-sft](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-7b-sft/summary)           | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-7b-sft)      | 2024-01-17  |
+| **InternLM2 Base 7B**           | [🤗internlm/internlm2-base-7b](https://huggingface.co/internlm/internlm2-base-7b)                     | [<img src="./docs/imgs/modelscope_logo.png" width="20px" /> Shanghai_AI_Laboratory/internlm2-base-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-base-7b/summary)                     | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-base-7b)           |  2024-01-17   |
 
-**Note**: There are two kinds of model weights:
+**Note:**
 
-  1. Huggingface type (marked as HF) in HuggingFace Transformers and ModelScope. You can fine-tune them with [Xtuner](https://github.com/InternLM/xtuner) and inference them with [LMDeploy](https://github.com/InternLM/lmdeploy).
-  2. Original model weight (marked as Original), providing in OpenXLab, which can be loaded and fine-tuned by [InternLM-Train](TBD) directly.
+1. For chat models, InternLM2 Chat 7/20B has gone through online RLHF for better alignment, which is recommended for downstream applications. We also released InternLM2 Chat 7/20B SFT, which are the ones that only have gone through SFT and used in RLHF to obtain InternLM2 Chat 7/20B. InternLM2 Chat 7/20B are trained from InternLM2 Base 7/20B.
+2. For base models, InternLM2 7/20B are further trained from InternLM2 Base 7/20B, which is recommended for fast adaptation for downstream applications.
 
 **Limitations:** Although we have made efforts to ensure the safety of the model during the training process and to encourage the model to generate text that complies with ethical and legal requirements, the model may still produce unexpected outputs due to its size and probabilistic generation paradigm. For example, the generated responses may contain biases, discrimination, or other harmful content. Please do not propagate such content. We are not responsible for any consequences resulting from the dissemination of harmful information.
 
 ## Usages
 
 We briefly show the usages with [Transformers](#import-from-transformers), [ModelScope](#import-from-modelscope), and [Web demos](#dialogue).
+The chat models adopt [chatml format](./chat/chat_format.md) to support both chat and agent applications.
 
 ### Import from Transformers
 
@@ -120,7 +125,7 @@ You can interact with the InternLM Chat 7B model through a frontend interface by
 ```bash
 pip install streamlit==1.24.0
 pip install transformers==4.30.2
-streamlit run ./inference/web_demo.py
+streamlit run ./chat/web_demo.py
 ```
 
 The effect is as follows
@@ -129,7 +134,7 @@ The effect is as follows
 
 ### Deployment
 
-We use [LMDeploy](https://github.com/InternLM/LMDeploy) to complete the one-click deployment of InternLM.
+We use [LMDeploy](https://github.com/InternLM/LMDeploy) for fast deployment of InternLM.
 
 ```shell
 # install LMDeploy
@@ -138,11 +143,11 @@ python3 -m pip install lmdeploy
 lmdeploy chat turbomind InternLM/internlm2-chat-7b --model-name internlm2-chat-7b
 ```
 
-Please refer to the [guidance](./inference/) guide for more examples. For additional deployment tutorials, feel free to explore [here](https://github.com/InternLM/LMDeploy).
+Please refer to the [guidance](./chat/lmdeploy.md) for more usages about model deployment. For additional deployment tutorials, feel free to explore [here](https://github.com/InternLM/LMDeploy).
 
 ## Agent
 
-InternLM2-Chat models have excellent tool utilization capabilities and can work with function calls in a zero-shot manner. See more in [agent session](agent).
+InternLM2-Chat models have excellent tool utilization capabilities and can work with function calls in a zero-shot manner. See more examples in [agent session](./agent/).
 
 ## Fine-tuning
 
