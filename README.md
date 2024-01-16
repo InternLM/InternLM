@@ -36,13 +36,15 @@
 
 ## Introduction
 
-- **200K Context window**: Both base and chat models can work with more than 200K context after being sufficiently trained on 32K-context data. Try it with [LMDeploy](./inference/) for 200K-context inference.
+InternLM2 series are released with the following features:
 
-- **Outstanding comprehensive performance**: Significantly better than the last generation in all dimensions including reasoning, code, chat experience, instruction following, and creative writing.
+- **200K Context window**: Nearly perfect at finding needles in the haystack with 200K-long context, with leading performance on long-context tasks like LongBench and L-Eval. Try it with [LMDeploy](./inference/) for 200K-context inference.
 
-- **Code interpreter & Data analysis**: New state-of-the-art results in using code interpreter for math problems, also good at data analysis.
+- **Outstanding comprehensive performance**: Significantly better than the last generation in all dimensions, especially in reasoning, math, code, chat experience, instruction following, and creative writing, with leading performance among open-source models in similar sizes. In some evaluations, InternLM2-Chat-20B may match or even surpass ChatGPT (GPT-3.5).
 
-- **Stronger tool use**: Excellent zero-shot and multi-step tool calling capabilities, better with [streaming](docs/chat_format.md##streaming-style) and also works with [ReAct](docs/chat_format.md##react-style) format. Try it with [Lagent](./agent/).
+- **Code interpreter & Data analysis**: With code interpreter, InternLM2-Chat-20B obtains compatible performance with GPT-4 on GSM8K and MATH. InternLM2-Chat also provides data analysis capability.
+
+- **Stronger tool use**: Based on better tool utilization-related capabilities in instruction following, tool selection and reflection, InternLM2 can support more kinds of agents and multi-step tool calling for complex tasks. See [examples](./agent/).
 
 ## News
 
