@@ -17,7 +17,7 @@
 > 需要 python >= 3.9
 #### **安装**
 ```shell
-pip install -U openaoe 
+pip install -U openaoe
 ```
 #### **运行**
 ```shell
@@ -50,7 +50,7 @@ docker run -p 10099:10099 -v /path/to/your/config-template.yaml:/app/config-temp
 ```shell
 git clone https://github.com/internlm/OpenAOE
 ```
-2. [_可选_] （如果前端代码发生变动）重新构建前端项目 
+2. [_可选_] （如果前端代码发生变动）重新构建前端项目
 ```shell
 cd open-aoe/openaoe/frontend
 npm install
