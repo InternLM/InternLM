@@ -131,9 +131,13 @@ streamlit run ./chat/web_demo.py
 
 我们使用 [LMDeploy](https://github.com/InternLM/LMDeploy) 完成 InternLM 的一键部署。
 
-```shell
-python3 -m pip install lmdeploy
-lmdeploy chat turbomind InternLM/internlm2-chat-7b --model-name internlm2-chat-7b
+通过 `pip install lmdeploy` 安装 LMDeploy 之后，只需 4 行代码，就可以实现离线批处理：
+
+```python
+from lmdeploy import pipeline
+pipe = pipeline("internlm/internlm2-chat-7b")
+response = pipe(["Hi, pls intro yourself", "Shanghai is"])
+print(response)
 ```
 
 请参考[部署指南](./chat/lmdeploy.md)了解更多使用案例，更多部署教程则可在[这里](https://github.com/InternLM/LMDeploy)找到。
