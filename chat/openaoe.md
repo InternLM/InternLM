@@ -2,7 +2,7 @@
 
 English | [简体中文](openaoe_zh_cn.md)
 ## Introduction
-OpenAOE is a LLM-Group-Chat Framework, which can chat with multiple LLMs (commercial/open source LLMs) at the same time. OpenAOE provides both backend API and WEB-UI to meet different usage needs.
+[OpenAOE](https://github.com/InternLM/OpenAOE) is a LLM-Group-Chat Framework, which can chat with multiple LLMs (commercial/open source LLMs) at the same time. OpenAOE provides both backend API and WEB-UI to meet different usage needs.
 
 Currently already supported LLMs: [InternLM2-Chat-7B](https://huggingface.co/internlm/internlm2-chat-7b), [IntenLM-Chat-7B](https://huggingface.co/internlm/internlm-chat-7b), GPT-3.5, GPT-4, Google PaLM, MiniMax, Claude, Spark, etc.
 
