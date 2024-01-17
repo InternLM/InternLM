@@ -34,13 +34,13 @@ docker pull openaoe:latest
 2. or build a docker image
 ```shell
 git clone https://github.com/internlm/OpenAOE
-cd open-aoe
+cd OpenAOE
 docker build . -f docker/Dockerfile -t openaoe:latest
 ```
 
 #### **Start**
 ```shell
-docker run -p 10099:10099 -v /path/to/your/config-template.yaml:/app/config-template.yaml --name OpenAOE openaoe:latest
+docker run -p 10099:10099 -v /path/to/your/config-template.yaml:/app/config.yaml --name OpenAOE openaoe:latest
 ```
 
 ### Run by source code
@@ -51,7 +51,7 @@ git clone https://github.com/internlm/OpenAOE
 ```
 2. [_optional_] build the frontend project when the frontend codes are changed
 ```shell
-cd open-aoe/openaoe/frontend
+cd OpenAOE/openaoe/frontend
 npm install
 npm run build
 ```
@@ -59,13 +59,13 @@ npm run build
 
 #### **Start**
 ```shell
-cd open-aoe/openaoe
-pip install -r backend/requirements.txt
-python -m main -f /path/to/your/config-template.yaml
+cd OpenAOE
+pip install -r openaoe/backend/requirements.txt
+python -m openaoe.main -f /path/to/your/config-template.yaml
 ```
 
 > [!TIP]
-> `/path/to/your/config.yaml` is the configuration file loaded by OpenAOE at startup,
+> `/path/to/your/config-tempalte.yaml` is the configuration file loaded by OpenAOE at startup,
 > which contains the relevant configuration information for the LLMs,
 > including: API URLs, AKSKs, Tokens, etc.
-> A template configuration yaml file can be found in `openaoe/backend/config/config.yaml`.
+> A template configuration yaml file can be found in `openaoe/backend/config/config-template.yaml`.
