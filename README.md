@@ -74,8 +74,8 @@ The release of InternLM2 series contains two model sizes: 7B and 20B. 7B models 
 
 1. InternLM2-Base: Foundation models with high quality and high adaptation flexibility, which serve as a good starting point for downstream deep adaptations.
 2. InternLM2: Optimized in multiple dimensions based on InternLM2-Base, obtaining state-of-the-art performance in evaluation with good language capability. InternLM2 models are recommended for consideration in most applications.
-3. InternLM2-Chat-SFT: Based on the InternLM2-Base model, it undergoes supervised human alignment training.
-3. InternLM2-Chat: Optimized for conversational interaction on top of the InternLM2-Chat-SFT through RLHF, it excels in instruction adherence, empathetic chatting, and tool invocation, for better instruction following, chat experience and function calling, which is recommended for downstream applications.
+3. InternLM2-Chat-SFT: Intermediate version of InternLM2-Chat that only undergoes supervised fine-tuning (SFT), based on the InternLM2-Base model. We release them to benefit research on alignment.
+4. InternLM2-Chat: Further aligned on top of InternLM2-Chat-SFT through online RLHF. InternLM2-Chat exhibits better instruction following, chat experience, and function calling, which is recommended for downstream applications.
 
 **Limitations:** Although we have made efforts to ensure the safety of the model during the training process and to encourage the model to generate text that complies with ethical and legal requirements, the model may still produce unexpected outputs due to its size and probabilistic generation paradigm. For example, the generated responses may contain biases, discrimination, or other harmful content. Please do not propagate such content. We are not responsible for any consequences resulting from the dissemination of harmful information.
 
