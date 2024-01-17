@@ -167,10 +167,6 @@ pip install transformers==4.30.2
 streamlit run ./chat/web_demo.py
 ```
 
-The effect is similar to below:
-
-![demo](https://github.com/InternLM/InternLM/assets/9102141/11b60ee0-47e4-42c0-8278-3051b2f17fe4)
-
 ### Deployment
 
 We use [LMDeploy](https://github.com/InternLM/LMDeploy) for fast deployment of InternLM.
