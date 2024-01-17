@@ -4,11 +4,11 @@ English | [简体中文](lagent_zh-CN.md)
 
 ## What's Lagent?
 
-Lagent is a lightweight open-source framework that allows users to efficiently build large language model(LLM)-based agents. It also provides some typical tools to augment LLM. The overview of our framework is shown below:
+Lagent is a lightweight open-source framework that allows users to efficiently build large language model(LLM)-based agents. It also provides some typical tools to augment LLM. The overview of the framework is shown below:
 
 ![image](https://github.com/InternLM/lagent/assets/24351120/cefc4145-2ad8-4f80-b88b-97c05d1b9d3e)
 
-This article primarily highlights the basic usage of Lagent. For a comprehensive understanding of the toolkit, we invite you to refer to [examples](https://github.com/InternLM/lagent/tree/main/examples) for more details.
+This document primarily highlights the basic usage of Lagent. For a comprehensive understanding of the toolkit, please refer to [examples](https://github.com/InternLM/lagent/tree/main/examples) for more details.
 
 ## Installation
 
@@ -38,7 +38,7 @@ Then you can chat through the UI shown as below
 
 ![image](https://github.com/InternLM/lagent/assets/24622904/3aebb8b4-07d1-42a2-9da3-46080c556f68)
 
-## Run a ReAct agent with InternLM-Chat
+## Run a ReAct agent with InternLM2-Chat
 
 **NOTE:** If you want to run a HuggingFace model, please run `pip install -e .[all]` first.
 
@@ -49,7 +49,7 @@ from lagent.actions import ActionExecutor, GoogleSearch, PythonInterpreter
 from lagent.llms import HFTransformer
 
 # Initialize the HFTransformer-based Language Model (llm) and provide the model name.
-llm = HFTransformer('internlm/internlm-chat-7b-v1_1')
+llm = HFTransformer('internlm/internlm2-chat-7b')
 
 # Initialize the Google Search tool and provide your API key.
 search_tool = GoogleSearch(api_key='Your SERPER_API_KEY')
