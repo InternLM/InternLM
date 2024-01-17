@@ -26,7 +26,7 @@
 [🤔Reporting Issues](https://github.com/InternLM/InternLM/issues/new)
 
 [English](./README.md) |
-[简体中文](./README_zh-CN.md) |
+[简体中文](./README_zh-CN.md)
 
 </div>
 
@@ -67,10 +67,13 @@ InternLM2 series are released with the following features:
 | **InternLM2 Chat 7B SFT**      | [🤗internlm/internlm2-chat-7b-sft](https://huggingface.co/internlm/internlm2-chat-7b-sft)           | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-chat-7b-sft](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-7b-sft/summary)           | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-7b-sft)      | 2024-01-17  |
 | **InternLM2 Base 7B**           | [🤗internlm/internlm2-base-7b](https://huggingface.co/internlm/internlm2-base-7b)                     | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-base-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-base-7b/summary)                     | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-base-7b)           |  2024-01-17   |
 
-**Note:**
+**Note of Models:**
 
-1. For chat models, InternLM2 Chat 7/20B has gone through online RLHF for better alignment, which is recommended for downstream applications. We also released InternLM2 Chat 7/20B SFT, which are the ones that only have gone through SFT and used in RLHF to obtain InternLM2 Chat 7/20B. InternLM2 Chat 7/20B are trained from InternLM2 Base 7/20B.
-2. For base models, InternLM2 7/20B are further trained from InternLM2 Base 7/20B, which is recommended for fast adaptation for downstream applications.
+The release of InternLM2 series contains two model sizes: 7B and 20B. 7B models are efficient for research and application and 20B models are more powerful and can support more complex scenarios. For each model size, there are three types of models for different user requirements
+
+1. InternLM2-Base: Foundation models with high quality and high adaptation flexibility, which serves as a good starting point for downstream deep adaptations.
+2. InternLM2: Optimized in multiple dimensions based on InternLM2-Base, obtaining state-of-the-art performance in evaluation with good language capability. InternLM2 models are recommended for consideration in most applications.
+3. InternLM2-Chat: InternLM2-Chat have gone through SFT and online RLHF based on InternLM2-Base model, for better instruction following, chat experience and function calling, which is recommended for downstream applications. We also released their corresponding SFT version, termed InternLM2 Chat 7/20B SFT, to ease the research for alignment.
 
 **Limitations:** Although we have made efforts to ensure the safety of the model during the training process and to encourage the model to generate text that complies with ethical and legal requirements, the model may still produce unexpected outputs due to its size and probabilistic generation paradigm. For example, the generated responses may contain biases, discrimination, or other harmful content. Please do not propagate such content. We are not responsible for any consequences resulting from the dissemination of harmful information.
 
