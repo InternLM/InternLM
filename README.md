@@ -77,6 +77,58 @@ The release of InternLM2 series contains two model sizes: 7B and 20B. 7B models 
 
 **Limitations:** Although we have made efforts to ensure the safety of the model during the training process and to encourage the model to generate text that complies with ethical and legal requirements, the model may still produce unexpected outputs due to its size and probabilistic generation paradigm. For example, the generated responses may contain biases, discrimination, or other harmful content. Please do not propagate such content. We are not responsible for any consequences resulting from the dissemination of harmful information.
 
+## Performance
+
+### Objective Evaluation
+| Dataset                | Baichuan2-7B-Chat | Mistral-7B-Instruct-v0.2 | Qwen-7B-Chat | InternLM2-Chat-7B | ChatGLM3-6B | Baichuan2-13B-Chat | Mixtral-8x7B-Instruct-v0.1 | Qwen-14B-Chat | InternLM2-Chat-20B |
+|-----------------------|-------------------|--------------------------|--------------|-------------------|-------------|---------------------|--------------------------------|---------------|---------------------|
+| MMLU                  | 50.1              | 59.2                     | 57.1         | 63.7              | 58.0        | 56.6                | 70.3                          | 66.7          | 65.1                |
+| CMMLU                 | 53.4              | 42.0                     | 57.9         | 63.0              | 57.8        | 54.8                | 50.6                          | 68.1          | 65.1                |
+| AGIEval               | 35.3              | 34.5                     | 39.7         | 47.2              | 44.2        | 40.0                | 41.7                          | 46.5          | 50.3                |
+| C-Eval                | 53.9              | 42.4                     | 59.8         | 60.8              | 59.1        | 56.3                | 54.0                          | 71.5          | 63.0                |
+| TrivialQA             | 37.6              | 35.0                     | 46.1         | 50.8              | 38.1        | 40.3                | 57.7                          | 54.5          | 53.9                |
+| NaturalQuestions      | 12.8              | 8.1                      | 18.6         | 24.1              | 14.0        | 12.7                | 22.5                          | 22.9          | 25.9                |
+| C3                    | 78.5              | 66.9                     | 84.4         | 91.5              | 79.3        | 84.4                | 82.1                          | 91.5          | 93.5                |
+| CMRC                  | 8.1               | 5.6                      | 14.6         | 63.8              | 43.2        | 27.8                | 5.3                           | 13.0          | 50.4                |
+| WinoGrande            | 49.9              | 50.8                     | 54.2         | 65.8              | 61.7        | 50.9                | 60.9                          | 55.7          | 74.8                |
+| BBH                   | 35.9              | 46.5                     | 45.5         | 61.2              | 56.0        | 42.5                | 57.3                          | 55.8          | 68.3                |
+| GSM-8K                | 32.4              | 48.3                     | 44.1         | 70.7              | 53.8        | 56.0                | 71.7                          | 57.7          | 79.6                |
+| Math                  | 5.7               | 8.6                      | 12.0         | 23.0              | 20.4        | 4.3                 | 22.5                          | 27.6          | 31.9                |
+| HumanEval              | 17.7              | 35.4                     | 36.0         | 59.8              | 52.4        | 19.5                | 37.8                          | 40.9          | 67.1                |
+| MBPP                  | 37.7              | 25.7                     | 33.9         | 51.4              | 55.6        | 40.9                | 40.9                          | 30.0          | 65.8                |
+
+- Performance of MBPP is reported with MBPP(Sanitized)
+
+### Alignment Evaluation
+
+- We have evaluated our model on [AlpacaEval 2.0](https://tatsu-lab.github.io/alpaca_eval/) and InternLM2-Chat-20B surpass Claude 2, GPT-4(0613) and Gemini Pro.
+
+| Model Name              | Win Rate | Length |
+| ----------------------- | -------- | ------ |
+| GPT-4 Turbo      | 50.00%   | 2049   |
+| GPT-4         | 23.58%   | 1365   |
+| GPT-4 0314             | 22.07%   | 1371   |
+| Mistral Medium      | 21.86%   | 1500   |
+| XwinLM 70b V0.1   | 21.81%   | 1775   |
+| InternLM2 Chat 20B  | 21.75%   | 2373   |
+| Mixtral 8x7B v0.1  | 18.26%   | 1465   |
+| Claude 2            | 17.19%   | 1069   |
+| Gemini Pro         | 16.85%   | 1315   |
+| GPT-4 0613         | 15.76%   | 1140   |
+| Claude 2.1         | 15.73%   | 1096   |
+
+* According to the released performance of 2024-01-17.
+
+### Data Contamination 
+
+| Method       | GSM-8k | English Knowledge | Chinese Knowledge | Coding |
+|------------|----------|-------------|-------------|------|
+| Average of Open-source LLMs | -0.02 | -0.13 | -0.20 | -0.07 |
+| InternLM2-Base-7B | 0.09 | -0.13 | -0.16 | 0.03 |
+| InternLM2-7B | 0.02 | -0.12 | -0.16 | 0.05 |
+| InternLM2-Base-20B | 0.08 | -0.13 | -0.17 | -0.02 |
+| InternLM2-20B | 0.04 | -0.13 | -0.19 | -0.02 |
+
 ## Usages
 
 We briefly show the usages with [Transformers](#import-from-transformers), [ModelScope](#import-from-modelscope), and [Web demos](#dialogue).
