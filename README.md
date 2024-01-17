@@ -213,7 +213,7 @@ We utilize [OpenCompass](https://github.com/open-compass/opencompass) for model 
 
 ### Objective Evaluation
 
-To evaluate the InternLM model, please follow the guidelines in the [OpenCompass tutorial](https://github.com/open-compass/opencompass). Typically, we use `ppl` for multiple-choice questions on the **Base** model and `gen` for all questions on the **Chat** model.
+To evaluate the InternLM model, please follow the guidelines in the [OpenCompass tutorial](https://opencompass.readthedocs.io/en/latest/get_started/installation.html). Typically, we use `ppl` for multiple-choice questions on the **Base** model and `gen` for all questions on the **Chat** model.
 
 ### Long-Context Evaluation (Needle in a Haystack)
 

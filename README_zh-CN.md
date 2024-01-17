@@ -201,14 +201,13 @@ print(response)
 
 **注意：**本项目中的全量训练功能已经迁移到了[InternEvo](https://github.com/InternLM/InternEvo)以便捷用户的使用。InternEvo 提供了高效的预训练和微调基建用于训练 InternLM 系列模型。
 
-
 ## 评测
 
 我们使用 [OpenCompass](https://github.com/open-compass/opencompass) 进行模型评估。在 InternLM-2 中，我们主要标准客观评估、长文评估（大海捞针）、数据污染评估、智能体评估和主观评估。
 
 ### 标准客观评测
 
-请按照 [OpenCompass 教程](https://github.com/open-compass/opencompass) 进行客观评测。我们通常在 **Base** 模型上使用 `ppl` 进行多项选择题，在 **Chat** 模型上使用 `gen` 进行所有问题。
+请按照 [OpenCompass 教程](https://opencompass.readthedocs.io/zh-cn/latest/get_started/installation.html) 进行客观评测。我们通常在 Base 模型上使用 ppl 进行多项选择题评测，在 Chat 模型上使用 gen 进行所有问题的答案生成和评测。
 
 ### 长文评估（大海捞针）
 
