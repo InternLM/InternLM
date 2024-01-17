@@ -119,16 +119,6 @@ The release of InternLM2 series contains two model sizes: 7B and 20B. 7B models 
 
 * According to the released performance of 2024-01-17.
 
-### Data Contamination 
-
-| Method       | GSM-8k | English Knowledge | Chinese Knowledge | Coding |
-|------------|----------|-------------|-------------|------|
-| Average of Open-source LLMs | -0.02 | -0.13 | -0.20 | -0.07 |
-| InternLM2-Base-7B | 0.09 | -0.13 | -0.16 | 0.03 |
-| InternLM2-7B | 0.02 | -0.12 | -0.16 | 0.05 |
-| InternLM2-Base-20B | 0.08 | -0.13 | -0.17 | -0.02 |
-| InternLM2-20B | 0.04 | -0.13 | -0.19 | -0.02 |
-
 ## Usages
 
 We briefly show the usages with [Transformers](#import-from-transformers), [ModelScope](#import-from-modelscope), and [Web demos](#dialogue).
