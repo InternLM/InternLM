@@ -41,7 +41,7 @@ docker build . -f docker/Dockerfile -t openaoe:latest
 
 #### **运行**
 ```shell
-docker run -p 10099:10099 -v /path/to/your/config-template.yaml:/app/config-template.yaml --name OpenAOE openaoe:latest
+docker run -p 10099:10099 -v /path/to/your/config-template.yaml:/app/config.yaml --name OpenAOE openaoe:latest
 ```
 
 ### 基于源代码
