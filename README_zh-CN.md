@@ -20,7 +20,7 @@
 
 [📘对话教程](./chat) |
 [🛠️智能体教程](./agent) |
-[📊评测](./evaluation) |
+[📊评测](#评测) |
 [👀模型库](./model_cards) |
 [🤗HuggingFace](https://huggingface.co/spaces/internlm/internlm2-Chat-7B) |
 [🆕Update News](#news) |
@@ -147,6 +147,32 @@ print(response)
 请参考[微调教程](./finetune/)尝试续训或微调 InternLM2。
 
 **注意：**本项目中的全量训练功能已经迁移到了[InternEvo](https://github.com/InternLM/InternEvo)以便捷用户的使用。InternEvo 提供了高效的预训练和微调基建用于训练 InternLM 系列模型。
+
+
+## 评测
+
+我们使用 [OpenCompass](https://github.com/open-compass/opencompass) 进行模型评估。在 InternLM-2 中，我们主要标准客观评估、长文评估（大海捞针）、数据污染评估、智能体评估和主观评估。
+
+### 标准客观评测
+
+请按照 [OpenCompass 教程](https://github.com/open-compass/opencompass) 进行客观评测。我们通常在 **Base** 模型上使用 `ppl` 进行多项选择题，在 **Chat** 模型上使用 `gen` 进行所有问题。
+
+### 长文评估（大海捞针）
+
+有关 `大海捞针` 评估的教程，请参阅 [文档](https://github.com/open-compass/opencompass/blob/main/docs/en/advanced_guides/needleinahaystack_eval.md) 中的教程。
+
+### 数据污染评估
+
+要了解更多关于数据污染评估的信息，请查看 [污染评估](https://opencompass.readthedocs.io/en/latest/advanced_guides/contamination_eval.html)。
+
+### 智能体评估
+
+- 要评估大模型的工具利用能力，请使用 [T-Eval](https://github.com/open-compass/T-Eval) 进行评测。
+- 对于代码解释器评估，请使用 [gsm-8k-agent](https://github.com/open-compass/opencompass/blob/main/configs/datasets/gsm8k/gsm8k_agent_gen_be1606.py) 提供的配置进行评估。此外，您还需要安装 [Lagent](https://github.com/InternLM/lagent)。
+
+### 主观评估
+
+- 请按照 [教程](https://opencompass.readthedocs.io/en/latest/advanced_guides/subjective_evaluation.html) 进行主观评估。
 
 ## 贡献
 

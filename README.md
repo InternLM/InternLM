@@ -19,7 +19,7 @@
 <!-- [![Documentation Status](https://readthedocs.org/projects/internlm/badge/?version=latest)](https://internlm.readthedocs.io/zh_CN/latest/?badge=latest) -->
 [📘Chat](./chat) |
 [🛠️Agent](./agent) |
-[📊Evaluation](./evaluation) |
+[📊Evaluation](#evaluation) |
 [👀Model](./model_cards) |
 [🤗HuggingFace](https://huggingface.co/spaces/internlm/internlm2-Chat-7B) |
 [🆕Update News](#news) |
@@ -153,6 +153,32 @@ InternLM2-Chat models have excellent tool utilization capabilities and can work 
 Please refer to [finetune docs](./finetune/) for fine-tuning with InternLM.
 
 **Note:** We have migrated the whole training functionality in this project to [InternEvo](https://github.com/InternLM/InternEvo) for easier user experience, which provides efficient pre-training and fine-tuning infra for training InternLM.
+
+
+## Evaluation
+
+We utilize [OpenCompass](https://github.com/open-compass/opencompass) for model evaluation. In InternLM-2, we primarily focus on standard objective evaluation, long-context evaluation (needle in a haystack), data contamination assessment, agent evaluation, and subjective evaluation.
+
+### Objective Evaluation
+
+To evaluate the InternLM model, please follow the guidelines in the [OpenCompass tutorial](https://github.com/open-compass/opencompass). Typically, we use `ppl` for multiple-choice questions on the **Base** model and `gen` for all questions on the **Chat** model.
+
+### Long-Context Evaluation (Needle in a Haystack)
+
+For the `Needle in a Haystack` evaluation, refer to the tutorial provided in the [documentation](https://github.com/open-compass/opencompass/blob/main/docs/en/advanced_guides/needleinahaystack_eval.md). Feel free to try it out.
+
+### Data Contamination Assessment
+
+To learn more about data contamination assessment, please check the [contamination eval](https://opencompass.readthedocs.io/en/latest/advanced_guides/contamination_eval.html).
+
+### Agent Evaluation
+
+- To evaluate tool utilization, please refer to [T-Eval](https://github.com/open-compass/T-Eval).
+- For code interpreter evaluation, use the [gsm-8k-agent](https://github.com/open-compass/opencompass/blob/main/configs/datasets/gsm8k/gsm8k_agent_gen_be1606.py) provided in the repository. Additionally, you need to install [Lagent](https://github.com/InternLM/lagent).
+
+### Subjective Evaluation
+
+- Please follow the [tutorial](https://opencompass.readthedocs.io/en/latest/advanced_guides/subjective_evaluation.html) for subjective evaluation.
 
 ## Contribution
 
