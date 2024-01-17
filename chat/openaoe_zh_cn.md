@@ -29,19 +29,19 @@ openaoe -f /path/to/your/config-template.yaml
 有两种方式获取 OpenAOE 的 docker 镜像：
 1. 官方拉取
 ```shell
-docker pull openaoe:latest
+docker pull opensealion/openaoe:latest
 ```
 
 2. 本地构建
 ```shell
 git clone https://github.com/internlm/OpenAOE
-cd open-aoe
+cd OpenAOE
 docker build . -f docker/Dockerfile -t openaoe:latest
 ```
 
 #### **运行**
 ```shell
-docker run -p 10099:10099 -v /path/to/your/config-template.yaml:/app/config-template.yaml --name OpenAOE openaoe:latest
+docker run -p 10099:10099 -v /path/to/your/config-template.yaml:/app/config.yaml --name OpenAOE opensealion/openaoe:latest
 ```
 
 ### 基于源代码
@@ -52,7 +52,7 @@ git clone https://github.com/internlm/OpenAOE
 ```
 2. [_可选_] （如果前端代码发生变动）重新构建前端项目
 ```shell
-cd open-aoe/openaoe/frontend
+cd OpenAOE/openaoe/frontend
 npm install
 npm run build
 ```
@@ -60,11 +60,11 @@ npm run build
 
 #### **运行**
 ```shell
-cd open-aoe/openaoe
-pip install -r backend/requirements.txt
-python -m main -f /path/to/your/config-template.yaml
+cd OpenAOE
+pip install -r openaoe/backend/requirements.txt
+python -m openaoe.main -f /path/to/your/config-template.yaml
 ``````
 
 > [!TIP]
-> `/path/to/your/config.yaml` 是 OpenAOE 启动时读取的配置文件，里面包含了大模型的相关配置信息，
-> 包括：调用API地址、AKSK、Token等信息，是 OpenAOE 启动的必备文件。模板文件可以在 `openaoe/backend/config/config.yaml` 中找到。
+> `/path/to/your/config-template.yaml` 是 OpenAOE 启动时读取的配置文件，里面包含了大模型的相关配置信息，
+> 包括：调用API地址、AKSK、Token等信息，是 OpenAOE 启动的必备文件。模板文件可以在 `openaoe/backend/config/config-template.yaml` 中找到。
