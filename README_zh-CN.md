@@ -2,28 +2,29 @@
 
 <div align="center">
 
-<img src="./assets/logo.svg" width="200"/>
-  <div> </div>
+<img src="./assets//logo.svg" width="200"/>
+  <div>&nbsp;</div>
   <div align="center">
-    <b><font size="5">InternLM</font></b>
+    <b><font size="5">书生·浦语 官网</font></b>
     <sup>
       <a href="https://internlm.intern-ai.org.cn/">
         <i><font size="4">HOT</font></i>
       </a>
     </sup>
-    <div> </div>
+    <div>&nbsp;</div>
   </div>
 
-[![license](./assets/license.svg)](./LICENSE)
-[![evaluation](./assets/compass_support.svg)](https://github.com/internLM/OpenCompass/)
+[![license](./assets//license.svg)](https://github.com/open-mmlab/mmdetection/blob/main/LICENSE)
+[![evaluation](./assets//compass_support.svg)](https://github.com/internLM/OpenCompass/)
 <!-- [![Documentation Status](https://readthedocs.org/projects/internlm/badge/?version=latest)](https://internlm.readthedocs.io/zh_CN/latest/?badge=latest) -->
-[📘Chat](./chat) |
-[🛠️Agent](./agent) |
-[📊Evaluation](./evaluation) |
-[👀Model](./model_cards) |
+
+[📘对话教程](./chat) |
+[🛠️智能体教程](./agent) |
+[📊评测](./evaluation) |
+[👀模型库](./model_cards) |
 [🤗HuggingFace](https://huggingface.co/spaces/internlm/internlm2-Chat-7B) |
 [🆕Update News](#news) |
-[🤔Reporting Issues](https://github.com/InternLM/InternLM/issues/new)
+[🤔提交反馈](https://github.com/InternLM/InternLM/issues/new)
 
 [English](./README.md) |
 [简体中文](./README_zh-CN.md) |
@@ -31,28 +32,25 @@
 </div>
 
 <p align="center">
-    👋 join us on <a href="https://discord.gg/xa29JuW87d" target="_blank">Discord</a> and <a href="https://github.com/InternLM/InternLM/assets/25839884/a6aad896-7232-4220-ac84-9e070c2633ce" target="_blank">WeChat</a>
+    👋 加入我们的 <a href="https://discord.gg/xa29JuW87d" target="_blank">Discord</a> 和 <a href="https://github.com/InternLM/InternLM/assets/25839884/a6aad896-7232-4220-ac84-9e070c2633ce" target="_blank">微信社区</a>
 </p>
 
-## Introduction
+## 简介
 
-InternLM2 series are released with the following features:
+InternLM2 系列模型在本仓库正式发布，具有如下特性：
 
-- **200K Context window**: Nearly perfect at finding needles in the haystack with 200K-long context, with leading performance on long-context tasks like LongBench and L-Eval. Try it with [LMDeploy](./inference/) for 200K-context inference.
+- 有效支持20万字超长上下文：模型在20万字长输入中几乎完美地实现长文“大海捞针”，而且在 LongBench 和 L-Eval 等长文任务中的表现也达到开源模型中的领先水平。 可以通过 [LMDeploy](./inference/) 尝试20万字超长上下文推理。
+- 综合性能全面提升：各能力维度相比上一代模型全面进步，在推理、数学、代码、对话体验、指令遵循和创意写作等方面的能力提升尤为显著，综合性能达到同量级开源模型的领先水平，在重点能力评测上 InternLM2-Chat-20B 能比肩甚至超越 ChatGPT （GPT-3.5）。
+- 代码解释器与数据分析：在配合代码解释器（code-interpreter）的条件下，InternLM2-Chat-20B 在 GSM8K 和 MATH 上可以达到和 GPT-4 相仿的水平。基于在数理和工具方面强大的基础能力，InternLM2-Chat 提供了实用的数据分析能力。
+- 工具调用能力整体升级：基于更强和更具有泛化性的指令理解、工具筛选与结果反思等能力，新版模型可以更可靠地支持复杂智能体的搭建，支持对工具进行有效的多轮调用，完成较复杂的任务。可以查看更多[样例](./agent/)。
 
-- **Outstanding comprehensive performance**: Significantly better than the last generation in all dimensions, especially in reasoning, math, code, chat experience, instruction following, and creative writing, with leading performance among open-source models in similar sizes. In some evaluations, InternLM2-Chat-20B may match or even surpass ChatGPT (GPT-3.5).
+## 更新
 
-- **Code interpreter & Data analysis**: With code interpreter, InternLM2-Chat-20B obtains compatible performance with GPT-4 on GSM8K and MATH. InternLM2-Chat also provides data analysis capability.
+[2024.01.17] 我们发布了 InternLM2-7B 和 InternLM2-20B 以及相关的对话模型，InternLM2 在数理、代码、对话、创作等各方面能力都获得了长足进步，综合性能达到开源模型的领先水平。可以点击 [下面的模型库](#model-zoo)进行下载或者[查看模型文档](./model_cards/)来了解更多细节.
 
-- **Stronger tool use**: Based on better tool utilization-related capabilities in instruction following, tool selection and reflection, InternLM2 can support more kinds of agents and multi-step tool calling for complex tasks. See [examples](./agent/).
+[2023.12.13] 我们更新了 InternLM-7B-Chat 和 InternLM-20B-Chat 模型权重。通过改进微调数据和训练策略，新版对话模型生成的回复质量更高、语言风格更加多元。
 
-## News
-
-[2024.01.17] We release InternLM2-7B and InternLM2-20B and their corresponding chat models with stronger capabilities in all dimensions. See [model zoo below](#model-zoo) for download or [model cards](./model_cards/) for more details.
-
-[2023.12.13] InternLM-7B-Chat and InternLM-20B-Chat checkpoints are updated. With an improved finetuning strategy, the new chat models can generate higher quality responses with greater stylistic diversity.
-
-[2023.09.20] InternLM-20B is released with base and chat versions.
+[2023.09.20] InternLM-20B 已发布，包括基础版和对话版。
 
 ## Model Zoo
 
@@ -67,37 +65,30 @@ InternLM2 series are released with the following features:
 | **InternLM2 Chat 7B SFT**      | [🤗internlm/internlm2-chat-7b-sft](https://huggingface.co/internlm/internlm2-chat-7b-sft)           | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-chat-7b-sft](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-7b-sft/summary)           | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-7b-sft)      | 2024-01-17  |
 | **InternLM2 Base 7B**           | [🤗internlm/internlm2-base-7b](https://huggingface.co/internlm/internlm2-base-7b)                     | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-base-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-base-7b/summary)                     | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-base-7b)           |  2024-01-17   |
 
-**Note:**
+## 使用案例
 
-1. For chat models, InternLM2 Chat 7/20B has gone through online RLHF for better alignment, which is recommended for downstream applications. We also released InternLM2 Chat 7/20B SFT, which are the ones that only have gone through SFT and used in RLHF to obtain InternLM2 Chat 7/20B. InternLM2 Chat 7/20B are trained from InternLM2 Base 7/20B.
-2. For base models, InternLM2 7/20B are further trained from InternLM2 Base 7/20B, which is recommended for fast adaptation for downstream applications.
+接下来我们展示使用 [Transformers](#import-from-transformers), [ModelScope](#import-from-modelscope), 和 [Web demo](#dialogue) 进行推理.
+对话模型采用了 [chatml 格式](./chat/chat_format.md) 来支持通用对话和智能体应用。
 
-**Limitations:** Although we have made efforts to ensure the safety of the model during the training process and to encourage the model to generate text that complies with ethical and legal requirements, the model may still produce unexpected outputs due to its size and probabilistic generation paradigm. For example, the generated responses may contain biases, discrimination, or other harmful content. Please do not propagate such content. We are not responsible for any consequences resulting from the dissemination of harmful information.
+### 通过 Transformers 加载
 
-## Usages
-
-We briefly show the usages with [Transformers](#import-from-transformers), [ModelScope](#import-from-modelscope), and [Web demos](#dialogue).
-The chat models adopt [chatml format](./chat/chat_format.md) to support both chat and agent applications.
-
-### Import from Transformers
-
-To load the InternLM2 7B Chat model using Transformers, use the following code:
+通过以下的代码从 Transformers 加载 InternLM 模型 （可修改模型名称替换不同的模型）
 
 ```python
 >>> from transformers import AutoTokenizer, AutoModelForCausalLM
 >>> tokenizer = AutoTokenizer.from_pretrained("internlm/internlm2-chat-7b", trust_remote_code=True)
 >>> model = AutoModelForCausalLM.from_pretrained("internlm/internlm2-chat-7b", trust_remote_code=True).cuda()
 >>> model = model.eval()
->>> response, history = model.chat(tokenizer, "hello", history=[])
+>>> response, history = model.chat(tokenizer, "你好", history=[])
 >>> print(response)
-Hello! How can I help you today?
->>> response, history = model.chat(tokenizer, "please provide three suggestions about time management", history=history)
+你好！有什么我可以帮助你的吗？
+>>> response, history = model.chat(tokenizer, "请提供三个管理时间的建议。", history=history)
 >>> print(response)
 ```
 
-### Import from ModelScope
+### 通过 ModelScope 加载
 
-To load the InternLM model using ModelScope, use the following code:
+通过以下的代码从 ModelScope 加载 InternLM 模型 （可修改模型名称替换不同的模型）
 
 ```python
 from modelscope import snapshot_download, AutoTokenizer, AutoModelForCausalLM
@@ -112,9 +103,9 @@ response, history = model.chat(tokenizer, "please provide three suggestions abou
 print(response)
 ```
 
-### Dialogue
+### 通过前端网页对话
 
-You can interact with the InternLM Chat 7B model through a frontend interface by running the following code:
+可以通过以下代码启动一个前端的界面来与 InternLM Chat 7B 模型进行交互
 
 ```bash
 pip install streamlit==1.24.0
@@ -122,42 +113,40 @@ pip install transformers==4.30.2
 streamlit run ./chat/web_demo.py
 ```
 
-The effect is similar to below:
+效果如下
 
-![demo](https://github.com/InternLM/InternLM/assets/9102141/11b60ee0-47e4-42c0-8278-3051b2f17fe4)
+![效果](https://github.com/InternLM/InternLM/assets/9102141/11b60ee0-47e4-42c0-8278-3051b2f17fe4)
 
-### Deployment
+### 基于InternLM高性能部署
 
-We use [LMDeploy](https://github.com/InternLM/LMDeploy) for fast deployment of InternLM.
+我们使用 [LMDeploy](https://github.com/InternLM/LMDeploy) 完成 InternLM 的一键部署。
 
 ```shell
-# install LMDeploy
 python3 -m pip install lmdeploy
-# chat with internlm2
-lmdeploy chat turbomind InternLM/internlm2-chat-7b --model-name internlm2-chat-7b
+lmdeploy chat turbomind InternLM/internlm-chat-7b --model-name internlm-chat-7b
 ```
 
-Please refer to the [guidance](./chat/lmdeploy.md) for more usages about model deployment. For additional deployment tutorials, feel free to explore [here](https://github.com/InternLM/LMDeploy).
+请参考[部署指南](./chat/lmdeploy.md)了解更多使用案例，更多部署教程则可在[这里](https://github.com/InternLM/LMDeploy)找到。
 
-## Agent
+## 微调&训练
 
-InternLM2-Chat models have excellent tool utilization capabilities and can work with function calls in a zero-shot manner. See more examples in [agent session](./agent/).
+请参考[微调教程](./finetune/)尝试续训或微调 InternLM2。
 
-## Fine-tuning
+**注意：**本项目中的全量训练功能已经迁移到了[InternEvo](https://github.com/InternLM/InternEvo)以便捷用户的使用。InternEvo 提供了高效的预训练和微调基建用于训练 InternLM 系列模型。
 
-Please refer to [finetune docs](./finetune/) for fine-tuning with InternLM.
+## 贡献
 
-**Note:** We have migrated the whole training functionality in this project to [InternEvo](https://github.com/InternLM/InternEvo) for easier user experience, which provides efficient pre-training and fine-tuning infra for training InternLM.
+我们感谢所有的贡献者为改进和提升 InternLM 所作出的努力。非常欢迎社区用户能参与进项目中来。请参考贡献指南来了解参与项目贡献的相关指引。
 
-## Contribution
+## 致谢
 
-We appreciate all the contributors for their efforts to improve and enhance InternLM. Community users are highly encouraged to participate in the project. Please refer to the contribution guidelines for instructions on how to contribute to the project.
+InternLM 代码库是一款由上海人工智能实验室和来自不同高校、企业的研发人员共同参与贡献的开源项目。我们感谢所有为项目提供新功能支持的贡献者，以及提供宝贵反馈的用户。 我们希望这个工具箱和基准测试可以为社区提供灵活高效的代码工具，供用户微调 InternLM 并开发自己的新模型，从而不断为开源社区提供贡献。特别鸣谢[flash-attention](https://github.com/HazyResearch/flash-attention) 与 [ColossalAI](https://github.com/hpcaitech/ColossalAI) 两项开源项目。
 
-## License
+## 开源许可证
 
-The code is licensed under Apache-2.0, while model weights are fully open for academic research and also allow **free** commercial usage. To apply for a commercial license, please fill in the [application form (English)](https://wj.qq.com/s2/12727483/5dba/)/[申请表（中文）](https://wj.qq.com/s2/12725412/f7c1/). For other questions or collaborations, please contact <internlm@pjlab.org.cn>.
+本仓库的代码依照 Apache-2.0 协议开源。模型权重对学术研究完全开放，也可申请免费的商业使用授权（[申请表](https://wj.qq.com/s2/12725412/f7c1/)）。其他问题与合作请联系 <internlm@pjlab.org.cn>。
 
-## Citation
+## 引用
 
 ```
 @misc{2023internlm,
