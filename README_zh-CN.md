@@ -27,7 +27,7 @@
 [🤔提交反馈](https://github.com/InternLM/InternLM/issues/new)
 
 [English](./README.md) |
-[简体中文](./README_zh-CN.md) |
+[简体中文](./README_zh-CN.md)
 
 </div>
 

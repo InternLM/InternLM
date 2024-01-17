@@ -1,6 +1,6 @@
 # 对话
 
-[English](lmdeploy.md) | 简体中文
+[English](./README.md) | 简体中文
 
 本文介绍采用 [Transformers](#import-from-transformers)、[ModelScope](#import-from-modelscope)、[Web demos](#dialogue)
 对 InternLM2-Chat 进行推理。

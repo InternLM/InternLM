@@ -1,6 +1,6 @@
 # Chat
 
-English | [简体中文](lmdeploy_zh_zh-CN.md)
+English | [简体中文](./README_zh-CN.md)
 
 This document briefly shows how to use [Transformers](#import-from-transformers), [ModelScope](#import-from-modelscope), and [Web demos](#dialogue) to conduct inference with InternLM2-Chat.
 

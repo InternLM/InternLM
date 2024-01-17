@@ -12,31 +12,30 @@ jobs:
   lint-check:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-    - name: lint-flake8
-      run: |
-        pip install flake8==v3.8.4
-        FLAKE_DISABLE_LIST="F403,F405,W504,W503,E203"
-        flake8 --max-line-length=120 --ignore=$FLAKE_DISABLE_LIST ./internlm/*
-        flake8 --max-line-length=120 --ignore=$FLAKE_DISABLE_LIST ./train.py
+      - name: lint-flake8
+        run: |
+          pip install flake8==v3.8.4
+          FLAKE_DISABLE_LIST="F403,F405,W504,W503,E203"
+          flake8 --max-line-length=120 --ignore=$FLAKE_DISABLE_LIST ./internlm/*
+          flake8 --max-line-length=120 --ignore=$FLAKE_DISABLE_LIST ./train.py
 
-    - name: lint-isort
-      run: |
-        pip install isort==5.12.0
-        isort --check --profile=black ./internlm/*
-        isort --check --profile=black ./train.py
+      - name: lint-isort
+        run: |
+          pip install isort==5.12.0
+          isort --check --profile=black .
 
-    - name: lint-black
-      run: |
-        pip install black==22.8.0
-        BLACK_EXCLUDE_SETTINGS='\.venv/|\.local/|\.cache/|\.git/'
-        black --line-length=120 --check --exclude $BLACK_EXCLUDE_SETTINGS ./internlm/*
-        black --line-length=120 --check --exclude $BLACK_EXCLUDE_SETTINGS ./train.py
+      - name: lint-black
+        run: |
+          pip install black==22.8.0
+          BLACK_EXCLUDE_SETTINGS='\.venv/|\.local/|\.cache/|\.git/'
+          black --line-length=120 --check --exclude $BLACK_EXCLUDE_SETTINGS ./internlm/*
+          black --line-length=120 --check --exclude $BLACK_EXCLUDE_SETTINGS ./train.py
 
-    - name: lint-pylint
-      run: |
-        pip install pylint==v2.17.2
-        PYLINT_DISABLE_LIST="C0114,C0415,W0212,W0235,W0238,W0621,C0103,R1735,C2801,E0402,C0412,W0719,R1728,W1514,W0718,W0105,W0707,C0209,W0703,W1203"
-        pylint --rcfile .pylintrc --disable=$PYLINT_DISABLE_LIST ./internlm/*
-        pylint --rcfile .pylintrc --disable=$PYLINT_DISABLE_LIST ./train.py
+      - name: lint-pylint
+        run: |
+          pip install pylint==v2.17.2
+          PYLINT_DISABLE_LIST="C0114,C0415,W0212,W0235,W0238,W0621,C0103,R1735,C2801,E0402,C0412,W0719,R1728,W1514,W0718,W0105,W0707,C0209,W0703,W1203"
+          pylint --rcfile .pylintrc --disable=$PYLINT_DISABLE_LIST ./internlm/*
+          pylint --rcfile .pylintrc --disable=$PYLINT_DISABLE_LIST ./train.py

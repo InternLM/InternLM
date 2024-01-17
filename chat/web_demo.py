@@ -26,11 +26,11 @@ def on_btn_click():
 @st.cache_resource
 def load_model():
     model = (
-        AutoModelForCausalLM.from_pretrained("internlm/internlm-chat-7b", trust_remote_code=True)
+        AutoModelForCausalLM.from_pretrained("internlm/internlm2-chat-7b", trust_remote_code=True)
         .to(torch.bfloat16)
         .cuda()
     )
-    tokenizer = AutoTokenizer.from_pretrained("internlm/internlm-chat-7b", trust_remote_code=True)
+    tokenizer = AutoTokenizer.from_pretrained("internlm/internlm2-chat-7b", trust_remote_code=True)
     return model, tokenizer
 
 
@@ -46,9 +46,9 @@ def prepare_generation_config():
     return generation_config
 
 
-user_prompt = "<|User|>:{user}\n"
-robot_prompt = "<|Bot|>:{robot}<eoa>\n"
-cur_query_prompt = "<|User|>:{user}<eoh>\n<|Bot|>:"
+user_prompt = "[UNUSED_TOKEN_146]user\n{user}[UNUSED_TOKEN_145]\n"
+robot_prompt = "[UNUSED_TOKEN_146]assistant\n{robot}[UNUSED_TOKEN_145]\n"
+cur_query_prompt = "[UNUSED_TOKEN_146]user\n{user}[UNUSED_TOKEN_145]\n[UNUSED_TOKEN_146]assistant\n"
 
 
 def combine_history(prompt):
@@ -73,10 +73,10 @@ def main():
     model, tokenizer = load_model()
     print("load model end.")
 
-    user_avator = "docs/imgs/user.png"
-    robot_avator = "docs/imgs/robot.png"
+    user_avator = "assets/user.png"
+    robot_avator = "assets/robot.png"
 
-    st.title("InternLM-Chat-7B")
+    st.title("InternLM2-Chat-7B")
 
     generation_config = prepare_generation_config()
 
