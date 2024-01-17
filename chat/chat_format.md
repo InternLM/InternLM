@@ -1,3 +1,5 @@
+# Chat Format
+
 English | [简体中文](chat_format_zh-CN.md)
 
 InternLM2-Chat adopts a new chat format to flexibly support a wider range of applications, such as tool invocation, while avoiding user input attacks. This new format is similar to the [ChatML](https://github.com/openai/openai-python/blob/release-v0.28.0/chatml.md) format, but with an added `environment` role to support general-purpose AI applications, in addition to `system`, `user`, and `assistant`.
