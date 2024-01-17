@@ -130,11 +130,13 @@ The effect is similar to below:
 
 We use [LMDeploy](https://github.com/InternLM/LMDeploy) for fast deployment of InternLM.
 
-```shell
-# install LMDeploy
-python3 -m pip install lmdeploy
-# chat with internlm2
-lmdeploy chat turbomind InternLM/internlm2-chat-7b --model-name internlm2-chat-7b
+With only 4 lines of codes, you can perform `internlm2-chat-7b` inference after `pip install lmdeploy`.
+
+```python
+from lmdeploy import pipeline
+pipe = pipeline("internlm/internlm2-chat-7b")
+response = pipe(["Hi, pls intro yourself", "Shanghai is"])
+print(response)
 ```
 
 Please refer to the [guidance](./chat/lmdeploy.md) for more usages about model deployment. For additional deployment tutorials, feel free to explore [here](https://github.com/InternLM/LMDeploy).
