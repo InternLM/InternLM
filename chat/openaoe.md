@@ -28,7 +28,7 @@ openaoe -f /path/to/your/config-template.yaml
 There are two ways to get the OpenAOE docker image by:
 1. pull the OpenAOE docker image
 ```shell
-docker pull openaoe:latest
+docker pull opensealion/openaoe:latest
 ```
 
 2. or build a docker image
