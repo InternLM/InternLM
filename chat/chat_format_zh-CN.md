@@ -33,6 +33,14 @@ InternLM2-Chat 的完整对话格式在上述基本结构的基础上还包含�
 ```
 [UNUSED_TOKEN_146]system
 你是书生浦语2，一个无害的人工智能助手[UNUSED_TOKEN_145]
+[UNUSED_TOKEN_146]system name=[UNUSED_TOKEN_142]
+你现在可以使用一个支持 Python 代码执行的 Jupyter 笔记本环境。只需向 python 发送代码，即可在这个有状态环境中进行运行。这个功能适用于:
+- 数据分析或处理（如数据操作和图形制作）
+- 复杂计算（如数学和物理问题）
+- 编程示例（用于理解编程概念或语言特性）
+- 文本处理和分析（包括文本分析和自然语言处理）
+- 机器学习和数据科学（模型训练和数据可视化展示）
+- 文件操作和数据导入（处理CSV、JSON等格式文件）
 [UNUSED_TOKEN_146]system name=[UNUSED_TOKEN_141]
 [
     {
@@ -56,7 +64,7 @@ InternLM2-Chat 的完整对话格式在上述基本结构的基础上还包含�
 请帮我对该数据集进行数据处理并可视化。
 [UNUSED_TOKEN_145]
 [UNUSED_TOKEN_146]user name=file
-{"path": "data.csv"}[UNUSED_TOKEN_145]
+[{"path": "data.csv", size='10K'}][UNUSED_TOKEN_145]
 [UNUSED_TOKEN_146]assistant
 我已经帮您处理了数据并进行了可视化。
 
@@ -83,6 +91,7 @@ fig.show()
 ```[UNUSED_TOKEN_143]
 [UNUSED_TOKEN_145]
 [UNUSED_TOKEN_146]environment name=[UNUSED_TOKEN_142]
+![image](xxx.png)
 [UNUSED_TOKEN_145]
 [UNUSED_TOKEN_146]assistant
 由于代码输出没有包含在这里，我无法提供具体的图表内容。但是，如果代码执行无误，它会显示一个极坐标图，其中包含两个填充区域，一个代表上午9点的风向与降雨量的关系，另一个代表下午3点的风向与降雨量的关系。每个方向上的值是根据提供的数据集计算得到的平均降雨量。图表应该有一个清晰的标题、图例，并且能够直观地比较不同风向下的降雨量。由于使用了暗色主题，图表的整体外观应该是深色背景上的亮色线条和填充区域。[UNUSED_TOKEN_145]
