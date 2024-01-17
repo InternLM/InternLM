@@ -11,10 +11,9 @@ from dataclasses import asdict
 
 import streamlit as st
 import torch
+from tools.transformers.interface import GenerationConfig, generate_interactive
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from transformers.utils import logging
-
-from tools.transformers.interface import GenerationConfig, generate_interactive
 
 logger = logging.get_logger(__name__)
 
@@ -109,9 +108,15 @@ def main():
             ):
                 # Display robot response in chat message container
                 message_placeholder.markdown(cur_response + "▌")
-            message_placeholder.markdown(cur_response)
+            message_placeholder.markdown(cur_response)  # pylint: disable=undefined-loop-variable
         # Add robot response to chat history
-        st.session_state.messages.append({"role": "robot", "content": cur_response, "avatar": robot_avator})
+        st.session_state.messages.append(
+            {
+                "role": "robot",
+                "content": cur_response,  # pylint: disable=undefined-loop-variable
+                "avatar": robot_avator,
+            }
+        )
         torch.cuda.empty_cache()
 
 

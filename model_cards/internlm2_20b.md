@@ -38,5 +38,5 @@ We have evaluated InternLM2 on several important benchmarks using the open-sourc
 | MBPP(Sanitized) | 51.8 | 51.4 | 63.0 | 65.8 | 78.9 | 79.0 |
 
 
-- The evaluation results were obtained from [OpenCompass](https://github.com/open-compass/opencompass) , and evaluation configuration can be found in the configuration files provided by [OpenCompass](https://github.com/open-compass/opencompass). 
+- The evaluation results were obtained from [OpenCompass](https://github.com/open-compass/opencompass) , and evaluation configuration can be found in the configuration files provided by [OpenCompass](https://github.com/open-compass/opencompass).
 - The evaluation data may have numerical differences due to the version iteration of [OpenCompass](https://github.com/open-compass/opencompass), so please refer to the latest evaluation results of [OpenCompass](https://github.com/open-compass/opencompass).

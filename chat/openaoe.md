@@ -12,10 +12,10 @@ Currently already supported LLMs: [InternLM2-Chat-7B](https://huggingface.co/int
 
 We provide three different ways to run OpenAOE: `run by pip`， `run by docker` and `run by source code` as well.
 
-### Run by pip 
+### Run by pip
 #### **Install**
 ```shell
-pip install -U openaoe 
+pip install -U openaoe
 ```
 #### **Start**
 ```shell
@@ -65,7 +65,7 @@ python -m main -f /path/to/your/config-template.yaml
 ```
 
 > [!TIP]
-> `/path/to/your/config.yaml` is the configuration file loaded by OpenAOE at startup, 
+> `/path/to/your/config.yaml` is the configuration file loaded by OpenAOE at startup,
 > which contains the relevant configuration information for the LLMs,
 > including: API URLs, AKSKs, Tokens, etc.
 > A template configuration yaml file can be found in `openaoe/backend/config/config.yaml`.
