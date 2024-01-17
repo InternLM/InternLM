@@ -39,14 +39,14 @@
 
 InternLM2 系列模型在本仓库正式发布，具有如下特性：
 
-- 有效支持20万字超长上下文：模型在20万字长输入中几乎完美地实现长文“大海捞针”，而且在 LongBench 和 L-Eval 等长文任务中的表现也达到开源模型中的领先水平。 可以通过 [LMDeploy](./inference/) 尝试20万字超长上下文推理。
+- 有效支持20万字超长上下文：模型在 20 万字长输入中几乎完美地实现长文“大海捞针”，而且在 LongBench 和 L-Eval 等长文任务中的表现也达到开源模型中的领先水平。 可以通过 [LMDeploy](./inference/) 尝试20万字超长上下文推理。
 - 综合性能全面提升：各能力维度相比上一代模型全面进步，在推理、数学、代码、对话体验、指令遵循和创意写作等方面的能力提升尤为显著，综合性能达到同量级开源模型的领先水平，在重点能力评测上 InternLM2-Chat-20B 能比肩甚至超越 ChatGPT （GPT-3.5）。
 - 代码解释器与数据分析：在配合代码解释器（code-interpreter）的条件下，InternLM2-Chat-20B 在 GSM8K 和 MATH 上可以达到和 GPT-4 相仿的水平。基于在数理和工具方面强大的基础能力，InternLM2-Chat 提供了实用的数据分析能力。
 - 工具调用能力整体升级：基于更强和更具有泛化性的指令理解、工具筛选与结果反思等能力，新版模型可以更可靠地支持复杂智能体的搭建，支持对工具进行有效的多轮调用，完成较复杂的任务。可以查看更多[样例](./agent/)。
 
 ## 更新
 
-[2024.01.17] 我们发布了 InternLM2-7B 和 InternLM2-20B 以及相关的对话模型，InternLM2 在数理、代码、对话、创作等各方面能力都获得了长足进步，综合性能达到开源模型的领先水平。可以点击 [下面的模型库](#model-zoo)进行下载或者[查看模型文档](./model_cards/)来了解更多细节.
+[2024.01.17] 我们发布了 InternLM2-7B 和 InternLM2-20B 以及相关的对话模型，InternLM2 在数理、代码、对话、创作等各方面能力都获得了长足进步，综合性能达到开源模型的领先水平。可以点击[下面的模型库](#model-zoo)进行下载或者[查看模型文档](./model_cards/)来了解更多细节.
 
 [2023.12.13] 我们更新了 InternLM-7B-Chat 和 InternLM-20B-Chat 模型权重。通过改进微调数据和训练策略，新版对话模型生成的回复质量更高、语言风格更加多元。
 
@@ -67,17 +67,17 @@ InternLM2 系列模型在本仓库正式发布，具有如下特性：
 
 **关于模型说明：**
 
-在此次发布中，InternLM2 包含两种模型规格：7B和20B。7B为轻量级的研究和应用提供了一个轻便但性能不俗的模型，20B模型的综合性能更为强劲，可以有效支持更加复杂的实用场景。面向不同的使用需求，每个规格包含三个模型版本：
+在此次发布中，InternLM2 包含两种模型规格：7B 和 20B。7B 为轻量级的研究和应用提供了一个轻便但性能不俗的模型，20B 模型的综合性能更为强劲，可以有效支持更加复杂的实用场景。面向不同的使用需求，每个规格包含三个模型版本：
 
 1. InternLM2-Base：高质量和具有很强可塑性的模型基座，是模型进行深度领域适配的高质量起点。
-2. InternLM2：在Base基础上，在多个能力方向进行了强化，在评测中成绩优异，同时保持了很好的通用语言能力，是我们推荐的在大部分应用中考虑选用的优秀基座。
+2. InternLM2：在 Base 模型基础上，在多个能力方向进行了强化，在评测中成绩优异，同时保持了很好的通用语言能力，是我们推荐的在大部分应用中考虑选用的优秀基座。
 3. InternLM2-Chat：InternLM2-Chat 模型在 InternLM2-Base 模型的基础上，经过了 SFT 和 RLHF，面向对话交互进行了优化，具有较好的指令遵循、共情聊天和调用工具等的能力，是我们推荐直接用于下游应用的模型。我们同时开源了这些模型使用的 SFT 版本方便社区的对齐研究，标记为 InternLM2-Chat 7B/20B SFT。
 
 **局限性：** 尽管在训练过程中我们非常注重模型的安全性，尽力促使模型输出符合伦理和法律要求的文本，但受限于模型大小以及概率生成范式，模型可能会产生各种不符合预期的输出，例如回复内容包含偏见、歧视等有害内容，请勿传播这些内容。由于传播不良信息导致的任何后果，本项目不承担责任。
 
 ## 使用案例
 
-接下来我们展示使用 [Transformers](#import-from-transformers), [ModelScope](#import-from-modelscope), 和 [Web demo](#dialogue) 进行推理.
+接下来我们展示使用 [Transformers](#import-from-transformers)，[ModelScope](#import-from-modelscope) 和 [Web demo](#dialogue) 进行推理。
 对话模型采用了 [chatml 格式](./chat/chat_format.md) 来支持通用对话和智能体应用。
 
 ### 通过 Transformers 加载
@@ -127,7 +127,7 @@ streamlit run ./chat/web_demo.py
 
 ![效果](https://github.com/InternLM/InternLM/assets/9102141/11b60ee0-47e4-42c0-8278-3051b2f17fe4)
 
-### 基于InternLM高性能部署
+### 基于 InternLM 高性能部署
 
 我们使用 [LMDeploy](https://github.com/InternLM/LMDeploy) 完成 InternLM 的一键部署。
 
@@ -146,7 +146,7 @@ print(response)
 
 请参考[微调教程](./finetune/)尝试续训或微调 InternLM2。
 
-**注意：**本项目中的全量训练功能已经迁移到了[InternEvo](https://github.com/InternLM/InternEvo)以便捷用户的使用。InternEvo 提供了高效的预训练和微调基建用于训练 InternLM 系列模型。
+**注意：** 本项目中的全量训练功能已经迁移到了 [InternEvo](https://github.com/InternLM/InternEvo) 以便用户使用。InternEvo 提供了高效的预训练和微调基建用于训练 InternLM 系列模型。
 
 ## 贡献
 
@@ -154,7 +154,7 @@ print(response)
 
 ## 致谢
 
-InternLM 代码库是一款由上海人工智能实验室和来自不同高校、企业的研发人员共同参与贡献的开源项目。我们感谢所有为项目提供新功能支持的贡献者，以及提供宝贵反馈的用户。 我们希望这个工具箱和基准测试可以为社区提供灵活高效的代码工具，供用户微调 InternLM 并开发自己的新模型，从而不断为开源社区提供贡献。特别鸣谢[flash-attention](https://github.com/HazyResearch/flash-attention) 与 [ColossalAI](https://github.com/hpcaitech/ColossalAI) 两项开源项目。
+InternLM 代码库是一款由上海人工智能实验室和来自不同高校、企业的研发人员共同参与贡献的开源项目。我们感谢所有为项目提供新功能支持的贡献者，以及提供宝贵反馈意见的用户。我们希望这个工具箱和基准测试可以为社区提供灵活高效的代码工具，供用户微调 InternLM 并开发自己的新模型，从而不断为开源社区提供贡献。特别鸣谢 [flash-attention](https://github.com/HazyResearch/flash-attention) 与 [ColossalAI](https://github.com/hpcaitech/ColossalAI) 两项开源项目。
 
 ## 开源许可证
 
