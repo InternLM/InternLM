@@ -103,7 +103,7 @@ def main():
                 model=model,
                 tokenizer=tokenizer,
                 prompt=real_prompt,
-                additional_eos_token_id=103028,
+                additional_eos_token_id=92542,
                 **asdict(generation_config),
             ):
                 # Display robot response in chat message container
