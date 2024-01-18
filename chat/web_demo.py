@@ -11,7 +11,7 @@ from dataclasses import asdict
 
 import streamlit as st
 import torch
-from tools.transformers.interface import GenerationConfig, generate_interactive
+from interface import GenerationConfig, generate_interactive
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from transformers.utils import logging
 
