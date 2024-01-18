@@ -19,4 +19,4 @@ InternLM2-Chat 进一步提高了它在代码解释和通用工具调用方面�
 
 ## 体验
 
-我们提供了使用 [Lagent](lagent_zh_cn.md) 来基于 InternLM2-Chat 构建智能体调用代码解释器或者搜索等工具的例子。同时，我们也提供了采用 [PAL 评测 GSM8K 数学题](pal_inference_zh-CN.md) InternLM-Chat-7B 的样例。
+我们提供了使用 [Lagent](lagent_zh_CN.md) 来基于 InternLM2-Chat 构建智能体调用代码解释器或者搜索等工具的例子。同时，我们也提供了采用 [PAL 评测 GSM8K 数学题](pal_inference_zh-CN.md) InternLM-Chat-7B 的样例。
