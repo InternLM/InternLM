@@ -69,7 +69,7 @@ InternLM2 series are released with the following features:
 The release of InternLM2 series contains two model sizes: 7B and 20B. 7B models are efficient for research and application and 20B models are more powerful and can support more complex scenarios. For each model size, there are four types of models for different user requirements
 
 1. InternLM2-Base: Foundation models with high quality and high adaptation flexibility, which serve as a good starting point for downstream deep adaptations.
-2. InternLM2: Optimized in multiple dimensions based on InternLM2-Base, obtaining state-of-the-art performance in evaluation with good language capability. InternLM2 models are recommended for consideration in most applications.
+2. InternLM2: Further pretrain with general domain data and domain-enhanced corpus, obtaining state-of-the-art performance in evaluation with good language capability. InternLM2 models are recommended for consideration in most applications.
 3. InternLM2-Chat-SFT: Intermediate version of InternLM2-Chat that only undergoes supervised fine-tuning (SFT), based on the InternLM2-Base model. We release them to benefit research on alignment.
 4. InternLM2-Chat: Further aligned on top of InternLM2-Chat-SFT through online RLHF. InternLM2-Chat exhibits better instruction following, chat experience, and function call, which is recommended for downstream applications.
 

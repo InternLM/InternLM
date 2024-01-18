@@ -5,7 +5,7 @@
 The second generation of the InternLM model, InternLM2, includes models at two scales: 7B and 20B. For the convenience of users and researchers, we have open-sourced four versions of each scale of the model, which are:
 
 - internlm2-base-20b: Foundation models with high quality and high adaptation flexibility, which serve as a good starting point for downstream deep adaptations.
-- internlm2-20b (**recommended**): Optimized in multiple dimensions based on InternLM2-Base, obtaining state-of-the-art performance in evaluation with good language capability. InternLM2 models are recommended for consideration in most applications.
+- internlm2-20b (**recommended**): Further pretrain with general domain data and domain-enhanced corpus, obtaining state-of-the-art performance in evaluation with good language capability. InternLM2 models are recommended for consideration in most applications.
 - internlm2-chat-20b-sft: Intermediate version of InternLM2-Chat that only undergoes supervised fine-tuning (SFT), based on the InternLM2-Base model. We release them to benefit research on alignment.
 - internlm2-chat-20b (**recommended**): Further aligned on top of InternLM2-Chat-SFT through online RLHF. InternLM2-Chat exhibits better instruction following, chat experience, and function calling, which is recommended for downstream applications.
 
