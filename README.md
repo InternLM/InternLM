@@ -17,10 +17,7 @@
 [![license](./assets/license.svg)](./LICENSE)
 [![evaluation](./assets/compass_support.svg)](https://github.com/internLM/OpenCompass/)
 <!-- [![Documentation Status](https://readthedocs.org/projects/internlm/badge/?version=latest)](https://internlm.readthedocs.io/zh_CN/latest/?badge=latest) -->
-[📘Chat](./chat) |
-[🛠️Agent](./agent) |
-[📊Evaluation](#evaluation) |
-[👀Model](./model_cards) |
+[📘Commercial Application](#license) |
 [🤗HuggingFace](https://huggingface.co/spaces/internlm/internlm2-Chat-7B) |
 [🆕Update News](#news) |
 [🤔Reporting Issues](https://github.com/InternLM/InternLM/issues/new)
@@ -38,7 +35,7 @@
 
 InternLM2 series are released with the following features:
 
-- **200K Context window**: Nearly perfect at finding needles in the haystack with 200K-long context, with leading performance on long-context tasks like LongBench and L-Eval. Try it with [LMDeploy](./inference/) for 200K-context inference.
+- **200K Context window**: Nearly perfect at finding needles in the haystack with 200K-long context, with leading performance on long-context tasks like LongBench and L-Eval. Try it with [LMDeploy](./chat/lmdeploy.md) for 200K-context inference.
 
 - **Outstanding comprehensive performance**: Significantly better than the last generation in all dimensions, especially in reasoning, math, code, chat experience, instruction following, and creative writing, with leading performance among open-source models in similar sizes. In some evaluations, InternLM2-Chat-20B may match or even surpass ChatGPT (GPT-3.5).
 
@@ -67,7 +64,6 @@ InternLM2 series are released with the following features:
 | **InternLM2-Chat-20B-SFT**     | [🤗internlm/internlm2-chat-20b-sft](https://huggingface.co/internlm/internlm2-chat-20b-sft)         | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-chat-20b-sft](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-20b-sft/summary)         | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-20b-sft)     | 2024-01-17   |
 | **InternLM2-Chat-20B**     | [🤗internlm/internlm2-chat-20b](https://huggingface.co/internlm/internlm2-chat-20b)         | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-chat-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-20b/summary)         | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-20b)     | 2024-01-17   |
 
-
 **Note of Models:**
 
 The release of InternLM2 series contains two model sizes: 7B and 20B. 7B models are efficient for research and application and 20B models are more powerful and can support more complex scenarios. For each model size, there are four types of models for different user requirements
@@ -75,13 +71,14 @@ The release of InternLM2 series contains two model sizes: 7B and 20B. 7B models 
 1. InternLM2-Base: Foundation models with high quality and high adaptation flexibility, which serve as a good starting point for downstream deep adaptations.
 2. InternLM2: Optimized in multiple dimensions based on InternLM2-Base, obtaining state-of-the-art performance in evaluation with good language capability. InternLM2 models are recommended for consideration in most applications.
 3. InternLM2-Chat-SFT: Intermediate version of InternLM2-Chat that only undergoes supervised fine-tuning (SFT), based on the InternLM2-Base model. We release them to benefit research on alignment.
-4. InternLM2-Chat: Further aligned on top of InternLM2-Chat-SFT through online RLHF. InternLM2-Chat exhibits better instruction following, chat experience, and function calling, which is recommended for downstream applications.
+4. InternLM2-Chat: Further aligned on top of InternLM2-Chat-SFT through online RLHF. InternLM2-Chat exhibits better instruction following, chat experience, and function call, which is recommended for downstream applications.
 
 **Limitations:** Although we have made efforts to ensure the safety of the model during the training process and to encourage the model to generate text that complies with ethical and legal requirements, the model may still produce unexpected outputs due to its size and probabilistic generation paradigm. For example, the generated responses may contain biases, discrimination, or other harmful content. Please do not propagate such content. We are not responsible for any consequences resulting from the dissemination of harmful information.
 
 ## Performance
 
 ### Objective Evaluation
+
 | Dataset                | Baichuan2-7B-Chat | Mistral-7B-Instruct-v0.2 | Qwen-7B-Chat | InternLM2-Chat-7B | ChatGLM3-6B | Baichuan2-13B-Chat | Mixtral-8x7B-Instruct-v0.1 | Qwen-14B-Chat | InternLM2-Chat-20B |
 |-----------------------|-------------------|--------------------------|--------------|-------------------|-------------|---------------------|--------------------------------|---------------|---------------------|
 | MMLU                  | 50.1              | 59.2                     | 57.1         | 63.7              | 58.0        | 56.6                | 70.3                          | 66.7          | 65.1                |
@@ -119,7 +116,7 @@ The release of InternLM2 series contains two model sizes: 7B and 20B. 7B models 
 | GPT-4 0613         | 15.76%   | 1140   |
 | Claude 2.1         | 15.73%   | 1096   |
 
-* According to the released performance of 2024-01-17.
+- According to the released performance of 2024-01-17.
 
 ## Usages
 

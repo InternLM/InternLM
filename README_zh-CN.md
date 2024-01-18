@@ -18,12 +18,9 @@
 [![evaluation](./assets//compass_support.svg)](https://github.com/internLM/OpenCompass/)
 <!-- [![Documentation Status](https://readthedocs.org/projects/internlm/badge/?version=latest)](https://internlm.readthedocs.io/zh_CN/latest/?badge=latest) -->
 
-[📘对话教程](./chat) |
-[🛠️智能体教程](./agent) |
-[📊评测](#评测) |
-[👀模型库](./model_cards) |
+[📘商业授权](#开源许可证) |
 [🤗HuggingFace](https://huggingface.co/spaces/internlm/internlm2-Chat-7B) |
-[🆕Update News](#news) |
+[🆕最新消息](#更新) |
 [🤔提交反馈](https://github.com/InternLM/InternLM/issues/new)
 
 [English](./README.md) |
@@ -39,7 +36,7 @@
 
 InternLM2 系列模型在本仓库正式发布，具有如下特性：
 
-- 有效支持20万字超长上下文：模型在 20 万字长输入中几乎完美地实现长文“大海捞针”，而且在 LongBench 和 L-Eval 等长文任务中的表现也达到开源模型中的领先水平。 可以通过 [LMDeploy](./inference/) 尝试20万字超长上下文推理。
+- 有效支持20万字超长上下文：模型在 20 万字长输入中几乎完美地实现长文“大海捞针”，而且在 LongBench 和 L-Eval 等长文任务中的表现也达到开源模型中的领先水平。 可以通过 [LMDeploy](./chat/lmdeploy_zh_cn.md) 尝试20万字超长上下文推理。
 - 综合性能全面提升：各能力维度相比上一代模型全面进步，在推理、数学、代码、对话体验、指令遵循和创意写作等方面的能力提升尤为显著，综合性能达到同量级开源模型的领先水平，在重点能力评测上 InternLM2-Chat-20B 能比肩甚至超越 ChatGPT （GPT-3.5）。
 - 代码解释器与数据分析：在配合代码解释器（code-interpreter）的条件下，InternLM2-Chat-20B 在 GSM8K 和 MATH 上可以达到和 GPT-4 相仿的水平。基于在数理和工具方面强大的基础能力，InternLM2-Chat 提供了实用的数据分析能力。
 - 工具调用能力整体升级：基于更强和更具有泛化性的指令理解、工具筛选与结果反思等能力，新版模型可以更可靠地支持复杂智能体的搭建，支持对工具进行有效的多轮调用，完成较复杂的任务。可以查看更多[样例](./agent/)。
@@ -79,6 +76,7 @@ InternLM2 系列模型在本仓库正式发布，具有如下特性：
 ## 性能
 
 ### 客观评测
+
 | Dataset                | Baichuan2-7B-Chat | Mistral-7B-Instruct-v0.2 | Qwen-7B-Chat | InternLM2-Chat-7B | ChatGLM3-6B | Baichuan2-13B-Chat | Mixtral-8x7B-Instruct-v0.1 | Qwen-14B-Chat | InternLM2-Chat-20B |
 |-----------------------|-------------------|--------------------------|--------------|-------------------|-------------|---------------------|--------------------------------|---------------|---------------------|
 | MMLU                  | 50.1              | 59.2                     | 57.1         | 63.7              | 58.0        | 56.6                | 70.3                          | 66.7          | 65.1                |
@@ -116,7 +114,7 @@ InternLM2 系列模型在本仓库正式发布，具有如下特性：
 | GPT-4 0613         | 15.76%   | 1140   |
 | Claude 2.1         | 15.73%   | 1096   |
 
-* 性能数据截止2024-01-17
+- 性能数据截止2024-01-17
 
 ## 使用案例
 
