@@ -7,20 +7,15 @@ Please refer to these links below for more information:
     3. transformers: https://github.com/huggingface/transformers
 """
 
-from dataclasses import asdict
+import copy
+import warnings
+from dataclasses import asdict, dataclass
+from typing import Callable, List, Optional
 
 import streamlit as st
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from transformers.utils import logging
-
-import copy
-import warnings
-from dataclasses import dataclass
-from typing import Callable, List, Optional
-
-import torch
 from torch import nn
+from transformers import AutoModelForCausalLM, AutoTokenizer
 from transformers.generation.utils import LogitsProcessorList, StoppingCriteriaList
 from transformers.utils import logging
 
@@ -188,7 +183,7 @@ cur_query_prompt = "[UNUSED_TOKEN_146]user\n{user}[UNUSED_TOKEN_145]\n[UNUSED_TO
 
 def combine_history(prompt):
     messages = st.session_state.messages
-    meta_instruction = "You are InternLM (书生·浦语), a helpful, honest, and harmless AI assistant developed by Shanghai AI Laboratory (上海人工智能实验室)."
+    meta_instruction = "You are InternLM (书生·浦语), a helpful, honest, and harmless AI assistant developed by Shanghai AI Laboratory (上海人工智能实验室)."  # noqa:E501
     total_prompt = f"<s>[UNUSED_TOKEN_146]system\n{meta_instruction}[UNUSED_TOKEN_145]\n"
     for message in messages:
         cur_content = message["content"]
