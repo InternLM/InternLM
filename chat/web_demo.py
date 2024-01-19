@@ -17,7 +17,7 @@ from typing import Callable, List, Optional
 import streamlit as st
 import torch
 from torch import nn
-from transformers import AutoTokenizer, AutoModelForCausalLM # isort: skip
+from transformers import AutoTokenizer, AutoModelForCausalLM  # isort: skip
 from transformers.generation.utils import LogitsProcessorList, StoppingCriteriaList
 from transformers.utils import logging
 
