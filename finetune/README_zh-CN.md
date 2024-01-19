@@ -2,12 +2,11 @@
 
 [English](./README.md) | 简体中文
 
-我们推荐以下两种框架微调 InternLM
+我们推荐以下两种框架微调 InternLM：
 
 1. [XTuner](https://github.com/InternLM/xtuner) 是一个高效、灵活、全能的轻量化大模型微调工具库。
 
-2. [InternLM-Train](): brief introduction
-
+2. [InternEvo](https://github.com/InternLM/InternEvo/) 是一个支持大规模预训练和微调的训练框架。
 
 ## XTuner
 
@@ -17,7 +16,6 @@
 2. 支持 [QLoRA](http://arxiv.org/abs/2305.14314)、[LoRA](http://arxiv.org/abs/2106.09685)、全量参数微调等多种微调算法，支撑用户根据具体需求作出最优选择。
 3. 兼容 [DeepSpeed](https://github.com/microsoft/DeepSpeed) 🚀，轻松应用各种 ZeRO 训练优化策略。
 4. 训练所得模型可无缝接入部署工具库 [LMDeploy](https://github.com/InternLM/lmdeploy)、大规模评测工具库 [OpenCompass](https://github.com/open-compass/opencompass) 及 [VLMEvalKit](https://github.com/open-compass/VLMEvalKit)。
-
 
 ### 安装
 
@@ -35,7 +33,6 @@
   ```
 
 ### 微调
-
 
 - **步骤 0**，准备配置文件。XTuner 提供多个开箱即用的配置文件，用户可以通过下列命令查看所有 InternLM2 的预置配置文件：
 
@@ -91,6 +88,11 @@ xtuner chat internlm/internlm2-chat-7b --adapter xtuner/internlm2-chat-7b-qlora-
 ```
 
 与 LLaVA-InternLM2-7B 对话：
+
 ```shell
 xtuner chat internlm/internlm2-chat-7b --visual-encoder openai/clip-vit-large-patch14-336 --llava xtuner/llava-internlm2-7b --prompt-template internlm2_chat --image $IMAGE_PATH
 ```
+
+## InternEvo
+
+[TODO]
