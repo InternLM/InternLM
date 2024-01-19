@@ -18,7 +18,7 @@
 [![evaluation](./assets/compass_support.svg)](https://github.com/internLM/OpenCompass/)
 <!-- [![Documentation Status](https://readthedocs.org/projects/internlm/badge/?version=latest)](https://internlm.readthedocs.io/zh_CN/latest/?badge=latest) -->
 [📘Commercial Application](#license) |
-[🤗HuggingFace](https://huggingface.co/spaces/internlm/internlm2-Chat-7B) |
+[🤗HuggingFace](https://huggingface.co/internlm) |
 [🆕Update News](#news) |
 [🤔Reporting Issues](https://github.com/InternLM/InternLM/issues/new)
 
@@ -83,7 +83,7 @@ The release of InternLM2 series contains two model sizes: 7B and 20B. 7B models 
 
 | Dataset                | Baichuan2-7B-Chat | Mistral-7B-Instruct-v0.2 | Qwen-7B-Chat | InternLM2-Chat-7B | ChatGLM3-6B | Baichuan2-13B-Chat | Mixtral-8x7B-Instruct-v0.1 | Qwen-14B-Chat | InternLM2-Chat-20B |
 |-----------------------|-------------------|--------------------------|--------------|-------------------|-------------|---------------------|--------------------------------|---------------|---------------------|
-| MMLU                  | 50.1              | 59.2                     | 57.1         | 63.7              | 58.0        | 56.6                | 70.3                          | 66.7          | 65.1                |
+| MMLU                  | 50.1              | 59.2                     | 57.1         | 63.7              | 58.0        | 56.6                | 70.3                          | 66.7          | 66.5                |
 | CMMLU                 | 53.4              | 42.0                     | 57.9         | 63.0              | 57.8        | 54.8                | 50.6                          | 68.1          | 65.1                |
 | AGIEval               | 35.3              | 34.5                     | 39.7         | 47.2              | 44.2        | 40.0                | 41.7                          | 46.5          | 50.3                |
 | C-Eval                | 53.9              | 42.4                     | 59.8         | 60.8              | 59.1        | 56.3                | 54.0                          | 71.5          | 63.0                |
