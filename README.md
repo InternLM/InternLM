@@ -18,7 +18,7 @@
 [![evaluation](./assets/compass_support.svg)](https://github.com/internLM/OpenCompass/)
 <!-- [![Documentation Status](https://readthedocs.org/projects/internlm/badge/?version=latest)](https://internlm.readthedocs.io/zh_CN/latest/?badge=latest) -->
 [📘Commercial Application](#license) |
-[🤗HuggingFace](https://huggingface.co/spaces/internlm/internlm2-Chat-7B) |
+[🤗HuggingFace](https://huggingface.co/internlm) |
 [🆕Update News](#news) |
 [🤔Reporting Issues](https://github.com/InternLM/InternLM/issues/new)
 
@@ -64,14 +64,16 @@ InternLM2 series are released with the following features:
 | **InternLM2-Chat-20B-SFT**     | [🤗internlm/internlm2-chat-20b-sft](https://huggingface.co/internlm/internlm2-chat-20b-sft)         | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-chat-20b-sft](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-20b-sft/summary)         | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-20b-sft)     | 2024-01-17   |
 | **InternLM2-Chat-20B**     | [🤗internlm/internlm2-chat-20b](https://huggingface.co/internlm/internlm2-chat-20b)         | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-chat-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-20b/summary)         | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-20b)     | 2024-01-17   |
 
-**Note of Models:**
+**Notes:**
 
-The release of InternLM2 series contains two model sizes: 7B and 20B. 7B models are efficient for research and application and 20B models are more powerful and can support more complex scenarios. For each model size, there are four types of models for different user requirements
+The release of InternLM2 series contains two model sizes: 7B and 20B. 7B models are efficient for research and application and 20B models are more powerful and can support more complex scenarios. The relation of these models are shown as follows.
 
-1. InternLM2-Base: Foundation models with high quality and high adaptation flexibility, which serve as a good starting point for downstream deep adaptations.
-2. InternLM2: Optimized in multiple dimensions based on InternLM2-Base, obtaining state-of-the-art performance in evaluation with good language capability. InternLM2 models are recommended for consideration in most applications.
-3. InternLM2-Chat-SFT: Intermediate version of InternLM2-Chat that only undergoes supervised fine-tuning (SFT), based on the InternLM2-Base model. We release them to benefit research on alignment.
-4. InternLM2-Chat: Further aligned on top of InternLM2-Chat-SFT through online RLHF. InternLM2-Chat exhibits better instruction following, chat experience, and function call, which is recommended for downstream applications.
+![](https://internlm.oss-cn-shanghai.aliyuncs.com/series.png)
+
+1. **InternLM2-Base**: Foundation models with high quality and high adaptation flexibility, which serve as a good starting point for downstream deep adaptations.
+2. **InternLM2**: Further pretrain with general domain data and domain-enhanced corpus, obtaining state-of-the-art performance in evaluation with good language capability. InternLM2 models are recommended for consideration in most applications.
+3. **InternLM2-Chat-SFT**: Intermediate version of InternLM2-Chat that only undergoes supervised fine-tuning (SFT), based on the InternLM2-Base model. We release them to benefit research on alignment.
+4. **InternLM2-Chat**: Further aligned on top of InternLM2-Chat-SFT through online RLHF. InternLM2-Chat exhibits better instruction following, chat experience, and function call, which is recommended for downstream applications.
 
 **Limitations:** Although we have made efforts to ensure the safety of the model during the training process and to encourage the model to generate text that complies with ethical and legal requirements, the model may still produce unexpected outputs due to its size and probabilistic generation paradigm. For example, the generated responses may contain biases, discrimination, or other harmful content. Please do not propagate such content. We are not responsible for any consequences resulting from the dissemination of harmful information.
 
@@ -81,7 +83,7 @@ The release of InternLM2 series contains two model sizes: 7B and 20B. 7B models 
 
 | Dataset                | Baichuan2-7B-Chat | Mistral-7B-Instruct-v0.2 | Qwen-7B-Chat | InternLM2-Chat-7B | ChatGLM3-6B | Baichuan2-13B-Chat | Mixtral-8x7B-Instruct-v0.1 | Qwen-14B-Chat | InternLM2-Chat-20B |
 |-----------------------|-------------------|--------------------------|--------------|-------------------|-------------|---------------------|--------------------------------|---------------|---------------------|
-| MMLU                  | 50.1              | 59.2                     | 57.1         | 63.7              | 58.0        | 56.6                | 70.3                          | 66.7          | 65.1                |
+| MMLU                  | 50.1              | 59.2                     | 57.1         | 63.7              | 58.0        | 56.6                | 70.3                          | 66.7          | 66.5                |
 | CMMLU                 | 53.4              | 42.0                     | 57.9         | 63.0              | 57.8        | 54.8                | 50.6                          | 68.1          | 65.1                |
 | AGIEval               | 35.3              | 34.5                     | 39.7         | 47.2              | 44.2        | 40.0                | 41.7                          | 46.5          | 50.3                |
 | C-Eval                | 53.9              | 42.4                     | 59.8         | 60.8              | 59.1        | 56.3                | 54.0                          | 71.5          | 63.0                |

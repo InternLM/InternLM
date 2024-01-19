@@ -6,8 +6,7 @@ We recommend two projects to fine-tune InternLM.
 
 1. [XTuner](https://github.com/InternLM/xtuner) is an efficient, flexible and full-featured toolkit for fine-tuning large models.
 
-2. [InternLM-Train](): brief introduction
-
+2. [InternEvo](https://github.com/InternLM/InternEvo/) is a powerful training framework that supports large-scale pre-training and finetuning.
 
 ## XTuner
 
@@ -95,3 +94,7 @@ LLaVA-InternLM2-7B:
 ```shell
 xtuner chat internlm/internlm2-chat-7b --visual-encoder openai/clip-vit-large-patch14-336 --llava xtuner/llava-internlm2-7b --prompt-template internlm2_chat --image $IMAGE_PATH
 ```
+
+## InternEvo
+
+[TODO]

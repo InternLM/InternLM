@@ -39,7 +39,7 @@ python pal_inference.py \
 简单的使用示例如下：
 
 ```bash
-python tools/pal_inference.py internlm/internlm-chat-7k ./output -v
+python tools/pal_inference.py internlm/internlm-chat-7b ./output -v
 ```
 
 其输出文件每一行包括输入的问题，正确答案，执行答案，得分，以及模型生成的 Python 代码块：
