@@ -5,8 +5,9 @@ Please refer to these links below for more information:
     1. streamlit chat example: https://docs.streamlit.io/knowledge-base/tutorials/build-conversational-apps
     2. chatglm2: https://github.com/THUDM/ChatGLM2-6B
     3. transformers: https://github.com/huggingface/transformers
+Please run with the command `streamlit run path/to/web_demo.py --server.address=0.0.0.0 --server.port 7860`.
+Using `python path/to/web_demo.py` may cause unknown problems.
 """
-
 import copy
 import warnings
 from dataclasses import asdict, dataclass
@@ -15,9 +16,10 @@ from typing import Callable, List, Optional
 import streamlit as st
 import torch
 from torch import nn
-from transformers import AutoModelForCausalLM, AutoTokenizer
 from transformers.generation.utils import LogitsProcessorList, StoppingCriteriaList
 from transformers.utils import logging
+
+from transformers import AutoTokenizer, AutoModelForCausalLM  # isort: skip
 
 logger = logging.get_logger(__name__)
 
