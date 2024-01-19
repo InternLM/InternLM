@@ -183,8 +183,10 @@ cur_query_prompt = "[UNUSED_TOKEN_146]user\n{user}[UNUSED_TOKEN_145]\n[UNUSED_TO
 
 def combine_history(prompt):
     messages = st.session_state.messages
-    meta_instruction = ("You are InternLM (书生·浦语), a helpful, honest, and harmless AI assistant developed by Shanghai "
-                        "AI Laboratory (上海人工智能实验室).")
+    meta_instruction = (
+        "You are InternLM (书生·浦语), a helpful, honest, and harmless AI assistant developed by Shanghai "
+        "AI Laboratory (上海人工智能实验室)."
+    )
     total_prompt = f"<s>[UNUSED_TOKEN_146]system\n{meta_instruction}[UNUSED_TOKEN_145]\n"
     for message in messages:
         cur_content = message["content"]
