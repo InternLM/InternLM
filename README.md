@@ -18,7 +18,7 @@
 [![evaluation](./assets/compass_support.svg)](https://github.com/internLM/OpenCompass/)
 <!-- [![Documentation Status](https://readthedocs.org/projects/internlm/badge/?version=latest)](https://internlm.readthedocs.io/zh_CN/latest/?badge=latest) -->
 [📘Commercial Application](#license) |
-[🤗HuggingFace](https://huggingface.co/spaces/internlm/InternLM2-Chat-20B-4bits) |
+[🤗HuggingFace](https://huggingface.co/spaces/internlm/InternLM2-Chat-20B) |
 [🆕Update News](#news) |
 [🤔Reporting Issues](https://github.com/InternLM/InternLM/issues/new)
 
