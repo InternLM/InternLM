@@ -178,9 +178,9 @@ def prepare_generation_config():
     return generation_config
 
 
-user_prompt = "[UNUSED_TOKEN_146]user\n{user}[UNUSED_TOKEN_145]\n"
-robot_prompt = "[UNUSED_TOKEN_146]assistant\n{robot}[UNUSED_TOKEN_145]\n"
-cur_query_prompt = "[UNUSED_TOKEN_146]user\n{user}[UNUSED_TOKEN_145]\n[UNUSED_TOKEN_146]assistant\n"
+user_prompt = "<|im_start|>user\n{user}<|im_end|>\n"
+robot_prompt = "<|im_start|>assistant\n{robot}<|im_end|>\n"
+cur_query_prompt = "<|im_start|>user\n{user}<|im_end|>\n<|im_start|>assistant\n"
 
 
 def combine_history(prompt):
@@ -189,7 +189,7 @@ def combine_history(prompt):
         "You are InternLM (书生·浦语), a helpful, honest, and harmless AI assistant developed by Shanghai "
         "AI Laboratory (上海人工智能实验室)."
     )
-    total_prompt = f"<s>[UNUSED_TOKEN_146]system\n{meta_instruction}[UNUSED_TOKEN_145]\n"
+    total_prompt = f"<s><|im_start|>system\n{meta_instruction}<|im_end|>\n"
     for message in messages:
         cur_content = message["content"]
         if message["role"] == "user":
