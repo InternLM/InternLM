@@ -62,14 +62,16 @@ InternLM2 系列模型在本仓库正式发布，具有如下特性：
 | **InternLM2-Chat-20B-SFT**     | [🤗internlm/internlm2-chat-20b-sft](https://huggingface.co/internlm/internlm2-chat-20b-sft)         | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-chat-20b-sft](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-20b-sft/summary)         | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-20b-sft)     | 2024-01-17   |
 | **InternLM2-Chat-20B**     | [🤗internlm/internlm2-chat-20b](https://huggingface.co/internlm/internlm2-chat-20b)         | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-chat-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-20b/summary)         | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-20b)     | 2024-01-17   |
 
-**关于模型说明：**
+**模型说明：**
 
-在此次发布中，InternLM2 包含两种模型规格：7B 和 20B。7B 为轻量级的研究和应用提供了一个轻便但性能不俗的模型，20B 模型的综合性能更为强劲，可以有效支持更加复杂的实用场景。面向不同的使用需求，每个规格包含四个模型版本：
+在此次发布中，InternLM2 包含两种模型规格：7B 和 20B。7B 为轻量级的研究和应用提供了一个轻便但性能不俗的模型，20B 模型的综合性能更为强劲，可以有效支持更加复杂的实用场景。每个规格不同模型关系如下图所示：
 
-1. InternLM2-Base：高质量和具有很强可塑性的模型基座，是模型进行深度领域适配的高质量起点。
-2. InternLM2：进一步在大规模无标签数据上进行预训练，并结合特定领域的增强语料库进行训练，在评测中成绩优异，同时保持了很好的通用语言能力，是我们推荐的在大部分应用中考虑选用的优秀基座。
-3. InternLM2-Chat-SFT: 基于 InternLM2-Base 模型进行了有监督微调，是 InternLM2-Chat 模型的中间版本。我们将它们开源以助力社区在对齐方面的研究。
-4. InternLM2-Chat: 在 InternLM2-Chat-SFT 的基础上进行了 online RLHF 以进一步对齐. InternLM2-Chat 面向对话交互进行了优化，具有较好的指令遵循、共情聊天和调用工具等的能力，是我们推荐直接用于下游应用的模型。
+![](https://internlm.oss-cn-shanghai.aliyuncs.com/series.png)
+
+1. **InternLM2-Base**：高质量和具有很强可塑性的模型基座，是模型进行深度领域适配的高质量起点。
+2. **InternLM2**：进一步在大规模无标签数据上进行预训练，并结合特定领域的增强语料库进行训练，在评测中成绩优异，同时保持了很好的通用语言能力，是我们推荐的在大部分应用中考虑选用的优秀基座。
+3. **InternLM2-Chat-SFT**: 基于 InternLM2-Base 模型进行了有监督微调，是 InternLM2-Chat 模型的中间版本。我们将它们开源以助力社区在对齐方面的研究。
+4. **InternLM2-Chat**: 在 InternLM2-Chat-SFT 的基础上进行了 online RLHF 以进一步对齐. InternLM2-Chat 面向对话交互进行了优化，具有较好的指令遵循、共情聊天和调用工具等的能力，是我们推荐直接用于下游应用的模型。
 
 **局限性：** 尽管在训练过程中我们非常注重模型的安全性，尽力促使模型输出符合伦理和法律要求的文本，但受限于模型大小以及概率生成范式，模型可能会产生各种不符合预期的输出，例如回复内容包含偏见、歧视等有害内容，请勿传播这些内容。由于传播不良信息导致的任何后果，本项目不承担责任。
 
