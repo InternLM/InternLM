@@ -19,7 +19,7 @@
 <!-- [![Documentation Status](https://readthedocs.org/projects/internlm/badge/?version=latest)](https://internlm.readthedocs.io/zh_CN/latest/?badge=latest) -->
 
 [📘商业授权](#开源许可证) |
-[🤗HuggingFace](https://huggingface.co/internlm) |
+[🤗HuggingFace](https://huggingface.co/internlm/InternLM2-Chat-20B-4bits) |
 [🆕最新消息](#更新) |
 [🤔提交反馈](https://github.com/InternLM/InternLM/issues/new)
 
