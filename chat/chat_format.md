@@ -23,7 +23,7 @@ Currently, the InternLM2-Chat model's vocabulary maintains the following mapping
 
 - `<|im_start|>`: Start token for each role's dialogue, the token ID is **92543**
 - `<|im_end|>`: End token for each role's dialogue, the token ID is **92542**
-- `<|action_start|>`: Start token for invoking external plugins, the token ID is **92541**
+- `<|action_start|>`: Start token for invoking external tools, like interpreter or plugin, the token ID is **92541**
 - `<|action_end|>`: End token for invoking external plugins, the token ID is **92540**
 - `<|interpreter|>`: Code interpreter, the token ID is **92539**
 - `<|plugin|>`: External plugins, regular tools, the token ID is **92538**
