@@ -9,7 +9,6 @@ Please run with the command `streamlit run path/to/web_demo.py --server.address=
 Using `python path/to/web_demo.py` may cause unknown problems.
 """
 
-# isort: skip_file
 import copy
 import warnings
 from dataclasses import asdict, dataclass
@@ -18,7 +17,7 @@ from typing import Callable, List, Optional
 import streamlit as st
 import torch
 from torch import nn
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM # isort: skip
 from transformers.generation.utils import LogitsProcessorList, StoppingCriteriaList
 from transformers.utils import logging
 
