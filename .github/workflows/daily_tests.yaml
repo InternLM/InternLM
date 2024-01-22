@@ -1,0 +1,27 @@
+name: basic-model-tests-daily
+on:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron:  '48 19 * * *'
+env:
+  SLURM_PARTITION: llm_s
+
+jobs:
+  HF_model:
+    runs-on: [t_cluster]
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: load_hf_model
+      run: |
+        conda create -n internlm-model-latest --clone internlm-model-base
+        source activate internlm-model-latest
+        pip install transformers
+        pip install sentencepiece
+        srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --gpus-per-task=2 pytest -s -v --color=yes ./tests/test_hf_model.py
+    
+     - name: clear_env
+       run: |
+         conda deactivate 
+         conda env remove --name internlm-model-latest
