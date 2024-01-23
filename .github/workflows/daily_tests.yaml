@@ -29,15 +29,15 @@ jobs:
         conda deactivate 
     
   clear_env:
+      if: ${{ !cancelled() }}
+      needs: [HF_model]
       runs-on: [t_cluster]
       timeout-minutes: 10
       steps:
       - name: mask env
         run: |
           echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
-      needs: [HF_model]
-      if: ${{ !cancelled() }}
-      steps:
+
       - name: remove_env
         run: |
           conda env remove --name internlm-model-latest
