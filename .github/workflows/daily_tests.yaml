@@ -12,7 +12,6 @@ env:
 jobs:
   HF_model:
     runs-on: [t_cluster]
-    timeout-minutes: 60
     steps:
     - name: mask env
       run: |
