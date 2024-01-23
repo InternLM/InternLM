@@ -16,7 +16,6 @@ jobs:
     - name: mask env
       run: |
         echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
-    steps:
     - uses: actions/checkout@v3
 
     - name: load_hf_model
@@ -27,10 +26,10 @@ jobs:
         pip install sentencepiece
         srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --gpus-per-task=2 pytest -s -v --color=yes ./tests/test_hf_model.py
     
-     - name: clear_env
-       run: |
-         conda deactivate 
-         conda env remove --name internlm-model-latest
+    - name: clear_env
+      run: |
+        conda deactivate 
+        conda env remove --name internlm-model-latest
 
   notify_to_feishu:
     if: ${{ always() && !cancelled() && contains(needs.*.result, 'failure') && (github.ref_name == 'develop' || github.ref_name == 'main') }}
