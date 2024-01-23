@@ -26,15 +26,20 @@ jobs:
         pip install transformers
         pip install sentencepiece
         srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --gpus-per-task=2 pytest -s -v --color=yes ./tests/test_hf_model.py
+        conda deactivate 
     
   clear_env:
       runs-on: [t_cluster]
+      timeout-minutes: 10
+      steps:
+      - name: mask env
+        run: |
+          echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
       needs: [HF_model]
       if: ${{ !cancelled() }}
       steps:
       - name: remove_env
         run: |
-          conda deactivate
           conda env remove --name internlm-model-latest
 
   notify_to_feishu:
