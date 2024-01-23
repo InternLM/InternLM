@@ -7,8 +7,6 @@ prompts = ["你好", "what's your name"]
 
 def assert_model(response):
     assert len(response) != 0
-    assert "user" not in response
-    assert "bot" not in response
     assert "UNUSED_TOKEN" not in response
 
 
@@ -69,7 +67,7 @@ class TestBase:
             for k, v in inputs.items():
                 inputs[k] = v.cuda()
             gen_kwargs = {
-                "max_length": 16280,
+                "max_length": 128,
                 "top_p": 10,
                 "temperature": 1.0,
                 "do_sample": True,

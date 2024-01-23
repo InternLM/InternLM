@@ -23,6 +23,7 @@ jobs:
       run: |
         conda create -n internlm-model-latest --clone ${CONDA_BASE_ENV}
         source activate internlm-model-latest
+        # TODO:test other version of transformers
         pip install transformers
         pip install sentencepiece
         srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --gpus-per-task=2 pytest -s -v --color=yes ./tests/test_hf_model.py
