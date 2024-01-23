@@ -12,6 +12,7 @@ env:
 jobs:
   HF_model:
     runs-on: [t_cluster]
+    timeout-minutes: 60
     steps:
     - name: mask env
       run: |
@@ -26,19 +27,24 @@ jobs:
         pip install sentencepiece
         srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --gpus-per-task=2 pytest -s -v --color=yes ./tests/test_hf_model.py
     
-    - name: clear_env
-      run: |
-        conda deactivate 
-        conda env remove --name internlm-model-latest
+  clear_env:
+      runs-on: [t_cluster]
+      needs: [HF_model]
+      if: ${{ !cancelled() }}
+      steps:
+      - name: remove_env
+        run: |
+          conda deactivate
+          conda env remove --name internlm-model-latest
 
   notify_to_feishu:
     if: ${{ always() && !cancelled() && contains(needs.*.result, 'failure') && (github.ref_name == 'develop' || github.ref_name == 'main') }}
-    needs: [HF_model]
-    runs-on: [test_machine]
+    needs: [HF_model,clear_env]
+    runs-on: [t_cluster]
     steps:
     - name: mask env
       run: |
         echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
     - name: notify
       run: |
-        curl -X POST -H "Content-Type: application/json" -d '{"msg_type":"post","content":{"post":{"zh_cn":{"title":"Internlm GitHubAction Failed","content":[[{"tag":"text","text":""},{"tag":"a","text":"Please click here for details ","href":"https://github.com/pjlab-sys4nlp/train_internlm/actions/runs/'${GITHUB_RUN_ID}'"},{"tag":"at","user_id":"'${{ secrets.USER_ID }}'"}]]}}}}'  ${{ secrets.WEBHOOK_URL }}
+        curl -X POST -H "Content-Type: application/json" -d '{"msg_type":"post","content":{"post":{"zh_cn":{"title":"Internlm GitHubAction Failed","content":[[{"tag":"text","text":""},{"tag":"a","text":"Please click here for details ","href":"https://github.com/'${{ github.repository }}'/actions/runs/'${GITHUB_RUN_ID}'"},{"tag":"at","user_id":"'${{ secrets.USER_ID }}'"}]]}}}}'  ${{ secrets.WEBHOOK_URL }}

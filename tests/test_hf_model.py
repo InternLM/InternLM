@@ -42,7 +42,7 @@ class TestChat:
             for response, history in model.stream_chat(tokenizer, prompt, history=[]):
                 print(response[length:], flush=True, end="")
                 length = len(response)
-                assert_model(response)
+            assert_model(response)
 
 
 class TestBase:
