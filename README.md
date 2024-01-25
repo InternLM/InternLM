@@ -128,7 +128,10 @@ The release of InternLM2 series contains two model sizes: 7B and 20B. 7B models 
 
 We briefly show the usages with [Transformers](#import-from-transformers), [ModelScope](#import-from-modelscope), and [Web demos](#dialogue).
 The chat models adopt [chatml format](./chat/chat_format.md) to support both chat and agent applications.
-
+To ensure a better usage effect, please make sure that the installed transformers library version meets the following requirements before performing inference with [Transformers](#import-from-transformers) or [ModelScope](#import-from-modelscope):
+```
+transformers >= 4.34
+```
 ### Import from Transformers
 
 To load the InternLM2-7B-Chat model using Transformers, use the following code:
