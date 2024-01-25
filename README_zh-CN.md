@@ -126,7 +126,10 @@ InternLM2 系列模型在本仓库正式发布，具有如下特性：
 
 接下来我们展示使用 [Transformers](#import-from-transformers)，[ModelScope](#import-from-modelscope) 和 [Web demo](#dialogue) 进行推理。
 对话模型采用了 [chatml 格式](./chat/chat_format.md) 来支持通用对话和智能体应用。
-
+为了保障更好的使用效果，在用 [Transformers](#import-from-transformers) 或 [ModelScope](#import-from-modelscope) 进行推理前，请确保安装的 transformers 库版本满足以下要求：
+```
+transformers >= 4.34
+```
 ### 通过 Transformers 加载
 
 通过以下的代码从 Transformers 加载 InternLM2-7B-Chat 模型 （可修改模型名称替换不同的模型）
