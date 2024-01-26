@@ -1,2 +1,2 @@
-transformers>=4.34
 sentencepiece
+transformers>=4.34

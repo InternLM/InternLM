@@ -21,20 +21,21 @@ python pal_inference.py \
 ```
 
 Parameter explanation:
-|   Parameter   |        Description        |
-| :--------: | :--------------------: |
-|   \<model\>                     | Path to the model used for inference |
-|   \<out_dir\>                   | Generated code will be saved in the specified output folder |
-|   --dataset <dataset>         | Name of the dataset used for code generation (defaults to gsm8k) |
-|   --max_length <length>       | Maximum input token length for the model (defaults to 2048) |
-|   --top_p <threshold>         | Probability threshold for the sum of candidate tokens (defaults to 0.8) |
-|   --eoh <end token>           | User input end identifier (defaults to "")  |
-|   --eoa <end token>           | Model input end identifier (defaults to "")  |
-|   --eos <end token>           | System input end identifier (defaults to "")  |
-|   --temperature， -t <temp>   | Sampling temperature during generation (defaults to 1.0) |
-|   --time_out <time>           | Maximum time (in seconds) for executing generated code (defaults to 100) |
-|   --verbose, -v               | Print code error messages (optional) |
-|   --append, -a                | Append output to historical results (optional) |
+
+|         Parameter         |                               Description                                |
+| :-----------------------: | :----------------------------------------------------------------------: |
+|         \<model>          |                   Path to the model used for inference                   |
+|        \<out_dir>         |       Generated code will be saved in the specified output folder        |
+|    --dataset <dataset>    |     Name of the dataset used for code generation (defaults to gsm8k)     |
+|   --max_length <length>   |       Maximum input token length for the model (defaults to 2048)        |
+|    --top_p <threshold>    | Probability threshold for the sum of candidate tokens (defaults to 0.8)  |
+|     --eoh <end token>     |                User input end identifier (defaults to "")                |
+|     --eoa <end token>     |               Model input end identifier (defaults to "")                |
+|     --eos <end token>     |               System input end identifier (defaults to "")               |
+| --temperature， -t <temp> |         Sampling temperature during generation (defaults to 1.0)         |
+|     --time_out <time>     | Maximum time (in seconds) for executing generated code (defaults to 100) |
+|       --verbose, -v       |                   Print code error messages (optional)                   |
+|       --append, -a        |              Append output to historical results (optional)              |
 
 A simple usage example is as follows:
 
