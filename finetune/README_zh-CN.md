@@ -29,7 +29,7 @@
 - 安装集成 DeepSpeed 版本的 XTuner
 
   ```shell
-  pip install -U 'xtuner[deepspeed]'
+  pip install -U 'xtuner[deepspeed]>=0.1.13'
   ```
 
 ### 微调

@@ -126,6 +126,12 @@ The release of InternLM2 series contains two model sizes: 7B and 20B. 7B models 
 
 - According to the released performance of 2024-01-17.
 
+## Requirements
+
+- Python >= 3.8
+- PyTorch >= 1.12.0 (2.0.0 and above are recommended)
+- Transformers >= 4.34
+
 ## Usages
 
 We briefly show the usages with [Transformers](#import-from-transformers), [ModelScope](#import-from-modelscope), and [Web demos](#dialogue).
@@ -187,7 +193,7 @@ print(response)
 You can interact with the InternLM Chat 7B model through a frontend interface by running the following code:
 
 ```bash
-pip install streamlit==1.24.0
+pip install streamlit
 pip install transformers>=4.34
 streamlit run ./chat/web_demo.py
 ```
@@ -196,7 +202,7 @@ streamlit run ./chat/web_demo.py
 
 We use [LMDeploy](https://github.com/InternLM/LMDeploy) for fast deployment of InternLM.
 
-With only 4 lines of codes, you can perform `internlm2-chat-7b` inference after `pip install lmdeploy`.
+With only 4 lines of codes, you can perform `internlm2-chat-7b` inference after `pip install lmdeploy>=0.2.1`.
 
 ```python
 from lmdeploy import pipeline

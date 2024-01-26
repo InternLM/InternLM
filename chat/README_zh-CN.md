@@ -45,7 +45,7 @@ print(response)
 可以通过以下代码启动一个前端的界面来与 InternLM2 Chat 7B 模型进行交互
 
 ```bash
-pip install streamlit==1.24.0
-pip install transformers==4.30.2
+pip install streamlit
+pip install transformers>=4.34
 streamlit run ./web_demo.py
 ```

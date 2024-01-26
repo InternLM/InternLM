@@ -11,7 +11,7 @@ This article primarily highlights the basic usage of LMDeploy. For a comprehensi
 Install lmdeploy with pip (python 3.8+)
 
 ```shell
-pip install lmdeploy
+pip install lmdeploy>=0.2.1
 ```
 
 ## Offline batch inference

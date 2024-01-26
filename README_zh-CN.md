@@ -123,6 +123,12 @@ InternLM2 系列模型在本仓库正式发布，具有如下特性：
 
 - 性能数据截止2024-01-17
 
+## 依赖
+
+- Python >= 3.8
+- PyTorch >= 1.12.0 (推荐 2.0.0 和更高版本)
+- Transformers >= 4.34
+
 ## 使用案例
 
 接下来我们展示使用 [Transformers](#import-from-transformers)，[ModelScope](#import-from-modelscope) 和 [Web demo](#dialogue) 进行推理。
@@ -183,7 +189,7 @@ print(response)
 可以通过以下代码启动一个前端的界面来与 InternLM Chat 7B 模型进行交互
 
 ```bash
-pip install streamlit==1.24.0
+pip install streamlit
 pip install transformers>=4.34
 streamlit run ./chat/web_demo.py
 ```
@@ -192,7 +198,7 @@ streamlit run ./chat/web_demo.py
 
 我们使用 [LMDeploy](https://github.com/InternLM/LMDeploy) 完成 InternLM 的一键部署。
 
-通过 `pip install lmdeploy` 安装 LMDeploy 之后，只需 4 行代码，就可以实现离线批处理：
+通过 `pip install lmdeploy>=0.2.1` 安装 LMDeploy 之后，只需 4 行代码，就可以实现离线批处理：
 
 ```python
 from lmdeploy import pipeline
