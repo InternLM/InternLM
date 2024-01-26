@@ -26,8 +26,8 @@ jobs:
         pip install transformers
         pip install sentencepiece
         srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --gpus-per-task=2 pytest -s -v --color=yes ./tests/test_hf_model.py
-        conda deactivate 
-    
+        conda deactivate
+
   clear_env:
       if: ${{ !cancelled() }}
       needs: [HF_model]

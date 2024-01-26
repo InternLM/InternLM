@@ -16,6 +16,7 @@
 
 [![license](./assets//license.svg)](https://github.com/open-mmlab/mmdetection/blob/main/LICENSE)
 [![evaluation](./assets//compass_support.svg)](https://github.com/internLM/OpenCompass/)
+
 <!-- [![Documentation Status](https://readthedocs.org/projects/internlm/badge/?version=latest)](https://internlm.readthedocs.io/zh_CN/latest/?badge=latest) -->
 
 [📘商业授权](#开源许可证) |
@@ -43,26 +44,26 @@ InternLM2 系列模型在本仓库正式发布，具有如下特性：
 
 ## 更新
 
-[2024.01.23] 我们发布了 InternLM2-Math-7B 和 InternLM2-Math-20B 以及相关的对话模型。InternLM-Math以较小的尺寸超过了ChatGPT的表现。可以点击[InternLM-Math](https://github.com/InternLM/internlm-math)进行下载，并了解详情。
+\[2024.01.23\] 我们发布了 InternLM2-Math-7B 和 InternLM2-Math-20B 以及相关的对话模型。InternLM-Math以较小的尺寸超过了ChatGPT的表现。可以点击[InternLM-Math](https://github.com/InternLM/internlm-math)进行下载，并了解详情。
 
-[2024.01.17] 我们发布了 InternLM2-7B 和 InternLM2-20B 以及相关的对话模型，InternLM2 在数理、代码、对话、创作等各方面能力都获得了长足进步，综合性能达到开源模型的领先水平。可以点击[下面的模型库](#model-zoo)进行下载或者[查看模型文档](./model_cards/)来了解更多细节.
+\[2024.01.17\] 我们发布了 InternLM2-7B 和 InternLM2-20B 以及相关的对话模型，InternLM2 在数理、代码、对话、创作等各方面能力都获得了长足进步，综合性能达到开源模型的领先水平。可以点击[下面的模型库](#model-zoo)进行下载或者[查看模型文档](./model_cards/)来了解更多细节.
 
-[2023.12.13] 我们更新了 InternLM-7B-Chat 和 InternLM-20B-Chat 模型权重。通过改进微调数据和训练策略，新版对话模型生成的回复质量更高、语言风格更加多元。
+\[2023.12.13\] 我们更新了 InternLM-7B-Chat 和 InternLM-20B-Chat 模型权重。通过改进微调数据和训练策略，新版对话模型生成的回复质量更高、语言风格更加多元。
 
-[2023.09.20] InternLM-20B 已发布，包括基础版和对话版。
+\[2023.09.20\] InternLM-20B 已发布，包括基础版和对话版。
 
 ## Model Zoo
 
-| Model | Transformers(HF) | ModelScope(HF) | OpenXLab(HF) | OpenXLab(Origin) | Release Date |
-|---------------------------|------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------|
-| **InternLM2-Base-7B**           | [🤗internlm2-base-7b](https://huggingface.co/internlm/internlm2-base-7b)                     | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-base-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-base-7b/summary)                     | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-base-7b)           | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-base-7b-original) |  2024-01-17   |
-| **InternLM2-7B**           | [🤗internlm2-7b](https://huggingface.co/internlm/internlm2-7b)                     | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-7b/summary)                     | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-7b) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-7b-original)          |  2024-01-17   |
-| **InternLM2-Chat-7B-SFT**      | [🤗internlm2-chat-7b-sft](https://huggingface.co/internlm/internlm2-chat-7b-sft)           | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-chat-7b-sft](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-7b-sft/summary)           | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-7b-sft) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-7b-sft-original)     | 2024-01-17  |
-| **InternLM2-Chat-7B**      | [🤗internlm2-chat-7b](https://huggingface.co/internlm/internlm2-chat-7b)           | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-chat-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-7b/summary)           | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-7b) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-7b-original)     | 2024-01-17  |
-| **InternLM2-Base-20B** | [🤗internlm2-base-20b](https://huggingface.co/internlm/internlm2-base-20b) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-base-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-base-20b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-base-20b) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-base-20b-original) | 2024-01-17 |
-| **InternLM2-20B** | [🤗internlm2-20b](https://huggingface.co/internlm/internlm2-20b) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-20b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-20b) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-20b-original) | 2024-01-17 |
-| **InternLM2-Chat-20B-SFT**     | [🤗internlm2-chat-20b-sft](https://huggingface.co/internlm/internlm2-chat-20b-sft)         | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-chat-20b-sft](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-20b-sft/summary)         | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-20b-sft) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-20b-sft-original)    | 2024-01-17   |
-| **InternLM2-Chat-20B**     | [🤗internlm2-chat-20b](https://huggingface.co/internlm/internlm2-chat-20b)         | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-chat-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-20b/summary)         | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-20b) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-20b-original)     | 2024-01-17   |
+| Model                      | Transformers(HF)                           | ModelScope(HF)                           | OpenXLab(HF)                           | OpenXLab(Origin)                           | Release Date |
+| -------------------------- | ------------------------------------------ | ---------------------------------------- | -------------------------------------- | ------------------------------------------ | ------------ |
+| **InternLM2-Base-7B**      | [🤗internlm2-base-7b](https://huggingface.co/internlm/internlm2-base-7b) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-base-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-base-7b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-base-7b) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-base-7b-original) | 2024-01-17   |
+| **InternLM2-7B**           | [🤗internlm2-7b](https://huggingface.co/internlm/internlm2-7b) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-7b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-7b) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-7b-original) | 2024-01-17   |
+| **InternLM2-Chat-7B-SFT**  | [🤗internlm2-chat-7b-sft](https://huggingface.co/internlm/internlm2-chat-7b-sft) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-chat-7b-sft](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-7b-sft/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-7b-sft) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-7b-sft-original) | 2024-01-17   |
+| **InternLM2-Chat-7B**      | [🤗internlm2-chat-7b](https://huggingface.co/internlm/internlm2-chat-7b) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-chat-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-7b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-7b) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-7b-original) | 2024-01-17   |
+| **InternLM2-Base-20B**     | [🤗internlm2-base-20b](https://huggingface.co/internlm/internlm2-base-20b) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-base-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-base-20b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-base-20b) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-base-20b-original) | 2024-01-17   |
+| **InternLM2-20B**          | [🤗internlm2-20b](https://huggingface.co/internlm/internlm2-20b) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-20b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-20b) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-20b-original) | 2024-01-17   |
+| **InternLM2-Chat-20B-SFT** | [🤗internlm2-chat-20b-sft](https://huggingface.co/internlm/internlm2-chat-20b-sft) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-chat-20b-sft](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-20b-sft/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-20b-sft) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-20b-sft-original) | 2024-01-17   |
+| **InternLM2-Chat-20B**     | [🤗internlm2-chat-20b](https://huggingface.co/internlm/internlm2-chat-20b) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-chat-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-20b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-20b) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-20b-original) | 2024-01-17   |
 
 **模型说明：**
 
@@ -83,22 +84,22 @@ InternLM2 系列模型在本仓库正式发布，具有如下特性：
 
 ### 客观评测
 
-| Dataset                | Baichuan2-7B-Chat | Mistral-7B-Instruct-v0.2 | Qwen-7B-Chat | InternLM2-Chat-7B | ChatGLM3-6B | Baichuan2-13B-Chat | Mixtral-8x7B-Instruct-v0.1 | Qwen-14B-Chat | InternLM2-Chat-20B |
-|-----------------------|-------------------|--------------------------|--------------|-------------------|-------------|---------------------|--------------------------------|---------------|---------------------|
-| MMLU                  | 50.1              | 59.2                     | 57.1         | 63.7              | 58.0        | 56.6                | 70.3                          | 66.7          | 66.5                |
-| CMMLU                 | 53.4              | 42.0                     | 57.9         | 63.0              | 57.8        | 54.8                | 50.6                          | 68.1          | 65.1                |
-| AGIEval               | 35.3              | 34.5                     | 39.7         | 47.2              | 44.2        | 40.0                | 41.7                          | 46.5          | 50.3                |
-| C-Eval                | 53.9              | 42.4                     | 59.8         | 60.8              | 59.1        | 56.3                | 54.0                          | 71.5          | 63.0                |
-| TrivialQA             | 37.6              | 35.0                     | 46.1         | 50.8              | 38.1        | 40.3                | 57.7                          | 54.5          | 53.9                |
-| NaturalQuestions      | 12.8              | 8.1                      | 18.6         | 24.1              | 14.0        | 12.7                | 22.5                          | 22.9          | 25.9                |
-| C3                    | 78.5              | 66.9                     | 84.4         | 91.5              | 79.3        | 84.4                | 82.1                          | 91.5          | 93.5                |
-| CMRC                  | 8.1               | 5.6                      | 14.6         | 63.8              | 43.2        | 27.8                | 5.3                           | 13.0          | 50.4                |
-| WinoGrande            | 49.9              | 50.8                     | 54.2         | 65.8              | 61.7        | 50.9                | 60.9                          | 55.7          | 74.8                |
-| BBH                   | 35.9              | 46.5                     | 45.5         | 61.2              | 56.0        | 42.5                | 57.3                          | 55.8          | 68.3                |
-| GSM-8K                | 32.4              | 48.3                     | 44.1         | 70.7              | 53.8        | 56.0                | 71.7                          | 57.7          | 79.6                |
-| Math                  | 5.7               | 8.6                      | 12.0         | 23.0              | 20.4        | 4.3                 | 22.5                          | 27.6          | 31.9                |
-| HumanEval              | 17.7              | 35.4                     | 36.0         | 59.8              | 52.4        | 19.5                | 37.8                          | 40.9          | 67.1                |
-| MBPP                  | 37.7              | 25.7                     | 33.9         | 51.4              | 55.6        | 40.9                | 40.9                          | 30.0          | 65.8                |
+| Dataset          | Baichuan2-7B-Chat | Mistral-7B-Instruct-v0.2 | Qwen-7B-Chat | InternLM2-Chat-7B | ChatGLM3-6B | Baichuan2-13B-Chat | Mixtral-8x7B-Instruct-v0.1 | Qwen-14B-Chat | InternLM2-Chat-20B |
+| ---------------- | ----------------- | ------------------------ | ------------ | ----------------- | ----------- | ------------------ | -------------------------- | ------------- | ------------------ |
+| MMLU             | 50.1              | 59.2                     | 57.1         | 63.7              | 58.0        | 56.6               | 70.3                       | 66.7          | 66.5               |
+| CMMLU            | 53.4              | 42.0                     | 57.9         | 63.0              | 57.8        | 54.8               | 50.6                       | 68.1          | 65.1               |
+| AGIEval          | 35.3              | 34.5                     | 39.7         | 47.2              | 44.2        | 40.0               | 41.7                       | 46.5          | 50.3               |
+| C-Eval           | 53.9              | 42.4                     | 59.8         | 60.8              | 59.1        | 56.3               | 54.0                       | 71.5          | 63.0               |
+| TrivialQA        | 37.6              | 35.0                     | 46.1         | 50.8              | 38.1        | 40.3               | 57.7                       | 54.5          | 53.9               |
+| NaturalQuestions | 12.8              | 8.1                      | 18.6         | 24.1              | 14.0        | 12.7               | 22.5                       | 22.9          | 25.9               |
+| C3               | 78.5              | 66.9                     | 84.4         | 91.5              | 79.3        | 84.4               | 82.1                       | 91.5          | 93.5               |
+| CMRC             | 8.1               | 5.6                      | 14.6         | 63.8              | 43.2        | 27.8               | 5.3                        | 13.0          | 50.4               |
+| WinoGrande       | 49.9              | 50.8                     | 54.2         | 65.8              | 61.7        | 50.9               | 60.9                       | 55.7          | 74.8               |
+| BBH              | 35.9              | 46.5                     | 45.5         | 61.2              | 56.0        | 42.5               | 57.3                       | 55.8          | 68.3               |
+| GSM-8K           | 32.4              | 48.3                     | 44.1         | 70.7              | 53.8        | 56.0               | 71.7                       | 57.7          | 79.6               |
+| Math             | 5.7               | 8.6                      | 12.0         | 23.0              | 20.4        | 4.3                | 22.5                       | 27.6          | 31.9               |
+| HumanEval        | 17.7              | 35.4                     | 36.0         | 59.8              | 52.4        | 19.5               | 37.8                       | 40.9          | 67.1               |
+| MBPP             | 37.7              | 25.7                     | 33.9         | 51.4              | 55.6        | 40.9               | 40.9                       | 30.0          | 65.8               |
 
 - MBPP性能使用的是MBPP(Sanitized)版本数据集
 
@@ -106,16 +107,16 @@ InternLM2 系列模型在本仓库正式发布，具有如下特性：
 
 - 我们评测了InternLM2-Chat在[AlpacaEval 2.0](https://tatsu-lab.github.io/alpaca_eval/) 上的性能，结果表明InternLM2-Chat在AlpacaEval上已经超过了 Claude 2, GPT-4(0613) 和  Gemini Pro.
 
-| Model Name              | Win Rate | Length |
-| ----------------------- | -------- | ------ |
-| GPT-4 Turbo      | 50.00%   | 2049   |
-| GPT-4         | 23.58%   | 1365   |
-| GPT-4 0314             | 22.07%   | 1371   |
-| Mistral Medium      | 21.86%   | 1500   |
-| XwinLM 70b V0.1   | 21.81%   | 1775   |
-| InternLM2 Chat 20B  | 21.75%   | 2373   |
+| Model Name         | Win Rate | Length |
+| ------------------ | -------- | ------ |
+| GPT-4 Turbo        | 50.00%   | 2049   |
+| GPT-4              | 23.58%   | 1365   |
+| GPT-4 0314         | 22.07%   | 1371   |
+| Mistral Medium     | 21.86%   | 1500   |
+| XwinLM 70b V0.1    | 21.81%   | 1775   |
+| InternLM2 Chat 20B | 21.75%   | 2373   |
 | Mixtral 8x7B v0.1  | 18.26%   | 1465   |
-| Claude 2            | 17.19%   | 1069   |
+| Claude 2           | 17.19%   | 1069   |
 | Gemini Pro         | 16.85%   | 1315   |
 | GPT-4 0613         | 15.76%   | 1140   |
 | Claude 2.1         | 15.73%   | 1096   |
@@ -133,9 +134,11 @@ InternLM2 系列模型在本仓库正式发布，具有如下特性：
 接下来我们展示使用 [Transformers](#import-from-transformers)，[ModelScope](#import-from-modelscope) 和 [Web demo](#dialogue) 进行推理。
 对话模型采用了 [chatml 格式](./chat/chat_format.md) 来支持通用对话和智能体应用。
 为了保障更好的使用效果，在用 [Transformers](#import-from-transformers) 或 [ModelScope](#import-from-modelscope) 进行推理前，请确保安装的 transformers 库版本满足以下要求：
+
 ```
 transformers >= 4.34
 ```
+
 ### 通过 Transformers 加载
 
 通过以下的代码从 Transformers 加载 InternLM2-7B-Chat 模型 （可修改模型名称替换不同的模型）
