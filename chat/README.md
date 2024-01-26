@@ -51,8 +51,8 @@ print(response)
 You can interact with the InternLM Chat 7B model through a frontend interface by running the following code:
 
 ```bash
-pip install streamlit==1.24.0
-pip install transformers==4.30.2
+pip install streamlit
+pip install transformers>=4.34
 streamlit run ./chat/web_demo.py
 ```
 

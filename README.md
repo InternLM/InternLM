@@ -124,6 +124,12 @@ The release of InternLM2 series contains two model sizes: 7B and 20B. 7B models 
 
 - According to the released performance of 2024-01-17.
 
+## Requirements
+
+- Python >= 3.8
+- PyTorch >= 1.12.0 (2.0.0 and above are recommended)
+- Transformers >= 4.34
+
 ## Usages
 
 We briefly show the usages with [Transformers](#import-from-transformers), [ModelScope](#import-from-modelscope), and [Web demos](#dialogue).
@@ -143,7 +149,7 @@ tokenizer = AutoTokenizer.from_pretrained("internlm/internlm2-chat-7b", trust_re
 # Set `torch_dtype=torch.float16` to load model in float16, otherwise it will be loaded as float32 and might cause OOM Error.
 model = AutoModelForCausalLM.from_pretrained("internlm/internlm2-chat-7b", device_map="auto", trust_remote_code=True, torch_dtype=torch.float16)
 # (Optional) If on low resource devices, you can load model in 4-bit or 8-bit to further save GPU memory via bitsandbytes.
-  # InternLM 7B in 4bit will cost nearly 8GB GPU memory. 
+  # InternLM 7B in 4bit will cost nearly 8GB GPU memory.
   # pip install -U bitsandbytes
   # 8-bit: model = AutoModelForCausalLM.from_pretrained(model_dir, device_map="auto", trust_remote_code=True, load_in_8bit=True)
   # 4-bit: model = AutoModelForCausalLM.from_pretrained(model_dir, device_map="auto", trust_remote_code=True, load_in_4bit=True)
@@ -167,7 +173,7 @@ tokenizer = AutoTokenizer.from_pretrained(model_dir, device_map="auto", trust_re
 # Set `torch_dtype=torch.float16` to load model in float16, otherwise it will be loaded as float32 and might cause OOM Error.
 model = AutoModelForCausalLM.from_pretrained(model_dir, device_map="auto", trust_remote_code=True, torch_dtype=torch.float16)
 # (Optional) If on low resource devices, you can load model in 4-bit or 8-bit to further save GPU memory via bitsandbytes.
-  # InternLM 7B in 4bit will cost nearly 8GB GPU memory. 
+  # InternLM 7B in 4bit will cost nearly 8GB GPU memory.
   # pip install -U bitsandbytes
   # 8-bit: model = AutoModelForCausalLM.from_pretrained(model_dir, device_map="auto", trust_remote_code=True, load_in_8bit=True)
   # 4-bit: model = AutoModelForCausalLM.from_pretrained(model_dir, device_map="auto", trust_remote_code=True, load_in_4bit=True)
@@ -183,7 +189,7 @@ print(response)
 You can interact with the InternLM Chat 7B model through a frontend interface by running the following code:
 
 ```bash
-pip install streamlit==1.24.0
+pip install streamlit
 pip install transformers>=4.34
 streamlit run ./chat/web_demo.py
 ```
@@ -192,7 +198,7 @@ streamlit run ./chat/web_demo.py
 
 We use [LMDeploy](https://github.com/InternLM/LMDeploy) for fast deployment of InternLM.
 
-With only 4 lines of codes, you can perform `internlm2-chat-7b` inference after `pip install lmdeploy`.
+With only 4 lines of codes, you can perform `internlm2-chat-7b` inference after `pip install lmdeploy>=0.2.1`.
 
 ```python
 from lmdeploy import pipeline

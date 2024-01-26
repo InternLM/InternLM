@@ -29,7 +29,7 @@ We recommend two projects to fine-tune InternLM.
 - Install XTuner with DeepSpeed integration
 
   ```shell
-  pip install -U 'xtuner[deepspeed]'
+  pip install -U 'xtuner[deepspeed]>=0.1.13'
   ```
 
 ### Fine-tune

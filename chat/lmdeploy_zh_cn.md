@@ -12,7 +12,7 @@
 使用 pip（python 3.8+）安装 LMDeploy
 
 ```shell
-pip install lmdeploy
+pip install lmdeploy>=0.2.1
 ```
 
 ## 离线批处理
