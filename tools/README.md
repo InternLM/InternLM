@@ -5,6 +5,7 @@
 We offer the `convert2llama.py`, designed to seamlessly transform InternLM2 (HF format) into LLaMA (HF format). Here, HF refers to the format used by HuggingFace Transformers.
 
 ### Usage
+
 ```
 python convert2llama.py --src /path/to/internlm2/ckpt --tgt /path/to/target/ckpt
 ```

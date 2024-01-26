@@ -70,14 +70,14 @@ The weather in Shanghai is 22 celsius<|im_end|>
 ```
 
 1. First，there will be a new system prompt that describe the protocol of tools in json format. The content starts with `<|im_start|>system name=<|plugin|>\n` and ends with `<|im_end|>`. `name=<|plugin|>` indicates the system prompt comes from tools. InternLM2-Chat supports and follows multiple system prompts in the chat history, so we can also see the system prompt ask the model to be helpful assistant.
-2. Model will call the tools in a streaming format after receving the user prompt, i.e., it will naturally speak something (thoughts, helpful response) then call the tools. The model will output `<|action_start|><|plugin|>`, where `<|action_start|>` indicates the model needs to call extensions and `<|plugin|>` indicates it want to use common tools. Then the model will output the calling parameters in json format and end it with `<|action_end|>`.
+2. Model will call the tools in a streaming format after receiving the user prompt, i.e., it will naturally speak something (thoughts, helpful response) then call the tools. The model will output `<|action_start|><|plugin|>`, where `<|action_start|>` indicates the model needs to call extensions and `<|plugin|>` indicates it want to use common tools. Then the model will output the calling parameters in json format and end it with `<|action_end|>`.
 3. The environment returns the function calling outputs, starts with `<|im_start|>environment name=<|plugin|>`, indicating it comes from the function calling in the environment. The content is in json format, `{"temperature": 22}`, ends with `<|im_end|>`.
 
 ### Code Interpreter
 
 InternLM2-Chat support to use code interpreter to solve complex math problems and data analysis. The whole process is similar to the function calling, shown as below.
 
-```
+````
 <|im_start|>system
 You are InternLM2-Chat, a harmless AI assistant<|im_end|>
 <|im_start|>system name=<|interpreter|>
@@ -130,17 +130,17 @@ Can you explain the code?<|im_end|>
 <|im_start|>assistant
 The code uses Python's Plotly library to create a polar plot that shows the relationship between wind direction and rainfall. It starts by creating a Plotly Figure object. Then, I added two `Scatterpolar` traces. The first trace shows the relationship between wind direction at 9 am and average rainfall, and the second trace shows the same for 3 pm. In these traces, the `r` parameter represents the average rainfall, and `theta` represents the wind direction. `fill='toself'` means the shape is filled to its own boundary. Next, I updated the chart layout, hid the radial axis, added a legend, set the title and its font, chose a dark theme, and set the chart's background color, width, and height. Finally, the chart was displayed using `fig.show()`.
 <|im_end|>
-```
+````
 
 1. First，there will be a new system prompt that describe the usages of code interpreter. The content starts with `<|im_start|>system name=<|interpreter|>\n` and ends with `<|im_end|>`. `name=<|interpreter|>` indicates the system prompt comes from code interpreter. InternLM2-Chat supports and follows multiple system prompts in the chat history, so we can also see the system prompt ask the model to be helpful assistant.
-2. Model will call the tools in a streaming format after receving the user prompt, i.e., it will naturally speak something (thoughts, helpful response) then call the code interpreter. The model will output `<|action_start|><|interpreter|>`, where `<|action_start|>` indicates the model needs to call extensions and `<|interpreter|>` indicates it want to use code interpreter. Then the model will output the code in a markdown-style code block and end it with `<|action_end|>`.
+2. Model will call the tools in a streaming format after receiving the user prompt, i.e., it will naturally speak something (thoughts, helpful response) then call the code interpreter. The model will output `<|action_start|><|interpreter|>`, where `<|action_start|>` indicates the model needs to call extensions and `<|interpreter|>` indicates it want to use code interpreter. Then the model will output the code in a markdown-style code block and end it with `<|action_end|>`.
 3. The environment will execute the code and return outputs, starts with `<|im_start|>environment name=<|interpreter|>`, indicating it comes from the code interpreter in the environment, and the content ends with `<|im_end|>`.
 
 ### Function Call + Code Interpreter
 
 InternLM2-Chat can choose to use tools or code interpreter automatically. We only need to send the system prompt of both to the model respectively. An example is shown as below
 
-```
+````
 <|im_start|>system
 You are InternLM2-Chat, a harmless AI assistant<|im_end|>
 <|im_start|>system name=<|interpreter|>
@@ -221,4 +221,4 @@ Sure, I will search for the weather of Shanghai.<|action_start|><|plugin|>
 {"temperature": 22}<|im_end|>
 <|im_start|>assistant
 The weather in Shanghai is 22 celsius<|im_end|>
-```
+````

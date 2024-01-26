@@ -77,7 +77,7 @@ InternLM2-Chat 的通用工具调用（function call）支持多种格式，尤�
 
 InternLM2-Chat 支持使用代码解释器解决复杂数学问题和进行数据分析。整个调用流程和通用工具调用类似，如下所示
 
-```
+````
 <|im_start|>system
 你是书生浦语2，一个无害的人工智能助手<|im_end|>
 <|im_start|>system name=<|interpreter|>
@@ -128,19 +128,18 @@ fig.show()
 <|im_start|>assistant
 我使用的是Python的Plotly库来创建一个极坐标图，以展示风向与降雨量之间的关系。代码中首先创建了一个Plotly的Figure对象。接着，我添加了两个`Scatterpolar`追踪。第一个追踪展示的是上午9点的风向与降雨量的平均值的关系，第二个追踪展示的是下午3点的风向与降雨量的平均值的关系。在这两个追踪中，`r`参数代表降雨量的平均值，`theta`参数代表风向。`fill='toself'`表示图形以自身为边界进行填充。然后我更新了图表的布局，隐藏了径向轴，添加了图例，设置了标题和标题字体，选择了暗色主题，并设定了图表的背景色、宽度和高度。最后，使用`fig.show()`展示了图表。
 <|im_end|>
-```
+````
 
 1. 首先在系统提示中提供代码解释器的格式和字段描述。内容以 `<|im_start|>system name=<|interpreter|>\n`开头，`<|im_end|>` 结尾，`name=<|interpreter|>` 体现了这是来自代码解释器的指令。InternLM2-Chat 支持 system 角色对模型的提示和约束多次出现。所以我们会看到前面还有关于对话的要求。
-2. 用户可以上传一个文件，并对模型提出要求，文件的上传会以单独的形式向模型发出一条指令，以 `<|im_start|>user name=file` 开头，以 json 形式给出路径和文件大小`
-[{"path": "data.csv", size='10K'}]`，以 `<|im_end|>`结尾。
-2. 模型在接受到用户指令后，会以流式的形式调用工具，及自然地生成文字进行思考/回应用户，然后输出`<|action_start|><|interpreter|>`。`<|action_start|>`表示要调用外部插件，同时 `<|interpreter|>` 表示调用的是代码解释器。然后模型输出 markdown 中 python 代码块格式代码内容，再以 `<|action_end|>` 表示工具调用结束。
-3. 系统会执行代码块中的代码，然后返回调用结果，以 `<|im_start|>environment name=<|interpreter|>`开头，表示是来自环境关于代码解释器执行的输出，以`<|im_end|>`结尾。
+2. 用户可以上传一个文件，并对模型提出要求，文件的上传会以单独的形式向模型发出一条指令，以 `<|im_start|>user name=file` 开头，以 json 形式给出路径和文件大小` [{"path": "data.csv", size='10K'}]`，以 `<|im_end|>`结尾。
+3. 模型在接受到用户指令后，会以流式的形式调用工具，及自然地生成文字进行思考/回应用户，然后输出`<|action_start|><|interpreter|>`。`<|action_start|>`表示要调用外部插件，同时 `<|interpreter|>` 表示调用的是代码解释器。然后模型输出 markdown 中 python 代码块格式代码内容，再以 `<|action_end|>` 表示工具调用结束。
+4. 系统会执行代码块中的代码，然后返回调用结果，以 `<|im_start|>environment name=<|interpreter|>`开头，表示是来自环境关于代码解释器执行的输出，以`<|im_end|>`结尾。
 
 ### 同时使用工具和代码解释器
 
 InternLM2-Chat 能够在一个对话过程中自主选择调用工具或代码解释器。在工具和代码解释器同时开启的情况下，只需要将各自的系统提示合并在一起给模型即可。一个调用工具和代码解释器的对话历史样例如下。
 
-```
+````
 <|im_start|>system
 你是书生浦语2，一个无害的人工智能助手<|im_end|>
 <|im_start|>system name=<|interpreter|>
@@ -219,4 +218,4 @@ fig.show()
 {"temperature": 22}<|im_end|>
 <|im_start|>assistant
 上海的天气是 22 摄氏度<|im_end|>
-```
+````

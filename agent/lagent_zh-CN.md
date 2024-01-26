@@ -40,7 +40,7 @@ streamlit run examples/react_web_demo.py
 
 ## 用 InternLM-Chat 构建一个 ReAct 智能体
 
-**注意：**如果你想要启动一个 HuggingFace 的模型，请先运行 pip install -e .[all]。
+\*\*注意：\*\*如果你想要启动一个 HuggingFace 的模型，请先运行 pip install -e .\[all\]。
 
 ```python
 # Import necessary modules and classes from the "lagent" library.

@@ -6,7 +6,6 @@
 
 本文主要介绍 LMDeploy 的基本用法，包括[安装](#安装)、[离线批处理](#离线批处理)和[推理服务](#推理服务)。更全面的介绍请参考 [LMDeploy 用户指南](https://lmdeploy.readthedocs.io/zh-cn/latest/)。
 
-
 ## 安装
 
 使用 pip（python 3.8+）安装 LMDeploy
@@ -27,6 +26,7 @@ print(response)
 ```
 
 LMDeploy 实现了 dynamic ntk，支持长文本外推。使用如下代码，可以把 InternLM2 的文本外推到 200K：
+
 ```python
 from lmdeploy import pipeline, TurbomindEngineConfig
 engine_config = TurbomindEngineConfig(session_len=200000,
