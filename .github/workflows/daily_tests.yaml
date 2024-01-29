@@ -11,6 +11,10 @@ env:
 jobs:
   HF_model:
     runs-on: [t_cluster]
+    continue-on-error: true
+    strategy:
+      matrix:
+        transformers-version: [4.34.0, 4.35.2, 4.36.2, 4.37.1]
     steps:
     - name: mask env
       run: |
@@ -23,29 +27,19 @@ jobs:
         conda create -n internlm-model-latest --clone ${CONDA_BASE_ENV}
         source activate internlm-model-latest
         # TODO:test other version of transformers
-        pip install transformers
+        pip install transformers==${{ matrix.transformers-version }}
         pip install sentencepiece
         srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --gpus-per-task=2 pytest -s -v --color=yes ./tests/test_hf_model.py
         conda deactivate
+    - name: remove_env
+      if: always()
+      run: |
+        conda env remove --name internlm-model-latest
 
-  clear_env:
-      if: ${{ !cancelled() }}
-      needs: [HF_model]
-      runs-on: [t_cluster]
-      timeout-minutes: 10
-      steps:
-      - name: mask env
-        run: |
-          echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
-          echo "::add-mask::$path_prefix"
-
-      - name: remove_env
-        run: |
-          conda env remove --name internlm-model-latest
 
   notify_to_feishu:
     if: ${{ always() && !cancelled() && contains(needs.*.result, 'failure') && (github.ref_name == 'develop' || github.ref_name == 'main') }}
-    needs: [HF_model,clear_env]
+    needs: [HF_model]
     runs-on: [t_cluster]
     steps:
     - name: mask env
