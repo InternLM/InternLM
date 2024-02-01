@@ -207,7 +207,7 @@ With only 4 lines of codes, you can perform `internlm2-chat-7b` inference after 
 ```python
 from lmdeploy import pipeline
 pipe = pipeline("internlm/internlm2-chat-7b")
-response = pipe(["Hi, pls intro yourself", "Shanghai is"])
+response = pipe("Hi, pls intro yourself")
 print(response)
 ```
 

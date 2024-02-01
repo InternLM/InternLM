@@ -203,7 +203,7 @@ streamlit run ./chat/web_demo.py
 ```python
 from lmdeploy import pipeline
 pipe = pipeline("internlm/internlm2-chat-7b")
-response = pipe(["Hi, pls intro yourself", "Shanghai is"])
+response = pipe("Hi, pls intro yourself")
 print(response)
 ```
 
