@@ -1,4 +1,4 @@
-# InternLM2-20B Model Card
+# InternLM2-1.8B Model Card
 
 ## Introduction
 
