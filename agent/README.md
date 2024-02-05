@@ -10,13 +10,13 @@ InternLM2-Chat, open sourced on January 17, 2024, further enhances its capabilit
 
 The results of InternLM2-Chat-20B on math code interpreter is as below:
 
-|                                          | GSM8K | MATH |
-| :--------------------------------------: | :---: | :--: |
-|            InternLM2-Chat-20B            | 79.6  | 32.5 |
-| InternLM2-Chat-20B with Code Interpreter | 84.5  | 51.2 |
-|            ChatGPT (GPT-3.5)             | 78.2  | 28.0 |
-|                  GPT-4                   | 91.4  | 45.8 |
+|                                          | GSM8K | MATH  |
+| :--------------------------------------: | :---: | :---: |
+|            InternLM2-Chat-20B            | 79.6  | 32.5  |
+| InternLM2-Chat-20B with Code Interpreter | 84.5  | 51.2  |
+|            ChatGPT (GPT-3.5)             | 78.2  | 28.0  |
+|                  GPT-4                   | 91.4  | 45.8  |
 
 ## Usages
 
-We offer examples using [Lagent](lagent.md) to build agents based on InternLM2-Chat to call code interpreter or search API. Additionally, we provide an example code using [PAL to evaluate GSM8K math problems](pal_inference.md) with InternLM-Chat-7B.
+We offer examples using [Lagent](lagent.md) to build agents based on InternLM2-Chat to call code interpreter or search API. Please see [Inference with Streaming Agents in Lagent](streaming_inference.md). Additionally, we provide an example code using [PAL to evaluate GSM8K math problems](pal_inference.md) with InternLM-Chat-7B.
