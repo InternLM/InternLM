@@ -98,7 +98,7 @@ def parse_args():
                         default=['<|action_end|>', '<|im_end|>'],
                         action='append',
                         help='Stop words')
-    parser.add_argument('--max_tokens',
+    parser.add_argument('--max_new_tokens',
                         type=int,
                         default=512,
                         help='Number of maximum generated tokens.')
@@ -557,7 +557,7 @@ def predict(args):
         stop_words=args.stop_words,
         top_p=args.top_p,
         top_k=args.top_k,
-        max_tokens=args.max_tokens,
+        max_new_tokens=args.max_new_tokens,
     )
     with jsonlines.open(args.output_path, 'w') as f:
         for item in tqdm(
