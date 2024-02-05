@@ -518,7 +518,7 @@ def predict(args):
             d['idx'] = k
             d['query'] = d['question'].replace('$', '')
             d['gt'] = re.search('The answer is (.+)', d['answer'])[1]
-            d['pred'], d['steps'], d['error'] = None, [], []
+            d['pred'], d['steps'], d['error'] = [], [], None
             return d
 
         dataset = load_dataset('gsm8k', 'main',
