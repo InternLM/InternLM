@@ -1,4 +1,5 @@
 # flake8: noqa
+# isort: skip_file
 
 # This logic is modified from ToRA:
 #   - https://github.com/microsoft/ToRA
