@@ -94,7 +94,7 @@ def parse_args():
                         default=None,
                         help='Parameter for Top-K Sampling.')
     parser.add_argument('--stop_words',
-                        type=list,
+                        type=str,
                         default=['<|action_end|>', '<|im_end|>'],
                         action='append',
                         help='Stop words')
