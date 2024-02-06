@@ -54,7 +54,7 @@ DEFAULT_PROMPT = (
 
 
 def parse_args():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description='Math Code Interpreter')
     parser.add_argument('--backend',
                         type=str,
                         default='lmdeploy',
@@ -572,7 +572,8 @@ def predict(args):
                 ]
                 item['pred'].append('😭' if not lang else
                                     extract_answer(lang[-1]['content']) or '😭')
-
+                agent._interpreter_executor.actions[
+                    'IPythonInteractive'].reset()
             except Exception as e:
                 err = str(traceback.format_exc())
                 print(f'Error processing index {item["idx"]}: {e}\n{err}')
