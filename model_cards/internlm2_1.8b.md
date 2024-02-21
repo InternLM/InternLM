@@ -15,24 +15,25 @@ The base model of InternLM2 has the following technical features:
 
 ## Model Zoo
 
-| Model | Transformers(HF) | Release Date |
-|---------------------------|------------------------------------------------------------------------------------------|--------------|
-| **InternLM2 1.8B** | [🤗internlm/internlm2-1_8b](https://huggingface.co/internlm/internlm2-1_8b) | 2024-01-31 |
-| **InternLM2 Chat 1.8B SFT**     | [🤗internlm/internlm2-chat-1_8b-sft](https://huggingface.co/internlm/internlm2-chat-1_8b-sft)         | 2024-01-31   |
+| Model                      | Transformers(HF)                           | ModelScope(HF)                           | OpenXLab(HF)                           | OpenXLab(Origin)                           | Release Date |
+| -------------------------- | ------------------------------------------ | ---------------------------------------- | -------------------------------------- | ------------------------------------------ | ------------ |
+| **InternLM2 1.8B**     | [🤗internlm2-1.8b](https://huggingface.co/internlm/internlm2-1_8b) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-1.8b](https://www.modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-1_8b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-base-1.8b) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-base-1.8b-original) | 2024-01-31   |
+| **InternLM2 Chat 1.8B SFT**          | [🤗internlm2-chat-1.8b-sft](https://huggingface.co/internlm/internlm2-chat-1_8b-sft) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-chat-1.8b-sft](https://www.modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-1_8b-sft/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-1.8b-sft) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-1.8b-sft-original) | 2024-01-31   |
+| **InternLM2 Chat 1.8B**          | [🤗internlm2-chat-1.8b](https://huggingface.co/internlm/internlm2-chat-1_8b) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-chat-1.8b](https://www.modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-1_8b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-1.8b) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-1.8b-original) | 2024-02-19   |
 
 ## Performance Evaluation
 
 We have evaluated InternLM2 on several important benchmarks using the open-source evaluation tool [OpenCompass](https://github.com/open-compass/opencompass). Some of the evaluation results are shown in the table below. You are welcome to visit the [OpenCompass Leaderboard](https://opencompass.org.cn/rank) for more evaluation results.
 
-| Dataset\Models | InternLM2-1.8B | InternLM2-Chat-1.8B-SFT | InternLM2-7B | InternLM2-Chat-7B |
-| :---: | :---: | :---: | :---: | :---: |
-| MMLU | 46.9 | 47.1 | 65.8 | 63.7 |
-| AGIEval | 33.4 | 38.8 | 49.9 | 47.2 |
-| BBH | 37.5 | 35.2 | 65.0 | 61.2 |
-| GSM8K | 31.2 | 39.7 | 70.8 | 70.7 |
-| MATH | 5.6 | 11.8 | 20.2 | 23.0 |
-| HumanEval | 25.0 | 32.9 | 43.3 | 59.8 |
-| MBPP(Sanitized) | 22.2 | 23.2 | 51.8 | 51.4 |
+| Dataset\Models | InternLM2-1.8B | InternLM2-Chat-1.8B-SFT | InternLM2-Chat-1.8B | InternLM2-7B | InternLM2-Chat-7B |
+| :---: | :---: | :---: | :---: | :---: | :---: |
+| MMLU | 46.9 | 47.1 | 47.1 | 65.8 | 63.7 |
+| AGIEval | 33.4 | 38.8 | 38.7 | 49.9 | 47.2 |
+| BBH | 37.5 | 35.2 | 36.1 | 65.0 | 61.2 |
+| GSM8K | 31.2 | 39.7 | 40.9 | 70.8 | 70.7 |
+| MATH | 5.6 | 11.8 | 12.1 | 20.2 | 23.0 |
+| HumanEval | 25.0 | 32.9 | 34.2 | 43.3 | 59.8 |
+| MBPP(Sanitized) | 22.2 | 23.2 | 26.6 | 51.8 | 51.4 |
 
 
 - The evaluation results were obtained from [OpenCompass](https://github.com/open-compass/opencompass) , and evaluation configuration can be found in the configuration files provided by [OpenCompass](https://github.com/open-compass/opencompass). 
