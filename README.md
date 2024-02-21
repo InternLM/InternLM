@@ -47,7 +47,7 @@ InternLM2 series are released with the following features:
 
 ## News
 
-\[2024.01.31\] We release InternLM2-1.8B, along with the associated chat model. This model provides a cheaper deployment option while maintaining leading performance.
+\[2024.01.31\] We release InternLM2-1.8B, along with the associated chat model. They provide a cheaper deployment option while maintaining leading performance.
 
 \[2024.01.23\] We release InternLM2-Math-7B and InternLM2-Math-20B with pretraining and SFT checkpoints. They surpass ChatGPT with small sizes. See [InternLM-Math](https://github.com/InternLM/internlm-math) for details and download.
 

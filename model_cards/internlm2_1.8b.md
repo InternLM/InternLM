@@ -27,13 +27,13 @@ We have evaluated InternLM2 on several important benchmarks using the open-sourc
 
 | Dataset\Models | InternLM2-1.8B | InternLM2-Chat-1.8B-SFT | InternLM2-Chat-1.8B | InternLM2-7B | InternLM2-Chat-7B |
 | :---: | :---: | :---: | :---: | :---: | :---: |
-| MMLU | 46.9 | 47.1 | 47.1 | 65.8 | 63.7 |
-| AGIEval | 33.4 | 38.8 | 38.7 | 49.9 | 47.2 |
-| BBH | 37.5 | 35.2 | 36.1 | 65.0 | 61.2 |
-| GSM8K | 31.2 | 39.7 | 40.9 | 70.8 | 70.7 |
-| MATH | 5.6 | 11.8 | 12.1 | 20.2 | 23.0 |
-| HumanEval | 25.0 | 32.9 | 34.2 | 43.3 | 59.8 |
-| MBPP(Sanitized) | 22.2 | 23.2 | 26.6 | 51.8 | 51.4 |
+| MMLU | 46.9 | 47.1 | 44.1 | 65.8 | 63.7 |
+| AGIEval | 33.4 | 38.8 | 34.6 | 49.9 | 47.2 |
+| BBH | 37.5 | 35.2 | 34.3 | 65.0 | 61.2 |
+| GSM8K | 31.2 | 39.7 | 34.3 | 70.8 | 70.7 |
+| MATH | 5.6 | 11.8 | 10.7 | 20.2 | 23.0 |
+| HumanEval | 25.0 | 32.9 | 29.3 | 43.3 | 59.8 |
+| MBPP(Sanitized) | 22.2 | 23.2 | 27.0 | 51.8 | 51.4 |
 
 
 - The evaluation results were obtained from [OpenCompass](https://github.com/open-compass/opencompass) , and evaluation configuration can be found in the configuration files provided by [OpenCompass](https://github.com/open-compass/opencompass). 
