@@ -214,6 +214,21 @@ print(response)
 
 请参考[部署指南](./chat/lmdeploy.md)了解更多使用案例，更多部署教程则可在[这里](https://github.com/InternLM/LMDeploy)找到。
 
+
+### 20万字超长上下文推理
+
+激活 LMDeploy 的 Dynamic NTK 能力，可以轻松把 internlm2-chat-7b 外推到 200K 上下文
+
+```python
+from lmdeploy import pipeline, GenerationConfig, TurbomindEngineConfig
+
+backend_config = TurbomindEngineConfig(rope_scaling_factor=2.0, session_len=160000)
+pipe = pipeline('internlm/internlm2-chat-7b', backend_config=backend_config)
+prompt = 'Use a long prompt to replace this sentence'
+response = pipe(prompt)
+print(response)
+```
+
 ## 微调&训练
 
 请参考[微调教程](./finetune/)尝试续训或微调 InternLM2。
