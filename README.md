@@ -218,6 +218,20 @@ print(response)
 
 Please refer to the [guidance](./chat/lmdeploy.md) for more usages about model deployment. For additional deployment tutorials, feel free to explore [here](https://github.com/InternLM/LMDeploy).
 
+### 200K-long-context Inference
+
+By enabling the Dynamic NTK feature of LMDeploy, you can acquire the long-context inference power.
+
+```python
+from lmdeploy import pipeline, GenerationConfig, TurbomindEngineConfig
+
+backend_config = TurbomindEngineConfig(rope_scaling_factor=2.0, session_len=200000)
+pipe = pipeline('internlm/internlm2-chat-7b', backend_config=backend_config)
+prompt = 'Use a long prompt to replace this sentence'
+response = pipe(prompt)
+print(response)
+```
+
 ## Agent
 
 InternLM2-Chat models have excellent tool utilization capabilities and can work with function calls in a zero-shot manner. See more examples in [agent session](./agent/).
