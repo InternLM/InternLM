@@ -27,7 +27,7 @@ jobs:
         conda create -n internlm-model-latest --clone ${CONDA_BASE_ENV}
         source activate internlm-model-latest
         pip install transformers==${{ matrix.transformers-version }}
-        pip install sentencepiece
+        pip install sentencepiece auto-gptq
         srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --gpus-per-task=2 pytest -s -v --color=yes ./tests/test_hf_model.py
         conda deactivate
     - name: load_latest_hf_model
@@ -36,7 +36,7 @@ jobs:
         conda create -n internlm-model-latest --clone ${CONDA_BASE_ENV}
         source activate internlm-model-latest
         pip install transformers
-        pip install sentencepiece
+        pip install sentencepiece auto-gptq
         srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --gpus-per-task=2 pytest -s -v --color=yes ./tests/test_hf_model.py
         conda deactivate
     - name: remove_env
