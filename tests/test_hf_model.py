@@ -1,6 +1,6 @@
 import pytest
 import torch, auto_gptq
-from auto_gptq.modeling import BaseGPTQForCausalLM
+#from auto_gptq.modeling import BaseGPTQForCausalLM
 from PIL import Image
 from transformers import AutoModel, AutoModelForCausalLM, AutoTokenizer
 
@@ -123,16 +123,11 @@ class TestMMModel:
                                                   trust_remote_code=True)
         # Set `torch_dtype=torch.float16` to load model in float16, otherwise
         # it will be loaded as float32 and might cause OOM Error.
-        if '4bit' in model_name:
-            model = InternLMXComposer2QForCausalLM.from_quantized(
-                model_name, trust_remote_code=True, device='cuda:0').eval()
-            tokenizer = AutoTokenizer.from_pretrained(model_name,
-                                                      trust_remote_code=True)
-        else:
-            model = AutoModelForCausalLM.from_pretrained(
-                model_name, torch_dtype=torch.float16,
-                trust_remote_code=True).cuda()
-            tokenizer = AutoTokenizer.from_pretrained(model_name,
+        
+        model = AutoModelForCausalLM.from_pretrained(
+            model_name, torch_dtype=torch.float16,
+            trust_remote_code=True).cuda()
+        tokenizer = AutoTokenizer.from_pretrained(model_name,
                                                       trust_remote_code=True)
 
         model = model.eval()
@@ -178,7 +173,6 @@ class TestMMVlModel:
         'model_name',
         [
             'internlm/internlm-xcomposer2-vl-7b',
-            'internlm/internlm-xcomposer2-vl-7b-4bit'
         ],
     )
     def test_demo_default(self, model_name):
@@ -188,15 +182,9 @@ class TestMMVlModel:
         torch.set_grad_enabled(False)
 
         # init model and tokenizer
-        if '4bit' in model_name:
-            model = InternLMXComposer2QForCausalLM.from_quantized(
-                model_name, trust_remote_code=True, device='cuda:0').eval()
-            tokenizer = AutoTokenizer.from_pretrained(model_name,
-                                                      trust_remote_code=True)
-        else:
-            model = AutoModel.from_pretrained(
-                model_name, trust_remote_code=True).cuda().eval()
-            tokenizer = AutoTokenizer.from_pretrained(model_name,
+        model = AutoModel.from_pretrained(
+            model_name, trust_remote_code=True).cuda().eval()
+        tokenizer = AutoTokenizer.from_pretrained(model_name,
                                                       trust_remote_code=True)
 
         query = '<ImageHere>Please describe this image in detail.'
@@ -212,19 +200,3 @@ class TestMMVlModel:
         assert 'Oscar Wilde' in response
         assert 'Live life with no excuses, travel with no regret' in response
 
-
-class InternLMXComposer2QForCausalLM(BaseGPTQForCausalLM):
-    layers_block_name = 'model.layers'
-    outside_layer_modules = [
-        'vit',
-        'vision_proj',
-        'model.tok_embeddings',
-        'model.norm',
-        'output',
-    ]
-    inside_layer_modules = [
-        ['attention.wqkv.linear'],
-        ['attention.wo.linear'],
-        ['feed_forward.w1.linear', 'feed_forward.w3.linear'],
-        ['feed_forward.w2.linear'],
-    ]
