@@ -9,6 +9,8 @@ prompts = ['你好', "what's your name"]
 def assert_model(response):
     assert len(response) != 0
     assert 'UNUSED_TOKEN' not in response
+    assert 'Mynameis' not in response
+    assert 'Iama' not in response
 
 
 class TestChat:
@@ -21,9 +23,17 @@ class TestChat:
             'internlm/internlm2-chat-1_8b', 'internlm/internlm2-chat-1_8b-sft'
         ],
     )
-    def test_demo_default(self, model_name):
+    @pytest.mark.parametrize(
+        'usefast',
+        [
+            True,
+            False,
+        ],
+    )
+    def test_demo_default(self, model_name, usefast):
         tokenizer = AutoTokenizer.from_pretrained(model_name,
-                                                  trust_remote_code=True)
+                                                  trust_remote_code=True,
+                                                  use_fast=usefast)
         # Set `torch_dtype=torch.float16` to load model in float16, otherwise
         # it will be loaded as float32 and might cause OOM Error.
         model = AutoModelForCausalLM.from_pretrained(
@@ -57,9 +67,17 @@ class TestBase:
             'internlm/internlm2-1_8b'
         ],
     )
-    def test_demo_default(self, model_name):
+    @pytest.mark.parametrize(
+        'usefast',
+        [
+            True,
+            False,
+        ],
+    )
+    def test_demo_default(self, model_name, usefast):
         tokenizer = AutoTokenizer.from_pretrained(model_name,
-                                                  trust_remote_code=True)
+                                                  trust_remote_code=True,
+                                                  use_fast=usefast)
         # Set `torch_dtype=torch.float16` to load model in float16, otherwise
         # it will be loaded as float32 and might cause OOM Error.
         model = AutoModelForCausalLM.from_pretrained(
@@ -90,9 +108,17 @@ class TestMath:
         'model_name',
         ['internlm/internlm2-math-7b', 'internlm/internlm2-math-base-7b'],
     )
-    def test_demo_default(self, model_name):
+    @pytest.mark.parametrize(
+        'usefast',
+        [
+            True,
+            False,
+        ],
+    )
+    def test_demo_default(self, model_name, usefast):
         tokenizer = AutoTokenizer.from_pretrained(model_name,
-                                                  trust_remote_code=True)
+                                                  trust_remote_code=True,
+                                                  use_fast=usefast)
         # Set `torch_dtype=torch.float16` to load model in float16, otherwise
         # it will be loaded as float32 and might cause OOM Error.
         model = AutoModelForCausalLM.from_pretrained(
@@ -106,6 +132,7 @@ class TestMath:
                                        meta_instruction='')
         print(response)
         assert_model(response)
+        assert '2' in response
 
 
 class TestMMModel:
@@ -122,12 +149,12 @@ class TestMMModel:
                                                   trust_remote_code=True)
         # Set `torch_dtype=torch.float16` to load model in float16, otherwise
         # it will be loaded as float32 and might cause OOM Error.
-        
+
         model = AutoModelForCausalLM.from_pretrained(
             model_name, torch_dtype=torch.float32,
             trust_remote_code=True).cuda()
         tokenizer = AutoTokenizer.from_pretrained(model_name,
-                                                      trust_remote_code=True)
+                                                  trust_remote_code=True)
 
         model = model.eval()
         img_path_list = [
@@ -184,7 +211,7 @@ class TestMMVlModel:
         model = AutoModel.from_pretrained(
             model_name, trust_remote_code=True).cuda().eval()
         tokenizer = AutoTokenizer.from_pretrained(model_name,
-                                                      trust_remote_code=True)
+                                                  trust_remote_code=True)
 
         query = '<ImageHere>Please describe this image in detail.'
         image = 'tests/image.webp'
@@ -198,4 +225,3 @@ class TestMMVlModel:
         assert len(response) != 0
         assert 'Oscar Wilde' in response
         assert 'Live life with no excuses, travel with no regret' in response
-
