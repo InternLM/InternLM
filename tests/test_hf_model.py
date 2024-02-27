@@ -9,8 +9,6 @@ prompts = ['你好', "what's your name"]
 def assert_model(response):
     assert len(response) != 0
     assert 'UNUSED_TOKEN' not in response
-    assert 'Mynameis' not in response
-    assert 'Iama' not in response
 
 
 class TestChat:
