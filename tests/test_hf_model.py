@@ -1,6 +1,5 @@
 import pytest
-import torch, auto_gptq
-#from auto_gptq.modeling import BaseGPTQForCausalLM
+import torch
 from PIL import Image
 from transformers import AutoModel, AutoModelForCausalLM, AutoTokenizer
 
