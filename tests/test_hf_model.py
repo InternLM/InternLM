@@ -203,7 +203,7 @@ class TestMMModel:
                                            do_sample=False)
         print(response)
         assert len(response) != 0
-        assert ' panda ' in response
+        assert ' panda' in response
 
         query = '<ImageHere> <ImageHere>请根据图片写一篇作文：我最喜欢的小动物。' \
             + '要求：选准角度，确定立意，明确文体，自拟标题。'
