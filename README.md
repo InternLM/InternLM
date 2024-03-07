@@ -242,7 +242,7 @@ To learn more about data contamination assessment, please check the [contaminati
 ### Agent Evaluation
 
 - To evaluate tool utilization, please refer to [T-Eval](https://github.com/open-compass/T-Eval).
-- For code interpreter evaluation, use the [Math Agent Evaluation](agent/streaming_inference.py) provided in the repository. Additionally, you need to install [Lagent](https://github.com/InternLM/lagent).
+- For code interpreter evaluation, use the [Math Agent Evaluation](agent/README.md) provided in the repository.
 
 ### Subjective Evaluation
 
