@@ -1,13 +1,3 @@
 sentencepiece
 streamlit
 transformers>=4.34
-lmdeploy>=0.2.2
-datasets
-tqdm
-numpy
-pebble
-jsonlines
-sympy==1.12
-antlr4-python3-runtime==4.11.0
-lagent
-einops

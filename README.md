@@ -242,7 +242,7 @@ To learn more about data contamination assessment, please check the [contaminati
 ### Agent Evaluation
 
 - To evaluate tool utilization, please refer to [T-Eval](https://github.com/open-compass/T-Eval).
-- For code interpreter evaluation, use the [gsm-8k-agent](https://github.com/open-compass/opencompass/blob/main/configs/datasets/gsm8k/gsm8k_agent_gen_be1606.py) provided in the repository. Additionally, you need to install [Lagent](https://github.com/InternLM/lagent).
+- For code interpreter evaluation, use the [Math Agent Evaluation](agent/streaming_inference.py) provided in the repository. Additionally, you need to install [Lagent](https://github.com/InternLM/lagent).
 
 ### Subjective Evaluation
 

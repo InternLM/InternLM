@@ -19,4 +19,69 @@ InternLM2-Chat 进一步提高了它在代码解释和通用工具调用方面�
 
 ## 体验
 
-我们提供了使用 [Lagent](lagent_zh-CN.md) 来基于 InternLM2-Chat 构建智能体调用代码解释器或者搜索等工具的例子，请参考 [Lagent 智能体流式推理](streaming_inference_zh-CN.md)。同时，我们也提供了采用 [PAL 评测 GSM8K 数学题](pal_inference_zh-CN.md) InternLM-Chat-7B 的样例。
+我们提供了使用 [Lagent](lagent_zh-CN.md) 来基于 InternLM2-Chat 构建智能体调用代码解释器的例子。首先安装额外依赖：
+
+```bash
+pip install -r requirements.txt
+```
+
+运行以下脚本在 GSM8K 和 MATH 测试集上进行推理和评估：
+
+```bash
+python streaming_inference.py \
+  --backend=lmdeploy \  # For HuggingFace models: hf
+  --model_path=internlm/internlm2-chat-20b \
+  --tp=2 \
+  --temperature=0.0 \
+  --dataset=math \
+  --output_path=math_lmdeploy.jsonl \
+  --do_eval
+```
+
+`output_path` 是一个存储推理结果的 jsonl 格式文件，每行形如：
+
+```json
+{
+    "idx": 41, 
+    "query": "The point $(a, b)$ lies on the line with the equation $3x + 2y = 12.$ When $a = 4$, what is the value of $b$?",
+    "gt": "0",
+    "pred": ["0"],
+    "steps": [
+        {
+            "role": "language",
+            "content": ""
+        },
+        {
+            "role": "tool",
+            "content": {
+                "name": "IPythonInteractive",
+                "parameters": {
+                    "command": "```python\nfrom sympy import symbols, solve\n\ndef find_b():\n    x, y = symbols('x y')\n    equation = 3*x + 2*y - 12\n    b = solve(equation.subs(x, 4), y)[0]\n\n    return b\n\nresult = find_b()\nprint(result)\n```"
+                }
+            },
+            "name": "interpreter"
+        },
+        {
+            "role": "environment",
+            "content": "0",
+            "name": "interpreter"
+        },
+        {
+            "role": "language",
+            "content": "The value of $b$ when $a = 4$ is $\\boxed{0}$."
+        }
+    ],
+    "error": null
+}
+```
+
+如果已经准备好了该文件，可直接跳过推理阶段进行评估：
+
+```bash
+python streaming_inference.py \
+  --output_path=math_lmdeploy.jsonl \
+  --no-do_infer \
+  --do_eval
+```
+
+请参考 [`streaming_inference.py`](streaming_inference.py) 获取更多关于参数的信息。
