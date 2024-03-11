@@ -219,3 +219,61 @@ fig.show()
 <|im_start|>assistant
 上海的天气是 22 摄氏度<|im_end|>
 ````
+
+## ReACT 对话格式
+
+#### 工具调用
+
+````
+<|im_start|>system
+你是一个可以调用外部工具的助手，可以使用的工具包括：
+[
+    {
+        "name": "get_current_weather",
+        "description": "Get the current weather in a given location",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "location": {
+                    "type": "string",
+                    "description": "The city and state, e.g. San Francisco, CA",
+                },
+                "unit": {"type": "string"},
+            },
+            "required": ["location"],
+        },
+    }
+]
+如果使用工具请遵循以下格式回复：
+```
+Thought:思考你当前步骤需要解决什么问题，是否需要使用工具
+Action:工具名称，你的工具必须从 [get_current_weather] 选择
+Action Input:工具输入参数
+```
+工具返回按照以下格式回复：
+```
+Response:调用工具后的结果
+```
+如果你已经知道了答案，或者你不需要工具
+请遵循以下格式回复
+```
+Thought:给出最终答案的思考过程
+Final Answer:最终答案
+```
+开始!
+<|im_end|>
+<|im_start|>user
+我想了解今天上海的天气<|im_end|>
+<|im_start|>assistant
+Thought:好的，我将为你查询上海的天气。
+Action:get_current_weather
+Action Input:{"location": "Shanghai"}
+<|im_start|>system
+Response:{"temperature": 22}<|im_end|>
+<|im_start|>assistant
+Thought: 根据回复可以给出最终答案
+Final Answer:上海的天气是 22 摄氏度<|im_end|>
+````
+
+其中 system 承担了提供工具的描述、格式约束和工具调用的结果返回三种功能。在训练过程中一般情况下 system 和 user 的内容不计算损失，只有 assistant 的内容计算损失。可以参考
+[Xtuner-MSAgent](https://github.com/InternLM/xtuner/blob/770bac38bc905794eb38e53de4f54f98e30a77dc/xtuner/dataset/map_fns/dataset_map_fns/msagent_map_fn.py) 来了解对话历史的拼接。
