@@ -32,7 +32,8 @@ python streaming_inference.py \
   --backend=lmdeploy \  # For HuggingFace models: hf
   --model_path=internlm/internlm2-chat-20b \
   --tp=2 \
-  --temperature=0.0 \
+  --temperature=1.0 \
+  --top_k=1 \
   --dataset=math \
   --output_path=math_lmdeploy.jsonl \
   --do_eval
