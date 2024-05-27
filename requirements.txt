@@ -1,3 +1,6 @@
 sentencepiece
 streamlit
 transformers>=4.34
+protobuf
+accelerate
+einops
