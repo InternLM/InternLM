@@ -127,7 +127,9 @@ class TestMath:
 
     @pytest.mark.parametrize(
         'model_name',
-        ['internlm/internlm2-math-7b', 'internlm/internlm2-math-base-7b'],
+        ['internlm/internlm2-math-7b', 'internlm/internlm2-math-base-7b',
+         'internlm/internlm2-math-plus-1_8b', 'internlm/internlm2-math-plus-7b'
+        ],
     )
     @pytest.mark.parametrize(
         'usefast',
@@ -163,7 +165,8 @@ class TestMMModel:
         'model_name',
         [
             'internlm/internlm-xcomposer2-7b',
-            'internlm/internlm-xcomposer2-7b-4bit'
+            'internlm/internlm-xcomposer2-7b-4bit',
+            'internlm/internlm-xcomposer2-4khd-7b'
         ],
     )
     def test_demo_default(self, model_name):
