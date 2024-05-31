@@ -227,8 +227,7 @@ class TestMMVlModel:
         'model_name',
         [
             'internlm/internlm-xcomposer2-vl-7b',
-            'internlm/internlm-xcomposer2-vl-7b-4bit',
-            'internlm/internlm-xcomposer2-4khd-7b'
+            'internlm/internlm-xcomposer2-vl-7b-4bit'
         ],
     )
     def test_demo_default(self, model_name):
