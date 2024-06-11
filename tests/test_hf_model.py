@@ -127,7 +127,9 @@ class TestMath:
 
     @pytest.mark.parametrize(
         'model_name',
-        ['internlm/internlm2-math-7b', 'internlm/internlm2-math-base-7b'],
+        ['internlm/internlm2-math-7b', 'internlm/internlm2-math-base-7b',
+         'internlm/internlm2-math-plus-1_8b', 'internlm/internlm2-math-plus-7b'
+        ],
     )
     @pytest.mark.parametrize(
         'usefast',
