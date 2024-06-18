@@ -52,7 +52,7 @@ You can interact with the InternLM Chat 7B model through a frontend interface by
 
 ```bash
 pip install streamlit
-pip install transformers>=4.34
+pip install transformers>=4.38
 streamlit run ./chat/web_demo.py
 ```
 

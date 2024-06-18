@@ -138,7 +138,7 @@ The release of InternLM2 series contains two model sizes: 7B and 20B. 7B models 
 
 - Python >= 3.8
 - PyTorch >= 1.12.0 (2.0.0 and above are recommended)
-- Transformers >= 4.34
+- Transformers >= 4.38
 
 ## Usages
 
@@ -147,7 +147,7 @@ The chat models adopt [chatml format](./chat/chat_format.md) to support both cha
 To ensure a better usage effect, please make sure that the installed transformers library version meets the following requirements before performing inference with [Transformers](#import-from-transformers) or [ModelScope](#import-from-modelscope):
 
 ```
-transformers >= 4.34
+transformers >= 4.38
 ```
 
 ### Import from Transformers
@@ -202,7 +202,7 @@ You can interact with the InternLM Chat 7B model through a frontend interface by
 
 ```bash
 pip install streamlit
-pip install transformers>=4.34
+pip install transformers>=4.38
 streamlit run ./chat/web_demo.py
 ```
 

@@ -135,7 +135,7 @@ InternLM2 系列模型在本仓库正式发布，具有如下特性：
 
 - Python >= 3.8
 - PyTorch >= 1.12.0 (推荐 2.0.0 和更高版本)
-- Transformers >= 4.34
+- Transformers >= 4.38
 
 ## 使用案例
 
@@ -144,7 +144,7 @@ InternLM2 系列模型在本仓库正式发布，具有如下特性：
 为了保障更好的使用效果，在用 [Transformers](#import-from-transformers) 或 [ModelScope](#import-from-modelscope) 进行推理前，请确保安装的 transformers 库版本满足以下要求：
 
 ```
-transformers >= 4.34
+transformers >= 4.38
 ```
 
 ### 通过 Transformers 加载
@@ -198,7 +198,7 @@ print(response)
 
 ```bash
 pip install streamlit
-pip install transformers>=4.34
+pip install transformers>=4.38
 streamlit run ./chat/web_demo.py
 ```
 
