@@ -22,11 +22,11 @@ XTuner 是一个高效、灵活、全能的轻量化大模型微调工具库。
 
 ### [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory)
 
-LLaMA-Factory is an open-source, easy-to-use fine-tuning and training framework for LLMs
+LLaMA-Factory 是一个开源的、易于使用的 LLMs 微调和训练框架。
 
 ### [swift](https://github.com/modelscope/swift)
 
-SWIFT supports training, inference, evaluation and deployment of LLMs and MLLMs (multimodal large models).
+SWIFT 支持 LLMs 和多模态大型模型（MLLMs）的训练、推理、评估和部署。
 
 ## 推理
 
