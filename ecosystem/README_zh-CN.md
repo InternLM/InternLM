@@ -1,24 +1,24 @@
-# InternLM Ecosystem
+# InternLM 生态
 
-With the innovation waves driven by large language models,  InternLM has been continuously building more comprehensive and powerful foundational models (LLMs). It adheres to open-source and free commercial use, fully empowering the prosperity and development of the AI community ecosystem. It helps businesses and research institutions to lower the barriers to developing and applying LLMs, allowing the value of LLMs to shine in various industries.
+面向大模型掀起的新一轮创新浪潮，书生浦语（InternLM）持续打造综合能力更强大的基础模型，并坚持通过开源开放、免费商用，全面赋能整个AI社区生态的繁荣发展，帮助企业和研究机构降低大模型的开发和应用门槛，让大模型的价值在各行各业中绽放。
 
-The released Internlm2 supports a variety of well-known upstream and downstream projects, including LLaMA-Factory, vLLM, Langchain, and others, enabling a wide range of users to utilize the InternLM series models and open-source toolchains more efficiently and conveniently.
+已发布的 internlm2 系列模型，支持包括 LLaMA-Factory、vLLM、Langchain 等众多知名上下游项目。，广大用户可以更高效、便捷的使用书生浦语系列模型与开源工具链。
 
-We categorize ecosystem projects into three main areas: Training, Inference, and Application. Each area features a selection of renowned open-source projects compatible with InternLM models. The list is continually expanding, and we warmly invite contributions from the community to include additional worthy projects.
+我们将生态系统项目分为三个主要领域：训练、推理和应用。每个领域都展示了一些与 InternLM 模型兼容的著名开源项目。这个列表在不断扩展，我们热情邀请社区贡献，包括更多有价值的项目。
 
-## Training
+## 训练
 
 ### [InternEvo](https://github.com/InternLM/InternEvo)
 
-InternEvo is an open-sourced lightweight training framework aims to support model pre-training without the need for extensive dependencies. It supports pre-training on large-scale clusters with thousands of GPUs
+InternEvo 是一个开源的轻量级训练框架，旨在支持无需大量依赖关系的模型预训练。凭借单一代码库，InternEvo 支持在具有上千 GPU 的大规模集群上进行预训练。
 
-A quickstart guide for internlm2 model pre-training and fine-tuning can be reviewed from [here](https://github.com/InternLM/InternEvo/blob/develop/doc/en/usage.md)
+InternLM2 模型预训练和微调的快速入门指南可以查看[这里](https://github.com/InternLM/InternEvo/blob/develop/doc/en/usage.md)。
 
 ### [XTuner](https://github.com/InternLM/xtuner)
 
-XTuner is an efficient, flexible and full-featured toolkit for fine-tuning large models.
+XTuner 是一个高效、灵活、全能的轻量化大模型微调工具库。
 
-You can find the best practice of finetuing the internlm2 model in the [README](https://github.com/InternLM/InternLM/tree/main/finetune#xtuner)
+你可以在 [README](https://github.com/InternLM/InternLM/tree/main/finetune#xtuner) 中找到 InternLM2 模型微调的最佳实践。
 
 ### [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory)
 
@@ -28,13 +28,13 @@ LLaMA-Factory is an open-source, easy-to-use fine-tuning and training framework 
 
 SWIFT supports training, inference, evaluation and deployment of LLMs and MLLMs (multimodal large models).
 
-## Inference
+## 推理
 
 ### [LMDeploy](https://github.com/InternLM/lmdeploy)
 
-LMDeploy is an efficient toolkit for compressing, deploying, and serving LLMs and VLMs.
+LMDeploy 是一个高效且友好的 LLMs 模型部署工具箱，功能涵盖了量化、推理和服务。
 
-With only 4 lines of codes, you can perform `internlm2-chat-7b` inference after `pip install lmdeploy`:
+通过 `pip install lmdeploy` 安装后，只用以下 4 行代码，即可使用 `internlm2-chat-7b` 模型完成 prompts 的批处理：
 
 ```python
 from lmdeploy import pipeline
@@ -45,9 +45,9 @@ print(response)
 
 ### [vLLM](https://github.com/vllm-project/vllm)
 
-`vLLM` is a high-throughput and memory-efficient inference and serving engine for LLMs.
+vLLM 是一个用于 LLMs 的高吞吐量和内存效率的推理和服务引擎。
 
-After the installation via `pip install vllm`, you can conduct the `internlm2-chat-7b` model inference as follows:
+通过 `pip install vllm` 安装后，你可以按照以下方式使用 internlm2-chat-7b 模型进行推理：
 
 ```python
 from vllm import LLM, SamplingParams
@@ -74,7 +74,7 @@ for output in outputs:
 
 ### [TGI](https://github.com/huggingface/text-generation-inference)
 
-TGI is a toolkit for deploying and serving Large Language Models (LLMs). The easiest way of deploying a LLM is using the official Docker container:
+TGI 是一个用于部署和提供 LLMs 服务的工具包。部署 LLM 服务最简单的方法是使用官方的 Docker 容器：
 
 ```python
 model=internlm/internlm2-chat-7b
@@ -98,14 +98,18 @@ curl 127.0.0.1:8080/generate_stream \
 
 `InternLM2` can be deployed with `llama.cpp` by following the below instructions:
 
-- Refer [this](https://github.com/ggerganov/llama.cpp?tab=readme-ov-file#build) guide to build llama.cpp from source
-- Convert the InternLM model to GGUF model and run it according to the [guide](https://github.com/ggerganov/llama.cpp?tab=readme-ov-file#prepare-and-quantize)
+llama.cpp 是一个用 C/C++ 开发的 LLMs 推理框架。其目标是在各种硬件上实现最小设置和最先进的性能的 LLM 推理——无论是在本地还是在云端。
+
+通过以下方式可以使用 llama.cpp 部署 InternLM2：
+
+- 参考 [这里](https://github.com/ggerganov/llama.cpp?tab=readme-ov-file#build) 编译并安装 llama.cpp
+- 把 InternLM 模型转成 GGUF 格式，具体方法参考 [此处](https://github.com/ggerganov/llama.cpp?tab=readme-ov-file#prepare-and-quantize)
 
 ### [ollama](https://github.com/ollama/ollama)
 
-Ollama bundles model weights, configuration, and data into a single package, defined by a Modelfile. It optimizes setup and configuration details, enabling users to easily set up and execute LLMs locally (in CPU and GPU modes).
+Ollama 将模型权重、配置和数据打包到一个单一的包中，由 Modelfile 定义。它优化了安装和配置，使用户能够轻松地在本地（以 CPU 和 GPU 模式）设置和执行 LLMs。
 
-The following snippet presents the Modefile of InternLM2 with `internlm2-chat-7b` as an example. Note that the InternLM2 model has to be converted to GGUF model at first.
+以下代码片段展示了以 `internlm2-chat-7b` 为例的 InternLM2 的 Modelfile。请注意，InternLM2 模型首先需要转换为 GGUF 模型。
 
 ```shell
 echo 'FROM ./internlm2-chat-7b.gguf
@@ -126,22 +130,22 @@ SYSTEM """You are an AI assistant whose name is InternLM (书生·浦语).
 ' > ./Modelfile
 ```
 
-Then, create an image from the above `Modelfile` like this:
+接着，使用上述 `Modelfile` 创建镜像：
 
 ```shell
 ollama create internlm2:chat-7b -f ./Modelfile
 ```
 
-Regarding the usage of `ollama`, please refer [here](https://github.com/ollama/ollama/tree/main/docs).
+Ollama 的使用方法可以参考[这里](https://github.com/ollama/ollama/tree/main/docs)。
 
 ### [llamafile](https://github.com/Mozilla-Ocho/llamafile)
 
-llamafile lets you turn large language model (LLM) weights into executables. It combines [llama.cpp](https://github.com/ggerganov/llama.cpp) with [Cosmopolitan Libc](https://github.com/jart/cosmopolitan).
+llamafile 可以把 LLMs 的权重转换为可执行文件。它结合了 llama.cpp 和 Cosmopolitan Libc。
 
-The best practice of deploying InternLM2 using llamafile is shown as below:
+使用 llamafile 部署 InternLM2 的最佳实践如下：
 
-- Convert the internlm2 model into GGUF model by `llama.cpp`. Suppose we get `internlm2-chat-7b.gguf` in this step
-- create the llamafile
+- 通过 llama.cpp 将 internlm2 模型转换为 GGUF 模型。假设我们在这一步得到了 `internlm2-chat-7b.gguf`
+- 创建 llamafile
 
 ```shell
 wget https://github.com/Mozilla-Ocho/llamafile/releases/download/0.8.6/llamafile-0.8.6.zip
@@ -171,7 +175,7 @@ rm -rf .args
 ./internlm2.llamafile
 ```
 
-Your browser should open automatically and display a chat interface. (If it doesn't, just open your browser and point it at http://localhost:8080)
+你的浏览器应该会自动打开并显示一个聊天界面。（如果没有，只需打开你的浏览器并访问 http://localhost:8080）
 
 ### [mlx](https://github.com/ml-explore/mlx)
 
@@ -179,13 +183,17 @@ MLX is an array framework for machine learning research on Apple silicon, brough
 
 With the following steps, you can perform InternLM2 inference on Apple devices.
 
-- Installation
+MLX 是苹果公司为用户在苹果芯片上进行机器学习提供的一套框架。
+
+通过以下步骤，你可以在苹果设备上进行 InternLM2 的推理。
+
+- 安装
 
 ```shell
 pip install mlx mlx-lm
 ```
 
-- Inference
+- 推理
 
 ```python
 from mlx_lm import load, generate
@@ -194,13 +202,13 @@ model, tokenizer = load("internlm/internlm2-chat-1_8b", tokenizer_config=tokeniz
 response = generate(model, tokenizer, prompt="write a story", verbose=True)
 ```
 
-## Application
+## 应用
 
 ### [Langchain](https://github.com/langchain-ai/langchain)
 
-LangChain is a framework for developing applications powered by large language models (LLMs).
+LangChain 是一个用于开发由 LLMs 驱动的应用程序的框架。
 
-You can build a [LLM chain](https://python.langchain.com/v0.1/docs/get_started/quickstart/#llm-chain) by the OpenAI API. And the server is recommended to be launched by LMDeploy, vLLM or others that are compatible with openai server.
+你可以通过 OpenAI API 构建一个 [LLM 链](https://python.langchain.com/v0.1/docs/get_started/quickstart/#llm-chain)。建议使用 LMDeploy、vLLM 或其他与 OpenAI 服务兼容的部署框架来启动服务。
 
 ```python
 from langchain_openai import ChatOpenAI
@@ -219,14 +227,14 @@ chain = prompt | llm
 chain.invoke({"input": "how can langsmith help with testing?"})
 ```
 
-Or you can follow the guide [here](https://python.langchain.com/v0.1/docs/get_started/quickstart/#llm-chain) and run an ollama model locally.
+或者，你可以按照[这份指南](https://python.langchain.com/v0.1/docs/get_started/quickstart/#llm-chain)在本地使用 ollama 推理 InternLM2 模型。
 
-As for other user cases, please look for them from [here](https://python.langchain.com/v0.1/docs/get_started/introduction/).
+对于其他使用方式，请从[这里](https://python.langchain.com/v0.1/docs/get_started/introduction/)查找。
 
 ### [LlamaIndex](https://github.com/run-llama/llama_index)
 
-LlamaIndex is a framework for building context-augmented LLM applications.
+LlamaIndex 是一个用于构建上下文增强型 LLM 应用程序的框架。
 
-It chooses ollama as the LLM inference engine locally. An example can be found from the [Starter Tutorial(Local Models)](https://docs.llamaindex.ai/en/stable/getting_started/starter_example_local/).
+它选择 ollama 作为 LLM 推理引擎。你可以在[入门教程（本地模型）](<(https://docs.llamaindex.ai/en/stable/getting_started/starter_example_local/)>)中找到示例。
 
-Therefore, you can integrate InternLM2 to LlamaIndex smoothly if you can deploying InternLM2 with `ollama` as guided in the [ollama section](#ollama)
+因此，如果能够按照 [ollama 章节](#ollama)使用 ollama 部署 InternLM2，你就可以顺利地将 InternLM2 集成到 LlamaIndex 中。
