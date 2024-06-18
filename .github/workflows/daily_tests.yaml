@@ -13,7 +13,7 @@ jobs:
     runs-on: [t_cluster]
     strategy:
       matrix:
-        transformers-version: [4.36.0, latest]
+        transformers-version: [4.38.0, latest]
     steps:
     - name: mask env
       run: |
