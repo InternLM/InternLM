@@ -46,6 +46,6 @@ print(response)
 
 ```bash
 pip install streamlit
-pip install transformers>=4.34
+pip install transformers>=4.38
 streamlit run ./web_demo.py
 ```
