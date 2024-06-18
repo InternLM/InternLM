@@ -35,7 +35,6 @@ jobs:
         pip install transformers
     - name: run_test
       run: |
-        conda create -n internlm-model-latest --clone ${CONDA_BASE_ENV}
         source activate internlm-model-latest
         pip install torch==2.2.2 torchvision==0.17.2 --index-url https://download.pytorch.org/whl/cu118
         wget https://github.com/Dao-AILab/flash-attention/releases/download/v2.5.8/flash_attn-2.5.8+cu118torch2.2cxx11abiFALSE-cp310-cp310-linux_x86_64.whl
