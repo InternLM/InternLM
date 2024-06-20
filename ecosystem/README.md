@@ -24,9 +24,23 @@ You can find the best practice of finetuing the internlm2 model in the [README](
 
 LLaMA-Factory is an open-source, easy-to-use fine-tuning and training framework for LLMs
 
+```bash
+llamafactory-cli train \
+    --model_name_or_path internlm/internlm2-chat-1_8b \
+    --quantization_bit 4 --stage sft  --lora_target all \
+    --dataset 'identity,alpaca_en_demo' --template intern2 \
+    --output_dir output --do_train
+```
+
 ### [swift](https://github.com/modelscope/swift)
 
 SWIFT supports training, inference, evaluation and deployment of LLMs and MLLMs (multimodal large models).
+
+```bash
+swift sft --model_type internlm2-1_8b-chat \
+    --model_id_or_path Shanghai_AI_Laboratory/internlm2-chat-1_8b  \
+    --dataset AI-ModelScope/blossom-math-v2 --output_dir output
+```
 
 ## Inference
 

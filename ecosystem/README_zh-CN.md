@@ -24,7 +24,21 @@ XTuner 是一个高效、灵活、全能的轻量化大模型微调工具库。
 
 LLaMA-Factory 是一个开源的、易于使用的 LLMs 微调和训练框架。
 
+```bash
+llamafactory-cli train \
+    --model_name_or_path internlm/internlm2-chat-1_8b \
+    --quantization_bit 4 --stage sft  --lora_target all \
+    --dataset 'identity,alpaca_en_demo' --template intern2 \
+    --output_dir output --do_train
+```
+
 ### [swift](https://github.com/modelscope/swift)
+
+```bash
+swift sft --model_type internlm2-1_8b-chat \
+    --model_id_or_path Shanghai_AI_Laboratory/internlm2-chat-1_8b  \
+    --dataset AI-ModelScope/blossom-math-v2 --output_dir output
+```
 
 SWIFT 支持 LLMs 和多模态大型模型（MLLMs）的训练、推理、评估和部署。
 
