@@ -34,7 +34,7 @@ SWIFT supports training, inference, evaluation and deployment of LLMs and MLLMs 
 
 LMDeploy is an efficient toolkit for compressing, deploying, and serving LLMs and VLMs.
 
-With only 4 lines of codes, you can perform `internlm2-chat-7b` inference after `pip install lmdeploy`:
+With only 4 lines of code, you can perform `internlm2-chat-7b` inference after `pip install lmdeploy`:
 
 ```python
 from lmdeploy import pipeline
@@ -141,7 +141,7 @@ llamafile lets you turn large language model (LLM) weights into executables. It 
 The best practice of deploying InternLM2 using llamafile is shown as below:
 
 - Convert the internlm2 model into GGUF model by `llama.cpp`. Suppose we get `internlm2-chat-7b.gguf` in this step
-- create the llamafile
+- Create the llamafile
 
 ```shell
 wget https://github.com/Mozilla-Ocho/llamafile/releases/download/0.8.6/llamafile-0.8.6.zip
@@ -157,7 +157,7 @@ internlm2-chat-7b.gguf
 999
 ..." > .args
 
-zipalign -j0 \
+llamafile-0.8.6/bin/zipalign -j0 \
   internlm2.llamafile \
   internlm2-chat-7b.gguf \
   .args

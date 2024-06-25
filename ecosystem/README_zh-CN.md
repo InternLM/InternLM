@@ -161,7 +161,7 @@ internlm2-chat-7b.gguf
 999
 ..." > .args
 
-zipalign -j0 \
+llamafile-0.8.6/bin/zipalign -j0 \
   internlm2.llamafile \
   internlm2-chat-7b.gguf \
   .args
