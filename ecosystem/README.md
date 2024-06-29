@@ -1,8 +1,8 @@
 # InternLM Ecosystem
 
-With the innovation waves driven by large language models,  InternLM has been continuously building more comprehensive and powerful foundational models (LLMs). It adheres to open-source and free commercial use, fully empowering the prosperity and development of the AI community ecosystem. It helps businesses and research institutions to lower the barriers to developing and applying LLMs, allowing the value of LLMs to shine in various industries.
+With the innovation waves driven by large language models (LLMs),  InternLM has been continuously building more comprehensive and powerful foundational models. It adheres to open-source and free commercial use, fully empowering the prosperity and development of the AI community ecosystem. It helps businesses and research institutions to lower the barriers to developing and applying LLMs, allowing the value of LLMs to shine in various industries.
 
-The released Internlm2 supports a variety of well-known upstream and downstream projects, including LLaMA-Factory, vLLM, Langchain, and others, enabling a wide range of users to utilize the InternLM series models and open-source toolchains more efficiently and conveniently.
+The released InternLM supports a variety of well-known upstream and downstream projects, including LLaMA-Factory, vLLM, Langchain, and others, enabling a wide range of users to utilize the InternLM series models and open-source toolchains more efficiently and conveniently.
 
 We categorize ecosystem projects into three main areas: Training, Inference, and Application. Each area features a selection of renowned open-source projects compatible with InternLM models. The list is continually expanding, and we warmly invite contributions from the community to include additional worthy projects.
 
@@ -12,13 +12,13 @@ We categorize ecosystem projects into three main areas: Training, Inference, and
 
 InternEvo is an open-sourced lightweight training framework aims to support model pre-training without the need for extensive dependencies. It supports pre-training on large-scale clusters with thousands of GPUs
 
-A quickstart guide for internlm2 model pre-training and fine-tuning can be reviewed from [here](https://github.com/InternLM/InternEvo/blob/develop/doc/en/usage.md)
+A quickstart guide for pre-training and fine-tuning the full series of InternLM models can be accessed from [here](https://github.com/InternLM/InternEvo/blob/develop/doc/en/usage.md)
 
 ### [XTuner](https://github.com/InternLM/xtuner)
 
 XTuner is an efficient, flexible and full-featured toolkit for fine-tuning large models.
 
-You can find the best practice of finetuing the internlm2 model in the [README](https://github.com/InternLM/InternLM/tree/main/finetune#xtuner)
+You can find the best practice for fine-tuning the InternLM series models in the [README](https://github.com/InternLM/InternLM/tree/main/finetune#xtuner)
 
 ### [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory)
 
@@ -48,11 +48,11 @@ swift sft --model_type internlm2-1_8b-chat \
 
 LMDeploy is an efficient toolkit for compressing, deploying, and serving LLMs and VLMs.
 
-With only 4 lines of code, you can perform `internlm2-chat-7b` inference after `pip install lmdeploy`:
+With only 4 lines of code, you can perform `internlm2_5-7b-chat` inference after `pip install lmdeploy`:
 
 ```python
 from lmdeploy import pipeline
-pipe = pipeline("internlm/internlm2-chat-7b")
+pipe = pipeline("internlm/internlm2_5-7b-chat")
 response = pipe(["Hi, pls intro yourself", "Shanghai is"])
 print(response)
 ```
@@ -61,7 +61,7 @@ print(response)
 
 `vLLM` is a high-throughput and memory-efficient inference and serving engine for LLMs.
 
-After the installation via `pip install vllm`, you can conduct the `internlm2-chat-7b` model inference as follows:
+After the installation via `pip install vllm`, you can conduct the `internlm2_5-7b-chat` model inference as follows:
 
 ```python
 from vllm import LLM, SamplingParams
@@ -75,7 +75,7 @@ prompts = [
 sampling_params = SamplingParams(temperature=0.8, top_p=0.95)
 
 # Create an LLM.
-llm = LLM(model="internlm/internlm2-chat-7b")
+llm = LLM(model="internlm/internlm2_5-7b-chat", trust_remote_code=True)
 # Generate texts from the prompts. The output is a list of RequestOutput objects
 # that contain the prompt, generated text, and other information.
 outputs = llm.generate(prompts, sampling_params)
@@ -90,8 +90,8 @@ for output in outputs:
 
 TGI is a toolkit for deploying and serving Large Language Models (LLMs). The easiest way of deploying a LLM is using the official Docker container:
 
-```python
-model=internlm/internlm2-chat-7b
+```shell
+model="internlm/internlm2_5-chat-7b"
 volume=$PWD/data # share a volume with the Docker container to avoid downloading weights every run
 
 docker run --gpus all --shm-size 1g -p 8080:80 -v $volume:/data ghcr.io/huggingface/text-generation-inference:2.0 --model-id $model
@@ -110,7 +110,7 @@ curl 127.0.0.1:8080/generate_stream \
 
 `llama.cpp` is a LLM inference framework developed in C/C++. Its goal is to enable LLM inference with minimal setup and state-of-the-art performance on a wide variety of hardware - locally and in the cloud.
 
-`InternLM2` can be deployed with `llama.cpp` by following the below instructions:
+`InternLM2` and `InternLM2.5` can be deployed with `llama.cpp` by following the below instructions:
 
 - Refer [this](https://github.com/ggerganov/llama.cpp?tab=readme-ov-file#build) guide to build llama.cpp from source
 - Convert the InternLM model to GGUF model and run it according to the [guide](https://github.com/ggerganov/llama.cpp?tab=readme-ov-file#prepare-and-quantize)
@@ -119,10 +119,10 @@ curl 127.0.0.1:8080/generate_stream \
 
 Ollama bundles model weights, configuration, and data into a single package, defined by a Modelfile. It optimizes setup and configuration details, enabling users to easily set up and execute LLMs locally (in CPU and GPU modes).
 
-The following snippet presents the Modefile of InternLM2 with `internlm2-chat-7b` as an example. Note that the InternLM2 model has to be converted to GGUF model at first.
+The following snippet presents the Modefile of InternLM2.5 with `internlm2_5-7b-chat` as an example. Note that the model has to be converted to GGUF model at first.
 
 ```shell
-echo 'FROM ./internlm2-chat-7b.gguf
+echo 'FROM ./internlm2_5-7b-chat.gguf
 TEMPLATE """{{ if .System }}<|im_start|>system
 {{ .System }}<|im_end|>
 {{ end }}{{ if .Prompt }}<|im_start|>user
@@ -143,7 +143,7 @@ SYSTEM """You are an AI assistant whose name is InternLM (书生·浦语).
 Then, create an image from the above `Modelfile` like this:
 
 ```shell
-ollama create internlm2:chat-7b -f ./Modelfile
+ollama create internlm2.5:7b-chat -f ./Modelfile
 ```
 
 Regarding the usage of `ollama`, please refer [here](https://github.com/ollama/ollama/tree/main/docs).
@@ -154,17 +154,17 @@ llamafile lets you turn large language model (LLM) weights into executables. It 
 
 The best practice of deploying InternLM2 using llamafile is shown as below:
 
-- Convert the internlm2 model into GGUF model by `llama.cpp`. Suppose we get `internlm2-chat-7b.gguf` in this step
+- Convert the internlm2 model into GGUF model by `llama.cpp`. Suppose we get `internlm2_5-chat-7b.gguf` in this step
 - Create the llamafile
 
 ```shell
 wget https://github.com/Mozilla-Ocho/llamafile/releases/download/0.8.6/llamafile-0.8.6.zip
 unzip llamafile-0.8.6.zip
 
-cp llamafile-0.8.6/bin/llamafile internlm2.llamafile
+cp llamafile-0.8.6/bin/llamafile internlm2_5.llamafile
 
 echo "-m
-internlm2-chat-7b.gguf
+internlm2_5-chat-7b.gguf
 --host
 0.0.0.0
 -ngl
@@ -172,8 +172,8 @@ internlm2-chat-7b.gguf
 ..." > .args
 
 llamafile-0.8.6/bin/zipalign -j0 \
-  internlm2.llamafile \
-  internlm2-chat-7b.gguf \
+  internlm2_5.llamafile \
+  internlm2_5-chat-7b.gguf \
   .args
 
 rm -rf .args
@@ -182,7 +182,7 @@ rm -rf .args
 - Run the llamafile
 
 ```shell
-./internlm2.llamafile
+./internlm2_5.llamafile
 ```
 
 Your browser should open automatically and display a chat interface. (If it doesn't, just open your browser and point it at http://localhost:8080)
@@ -191,7 +191,7 @@ Your browser should open automatically and display a chat interface. (If it does
 
 MLX is an array framework for machine learning research on Apple silicon, brought to you by Apple machine learning research.
 
-With the following steps, you can perform InternLM2 inference on Apple devices.
+With the following steps, you can perform InternLM2 or InternLM2.5 inference on Apple devices.
 
 - Installation
 
