@@ -152,9 +152,9 @@ Regarding the usage of `ollama`, please refer [here](https://github.com/ollama/o
 
 llamafile lets you turn large language model (LLM) weights into executables. It combines [llama.cpp](https://github.com/ggerganov/llama.cpp) with [Cosmopolitan Libc](https://github.com/jart/cosmopolitan).
 
-The best practice of deploying InternLM2 using llamafile is shown as below:
+The best practice of deploying InternLM2 or InternLM2.5 using llamafile is shown as below:
 
-- Convert the internlm2 model into GGUF model by `llama.cpp`. Suppose we get `internlm2_5-chat-7b.gguf` in this step
+- Convert the model into GGUF model by `llama.cpp`. Suppose we get `internlm2_5-chat-7b.gguf` in this step
 - Create the llamafile
 
 ```shell
@@ -243,4 +243,4 @@ LlamaIndex is a framework for building context-augmented LLM applications.
 
 It chooses ollama as the LLM inference engine locally. An example can be found from the [Starter Tutorial(Local Models)](https://docs.llamaindex.ai/en/stable/getting_started/starter_example_local/).
 
-Therefore, you can integrate InternLM2 to LlamaIndex smoothly if you can deploying InternLM2 with `ollama` as guided in the [ollama section](#ollama)
+Therefore, you can integrate InternLM2 or InternLM2.5 models to LlamaIndex smoothly if you can deploying them with `ollama` as guided in the [ollama section](#ollama)
