@@ -55,7 +55,7 @@ XTuner supports the efficient fine-tune (*e.g.*, QLoRA) for InternLM2.
   xtuner train ${CONFIG_NAME_OR_PATH}
   ```
 
-  For example, we can start the QLoRA fine-tuning of InternLM2-Chat-7B with oasst1 dataset by
+  For example, we can start the QLoRA fine-tuning of internlm2_5-7b-chat with oasst1 dataset by
 
   ```shell
   # On a single GPU
@@ -83,16 +83,16 @@ xtuner chat ${NAME_OR_PATH_TO_LLM} [optional arguments]
 
 For example, we can start the chat with
 
-InternLM2-Chat-7B with adapter trained from oasst1:
+internlm2_5-7b-chat with adapter trained from oasst1:
 
 ```shell
-xtuner chat internlm/internlm2-chat-7b --adapter xtuner/internlm2-chat-7b-qlora-oasst1 --prompt-template internlm2_chat
+xtuner chat internlm/internlm2_5-7b-chat --adapter xtuner/internlm2_5-7b-chat-qlora-oasst1 --prompt-template internlm2_chat
 ```
 
 LLaVA-InternLM2-7B:
 
 ```shell
-xtuner chat internlm/internlm2-chat-7b --visual-encoder openai/clip-vit-large-patch14-336 --llava xtuner/llava-internlm2-7b --prompt-template internlm2_chat --image $IMAGE_PATH
+xtuner chat internlm/internlm2_5-7b-chat --visual-encoder openai/clip-vit-large-patch14-336 --llava xtuner/llava-internlm2-7b --prompt-template internlm2_chat --image $IMAGE_PATH
 ```
 
 ## InternEvo

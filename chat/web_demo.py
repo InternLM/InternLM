@@ -180,10 +180,10 @@ def on_btn_click():
 
 @st.cache_resource
 def load_model():
-    model = (AutoModelForCausalLM.from_pretrained('internlm/internlm2-chat-7b',
+    model = (AutoModelForCausalLM.from_pretrained('internlm/internlm2_5-7b-chat',
                                                   trust_remote_code=True).to(
                                                       torch.bfloat16).cuda())
-    tokenizer = AutoTokenizer.from_pretrained('internlm/internlm2-chat-7b',
+    tokenizer = AutoTokenizer.from_pretrained('internlm/internlm2_5-7b-chat',
                                               trust_remote_code=True)
     return model, tokenizer
 
@@ -239,7 +239,7 @@ def main():
     user_avator = 'assets/user.png'
     robot_avator = 'assets/robot.png'
 
-    st.title('InternLM2-Chat-7B')
+    st.title('internlm2_5-7b-chat')
 
     generation_config = prepare_generation_config()
 

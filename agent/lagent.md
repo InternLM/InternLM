@@ -49,7 +49,7 @@ from lagent.actions import ActionExecutor, GoogleSearch, PythonInterpreter
 from lagent.llms import HFTransformer
 
 # Initialize the HFTransformer-based Language Model (llm) and provide the model name.
-llm = HFTransformer('internlm/internlm2-chat-7b')
+llm = HFTransformer('internlm/internlm2_5-7b-chat')
 
 # Initialize the Google Search tool and provide your API key.
 search_tool = GoogleSearch(api_key='Your SERPER_API_KEY')
