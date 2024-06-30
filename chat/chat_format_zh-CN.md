@@ -17,7 +17,7 @@ InternLM2-Chat 采用了全新的对话格式，以灵活地支持工具调用�
 你好，我是书生浦语，请问有什么可以帮助你的吗<|im_end|>
 ```
 
-其中 `<|im_start|>` 充当了每轮对话开始符，`<|im_end|>` 充当了当前轮对话结束符。每轮对话一般以 `<|im_start|>role` 开头，以模型输出的 `<|im_end|>` 结尾，role 代表 `system`，`user`，`assistant` 和 `environment` 角色。你可以参考[huggingface 上的代码](https://huggingface.co/internlm/internlm2-chat-7b/blob/main/modeling_internlm2.py#L1138)来了解对话历史的拼接。
+其中 `<|im_start|>` 充当了每轮对话开始符，`<|im_end|>` 充当了当前轮对话结束符。每轮对话一般以 `<|im_start|>role` 开头，以模型输出的 `<|im_end|>` 结尾，role 代表 `system`，`user`，`assistant` 和 `environment` 角色。你可以参考[huggingface 上的代码](https://huggingface.co/internlm/internlm2_5-7b-chat/blob/main/modeling_internlm2.py#L1138)来了解对话历史的拼接。
 
 目前，InternLM2-Chat 模型的词表中还维护了如下映射
 
@@ -131,7 +131,7 @@ fig.show()
 ````
 
 1. 首先在系统提示中提供代码解释器的格式和字段描述。内容以 `<|im_start|>system name=<|interpreter|>\n`开头，`<|im_end|>` 结尾，`name=<|interpreter|>` 体现了这是来自代码解释器的指令。InternLM2-Chat 支持 system 角色对模型的提示和约束多次出现。所以我们会看到前面还有关于对话的要求。
-2. 用户可以上传一个文件，并对模型提出要求，文件的上传会以单独的形式向模型发出一条指令，以 `<|im_start|>user name=file` 开头，以 json 形式给出路径和文件大小` [{"path": "data.csv", size='10K'}]`，以 `<|im_end|>`结尾。
+2. 用户可以上传一个文件，并对模型提出要求，文件的上传会以单独的形式向模型发出一条指令，以 `<|im_start|>user name=file` 开头，以 json 形式给出路径和文件大小`[{"path": "data.csv", size='10K'}]`，以 `<|im_end|>`结尾。
 3. 模型在接受到用户指令后，会以流式的形式调用工具，及自然地生成文字进行思考/回应用户，然后输出`<|action_start|><|interpreter|>`。`<|action_start|>`表示要调用外部插件，同时 `<|interpreter|>` 表示调用的是代码解释器。然后模型输出 markdown 中 python 代码块格式代码内容，再以 `<|action_end|>` 表示工具调用结束。
 4. 系统会执行代码块中的代码，然后返回调用结果，以 `<|im_start|>environment name=<|interpreter|>`开头，表示是来自环境关于代码解释器执行的输出，以`<|im_end|>`结尾。
 

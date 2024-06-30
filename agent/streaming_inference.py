@@ -73,7 +73,7 @@ def parse_args():
     parser.add_argument(
         '--model_path',
         type=str,
-        default='internlm/internlm2-chat-7b',
+        default='internlm/internlm2_5-7b-chat',
         help='Path or name to the model, could be HuggingFace model specifier.'
     )
     parser.add_argument(

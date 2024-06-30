@@ -53,7 +53,7 @@
   xtuner train ${CONFIG_NAME_OR_PATH}
   ```
 
-  例如，我们可以利用 QLoRA 算法在 oasst1 数据集上微调 InternLM2-Chat-7B：
+  例如，我们可以利用 QLoRA 算法在 oasst1 数据集上微调 internlm2_5-7b-chat：
 
   ```shell
   # 单卡
@@ -81,16 +81,16 @@ xtuner chat ${NAME_OR_PATH_TO_LLM} [optional arguments]
 
 例如：
 
-与 InternLM2-Chat-7B, oasst1 adapter 对话：
+与 internlm2_5-7b-chat, oasst1 adapter 对话：
 
 ```shell
-xtuner chat internlm/internlm2-chat-7b --adapter xtuner/internlm2-chat-7b-qlora-oasst1 --prompt-template internlm2_chat
+xtuner chat internlm/internlm2_5-7b-chat --adapter xtuner/internlm2_5-7b-chat-qlora-oasst1 --prompt-template internlm2_chat
 ```
 
 与 LLaVA-InternLM2-7B 对话：
 
 ```shell
-xtuner chat internlm/internlm2-chat-7b --visual-encoder openai/clip-vit-large-patch14-336 --llava xtuner/llava-internlm2-7b --prompt-template internlm2_chat --image $IMAGE_PATH
+xtuner chat internlm/internlm2_5-7b-chat --visual-encoder openai/clip-vit-large-patch14-336 --llava xtuner/llava-internlm2-7b --prompt-template internlm2_chat --image $IMAGE_PATH
 ```
 
 ## InternEvo

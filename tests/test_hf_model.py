@@ -21,6 +21,7 @@ class TestChat:
     @pytest.mark.parametrize(
         'model_name',
         [
+            'internlm/internlm2_5-7b-chat',
             'internlm/internlm2-chat-7b', 'internlm/internlm2-chat-7b-sft',
             'internlm/internlm2-chat-20b', 'internlm/internlm2-chat-20b-sft',
             'internlm/internlm2-chat-1_8b', 'internlm/internlm2-chat-1_8b-sft'
