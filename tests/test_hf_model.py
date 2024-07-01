@@ -213,12 +213,12 @@ class TestReward:
         score2 = model.get_score(tokenizer, chat_2)
         print('score1: ', score1)
         print('score2: ', score2)
-        assert score1 > 0 & score2 < 0
+        assert score1.startswith('0.') & score2.startswith('-')
 
         # batch inference, get multiple scores at once
         scores = model.get_scores(tokenizer, [chat_1, chat_2])
         print('scores: ', scores)
-        assert scores[0] > 0 & scores[1] < 0
+        assert scores[0].startswith('0.') & scores[1].startswith('-')
 
         # compare whether chat_1 is better than chat_2
         compare_res = model.compare(tokenizer, chat_1, chat_2)
@@ -269,7 +269,7 @@ class TestReward:
             model_name, trust_remote_code=True)
 
         # prepare the chat prompt
-        prompt = 'Write an article about artificial intelligence revolution.'
+        prompt = 'Write an short bedtime story.'
         messages = [{
             'role': 'system',
             'content': 'You are a helpful assistant.'
