@@ -16,10 +16,10 @@ The model has the following characteristics:
 
 ## Model Zoo
 
-| Model                     | Transformers(HF)                           | ModelScope(HF)                           | OpenXLab(HF)                           | OpenXLab(Origin)                            | Release Date |
-| ------------------------- | ------------------------------------------ | ---------------------------------------- | -------------------------------------- | ------------------------------------------- | ------------ |
-| **InternLM2.5-7B**     | [🤗internlm2_5-7b](https://huggingface.co/internlm/internlm2_5-7b) | [<img src="../assets/modelscope_logo.png" width="20px" /> internlm2_5-7b](https://www.modelscope.cn/models/Shanghai_AI_Laboratory/internlm2_5-7b) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2_5-7b) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2_5-7b-original) | 2024-07-01   |
-| **InternLM2.5-chat-7B**          | [🤗internlm2_5-7b-chat](https://huggingface.co/internlm/internlm2_5-7b-chat) | [<img src="../assets/modelscope_logo.png" width="20px" /> internlm2_5-7b-chat](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2_5-7b-chat) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2_5-7b-chat) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2_5-7b-chat-original) | 2024-07-01   |
+| Model                      | Transformers(HF)                           | ModelScope(HF)                           | OpenXLab(HF)                           | OpenXLab(Origin)                           | Release Date |
+| -------------------------- | ------------------------------------------ | ---------------------------------------- | -------------------------------------- | ------------------------------------------ | ------------ |
+| **InternLM2.5-7B**         | [🤗internlm2_5-7b](https://huggingface.co/internlm/internlm2_5-7b) | [<img src="../assets/modelscope_logo.png" width="20px" /> internlm2_5-7b](https://www.modelscope.cn/models/Shanghai_AI_Laboratory/internlm2_5-7b) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2_5-7b) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2_5-7b-original) | 2024-07-01   |
+| **InternLM2.5-Chat-7B**    | [🤗internlm2_5-7b-chat](https://huggingface.co/internlm/internlm2_5-7b-chat) | [<img src="../assets/modelscope_logo.png" width="20px" /> internlm2_5-7b-chat](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2_5-7b-chat) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2_5-7b-chat) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2_5-7b-chat-original) | 2024-07-01   |
 | **InternLM2.5-7B-Chat-1M** | [🤗internlm2_5-7b-chat-1m](https://huggingface.co/internlm/internlm2_5-7b-chat-1m) | [<img src="../assets/modelscope_logo.png" width="20px" /> internlm2_5-7b-chat-1m](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2_5-7b-chat-1m) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2_5-7b-chat-1m) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2_5-7b-chat-1m-original) | 2024-07-01   |
 
 - `HF` refers to the format used by HuggingFace in [transformers](https://github.com/huggingface/transformers), whereas `Origin` denotes the format adopted by the InternLM team in [InternEvo](https://github.com/InternLM/InternEvo).
@@ -28,14 +28,30 @@ The model has the following characteristics:
 
 We have evaluated InternLM2.5 on several important benchmarks using the open-source evaluation tool [OpenCompass](https://github.com/open-compass/opencompass). Some of the evaluation results are shown in the table below. You are welcome to visit the [OpenCompass Leaderboard](https://opencompass.org.cn/rank) for more evaluation results.
 
-| Benchmark | InternLM2.5-7B | InternLM2-7B | LLaMA3-8B | Yi-1.5-9B |
-|-----------|----------------|--------------|-----------|-----------|
-| MMLU      | 71.6           | 65.8         | 66.4      | 71.6      |
-| CMMLU     | 79.1           | 66.2         | 51.0      | 74.1      |
-| BBH       | 70.1           | 65.0         | 59.7      | 71.1      |
-| MATH      | 34.0           | 20.2         | 16.4      | 31.9      |
-| GSM8K     | 74.8           | 70.8         | 54.3      | 74.5      |
-| GPQA      | 31.3           | 28.3         | 31.3      | 27.8      |
+### Base Model
 
+| Benchmark     | InternLM2-7B | LLaMA-3-8B | Yi-1.5-9B | InternLM2.5-7B |
+| ------------- | ------------ | ---------- | --------- | -------------- |
+| MMLU(5-shot)  | 65.8         | 66.4       | 71.6      | 71.6           |
+| CMMLU(5-shot) | 66.2         | 51.0       | 74.1      | 79.1           |
+| BBH(3-shot)   | 65.0         | 59.7       | 71.1      | 70.1           |
+| MATH(4-shot)  | 20.2         | 16.4       | 31.9      | 34.0           |
+| GSM8K(4-shot) | 70.8         | 54.3       | 74.5      | 74.8           |
+| GPQA(0-shot)  | 28.3         | 31.3       | 27.8      | 31.3           |
+
+### Chat Model
+
+| Benchmark         | InternLM2-Chat-7B | LLaMA-3-8B-Instruct | Yi-1.5-9B-Chat | GLM-4-9B-Chat | Qwen2-7B-Instruct | Gemma2-9B-IT | InternLM2.5-7B-Chat |
+| ----------------- | ----------------- | ------------------- | -------------- | ------------- | ----------------- | ------------ | ------------------- |
+| MMLU(5-shot)      | 62.3              | 68.4                | 71.0           | 71.4          | 70.8              | 70.9         | 72.8                |
+| CMMLU(5-shot)     | 62.4              | 53.3                | 74.5           | 74.5          | 80.9              | 60.3         | 78.0                |
+| BBH(3-shot CoT)   | 59.0              | 54.4                | 69.6           | 69.6          | 65.0              | 68.2\*       | 71.6                |
+| MATH(0-shot CoT)  | 27.6              | 27.9                | 51.1           | 51.1          | 48.6              | 46.9         | 60.1                |
+| GSM8K(0-shot CoT) | 72.5              | 72.9                | 80.1           | 85.3          | 82.9              | 88.9         | 86.0                |
+| GPQA(0-shot)      | 29.8              | 26.1                | 37.9           | 36.9          | 38.4              | 33.8         | 38.4                |
+
+
+- We use `ppl` for the MCQ evaluation on base model.
 - The evaluation results were obtained from [OpenCompass](https://github.com/open-compass/opencompass) , and evaluation configuration can be found in the configuration files provided by [OpenCompass](https://github.com/open-compass/opencompass).
 - The evaluation data may have numerical differences due to the version iteration of [OpenCompass](https://github.com/open-compass/opencompass), so please refer to the latest evaluation results of [OpenCompass](https://github.com/open-compass/opencompass).
+- \* means the result is copied from the original paper.
