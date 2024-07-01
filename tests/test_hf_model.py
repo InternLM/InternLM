@@ -219,8 +219,8 @@ class TestReward:
         # batch inference, get multiple scores at once
         scores = model.get_scores(tokenizer, [chat_1, chat_2])
         print('scores: ', scores)
-        assert scores[0] > 0
-        assert scores[1] < 0
+        assert scores[0][0] > 0
+        assert scores[1][0] < 0
 
         # compare whether chat_1 is better than chat_2
         compare_res = model.compare(tokenizer, chat_1, chat_2)
@@ -313,6 +313,7 @@ class TestReward:
 
         # print the best response
         best_response = sorted_candidates[0][1][-1]['content']
+        print(sorted_candidates)
         print(best_response)
         assert len(sorted_candidates) == 3
 
