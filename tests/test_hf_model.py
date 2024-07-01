@@ -233,6 +233,87 @@ class TestReward:
         # >>> rank_res:  [0, 1]
         assert rank_res[0] == 0 & rank_res[1] == 1
 
+    @pytest.mark.parametrize(
+        'model_name',
+        [
+            'internlm/internlm-reward-1_8b', 'internlm/internlm-reward-7b',
+            'internlm/internlm-reward-20b'
+        ],
+    )
+    @pytest.mark.parametrize(
+        'usefast',
+        [
+            True,
+            False,
+        ],
+    )
+    def test_demo_topn(self, model_name, usefast):
+        # prepare the llm model and tokenizer
+        llm = AutoModel.from_pretrained(
+            'internlm/internlm2-chat-7b',
+            device_map='cuda',
+            torch_dtype=torch.float16,
+            trust_remote_code=True,
+        )
+        llm_tokenizer = AutoTokenizer.from_pretrained(
+            'internlm/internlm2-chat-7b', trust_remote_code=True)
+
+        # prepare the reward model and tokenizer
+        reward = AutoModel.from_pretrained(
+            model_name,
+            device_map='cuda',
+            torch_dtype=torch.float16,
+            trust_remote_code=True,
+        )
+        reward_tokenizer = AutoTokenizer.from_pretrained(
+            model_name, trust_remote_code=True)
+
+        # prepare the chat prompt
+        prompt = 'Write an article about artificial intelligence revolution.'
+        messages = [{
+            'role': 'system',
+            'content': 'You are a helpful assistant.'
+        }, {
+            'role': 'user',
+            'content': prompt
+        }]
+        text = llm_tokenizer.apply_chat_template(messages,
+                                                 tokenize=False,
+                                                 add_generation_prompt=True)
+        model_inputs = llm_tokenizer([text], return_tensors='pt').to('cuda')
+
+        # generate best of N candidates
+        num_candidates = 3  # N=3
+        candidates = []
+
+        outputs = llm.generate(
+            **model_inputs,
+            max_new_tokens=512,
+            num_return_sequences=num_candidates,
+            pad_token_id=llm_tokenizer.eos_token_id,
+            do_sample=True,
+            top_k=50,
+            top_p=0.95,
+            temperature=0.8,
+        )
+        outputs = outputs[:, model_inputs['input_ids'].shape[1]:]
+        for i in range(num_candidates):
+            candidate = llm_tokenizer.decode(outputs[i],
+                                             skip_special_tokens=True)
+            candidates.append(messages + [{
+                'role': 'assistant',
+                'content': candidate
+            }])
+
+        rank_indices = reward.rank(reward_tokenizer, candidates)
+        sorted_candidates = sorted(zip(rank_indices, candidates),
+                                   key=lambda x: x[0])
+
+        # print the best response
+        best_response = sorted_candidates[0][1][-1]['content']
+        print(best_response)
+        assert len(sorted_candidates) == 3
+
 
 class TestMMModel:
     """Test cases for base model."""
