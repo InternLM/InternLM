@@ -233,7 +233,8 @@ class TestReward:
         rank_res = model.rank(tokenizer, [chat_1, chat_2])
         print('rank_res: ', rank_res)  # lower index means higher score
         # >>> rank_res:  [0, 1]
-        assert rank_res[0] == 0 & rank_res[1] == 1
+        assert rank_res[0] == 0
+        assert rank_res[1] == 1
 
     @pytest.mark.parametrize(
         'model_name',
