@@ -70,9 +70,7 @@ InternLM2.5 系列模型在本仓库正式发布，具有如下特性：
 
 **模型说明：**
 
-目前 InternLM 2.5 系列只发布了 7B 大小的模型，我们接下来将开源 1.8B 和 20B 的版本。7B 为轻量级的研究和应用提供了一个轻便但性能不俗的模型，20B 模型的综合性能更为强劲，可以有效支持更加复杂的实用场景。每个规格不同模型关系如下图所示：
-
-![](https://internlm.oss-cn-shanghai.aliyuncs.com/series.png)
+目前 InternLM 2.5 系列只发布了 7B 大小的模型，我们接下来将开源 1.8B 和 20B 的版本。7B 为轻量级的研究和应用提供了一个轻便但性能不俗的模型，20B 模型的综合性能更为强劲，可以有效支持更加复杂的实用场景。每个规格不同模型关系如下所示：
 
 1. **InternLM2.5**：经历了大规模预训练的基座模型，是我们推荐的在大部分应用中考虑选用的优秀基座。
 2. **InternLM2.5-Chat**: 对话模型，在 InternLM2.5 基座上经历了有监督微调和 online RLHF。InternLM2。5-Chat 面向对话交互进行了优化，具有较好的指令遵循、共情聊天和调用工具等的能力，是我们推荐直接用于下游应用的模型。
@@ -84,9 +82,6 @@ InternLM2.5 系列模型在本仓库正式发布，具有如下特性：
 
 ### InternLM-Reward
 
-<details>
-    <summary>(click to expand)</summary>
-
 InternLM-Reward 是基于 240 万个偏好样本进行训练的奖励模型，有 1.8B、7B 和 20B 大小可供选择。这些模型被用于 InternLM 对话模型的 PPO 训练过程。请参考 [model cards](./model_cards/internlm_reward.md) 了解更多细节。
 
 | Model                    | Transformers(HF)                                         | ModelScope(HF)                                          | OpenXLab(HF)                                          | Release Date |
@@ -94,8 +89,6 @@ InternLM-Reward 是基于 240 万个偏好样本进行训练的奖励模型，�
 | **InternLM-Reward-1.8B** | [🤗internlm-reward-1_8b](https://huggingface.co/internlm/internlm-reward-1_8b) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm-reward-1_8b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-reward-1_8b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm-reward-1_8b) | 2024-06-30   |
 | **InternLM-Reward-7B**   | [🤗internlm-reward-7b](https://huggingface.co/internlm/internlm-reward-7b) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm-reward-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-reward-7b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm-reward-7b) | 2024-06-30   |
 | **InternLM-Reward-20B**  | [🤗internlm-reward-20b](https://huggingface.co/internlm/internlm-reward-20b) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm-reward-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-reward-20b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm-reward-20b) | 2024-06-30   |
-
-</details>
 
 ### InternLM2
 
@@ -122,7 +115,7 @@ InternLM-Reward 是基于 240 万个偏好样本进行训练的奖励模型，�
 
 ## 性能
 
-我们使用开源评测工具 [OpenCompass](https://github.com/open-compass/opencompass) 在几个重要的基准测试中对 InternLM2.5 进行了评测。部分评测结果如下表所示。欢迎访问 [OpenCompass 排行榜](https://opencompass.org.cn/rank) 获取更多评测结果。
+我们使用开源评测工具 [OpenCompass](https://github.com/open-compass/opencompass) 在几个重要的基准测试中对 InternLM2.5 进行了评测。部分评测结果如下表所示。欢迎访问 [OpenCompass 排行榜](https://rank.opencompass.org.cn) 获取更多评测结果。
 
 ### 基座模型
 

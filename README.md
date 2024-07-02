@@ -84,9 +84,6 @@ The release of InternLM2.5 series contains 7B model size for now and we are goin
 
 ### InternLM-Reward
 
-<details>
-    <summary>(click to expand)</summary>
-
 InternLM-Reward is a series of reward models, trained on 2.4 million preference samples, available in 1.8B, 7B, and 20B sizes. These model were applied to the PPO training process of our chat models. See [model cards](./model_cards/internlm_reward.md) for more details.
 
 | Model                    | Transformers(HF)                                         | ModelScope(HF)                                          | OpenXLab(HF)                                          | Release Date |
@@ -94,8 +91,6 @@ InternLM-Reward is a series of reward models, trained on 2.4 million preference 
 | **InternLM-Reward-1.8B** | [🤗internlm-reward-1_8b](https://huggingface.co/internlm/internlm-reward-1_8b) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm-reward-1_8b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-reward-1_8b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm-reward-1_8b) | 2024-06-30   |
 | **InternLM-Reward-7B**   | [🤗internlm-reward-7b](https://huggingface.co/internlm/internlm-reward-7b) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm-reward-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-reward-7b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm-reward-7b) | 2024-06-30   |
 | **InternLM-Reward-20B**  | [🤗internlm-reward-20b](https://huggingface.co/internlm/internlm-reward-20b) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm-reward-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-reward-20b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm-reward-20b) | 2024-06-30   |
-
-</details>
 
 ### InternLM2
 
@@ -122,7 +117,7 @@ Our previous generation models with advanced capabilities in long-context proces
 
 ## Performance
 
-We have evaluated InternLM2.5 on several important benchmarks using the open-source evaluation tool [OpenCompass](https://github.com/open-compass/opencompass). Some of the evaluation results are shown in the table below. You are welcome to visit the [OpenCompass Leaderboard](https://opencompass.org.cn/rank) for more evaluation results.
+We have evaluated InternLM2.5 on several important benchmarks using the open-source evaluation tool [OpenCompass](https://github.com/open-compass/opencompass). Some of the evaluation results are shown in the table below. You are welcome to visit the [OpenCompass Leaderboard](https://rank.opencompass.org.cn) for more evaluation results.
 
 ### Base Model
 
