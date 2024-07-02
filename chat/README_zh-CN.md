@@ -3,9 +3,9 @@
 [English](./README.md) | 简体中文
 
 本文介绍采用 [Transformers](#import-from-transformers)、[ModelScope](#import-from-modelscope)、[Web demos](#dialogue)
-对 InternLM2-Chat 进行推理。
+对 InternLM2.5-Chat 进行推理。
 
-你还可以进一步了解 InternLM2-Chat 采用的[对话格式](./chat_format_zh-CN.md)，以及如何[用 LMDeploy 进行推理或部署服务](./lmdeploy_zh-CN.md)，或者尝试用 [OpenAOE](./openaoe.md) 与多个模型对话。
+你还可以进一步了解 InternLM2.5-Chat 采用的[对话格式](./chat_format_zh-CN.md)，以及如何[用 LMDeploy 进行推理或部署服务](./lmdeploy_zh-CN.md)，或者尝试用 [OpenAOE](./openaoe.md) 与多个模型对话。
 
 ## 通过 Transformers 加载
 
@@ -25,7 +25,7 @@
 
 ### 通过 ModelScope 加载
 
-通过以下的代码从 ModelScope 加载 InternLM2-Chat 模型 （可修改模型名称替换不同的模型）
+通过以下的代码从 ModelScope 加载 InternLM2.5-Chat 模型 （可修改模型名称替换不同的模型）
 
 ```python
 from modelscope import snapshot_download, AutoTokenizer, AutoModelForCausalLM
@@ -42,7 +42,7 @@ print(response)
 
 ## 通过前端网页对话
 
-可以通过以下代码启动一个前端的界面来与 InternLM2 Chat 7B 模型进行交互
+可以通过以下代码启动一个前端的界面来与 InternLM2.5 Chat 7B 模型进行交互
 
 ```bash
 pip install streamlit
