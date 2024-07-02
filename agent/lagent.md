@@ -38,7 +38,7 @@ Then you can chat through the UI shown as below
 
 ![image](https://github.com/InternLM/lagent/assets/24622904/3aebb8b4-07d1-42a2-9da3-46080c556f68)
 
-## Run a ReAct agent with InternLM2-Chat
+## Run a ReAct agent with InternLM2.5-Chat
 
 **NOTE:** If you want to run a HuggingFace model, please run `pip install -e .[all]` first.
 
