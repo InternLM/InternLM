@@ -77,7 +77,8 @@ def generate_interactive(
         'max_length') is None and generation_config.max_length is not None
     if has_default_max_length and generation_config.max_new_tokens is None:
         warnings.warn(
-            f"Using 'max_length''s default ({repr(generation_config.max_length)}) \
+            f"Using 'max_length''s default \
+                ({repr(generation_config.max_length)}) \
                 to control the generation length. "
             'This behaviour is deprecated and will be removed from the \
                 config in v5 of Transformers -- we'
@@ -102,7 +103,7 @@ def generate_interactive(
     if input_ids_seq_length >= generation_config.max_length:
         input_ids_string = 'input_ids'
         logger.warning(
-            f"Input length of {input_ids_string} is {input_ids_seq_length}, "
+            f'Input length of {input_ids_string} is {input_ids_seq_length}, '
             f"but 'max_length' is set to {generation_config.max_length}. "
             'This can lead to unexpected behavior. You should consider'
             " increasing 'max_new_tokens'.")
@@ -180,9 +181,9 @@ def on_btn_click():
 
 @st.cache_resource
 def load_model():
-    model = (AutoModelForCausalLM.from_pretrained('internlm/internlm2_5-7b-chat',
-                                                  trust_remote_code=True).to(
-                                                      torch.bfloat16).cuda())
+    model = (AutoModelForCausalLM.from_pretrained(
+        'internlm/internlm2_5-7b-chat',
+        trust_remote_code=True).to(torch.bfloat16).cuda())
     tokenizer = AutoTokenizer.from_pretrained('internlm/internlm2_5-7b-chat',
                                               trust_remote_code=True)
     return model, tokenizer
@@ -216,7 +217,7 @@ def combine_history(prompt):
     meta_instruction = ('You are InternLM (书生·浦语), a helpful, honest, '
                         'and harmless AI assistant developed by Shanghai '
                         'AI Laboratory (上海人工智能实验室).')
-    total_prompt = f"<s><|im_start|>system\n{meta_instruction}<|im_end|>\n"
+    total_prompt = f'<s><|im_start|>system\n{meta_instruction}<|im_end|>\n'
     for message in messages:
         cur_content = message['content']
         if message['role'] == 'user':

@@ -35,6 +35,7 @@ Currently, we support PDF, TXT, and Markdown files, with more file types to be s
 ### Installation
 
 To get started, install the required packages:
+
 ```bash
 pip install "fairy-doc[cpu]"
 pip install streamlit
@@ -77,8 +78,6 @@ The effect is demonstrated in the video below.
 
 https://github.com/libowen2121/InternLM/assets/19970308/1d7f9b87-d458-4f24-9f7a-437a4da3fa6e
 
-
 ## 🔜 Stay Tuned for More
 
 We are continuously enhancing our models to better understand and reason with extensive long inputs. Expect new features, improved performance, and expanded capabilities in upcoming updates!
-

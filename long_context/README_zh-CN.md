@@ -32,6 +32,7 @@
 ### 安装
 
 开始前，请安装所需的依赖：
+
 ```bash
 pip install "fairy-doc[cpu]"
 pip install streamlit

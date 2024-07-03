@@ -59,8 +59,8 @@ def convert(src, tgt):
     assert not config.bias, 'Cannot convert InternLM Model with bias to LLaMA.'
 
     head_dim = config.hidden_size // config.num_attention_heads
-    num_key_value_groups = config.num_attention_heads \
-                           // config.num_key_value_heads
+    num_key_value_groups = \
+        config.num_attention_heads // config.num_key_value_heads
 
     # load index json file
     index_file = 'pytorch_model.bin.index.json'
@@ -140,7 +140,9 @@ def convert(src, tgt):
         print(f'Saving to {os.path.join(tgt, filename)}...', flush=True)
         if filename.endswith('.safetensors'):
             from safetensors.torch import save_file
-            save_file(llama_states, os.path.join(tgt, filename), metadata={"format": "pt"})
+            save_file(llama_states,
+                      os.path.join(tgt, filename),
+                      metadata={'format': 'pt'})
         else:
             torch.save(llama_states, os.path.join(tgt, filename))
         del states
