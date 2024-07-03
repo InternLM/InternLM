@@ -29,7 +29,7 @@
 - 安装集成 DeepSpeed 版本的 XTuner
 
   ```shell
-  pip install -U 'xtuner[deepspeed]>=0.1.13'
+  pip install -U 'xtuner[deepspeed]>=0.1.22'
   ```
 
 ### 微调
@@ -53,14 +53,14 @@
   xtuner train ${CONFIG_NAME_OR_PATH}
   ```
 
-  例如，我们可以利用 QLoRA 算法在 oasst1 数据集上微调 InternLM2-Chat-7B：
+  例如，我们可以利用 QLoRA 算法在 oasst1 数据集上微调 InternLM2.5-Chat-7B：
 
   ```shell
   # 单卡
-  xtuner train internlm2_chat_7b_qlora_oasst1_e3 --deepspeed deepspeed_zero2
+  xtuner train internlm2_5_chat_7b_qlora_oasst1_e3 --deepspeed deepspeed_zero2
   # 多卡
-  (DIST) NPROC_PER_NODE=${GPU_NUM} xtuner train internlm2_chat_7b_qlora_oasst1_e3 --deepspeed deepspeed_zero2
-  (SLURM) srun ${SRUN_ARGS} xtuner train internlm2_chat_7b_qlora_oasst1_e3 --launcher slurm --deepspeed deepspeed_zero2
+  (DIST) NPROC_PER_NODE=${GPU_NUM} xtuner train internlm2_5_chat_7b_qlora_oasst1_e3 --deepspeed deepspeed_zero2
+  (SLURM) srun ${SRUN_ARGS} xtuner train internlm2_5_chat_7b_qlora_oasst1_e3 --launcher slurm --deepspeed deepspeed_zero2
   ```
 
   - `--deepspeed` 表示使用 [DeepSpeed](https://github.com/microsoft/DeepSpeed) 🚀 来优化训练过程。XTuner 内置了多种策略，包括 ZeRO-1、ZeRO-2、ZeRO-3 等。如果用户期望关闭此功能，请直接移除此参数。
@@ -81,16 +81,10 @@ xtuner chat ${NAME_OR_PATH_TO_LLM} [optional arguments]
 
 例如：
 
-与 InternLM2-Chat-7B, oasst1 adapter 对话：
+与 InternLM2.5-Chat-7B 对话：
 
 ```shell
-xtuner chat internlm/internlm2-chat-7b --adapter xtuner/internlm2-chat-7b-qlora-oasst1 --prompt-template internlm2_chat
-```
-
-与 LLaVA-InternLM2-7B 对话：
-
-```shell
-xtuner chat internlm/internlm2-chat-7b --visual-encoder openai/clip-vit-large-patch14-336 --llava xtuner/llava-internlm2-7b --prompt-template internlm2_chat --image $IMAGE_PATH
+xtuner chat internlm/internlm2_5-chat-7b --prompt-template internlm2_chat
 ```
 
 ## InternEvo

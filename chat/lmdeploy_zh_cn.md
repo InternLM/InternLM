@@ -20,7 +20,7 @@ pip install lmdeploy>=0.2.1
 
 ```python
 from lmdeploy import pipeline
-pipe = pipeline("internlm/internlm2-chat-7b")
+pipe = pipeline("internlm/internlm2_5-7b-chat")
 response = pipe(["Hi, pls intro yourself", "Shanghai is"])
 print(response)
 ```
@@ -31,7 +31,7 @@ LMDeploy 实现了 dynamic ntk，支持长文本外推。使用如下代码，�
 from lmdeploy import pipeline, TurbomindEngineConfig
 engine_config = TurbomindEngineConfig(session_len=200000,
                                       rope_scaling_factor=2.0)
-pipe = pipeline("internlm/internlm2-chat-7b", backend_engine=engine_config)
+pipe = pipeline("internlm/internlm2_5-7b-chat", backend_engine=engine_config)
 gen_config = GenerationConfig(top_p=0.8,
                               top_k=40,
                               temperature=0.8,
@@ -47,7 +47,7 @@ print(response)
 LMDeploy `api_server` 支持把模型一键封装为服务，对外提供的 RESTful API 兼容 openai 的接口。以下为服务启动的示例：
 
 ```shell
-lmdeploy serve api_server internlm/internlm2-chat-7b
+lmdeploy serve api_server internlm/internlm2_5-7b-chat
 ```
 
 服务默认端口是23333。在 server 启动后，你可以在终端通过`api_client`与server进行对话，体验对话效果：

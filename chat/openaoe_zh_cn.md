@@ -6,7 +6,7 @@
 
 [OpenAOE](https://github.com/InternLM/OpenAOE) 是一个 LLM-Group-Chat 框架，可以同时与多个商业大模型或开源大模型进行聊天。 OpenAOE还提供后端API和WEB-UI以满足不同的使用需求。
 
-目前已经支持的大模型有：  [InternLM2-Chat-7B](https://huggingface.co/internlm/internlm2-chat-7b), [IntenLM-Chat-7B](https://huggingface.co/internlm/internlm-chat-7b), GPT-3.5, GPT-4, Google PaLM, MiniMax, Claude, 讯飞星火等。
+目前已经支持的大模型有：  [internlm2_5-7b-chat](https://huggingface.co/internlm/internlm2_5-7b-chat), [IntenLM-Chat-7B](https://huggingface.co/internlm/internlm-chat-7b), GPT-3.5, GPT-4, Google PaLM, MiniMax, Claude, 讯飞星火等。
 
 ## 快速安装
 

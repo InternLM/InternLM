@@ -38,7 +38,7 @@ streamlit run examples/react_web_demo.py
 
 ![image](https://github.com/InternLM/lagent/assets/24622904/3aebb8b4-07d1-42a2-9da3-46080c556f68)
 
-## 用 InternLM-Chat 构建一个 ReAct 智能体
+## 用 InternLM2.5-Chat 构建一个 ReAct 智能体
 
 \*\*注意：\*\*如果你想要启动一个 HuggingFace 的模型，请先运行 pip install -e .\[all\]。
 
@@ -49,7 +49,7 @@ from lagent.actions import ActionExecutor, GoogleSearch, PythonInterpreter
 from lagent.llms import HFTransformer
 
 # Initialize the HFTransformer-based Language Model (llm) and provide the model name.
-llm = HFTransformer('internlm/internlm-chat-7b-v1_1')
+llm = HFTransformer('internlm/internlm2_5-7b-chat')
 
 # Initialize the Google Search tool and provide your API key.
 search_tool = GoogleSearch(api_key='Your SERPER_API_KEY')

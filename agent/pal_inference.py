@@ -189,8 +189,8 @@ def generate_interactive(
         generation_config.max_length = generation_config.max_new_tokens + input_ids_seq_length
         if not has_default_max_length:
             logger.warn(  # pylint: disable=W4902
-                f"Both `max_new_tokens` (={generation_config.max_new_tokens}) and `max_length`(="
-                f"{generation_config.max_length}) seem to have been set. `max_new_tokens` will take precedence. "
+                f'Both `max_new_tokens` (={generation_config.max_new_tokens}) and `max_length`(='
+                f'{generation_config.max_length}) seem to have been set. `max_new_tokens` will take precedence. '
                 'Please refer to the documentation for more information. '
                 '(https://huggingface.co/docs/transformers/main/en/main_classes/text_generation)',
                 UserWarning,
@@ -199,8 +199,8 @@ def generate_interactive(
     if input_ids_seq_length >= generation_config.max_length:
         input_ids_string = 'input_ids'
         logger.warning(
-            f"Input length of {input_ids_string} is {input_ids_seq_length}, but `max_length` is set to"
-            f" {generation_config.max_length}. This can lead to unexpected behavior. You should consider"
+            f'Input length of {input_ids_string} is {input_ids_seq_length}, but `max_length` is set to'
+            f' {generation_config.max_length}. This can lead to unexpected behavior. You should consider'
             ' increasing `max_new_tokens`.')
 
     # 2. Set generation parameters if not already defined
@@ -510,7 +510,7 @@ def main():
             interface.clear_history()
             f.flush()
 
-    print(f"{args.model}: Accuracy - {sum(scores) / len(scores)}")
+    print(f'{args.model}: Accuracy - {sum(scores) / len(scores)}')
     torch.cuda.empty_cache()
 
 
