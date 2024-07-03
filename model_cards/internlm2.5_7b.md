@@ -11,7 +11,7 @@ InternLM2.5, the 2.5th generation InternLM, has open-sourced a 7 billion paramet
 The model has the following characteristics:
 
 - **Outstanding reasoning capability**: State-of-the-art performance on Math reasoning, surpassing models like Llama3 and Gemma2-9B.
-- **1M Context window**: Nearly perfect at finding needles in the haystack with 1M-long context, with leading performance on long-context tasks like LongBench. Try it with LMDeploy for 1M-context inference.
+- **1M Context window**: Nearly perfect at finding needles in the haystack with 1M-long context, with leading performance on long-context tasks like LongBench. Try it with [LMDeploy](./chat/lmdeploy.md) for 1M-context inference. More details and a file chat demo are found [here](./long_context/README.md).
 - **Stronger tool use**: InternLM2.5 supports gathering information from more than 100 web pages, corresponding implementation will be released in Lagent soon. InternLM2.5 has better tool utilization-related capabilities in instruction following, tool selection and reflection. See [examples](https://huggingface.co/internlm/internlm2_5-7b-chat-1m/blob/main/agent/).
 
 ## Model Zoo
