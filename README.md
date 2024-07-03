@@ -132,14 +132,14 @@ We have evaluated InternLM2.5 on several important benchmarks using the open-sou
 
 ### Chat Model
 
-| Benchmark         | InternLM2-Chat-7B | LLaMA-3-8B-Instruct | Yi-1.5-9B-Chat | GLM-4-9B-Chat | Qwen2-7B-Instruct | Gemma2-9B-IT | InternLM2.5-7B-Chat |
-| ----------------- | ----------------- | ------------------- | -------------- | ------------- | ----------------- | ------------ | ------------------- |
-| MMLU(5-shot)      | 62.3              | 68.4                | 71.0           | 71.4          | 70.8              | 70.9         | 72.8                |
-| CMMLU(5-shot)     | 62.4              | 53.3                | 74.5           | 74.5          | 80.9              | 60.3         | 78.0                |
-| BBH(3-shot CoT)   | 59.0              | 54.4                | 69.6           | 69.6          | 65.0              | 68.2\*       | 71.6                |
-| MATH(0-shot CoT)  | 27.6              | 27.9                | 51.1           | 51.1          | 48.6              | 46.9         | 60.1                |
-| GSM8K(0-shot CoT) | 72.5              | 72.9                | 80.1           | 85.3          | 82.9              | 88.9         | 86.0                |
-| GPQA(0-shot)      | 29.8              | 26.1                | 37.9           | 36.9          | 38.4              | 33.8         | 38.4                |
+| Benchmark         | InternLM2-Chat-7B | LLaMA-3-8B-Instruct | Yi-1.5-9B-Chat | GLM-4-9B-Chat | Qwen2-7B-Instruct | Gemma2-9B-IT | InternLM2.5-7B-Chat | Llama-3-70B-Instruct |
+| ----------------- | ----------------- | ------------------- | -------------- | ------------- | ----------------- | ------------ | ------------------- |------------------- |
+| MMLU(5-shot)      | 62.3              | 68.4                | 71.0           | 71.4          | 70.8              | 70.9         | 72.8                |  80.5 |
+| CMMLU(5-shot)     | 62.4              | 53.3                | 74.5           | 74.5          | 80.9              | 60.3         | 78.0                |  70.1 |
+| BBH(3-shot CoT)   | 59.0              | 54.4                | 69.6           | 69.6          | 65.0              | 68.2\*       | 71.6                |  80.5 |
+| MATH(0-shot CoT)  | 27.6              | 27.9                | 51.1           | 51.1          | 48.6              | 46.9         | 60.1                |  47.1 |
+| GSM8K(0-shot CoT) | 72.5              | 72.9                | 80.1           | 85.3          | 82.9              | 88.9         | 86.0                |  92.8 |
+| GPQA(0-shot)      | 29.8              | 26.1                | 37.9           | 36.9          | 38.4              | 33.8         | 38.4                |  38.9 |
 
 - We use `ppl` for the MCQ evaluation on base model.
 - The evaluation results were obtained from [OpenCompass](https://github.com/open-compass/opencompass) , and evaluation configuration can be found in the configuration files provided by [OpenCompass](https://github.com/open-compass/opencompass).
