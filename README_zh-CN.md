@@ -44,7 +44,7 @@ InternLM2.5 系列模型在本仓库正式发布，具有如下特性：
 
 ## 更新
 
-\[2024.06.30\] 我们发布了 InternLM2.5-7B、InternLM2.5-7B-Chat 和 InternLM2.5-7B-Chat-1M。同时我们也发布了 1.8B、7B 和 20B 大小的 InternLM-Reward 系列奖励模型。可以在下方的 [模型库](#model-zoo) 进行下载，或者在 [model cards](./model_cards/) 中了解更多细节。
+\[2024.06.30\] 我们发布了 InternLM2.5-7B、InternLM2.5-7B-Chat 和 InternLM2.5-7B-Chat-1M。可以在下方的 [模型库](#model-zoo) 进行下载，或者在 [model cards](./model_cards/) 中了解更多细节。
 
 \[2024.03.26\] 我们发布了 InternLM2 的技术报告。 可以点击 [arXiv链接](https://arxiv.org/abs/2403.17297) 来了解更多细节。
 
@@ -79,16 +79,6 @@ InternLM2.5 系列模型在本仓库正式发布，具有如下特性：
 **局限性：** 尽管在训练过程中我们非常注重模型的安全性，尽力促使模型输出符合伦理和法律要求的文本，但受限于模型大小以及概率生成范式，模型可能会产生各种不符合预期的输出，例如回复内容包含偏见、歧视等有害内容，请勿传播这些内容。由于传播不良信息导致的任何后果，本项目不承担责任。
 
 **补充说明：** 上表中的 `HF` 表示对应模型为 HuggingFace 平台提供的 [transformers](https://github.com/huggingface/transformers) 框架格式；`Origin` 则表示对应模型为我们 InternLM 团队的 [InternEvo](https://github.com/InternLM/InternEvo) 框架格式。
-
-### InternLM-Reward
-
-InternLM-Reward 是基于 240 万个偏好样本进行训练的奖励模型，有 1.8B、7B 和 20B 大小可供选择。这些模型被用于 InternLM 对话模型的 PPO 训练过程。请参考 [model cards](./model_cards/internlm_reward.md) 了解更多细节。
-
-| Model                    | Transformers(HF)                                         | ModelScope(HF)                                          | OpenXLab(HF)                                          | Release Date |
-| ------------------------ | -------------------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------- | ------------ |
-| **InternLM-Reward-1.8B** | [🤗internlm-reward-1_8b](https://huggingface.co/internlm/internlm-reward-1_8b) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm-reward-1_8b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-reward-1_8b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm-reward-1_8b) | 2024-06-30   |
-| **InternLM-Reward-7B**   | [🤗internlm-reward-7b](https://huggingface.co/internlm/internlm-reward-7b) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm-reward-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-reward-7b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm-reward-7b) | 2024-06-30   |
-| **InternLM-Reward-20B**  | [🤗internlm-reward-20b](https://huggingface.co/internlm/internlm-reward-20b) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm-reward-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-reward-20b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm-reward-20b) | 2024-06-30   |
 
 ### InternLM2
 

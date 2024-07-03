@@ -46,7 +46,7 @@ InternLM2.5 series are released with the following features:
 
 ## News
 
-\[2024.06.30\] We release InternLM2.5-7B, InternLM2.5-7B-Chat and InternLM2.5-7B-Chat-1M. We also release the InternLM-Reward series of reward models in 1.8B, 7B and 20B sizes. See [model zoo below](#model-zoo) for download or [model cards](./model_cards/) for more details.
+\[2024.06.30\] We release InternLM2.5-7B, InternLM2.5-7B-Chat and InternLM2.5-7B-Chat-1M. See [model zoo below](#model-zoo) for download or [model cards](./model_cards/) for more details.
 
 \[2024.03.26\] We release InternLM2 technical report. See [arXiv](https://arxiv.org/abs/2403.17297) for details.
 
@@ -81,16 +81,6 @@ The release of InternLM2.5 series contains 7B model size for now and we are goin
 **Limitations:** Although we have made efforts to ensure the safety of the model during the training process and to encourage the model to generate text that complies with ethical and legal requirements, the model may still produce unexpected outputs due to its size and probabilistic generation paradigm. For example, the generated responses may contain biases, discrimination, or other harmful content. Please do not propagate such content. We are not responsible for any consequences resulting from the dissemination of harmful information.
 
 **Supplements:** `HF` refers to the format used by HuggingFace in [transformers](https://github.com/huggingface/transformers), whereas `Origin` denotes the format adopted by the InternLM team in [InternEvo](https://github.com/InternLM/InternEvo).
-
-### InternLM-Reward
-
-InternLM-Reward is a series of reward models, trained on 2.4 million preference samples, available in 1.8B, 7B, and 20B sizes. These model were applied to the PPO training process of our chat models. See [model cards](./model_cards/internlm_reward.md) for more details.
-
-| Model                    | Transformers(HF)                                         | ModelScope(HF)                                          | OpenXLab(HF)                                          | Release Date |
-| ------------------------ | -------------------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------- | ------------ |
-| **InternLM-Reward-1.8B** | [🤗internlm-reward-1_8b](https://huggingface.co/internlm/internlm-reward-1_8b) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm-reward-1_8b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-reward-1_8b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm-reward-1_8b) | 2024-06-30   |
-| **InternLM-Reward-7B**   | [🤗internlm-reward-7b](https://huggingface.co/internlm/internlm-reward-7b) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm-reward-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-reward-7b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm-reward-7b) | 2024-06-30   |
-| **InternLM-Reward-20B**  | [🤗internlm-reward-20b](https://huggingface.co/internlm/internlm-reward-20b) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm-reward-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-reward-20b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm-reward-20b) | 2024-06-30   |
 
 ### InternLM2
 
@@ -133,13 +123,13 @@ We have evaluated InternLM2.5 on several important benchmarks using the open-sou
 ### Chat Model
 
 | Benchmark         | InternLM2-Chat-7B | LLaMA-3-8B-Instruct | Yi-1.5-9B-Chat | GLM-4-9B-Chat | Qwen2-7B-Instruct | Gemma2-9B-IT | InternLM2.5-7B-Chat | Llama-3-70B-Instruct |
-| ----------------- | ----------------- | ------------------- | -------------- | ------------- | ----------------- | ------------ | ------------------- |------------------- |
-| MMLU(5-shot)      | 62.3              | 68.4                | 71.0           | 71.4          | 70.8              | 70.9         | 72.8                |  80.5 |
-| CMMLU(5-shot)     | 62.4              | 53.3                | 74.5           | 74.5          | 80.9              | 60.3         | 78.0                |  70.1 |
-| BBH(3-shot CoT)   | 59.0              | 54.4                | 69.6           | 69.6          | 65.0              | 68.2\*       | 71.6                |  80.5 |
-| MATH(0-shot CoT)  | 27.6              | 27.9                | 51.1           | 51.1          | 48.6              | 46.9         | 60.1                |  47.1 |
-| GSM8K(0-shot CoT) | 72.5              | 72.9                | 80.1           | 85.3          | 82.9              | 88.9         | 86.0                |  92.8 |
-| GPQA(0-shot)      | 29.8              | 26.1                | 37.9           | 36.9          | 38.4              | 33.8         | 38.4                |  38.9 |
+| ----------------- | ----------------- | ------------------- | -------------- | ------------- | ----------------- | ------------ | ------------------- | -------------------- |
+| MMLU(5-shot)      | 62.3              | 68.4                | 71.0           | 71.4          | 70.8              | 70.9         | 72.8                | 80.5                 |
+| CMMLU(5-shot)     | 62.4              | 53.3                | 74.5           | 74.5          | 80.9              | 60.3         | 78.0                | 70.1                 |
+| BBH(3-shot CoT)   | 59.0              | 54.4                | 69.6           | 69.6          | 65.0              | 68.2\*       | 71.6                | 80.5                 |
+| MATH(0-shot CoT)  | 27.6              | 27.9                | 51.1           | 51.1          | 48.6              | 46.9         | 60.1                | 47.1                 |
+| GSM8K(0-shot CoT) | 72.5              | 72.9                | 80.1           | 85.3          | 82.9              | 88.9         | 86.0                | 92.8                 |
+| GPQA(0-shot)      | 29.8              | 26.1                | 37.9           | 36.9          | 38.4              | 33.8         | 38.4                | 38.9                 |
 
 - We use `ppl` for the MCQ evaluation on base model.
 - The evaluation results were obtained from [OpenCompass](https://github.com/open-compass/opencompass) , and evaluation configuration can be found in the configuration files provided by [OpenCompass](https://github.com/open-compass/opencompass).
