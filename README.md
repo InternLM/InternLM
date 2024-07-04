@@ -244,41 +244,6 @@ response = pipe(prompt)
 print(response)
 ```
 
-### Using internLM with other AI-Agent application development frameworks
-
-Expand the entries below for detailed usage 
-
-1.  <details><summary> <b><a href=https://github.com/langchain-ai/langchain>LangChain</a></b>: LangChain is a framework for developing applications powered by large language models (LLMs).
-    </details>
-
-1.  <details><summary> <b><a href=https://github.com/run-llama/llama_index>LlamaIndex</a></b>: LlamaIndex is a data framework for your LLM applications.</summary>
-    </details>
-
-1.  <details><summary> <b><a href=https://github.com/LazyAGI/LazyLLM>LazyLLM</a></b>: Easyest and lazyest way for building multi-agent LLMs applications.</summary>
-
-    Once you have installed `lazyllm`, and then you can use the following code to build your own chatbot:
-
-    ```python
-    from lazyllm import TrainableModule, WebModule
-    # Model will be download automatically if you have an internet connection
-    m = TrainableModule('internlm2-chat-7b')
-    # will launch a chatbot server
-    WebModule(m).start().wait()
-    ```
-
-    You can use the following code to finetune your model if needed.
-
-    ```python
-    from lazyllm import TrainableModule, WebModule
-    m = TrainableModule('internlm2-chat-7b').trainset('/patt/to/your_data.json')
-    # TrainableModule m will be finetuned and deployed when web module is update once dataset is set
-    WebModule(m).update().wait()
-    ```
-
-    LazyLLM Documents: https://lazyllm.readthedocs.io/
-
-    </details>
-
 ## Agent
 
 InternLM2.5-Chat models have excellent tool utilization capabilities and can work with function calls in a zero-shot manner. It also supports to conduct analysis by collecting information from more than 100 web pages. See more examples in [agent section](./agent/).
