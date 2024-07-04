@@ -111,25 +111,25 @@ We have evaluated InternLM2.5 on several important benchmarks using the open-sou
 
 ### Base Model
 
-| Benchmark      | InternLM2.5-7B     | Llama3-8B  | Yi-1.5-9B |
-| -------------- | ------------------ | ---------- | --------- |
-| MMLU (5-shot)  | **71.6**           | 66.4       | 71.6      |
-| CMMLU (5-shot) | **79.1**           | 51.0       | 74.1      |
-| BBH (3-shot)   | 70.1               | 59.7       | 71.1      |
-| MATH (4-shot)  | **34.0**           | 16.4       | 31.9      |
-| GSM8K (4-shot) | **74.8**           | 54.3       | 74.5      |
-| GPQA (0-shot)  | **31.3**           | 31.3       | 27.8      |
+| Benchmark      | InternLM2.5-7B | Llama3-8B | Yi-1.5-9B |
+| -------------- | -------------- | --------- | --------- |
+| MMLU (5-shot)  | **71.6**       | 66.4      | 71.6      |
+| CMMLU (5-shot) | **79.1**       | 51.0      | 74.1      |
+| BBH (3-shot)   | 70.1           | 59.7      | 71.1      |
+| MATH (4-shot)  | **34.0**       | 16.4      | 31.9      |
+| GSM8K (4-shot) | **74.8**       | 54.3      | 74.5      |
+| GPQA (0-shot)  | **31.3**       | 31.3      | 27.8      |
 
 ### Chat Model
 
-| Benchmark          | InternLM2.5-7B-Chat     | Llama3-8B-Instruct  | Gemma2-9B-IT | Yi-1.5-9B-Chat | GLM-4-9B-Chat | Qwen2-7B-Instruct |
-| ------------------ | ----------------------- | ------------------- | ------------ | -------------- | ------------- | ----------------- |
-| MMLU (5-shot)      | **72.8**                | 68.4                | 70.9         | 71.0           | 71.4          | 70.8              |
-| CMMLU (5-shot)     | 78.0                    | 53.3                | 60.3         | 74.5           | 74.5          | 80.9              |
-| BBH (3-shot CoT)   | **71.6**                | 54.4                | 68.2\*       | 69.6           | 69.6          | 65.0              |
-| MATH (0-shot CoT)  | **60.1**                | 27.9                | 46.9         | 51.1           | 51.1          | 48.6              |
-| GSM8K (0-shot CoT) | 86.0                    | 72.9                | 88.9         | 80.1           | 85.3          | 82.9              |
-| GPQA (0-shot)      | **38.4**                | 26.1                | 33.8         | 37.9           | 36.9          | 38.4              |
+| Benchmark          | InternLM2.5-7B-Chat | Llama3-8B-Instruct | Gemma2-9B-IT | Yi-1.5-9B-Chat | GLM-4-9B-Chat | Qwen2-7B-Instruct |
+| ------------------ | ------------------- | ------------------ | ------------ | -------------- | ------------- | ----------------- |
+| MMLU (5-shot)      | **72.8**            | 68.4               | 70.9         | 71.0           | 71.4          | 70.8              |
+| CMMLU (5-shot)     | 78.0                | 53.3               | 60.3         | 74.5           | 74.5          | 80.9              |
+| BBH (3-shot CoT)   | **71.6**            | 54.4               | 68.2\*       | 69.6           | 69.6          | 65.0              |
+| MATH (0-shot CoT)  | **60.1**            | 27.9               | 46.9         | 51.1           | 51.1          | 48.6              |
+| GSM8K (0-shot CoT) | 86.0                | 72.9               | 88.9         | 80.1           | 85.3          | 82.9              |
+| GPQA (0-shot)      | **38.4**            | 26.1               | 33.8         | 37.9           | 36.9          | 38.4              |
 
 - We use `ppl` for the MCQ evaluation on base model.
 - The evaluation results were obtained from [OpenCompass](https://github.com/open-compass/opencompass) , and evaluation configuration can be found in the configuration files provided by [OpenCompass](https://github.com/open-compass/opencompass).
@@ -144,7 +144,9 @@ We have evaluated InternLM2.5 on several important benchmarks using the open-sou
 
 ## Usages
 
-We briefly show the usages with [Transformers](#import-from-transformers), [ModelScope](#import-from-modelscope), and [Web demos](#dialogue).
+InternLM supports a diverse range of well-known upstream and downstream projects, such as LLaMA-Factory, vLLM, llama.cpp, and more. This support enables a broad spectrum of users to utilize the InternLM series models more efficiently and conveniently. Tutorials for selected ecosystem projects are available [here](./ecosystem/README.md) for your convenience.
+
+In the following chapters, we will focus on the usages with [Transformers](#import-from-transformers), [ModelScope](#import-from-modelscope), and [Web demos](#dialogue).
 The chat models adopt [chatml format](./chat/chat_format.md) to support both chat and agent applications.
 To ensure a better usage effect, please make sure that the installed transformers library version meets the following requirements before performing inference with [Transformers](#import-from-transformers) or [ModelScope](#import-from-modelscope):
 
@@ -208,15 +210,36 @@ pip install transformers>=4.38
 streamlit run ./chat/web_demo.py
 ```
 
-### Deployment
+## Deployment by LMDeploy
 
 We use [LMDeploy](https://github.com/InternLM/LMDeploy) for fast deployment of InternLM.
 
-With only 4 lines of codes, you can perform `internlm2_5-7b-chat` inference after `pip install lmdeploy>=0.2.1`.
+### Inference
+
+With only 4 lines of codes, you can perform [internlm2_5-7b-chat](https://huggingface.co/internlm/internlm2_5-7b-chat) inference after `pip install lmdeploy`.
 
 ```python
 from lmdeploy import pipeline
 pipe = pipeline("internlm/internlm2_5-7b-chat")
+response = pipe(["Hi, pls intro yourself", "Shanghai is"])
+print(response)
+```
+
+To reduce the memory footprint, we offers 4-bit quantized model [internlm2_5-7b-chat-4bit](https://huggingface.co/internlm/internlm2_5-7b-chat-4bit), with which the inference can be conducted as follows:
+
+```python
+from lmdeploy import pipeline
+pipe = pipeline("internlm/internlm2_5-7b-chat-4bit")
+response = pipe(["Hi, pls intro yourself", "Shanghai is"])
+print(response)
+```
+
+Moreover, you can independently activate the 8bit/4bit KV cache feature:
+
+```python
+from lmdeploy import pipeline, TurbomindEngineConfig
+pipe = pipeline("internlm/internlm2_5-7b-chat-4bit",
+                backend_config=TurbomindEngineConfig(quant_policy=8))
 response = pipe(["Hi, pls intro yourself", "Shanghai is"])
 print(response)
 ```
