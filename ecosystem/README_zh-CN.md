@@ -258,7 +258,7 @@ m = TrainableModule('internlm2-chat-7b')
 WebModule(m).start().wait()
 ```
 
-如果你需要进一步微调模型，可以参考如下代码。当TrainableModule的trainset被设置之后，在调研WebModule的update函数时，会自动微调TrainableModule，然后对TrainableModule和WebModule分别进行部署。
+如果你需要进一步微调模型，可以参考如下代码。当TrainableModule的trainset被设置之后，在调用WebModule的update函数时，会自动微调TrainableModule，然后对TrainableModule和WebModule分别进行部署。
 
 ```python
 from lazyllm import TrainableModule, WebModule
