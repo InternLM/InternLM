@@ -244,3 +244,30 @@ LlamaIndex is a framework for building context-augmented LLM applications.
 It chooses ollama as the LLM inference engine locally. An example can be found from the [Starter Tutorial(Local Models)](https://docs.llamaindex.ai/en/stable/getting_started/starter_example_local/).
 
 Therefore, you can integrate InternLM2 or InternLM2.5 models to LlamaIndex smoothly if you can deploying them with `ollama` as guided in the [ollama section](#ollama)
+
+
+### [LazyLLM](https://github.com/LazyAGI/LazyLLM)
+
+LazyLLM is an framework which support the easyest and lazyest way for building multi-agent LLMs applications, it offers extremely high flexibility and ease of use compared to LangChain and LLamaIndex.
+
+When you have installed `lazyllm`, you can use the following code to build chatbots based on internLM at a very low cost, without worrying about the special tokens (such as `system` and ``) of the dialogue model. Don’t worry about not having weight files; as long as you are connected to the internet, the code below will automatically download the weight files and deploy the service for you. Enjoy the convenience that LazyLLM brings to you.
+
+```python
+from lazyllm import TrainableModule, WebModule
+# Model will be download automatically if you have an internet connection
+m = TrainableModule('internlm2-chat-7b')
+# will launch a chatbot server
+WebModule(m).start().wait()
+```
+
+You can use the following code to finetune your model if needed. When the trainset of the TrainableModule is set, during the investigation of the WebModule's update function, the TrainableModule will be automatically fine-tuned, and then both the TrainableModule and the WebModule will be deployed separately.
+
+```python
+from lazyllm import TrainableModule, WebModule
+m = TrainableModule('internlm2-chat-7b').trainset('/patt/to/your_data.json')
+WebModule(m).update().wait()
+```
+
+If you follow the tutorial provided in [Building RAG Applications with LazyLLM](https://github.com/LazyAGI/LazyLLM/blob/main/README.md), you can use LazyLLM to build highly customized RAG applications with the internLM series models in just ten lines of code, along with document management services.
+
+LazyLLM Documents: https://lazyllm.readthedocs.io/
