@@ -260,7 +260,7 @@ m = TrainableModule('internlm2-chat-7b')
 WebModule(m).start().wait()
 ```
 
-You can use the following code to finetune your model if needed. When the trainset of the TrainableModule is set, during the investigation of the WebModule's update function, the TrainableModule will be automatically fine-tuned, and then both the TrainableModule and the WebModule will be deployed separately.
+You can use the following code to finetune your model if needed. When the trainset of the TrainableModule is set, during the calling of the WebModule's update function, the TrainableModule will be automatically fine-tuned, and then both the TrainableModule and the WebModule will be deployed separately.
 
 ```python
 from lazyllm import TrainableModule, WebModule
