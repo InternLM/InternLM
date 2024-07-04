@@ -291,7 +291,7 @@ with pipeline() as ppl:
         prl.retriever1 = Retriever(documents, parser='CoarseChunk', similarity_top_k=6)
         prl.retriever2 = Retriever(documents, parser='SentenceDivider', similarity='chinese_bm25', similarity_top_k=6)
     ppl.reranker = Reranker(types='ModuleReranker', model='bge-reranker-large') | bind(ppl.input, _0)
-    ppl.post_processer = lambda nodes: f'《{nodes[0].metadata["file_name"].split(".")[0]}》{nodes[0].get_content()}' if len(nodes) > 0 else '未找到'
+    ppl.post_processer = lambda nodes: f'《{nodes[0].metadata["file_name"].split(".")[0]}》{nodes[0].get_content()}' if len(nodes) > 0 else 'File Not Found'
     ppl.formatter = (lambda ctx, query: dict(context_str=ctx, query_str=query)) | bind(query=ppl.input)
     ppl.llm = lazyllm.TrainableModule('internlm2-chat-7b').prompt(lazyllm.ChatPrompter(prompt, extro_keys=['context_str'])) 
 mweb = lazyllm.WebModule(ppl, port=23456).start().wait()
