@@ -21,7 +21,7 @@ jobs:
       run: |
         echo "::add-mask::${{env.WORKSPACE_PREFIX}}"
         echo "::add-mask::$path_prefix"
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v2
 
     - name: load_hf_model
       if: matrix.transformers-version != 'latest'
