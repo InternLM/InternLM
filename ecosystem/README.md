@@ -272,7 +272,7 @@ It is worth mentioning that regardless of which model in the InternLM series you
 If you want to build your own RAG application, you don't need to first start the inference service and then configure the IP and port to launch the application like you would with LangChain. Refer to the code below, and with LazyLLM, you can use the internLM series models to build a highly customized RAG application in just ten lines of code, along with document management services:
 
 <details>
-<summary>点击获取import和prompt</summary>
+<summary>Click here to get imports and prompts</summary>
 
 ```python
 
