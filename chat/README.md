@@ -2,18 +2,18 @@
 
 English | [简体中文](./README_zh-CN.md)
 
-This document briefly shows how to use [Transformers](#import-from-transformers), [ModelScope](#import-from-modelscope), and [Web demos](#dialogue) to conduct inference with InternLM2-Chat.
+This document briefly shows how to use [Transformers](#import-from-transformers), [ModelScope](#import-from-modelscope), and [Web demos](#dialogue) to conduct inference with InternLM2.5-Chat.
 
 You can also know more about the [chatml format](./chat_format.md) and how to use [LMDeploy for inference and model serving](./lmdeploy.md).
 
 ## Import from Transformers
 
-To load the InternLM2 7B Chat model using Transformers, use the following code:
+To load the InternLM2.5 7B Chat model using Transformers, use the following code:
 
 ```python
 >>> from transformers import AutoTokenizer, AutoModelForCausalLM
->>> tokenizer = AutoTokenizer.from_pretrained("internlm/internlm2-chat-7b", trust_remote_code=True)
->>> model = AutoModelForCausalLM.from_pretrained("internlm/internlm2-chat-7b", trust_remote_code=True).cuda()
+>>> tokenizer = AutoTokenizer.from_pretrained("internlm/internlm2_5-7b-chat", trust_remote_code=True)
+>>> model = AutoModelForCausalLM.from_pretrained("internlm/internlm2_5-7b-chat", trust_remote_code=True).cuda()
 >>> model = model.eval()
 >>> response, history = model.chat(tokenizer, "hello", history=[])
 >>> print(response)
@@ -31,12 +31,12 @@ Remember, good time management skills take practice and patience. Start with sma
 
 ## Import from ModelScope
 
-To load the InternLM model using ModelScope, use the following code:
+To load the InternLM2.5 Chat model using ModelScope, use the following code:
 
 ```python
 from modelscope import snapshot_download, AutoTokenizer, AutoModelForCausalLM
 import torch
-model_dir = snapshot_download('Shanghai_AI_Laboratory/internlm2-chat-7b')
+model_dir = snapshot_download('Shanghai_AI_Laboratory/internlm2_5-7b-chat')
 tokenizer = AutoTokenizer.from_pretrained(model_dir, device_map="auto", trust_remote_code=True,torch_dtype=torch.float16)
 model = AutoModelForCausalLM.from_pretrained(model_dir,device_map="auto",  trust_remote_code=True,torch_dtype=torch.float16)
 model = model.eval()
@@ -48,7 +48,7 @@ print(response)
 
 ## Dialogue
 
-You can interact with the InternLM Chat 7B model through a frontend interface by running the following code:
+You can interact with the InternLM2.5 Chat model through a frontend interface by running the following code:
 
 ```bash
 pip install streamlit

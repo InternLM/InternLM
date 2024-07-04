@@ -46,13 +46,6 @@ from sympy.parsing.sympy_parser import parse_expr
 from tqdm import tqdm
 
 # --------------------- modify the system prompt as needed ---------------------
-# DEFAULT_PROMPT = (
-#     'Integrate step-by-step reasoning and Python code to solve math problems '
-#     'using the following guidelines:\n'
-#     '- Just write jupyter code to solve the problem without giving your thought;\n'
-#     r"- Present the final result in LaTeX using a '\boxed{{}}' without any "
-#     'units. \n')
-
 DEFAULT_PROMPT = (
     'Integrate step-by-step reasoning and Python code to solve math problems '
     'using the following guidelines:\n'
@@ -64,12 +57,11 @@ DEFAULT_PROMPT = (
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Math Code Interpreter')
-    parser.add_argument(
-        '--backend',
-        type=str,
-        default='lmdeploy',
-        help='Which inference framework to use.',
-        choices=['lmdeploy', 'hf'])
+    parser.add_argument('--backend',
+                        type=str,
+                        default='lmdeploy',
+                        help='Which inference framework to use.',
+                        choices=['lmdeploy', 'hf'])
     parser.add_argument(
         '--model_path',
         type=str,
@@ -81,21 +73,14 @@ def parse_args():
         type=str,
         required=True,
         help='Path to save inference results to, should be a `jsonl` file')
-    parser.add_argument(
-        '--dataset',
-        type=str,
-        default='math',
-        choices=['gsm8k', 'math'],
-        help='Dataset for inference')
-    parser.add_argument(
-        '--batch_size',
-        type=int,
-        default=100,
-        help='Agent inference batch size')
+    parser.add_argument('--batch_size',
+                        type=int,
+                        default=100,
+                        help='Agent inference batch size')
     parser.add_argument(
         '--max_turn',
         type=int,
-        default=3,
+        default=5,
         help=
         'Maximum number of interaction rounds between the agent and environment'
     )
@@ -104,29 +89,27 @@ def parse_args():
         type=int,
         default=1,
         help='Number of tensor parallelism. It may be required in LMDelpoy.')
-    parser.add_argument(
-        '--temperature',
-        type=float,
-        default=0.1,
-        help='Temperature in next token prediction')
-    parser.add_argument(
-        '--top_p',
-        type=float,
-        default=0.8,
-        help='Parameter for Top-P Sampling.')
-    parser.add_argument(
-        '--top_k', type=int, default=40, help='Parameter for Top-K Sampling.')
-    parser.add_argument(
-        '--stop_words',
-        type=str,
-        default=['<|action_end|>', '<|im_end|>'],
-        action='append',
-        help='Stop words')
-    parser.add_argument(
-        '--max_new_tokens',
-        type=int,
-        default=512,
-        help='Number of maximum generated tokens.')
+    parser.add_argument('--temperature',
+                        type=float,
+                        default=0.1,
+                        help='Temperature in next token prediction')
+    parser.add_argument('--top_p',
+                        type=float,
+                        default=0.8,
+                        help='Parameter for Top-P Sampling.')
+    parser.add_argument('--top_k',
+                        type=int,
+                        default=40,
+                        help='Parameter for Top-K Sampling.')
+    parser.add_argument('--stop_words',
+                        type=str,
+                        default=['<|action_end|>', '<|im_end|>'],
+                        action='append',
+                        help='Stop words')
+    parser.add_argument('--max_new_tokens',
+                        type=int,
+                        default=512,
+                        help='Number of maximum generated tokens.')
     parser.add_argument(
         '--do_infer',
         default=True,
@@ -138,21 +121,14 @@ def parse_args():
     #     action='store_false',
     #     help='Disable the inference.'
     # )
-    parser.add_argument(
-        '--do_eval',
-        default=False,
-        action='store_true',
-        help='Whether to evaluate the inference results.')
-    parser.add_argument(
-        '--overwrite',
-        default=False,
-        action='store_true',
-        help='Whether to overwrite the existing result file')
-    # parser.add_argument(
-    #     '--debug',
-    #     default=False,
-    #     action='store_true',
-    #     help='Only infer the first 50 samples')
+    parser.add_argument('--do_eval',
+                        default=False,
+                        action='store_true',
+                        help='Whether to evaluate the inference results.')
+    parser.add_argument('--overwrite',
+                        default=False,
+                        action='store_true',
+                        help='Whether to overwrite the existing result file')
     return parser.parse_args()
 
 
@@ -339,28 +315,41 @@ def last_boxed_only_string(string):
     return retval
 
 
-def extract_answer(pred_str):
-    if 'boxed' not in pred_str:
-        return ''
-    answer = pred_str.split('boxed')[-1]
-    if len(answer) == 0:
-        return ''
-    elif (answer[0] == '{'):
-        stack = 1
-        a = ''
-        for c in answer[1:]:
-            if (c == '{'):
-                stack += 1
-                a += c
-            elif (c == '}'):
-                stack -= 1
-                if (stack == 0): break
-                a += c
-            else:
-                a += c
-    else:
-        a = answer.split('$')[0].strip()
+def extract_answer(pred_str: str, execute: bool = False) -> str:
+    if re.search('\boxed|boxed', pred_str):
+        answer = re.split('\boxed|boxed', pred_str)[-1]
+        if len(answer) == 0:
+            return ''
+        elif (answer[0] == '{'):
+            stack = 1
+            a = ''
+            for c in answer[1:]:
+                if (c == '{'):
+                    stack += 1
+                    a += c
+                elif (c == '}'):
+                    stack -= 1
+                    if (stack == 0): break
+                    a += c
+                else:
+                    a += c
+        else:
+            a = answer.split('$')[0].strip()
+    elif re.search('[Tt]he (final )?answer is:?', pred_str):
+        a = re.split('[Tt]he (final )?answer is:?',
+                     pred_str)[-1].strip().rstrip('.')
+    elif pred_str.startswith('```python') and execute:
+        # fall back to program
+        from lagent import get_tool
 
+        a = get_tool('IPythonInteractive').exec(pred_str).value or ''
+    else:  # use the last number
+        pred = re.findall(r'-?\d*\.?\d+', pred_str.replace(',', ''))
+        if len(pred) >= 1:
+            a = pred[-1]
+        else:
+            a = ''
+    # multiple lines
     pred = a.split('\n')[0]
     if pred != '' and pred[0] == ':':
         pred = pred[1:]
@@ -501,8 +490,9 @@ def symbolic_equal_process(a, b, output_queue):
 def call_with_timeout(func, *args, timeout=1, **kwargs):
     output_queue = multiprocessing.Queue()
     process_args = args + (output_queue, )
-    process = multiprocessing.Process(
-        target=func, args=process_args, kwargs=kwargs)
+    process = multiprocessing.Process(target=func,
+                                      args=process_args,
+                                      kwargs=kwargs)
     process.start()
     process.join(timeout)
 
@@ -525,65 +515,45 @@ def init_agent(backend: str, max_turn: int, model_path: str, tp: int,
             pipeline_cfg=dict(backend_config=TurbomindEngineConfig(tp=tp)),
             **kwargs)
     elif backend == 'hf':
-        model = HFTransformer(
-            path=model_path, meta_template=INTERNLM2_META, **kwargs)
+        model = HFTransformer(path=model_path,
+                              meta_template=INTERNLM2_META,
+                              **kwargs)
     else:
         raise NotImplementedError
 
     agent = Internlm2Agent(
         llm=model,
-        protocol=Internlm2Protocol(
-            meta_prompt=None, interpreter_prompt=DEFAULT_PROMPT),
+        protocol=Internlm2Protocol(meta_prompt=None,
+                                   interpreter_prompt=DEFAULT_PROMPT),
         interpreter_executor=ActionExecutor(actions=[
-            IPythonInteractiveManager(
-                max_workers=200,
-                ci_lock=os.path.join(
-                    os.path.dirname(__file__), '.ipython.lock'))
+            IPythonInteractiveManager(max_workers=200,
+                                      ci_lock=os.path.join(
+                                          os.path.dirname(__file__),
+                                          '.ipython.lock'))
         ]),
         max_turn=max_turn)
     return agent
 
 
 def predict(args):
-    if args.dataset == 'gsm8k':
 
-        def process(d, k):
-            d['answer'] = re.sub(r'#### (.+)', r'The answer is \1',
-                                 re.sub(r'<<.*?>>', '',
-                                        d['answer'])).replace('$', '')
-            d['idx'] = k
-            d['query'] = d['question'].replace('$', '')
-            d['gt'] = re.search('The answer is (.+)', d['answer'])[1]
-            d['pred'], d['steps'], d['error'] = [], [], None
-            return d
+    def process(d, k):
+        d['idx'] = k
+        d['query'] = d['problem']
+        gt = extract_answer(d['solution'])
+        if '\\boxed{90\\text{ square\nunits}}' in d['solution']:
+            gt = '90'
+        elif '$6$ is our answer' in d['solution']:
+            gt = '6'
+        elif gt.startswith('x\\in'):
+            gt = gt[len('x\\in'):]
+        gt = strip_string(gt)
+        d['gt'] = gt
+        d['pred'], d['steps'] = [], []
+        d['error'] = None
+        return d
 
-        dataset = load_dataset(
-            'gsm8k', 'main', split='test').map(process, True)
-
-    elif args.dataset == 'math':
-
-        def process(d, k):
-            d['idx'] = k
-            d['query'] = d['problem']
-            gt = extract_answer(d['solution'])
-            if '\\boxed{90\\text{ square\nunits}}' in d['solution']:
-                gt = '90'
-            elif '$6$ is our answer' in d['solution']:
-                gt = '6'
-            elif gt.startswith('x\\in'):
-                gt = gt[len('x\\in'):]
-            gt = strip_string(gt)
-            d['gt'] = gt
-            d['pred'], d['steps'] = [], []
-            d['error'] = None
-            return d
-
-        dataset = load_dataset(
-            'lighteval/MATH', split='test').map(process, True)
-
-    else:
-        raise NotImplementedError
-
+    dataset = load_dataset('lighteval/MATH', split='test').map(process, True)
     agent = init_agent(
         backend=args.backend,
         max_turn=args.max_turn,
@@ -601,19 +571,14 @@ def predict(args):
             batch = dataset.select(
                 range(i * args.batch_size,
                       min((i + 1) * args.batch_size, len(dataset))))
-            # for item in tqdm(
-            #         dataset if not args.debug else dataset.select(range(50))):
             try:
                 rets = agent.batch_chat(batch['query'])
                 for item, ret in zip(batch, rets):
                     item['steps'] = ret.inner_steps
-
-                    lang = [
-                        step for step in item['steps']
-                        if step['role'] == 'language'
-                    ]
-                    item['pred'].append('😭' if not lang else extract_answer(
-                        lang[-1]['content']) or '😭')
+                    last = item['steps'][-1]
+                    item['pred'].append(
+                        extract_answer(last['content']) if last['role'] ==
+                        'language' else '😭')
                     f.write(item)
             except Exception as e:
                 err = str(traceback.format_exc())
@@ -651,6 +616,7 @@ def evaluate(args):
                     timeout_cnt += 1
                 except Exception as error:
                     print(error.__traceback__)
+                    scores.append(False)
                     # sys.exit()
                 progress_bar.update(1)
 

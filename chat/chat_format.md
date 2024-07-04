@@ -17,7 +17,7 @@ Hello<|im_end|>
 Hello, I am InternLM2-Chat, how can I assist you?<|im_end|>
 ```
 
-Here, `<|im_start|>` acts as the start token for each turn of dialogue, and `<|im_end|>` as the end token. Each turn of dialogue typically starts with `<|im_start|>role` and ends with the model's output `<|im_end|>`, where role represents `system`, `user`, `assistant`, and `environment`. You may refer to the [code in huggingface](https://huggingface.co/internlm/internlm2-chat-7b/blob/main/modeling_internlm2.py#L1138) to see how the chat history is organized.
+Here, `<|im_start|>` acts as the start token for each turn of dialogue, and `<|im_end|>` as the end token. Each turn of dialogue typically starts with `<|im_start|>role` and ends with the model's output `<|im_end|>`, where role represents `system`, `user`, `assistant`, and `environment`. You may refer to the [code in huggingface](https://huggingface.co/internlm/internlm2_5-7b-chat/blob/main/modeling_internlm2.py#L1357) to see how the chat history is organized.
 
 Currently, the InternLM2-Chat model's vocabulary maintains the following mappings to support full functionalities:
 

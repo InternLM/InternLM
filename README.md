@@ -36,17 +36,17 @@
 
 ## Introduction
 
-InternLM2 series are released with the following features:
+InternLM2.5 series are released with the following features:
 
-- **200K Context window**: Nearly perfect at finding needles in the haystack with 200K-long context, with leading performance on long-context tasks like LongBench and L-Eval. Try it with [LMDeploy](./chat/lmdeploy.md) for 200K-context inference.
+- **Outstanding reasoning capability**: State-of-the-art performance on Math reasoning, surpassing models like Llama3 and Gemma2-9B.
 
-- **Outstanding comprehensive performance**: Significantly better than the last generation in all dimensions, especially in reasoning, math, code, chat experience, instruction following, and creative writing, with leading performance among open-source models in similar sizes. In some evaluations, InternLM2-Chat-20B may match or even surpass ChatGPT (GPT-3.5).
+- **1M Context window**: Nearly perfect at finding needles in the haystack with 1M-long context, with leading performance on long-context tasks like LongBench. Try it with [LMDeploy](./chat/lmdeploy.md) for 1M-context inference. More details and a file chat demo are found [here](./long_context/README.md).
 
-- **Code interpreter & Data analysis**: With code interpreter, InternLM2-Chat-20B obtains compatible performance with GPT-4 on GSM8K and MATH. InternLM2-Chat also provides data analysis capability.
-
-- **Stronger tool use**: Based on better tool utilization-related capabilities in instruction following, tool selection and reflection, InternLM2 can support more kinds of agents and multi-step tool calling for complex tasks. See [examples](./agent/).
+- **Stronger tool use**: InternLM2.5 supports gathering information from more than 100 web pages, corresponding implementation will be released in [Lagent](https://github.com/InternLM/lagent/tree/main) soon. InternLM2.5 has better tool utilization-related capabilities in instruction following, tool selection and reflection. See [examples](./agent/).
 
 ## News
+
+\[2024.07.03\] We release InternLM2.5-7B, InternLM2.5-7B-Chat and InternLM2.5-7B-Chat-1M. See [model zoo below](#model-zoo) for download or [model cards](./model_cards/) for more details.
 
 \[2024.03.26\] We release InternLM2 technical report. See [arXiv](https://arxiv.org/abs/2403.17297) for details.
 
@@ -62,6 +62,33 @@ InternLM2 series are released with the following features:
 
 ## Model Zoo
 
+### InternLM2.5
+
+| Model                      | Transformers(HF)                           | ModelScope(HF)                           | OpenXLab(HF)                           | OpenXLab(Origin)                           | Release Date |
+| -------------------------- | ------------------------------------------ | ---------------------------------------- | -------------------------------------- | ------------------------------------------ | ------------ |
+| **InternLM2.5-7B**         | [🤗internlm2_5-7b](https://huggingface.co/internlm/internlm2_5-7b) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2_5-7b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2_5-7b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2_5-7b) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2_5-7b-original) | 2024-07-03   |
+| **InternLM2.5-7B-Chat**    | [🤗internlm2_5-7b-chat](https://huggingface.co/internlm/internlm2_5-7b-chat) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2_5-7b-chat](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2_5-7b-chat/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2_5-7b-chat) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2_5-7b-chat-original) | 2024-07-03   |
+| **InternLM2.5-7B-Chat-1M** | [🤗internlm2_5-7b-chat-1m](https://huggingface.co/internlm/internlm2_5-7b-chat-1m) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2_5-7b-chat-1m](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2_5-7b-chat-1m/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2_5-7b-chat-1m) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2_5-7b-chat-1m-original) | 2024-07-03   |
+
+**Notes:**
+
+The release of InternLM2.5 series contains 7B model size for now and we are going to release the 1.8B and 20B versions soon. 7B models are efficient for research and application and 20B models are more powerful and can support more complex scenarios. The relation of these models are shown as follows.
+
+1. **InternLM2.5**: Foundation models pre-trained on large-scale corpus. InternLM2.5 models are recommended for consideration in most applications.
+2. **InternLM2.5-Chat**: The Chat model that undergoes supervised fine-tuning (SFT) and reinforcement learning from human feedback (RLHF), based on the InternLM2.5 model. InternLM2.5-Chat is optimized for instruction following, chat experience, and function call, which is recommended for downstream applications.
+3. **InternLM2.5-Chat-1M**: InternLM2.5-Chat-1M supports 1M long-context with compatible performance as InternLM2.5-Chat.
+
+**Limitations:** Although we have made efforts to ensure the safety of the model during the training process and to encourage the model to generate text that complies with ethical and legal requirements, the model may still produce unexpected outputs due to its size and probabilistic generation paradigm. For example, the generated responses may contain biases, discrimination, or other harmful content. Please do not propagate such content. We are not responsible for any consequences resulting from the dissemination of harmful information.
+
+**Supplements:** `HF` refers to the format used by HuggingFace in [transformers](https://github.com/huggingface/transformers), whereas `Origin` denotes the format adopted by the InternLM team in [InternEvo](https://github.com/InternLM/InternEvo).
+
+### InternLM2
+
+<details>
+    <summary>(click to expand)</summary>
+
+Our previous generation models with advanced capabilities in long-context processing, reasoning, and coding. See [model cards](./model_cards/) for more details.
+
 | Model                       | Transformers(HF)                          | ModelScope(HF)                           | OpenXLab(HF)                           | OpenXLab(Origin)                           | Release Date |
 | --------------------------- | ----------------------------------------- | ---------------------------------------- | -------------------------------------- | ------------------------------------------ | ------------ |
 | **InternLM2-1.8B**          | [🤗internlm2-1.8b](https://huggingface.co/internlm/internlm2-1_8b) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-1.8b](https://www.modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-1_8b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-base-1.8b) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-base-1.8b-original) | 2024-01-31   |
@@ -76,63 +103,38 @@ InternLM2 series are released with the following features:
 | **InternLM2-Chat-20B-SFT**  | [🤗internlm2-chat-20b-sft](https://huggingface.co/internlm/internlm2-chat-20b-sft) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-chat-20b-sft](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-20b-sft/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-20b-sft) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-20b-sft-original) | 2024-01-17   |
 | **InternLM2-Chat-20B**      | [🤗internlm2-chat-20b](https://huggingface.co/internlm/internlm2-chat-20b) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-chat-20b](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-20b/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-20b) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-chat-20b-original) | 2024-01-17   |
 
-**Notes:**
-
-The release of InternLM2 series contains two model sizes: 7B and 20B. 7B models are efficient for research and application and 20B models are more powerful and can support more complex scenarios. The relation of these models are shown as follows.
-
-![](https://internlm.oss-cn-shanghai.aliyuncs.com/series.png)
-
-1. **InternLM2-Base**: Foundation models with high quality and high adaptation flexibility, which serve as a good starting point for downstream deep adaptations.
-2. **InternLM2**: Further pretrain with general domain data and domain-enhanced corpus, obtaining state-of-the-art performance in evaluation with good language capability. InternLM2 models are recommended for consideration in most applications.
-3. **InternLM2-Chat-SFT**: Intermediate version of InternLM2-Chat that only undergoes supervised fine-tuning (SFT), based on the InternLM2-Base model. We release them to benefit research on alignment.
-4. **InternLM2-Chat**: Further aligned on top of InternLM2-Chat-SFT through online RLHF. InternLM2-Chat exhibits better instruction following, chat experience, and function call, which is recommended for downstream applications.
-
-**Limitations:** Although we have made efforts to ensure the safety of the model during the training process and to encourage the model to generate text that complies with ethical and legal requirements, the model may still produce unexpected outputs due to its size and probabilistic generation paradigm. For example, the generated responses may contain biases, discrimination, or other harmful content. Please do not propagate such content. We are not responsible for any consequences resulting from the dissemination of harmful information.
-
-**Supplements:** `HF` refers to the format used by HuggingFace in [transformers](https://github.com/huggingface/transformers), whereas `Origin` denotes the format adopted by the InternLM team in [InternEvo](https://github.com/InternLM/InternEvo).
+</details>
 
 ## Performance
 
-### Objective Evaluation
+We have evaluated InternLM2.5 on several important benchmarks using the open-source evaluation tool [OpenCompass](https://github.com/open-compass/opencompass). Some of the evaluation results are shown in the table below. You are welcome to visit the [OpenCompass Leaderboard](https://rank.opencompass.org.cn) for more evaluation results.
 
-| Dataset          | Baichuan2-7B-Chat | Mistral-7B-Instruct-v0.2 | Qwen-7B-Chat | InternLM2-Chat-7B | ChatGLM3-6B | Baichuan2-13B-Chat | Mixtral-8x7B-Instruct-v0.1 | Qwen-14B-Chat | InternLM2-Chat-20B |
-| ---------------- | ----------------- | ------------------------ | ------------ | ----------------- | ----------- | ------------------ | -------------------------- | ------------- | ------------------ |
-| MMLU             | 50.1              | 59.2                     | 57.1         | 63.7              | 58.0        | 56.6               | 70.3                       | 66.7          | 66.5               |
-| CMMLU            | 53.4              | 42.0                     | 57.9         | 63.0              | 57.8        | 54.8               | 50.6                       | 68.1          | 65.1               |
-| AGIEval          | 35.3              | 34.5                     | 39.7         | 47.2              | 44.2        | 40.0               | 41.7                       | 46.5          | 50.3               |
-| C-Eval           | 53.9              | 42.4                     | 59.8         | 60.8              | 59.1        | 56.3               | 54.0                       | 71.5          | 63.0               |
-| TrivialQA        | 37.6              | 35.0                     | 46.1         | 50.8              | 38.1        | 40.3               | 57.7                       | 54.5          | 53.9               |
-| NaturalQuestions | 12.8              | 8.1                      | 18.6         | 24.1              | 14.0        | 12.7               | 22.5                       | 22.9          | 25.9               |
-| C3               | 78.5              | 66.9                     | 84.4         | 91.5              | 79.3        | 84.4               | 82.1                       | 91.5          | 93.5               |
-| CMRC             | 8.1               | 5.6                      | 14.6         | 63.8              | 43.2        | 27.8               | 5.3                        | 13.0          | 50.4               |
-| WinoGrande       | 49.9              | 50.8                     | 54.2         | 65.8              | 61.7        | 50.9               | 60.9                       | 55.7          | 74.8               |
-| BBH              | 35.9              | 46.5                     | 45.5         | 61.2              | 56.0        | 42.5               | 57.3                       | 55.8          | 68.3               |
-| GSM-8K           | 32.4              | 48.3                     | 44.1         | 70.7              | 53.8        | 56.0               | 71.7                       | 57.7          | 79.6               |
-| Math             | 5.7               | 8.6                      | 12.0         | 23.0              | 20.4        | 4.3                | 22.5                       | 27.6          | 31.9               |
-| HumanEval        | 17.7              | 35.4                     | 36.0         | 59.8              | 52.4        | 19.5               | 37.8                       | 40.9          | 67.1               |
-| MBPP             | 37.7              | 25.7                     | 33.9         | 51.4              | 55.6        | 40.9               | 40.9                       | 30.0          | 65.8               |
+### Base Model
 
-- Performance of MBPP is reported with MBPP(Sanitized)
+| Benchmark      | InternLM2.5-7B | Llama3-8B | Yi-1.5-9B |
+| -------------- | -------------- | --------- | --------- |
+| MMLU (5-shot)  | **71.6**       | 66.4      | 71.6      |
+| CMMLU (5-shot) | **79.1**       | 51.0      | 74.1      |
+| BBH (3-shot)   | 70.1           | 59.7      | 71.1      |
+| MATH (4-shot)  | **34.0**       | 16.4      | 31.9      |
+| GSM8K (4-shot) | **74.8**       | 54.3      | 74.5      |
+| GPQA (0-shot)  | **31.3**       | 31.3      | 27.8      |
 
-### Alignment Evaluation
+### Chat Model
 
-- We have evaluated our model on [AlpacaEval 2.0](https://tatsu-lab.github.io/alpaca_eval/) and InternLM2-Chat-20B surpass Claude 2, GPT-4(0613) and Gemini Pro.
+| Benchmark          | InternLM2.5-7B-Chat | Llama3-8B-Instruct | Gemma2-9B-IT | Yi-1.5-9B-Chat | GLM-4-9B-Chat | Qwen2-7B-Instruct |
+| ------------------ | ------------------- | ------------------ | ------------ | -------------- | ------------- | ----------------- |
+| MMLU (5-shot)      | **72.8**            | 68.4               | 70.9         | 71.0           | 71.4          | 70.8              |
+| CMMLU (5-shot)     | 78.0                | 53.3               | 60.3         | 74.5           | 74.5          | 80.9              |
+| BBH (3-shot CoT)   | **71.6**            | 54.4               | 68.2\*       | 69.6           | 69.6          | 65.0              |
+| MATH (0-shot CoT)  | **60.1**            | 27.9               | 46.9         | 51.1           | 51.1          | 48.6              |
+| GSM8K (0-shot CoT) | 86.0                | 72.9               | 88.9         | 80.1           | 85.3          | 82.9              |
+| GPQA (0-shot)      | **38.4**            | 26.1               | 33.8         | 37.9           | 36.9          | 38.4              |
 
-| Model Name         | Win Rate | Length |
-| ------------------ | -------- | ------ |
-| GPT-4 Turbo        | 50.00%   | 2049   |
-| GPT-4              | 23.58%   | 1365   |
-| GPT-4 0314         | 22.07%   | 1371   |
-| Mistral Medium     | 21.86%   | 1500   |
-| XwinLM 70b V0.1    | 21.81%   | 1775   |
-| InternLM2 Chat 20B | 21.75%   | 2373   |
-| Mixtral 8x7B v0.1  | 18.26%   | 1465   |
-| Claude 2           | 17.19%   | 1069   |
-| Gemini Pro         | 16.85%   | 1315   |
-| GPT-4 0613         | 15.76%   | 1140   |
-| Claude 2.1         | 15.73%   | 1096   |
-
-- According to the released performance of 2024-01-17.
+- We use `ppl` for the MCQ evaluation on base model.
+- The evaluation results were obtained from [OpenCompass](https://github.com/open-compass/opencompass) , and evaluation configuration can be found in the configuration files provided by [OpenCompass](https://github.com/open-compass/opencompass).
+- The evaluation data may have numerical differences due to the version iteration of [OpenCompass](https://github.com/open-compass/opencompass), so please refer to the latest evaluation results of [OpenCompass](https://github.com/open-compass/opencompass).
+- \* means the result is copied from the original paper.
 
 ## Requirements
 
@@ -142,7 +144,9 @@ The release of InternLM2 series contains two model sizes: 7B and 20B. 7B models 
 
 ## Usages
 
-We briefly show the usages with [Transformers](#import-from-transformers), [ModelScope](#import-from-modelscope), and [Web demos](#dialogue).
+InternLM supports a diverse range of well-known upstream and downstream projects, such as LLaMA-Factory, vLLM, llama.cpp, and more. This support enables a broad spectrum of users to utilize the InternLM series models more efficiently and conveniently. Tutorials for selected ecosystem projects are available [here](./ecosystem/README.md) for your convenience.
+
+In the following chapters, we will focus on the usages with [Transformers](#import-from-transformers), [ModelScope](#import-from-modelscope), and [Web demos](#dialogue).
 The chat models adopt [chatml format](./chat/chat_format.md) to support both chat and agent applications.
 To ensure a better usage effect, please make sure that the installed transformers library version meets the following requirements before performing inference with [Transformers](#import-from-transformers) or [ModelScope](#import-from-modelscope):
 
@@ -152,14 +156,14 @@ transformers >= 4.38
 
 ### Import from Transformers
 
-To load the InternLM2-7B-Chat model using Transformers, use the following code:
+To load the InternLM2.5-7B-Chat model using Transformers, use the following code:
 
 ```python
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
-tokenizer = AutoTokenizer.from_pretrained("internlm/internlm2-chat-7b", trust_remote_code=True)
+tokenizer = AutoTokenizer.from_pretrained("internlm/internlm2_5-7b-chat", trust_remote_code=True)
 # Set `torch_dtype=torch.float16` to load model in float16, otherwise it will be loaded as float32 and might cause OOM Error.
-model = AutoModelForCausalLM.from_pretrained("internlm/internlm2-chat-7b", device_map="auto", trust_remote_code=True, torch_dtype=torch.float16)
+model = AutoModelForCausalLM.from_pretrained("internlm/internlm2_5-7b-chat", device_map="auto", trust_remote_code=True, torch_dtype=torch.float16)
 # (Optional) If on low resource devices, you can load model in 4-bit or 8-bit to further save GPU memory via bitsandbytes.
   # InternLM 7B in 4bit will cost nearly 8GB GPU memory.
   # pip install -U bitsandbytes
@@ -175,12 +179,12 @@ print(response)
 
 ### Import from ModelScope
 
-To load the InternLM2-7B-Chat model using ModelScope, use the following code:
+To load the InternLM2.5-7B-Chat model using ModelScope, use the following code:
 
 ```python
 import torch
 from modelscope import snapshot_download, AutoTokenizer, AutoModelForCausalLM
-model_dir = snapshot_download('Shanghai_AI_Laboratory/internlm2-chat-7b')
+model_dir = snapshot_download('Shanghai_AI_Laboratory/internlm2_5-7b-chat')
 tokenizer = AutoTokenizer.from_pretrained(model_dir, device_map="auto", trust_remote_code=True)
 # Set `torch_dtype=torch.float16` to load model in float16, otherwise it will be loaded as float32 and might cause OOM Error.
 model = AutoModelForCausalLM.from_pretrained(model_dir, device_map="auto", trust_remote_code=True, torch_dtype=torch.float16)
@@ -206,30 +210,58 @@ pip install transformers>=4.38
 streamlit run ./chat/web_demo.py
 ```
 
-### Deployment
+## Deployment by LMDeploy
 
 We use [LMDeploy](https://github.com/InternLM/LMDeploy) for fast deployment of InternLM.
 
-With only 4 lines of codes, you can perform `internlm2-chat-7b` inference after `pip install lmdeploy>=0.2.1`.
+### Inference
+
+With only 4 lines of codes, you can perform [internlm2_5-7b-chat](https://huggingface.co/internlm/internlm2_5-7b-chat) inference after `pip install lmdeploy`.
 
 ```python
 from lmdeploy import pipeline
-pipe = pipeline("internlm/internlm2-chat-7b")
+pipe = pipeline("internlm/internlm2_5-7b-chat")
+response = pipe(["Hi, pls intro yourself", "Shanghai is"])
+print(response)
+```
+
+To reduce the memory footprint, we offers 4-bit quantized model [internlm2_5-7b-chat-4bit](https://huggingface.co/internlm/internlm2_5-7b-chat-4bit), with which the inference can be conducted as follows:
+
+```python
+from lmdeploy import pipeline
+pipe = pipeline("internlm/internlm2_5-7b-chat-4bit")
+response = pipe(["Hi, pls intro yourself", "Shanghai is"])
+print(response)
+```
+
+Moreover, you can independently activate the 8bit/4bit KV cache feature:
+
+```python
+from lmdeploy import pipeline, TurbomindEngineConfig
+pipe = pipeline("internlm/internlm2_5-7b-chat-4bit",
+                backend_config=TurbomindEngineConfig(quant_policy=8))
 response = pipe(["Hi, pls intro yourself", "Shanghai is"])
 print(response)
 ```
 
 Please refer to the [guidance](./chat/lmdeploy.md) for more usages about model deployment. For additional deployment tutorials, feel free to explore [here](https://github.com/InternLM/LMDeploy).
 
-### 200K-long-context Inference
+### 1M-long-context Inference
 
 By enabling the Dynamic NTK feature of LMDeploy, you can acquire the long-context inference power.
+
+Note: 1M context length requires 4xA100-80G.
 
 ```python
 from lmdeploy import pipeline, GenerationConfig, TurbomindEngineConfig
 
-backend_config = TurbomindEngineConfig(rope_scaling_factor=2.0, session_len=200000)
-pipe = pipeline('internlm/internlm2-chat-7b', backend_config=backend_config)
+backend_config = TurbomindEngineConfig(
+        rope_scaling_factor=2.5,
+        session_len=1048576,  # 1M context length
+        max_batch_size=1,
+        cache_max_entry_count=0.7,
+        tp=4)  # 4xA100-80G.
+pipe = pipeline('internlm/internlm2_5-7b-chat-1m', backend_config=backend_config)
 prompt = 'Use a long prompt to replace this sentence'
 response = pipe(prompt)
 print(response)
@@ -237,7 +269,7 @@ print(response)
 
 ## Agent
 
-InternLM2-Chat models have excellent tool utilization capabilities and can work with function calls in a zero-shot manner. See more examples in [agent session](./agent/).
+InternLM2.5-Chat models have excellent tool utilization capabilities and can work with function calls in a zero-shot manner. It also supports to conduct analysis by collecting information from more than 100 web pages. See more examples in [agent section](./agent/).
 
 ## Fine-tuning
 
@@ -247,7 +279,7 @@ Please refer to [finetune docs](./finetune/) for fine-tuning with InternLM.
 
 ## Evaluation
 
-We utilize [OpenCompass](https://github.com/open-compass/opencompass) for model evaluation. In InternLM-2, we primarily focus on standard objective evaluation, long-context evaluation (needle in a haystack), data contamination assessment, agent evaluation, and subjective evaluation.
+We utilize [OpenCompass](https://github.com/open-compass/opencompass) for model evaluation. In InternLM2.5, we primarily focus on standard objective evaluation, long-context evaluation (needle in a haystack), data contamination assessment, agent evaluation, and subjective evaluation.
 
 ### Objective Evaluation
 

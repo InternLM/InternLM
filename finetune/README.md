@@ -29,7 +29,7 @@ We recommend two projects to fine-tune InternLM.
 - Install XTuner with DeepSpeed integration
 
   ```shell
-  pip install -U 'xtuner[deepspeed]>=0.1.13'
+  pip install -U 'xtuner[deepspeed]>=0.1.22'
   ```
 
 ### Fine-tune
@@ -55,14 +55,14 @@ XTuner supports the efficient fine-tune (*e.g.*, QLoRA) for InternLM2.
   xtuner train ${CONFIG_NAME_OR_PATH}
   ```
 
-  For example, we can start the QLoRA fine-tuning of InternLM2-Chat-7B with oasst1 dataset by
+  For example, we can start the QLoRA fine-tuning of InternLM2.5-Chat-7B with oasst1 dataset by
 
   ```shell
   # On a single GPU
-  xtuner train internlm2_chat_7b_qlora_oasst1_e3 --deepspeed deepspeed_zero2
+  xtuner train internlm2_5_chat_7b_qlora_oasst1_e3 --deepspeed deepspeed_zero2
   # On multiple GPUs
-  (DIST) NPROC_PER_NODE=${GPU_NUM} xtuner train internlm2_chat_7b_qlora_oasst1_e3 --deepspeed deepspeed_zero2
-  (SLURM) srun ${SRUN_ARGS} xtuner train internlm2_chat_7b_qlora_oasst1_e3 --launcher slurm --deepspeed deepspeed_zero2
+  (DIST) NPROC_PER_NODE=${GPU_NUM} xtuner train internlm2_5_chat_7b_qlora_oasst1_e3 --deepspeed deepspeed_zero2
+  (SLURM) srun ${SRUN_ARGS} xtuner train internlm2_5_chat_7b_qlora_oasst1_e3 --launcher slurm --deepspeed deepspeed_zero2
   ```
 
   - `--deepspeed` means using [DeepSpeed](https://github.com/microsoft/DeepSpeed) 🚀 to optimize the training. XTuner comes with several integrated strategies including ZeRO-1, ZeRO-2, and ZeRO-3. If you wish to disable this feature, simply remove this argument.
@@ -81,18 +81,10 @@ XTuner provides tools to chat with pretrained / fine-tuned large models.
 xtuner chat ${NAME_OR_PATH_TO_LLM} [optional arguments]
 ```
 
-For example, we can start the chat with
-
-InternLM2-Chat-7B with adapter trained from oasst1:
+For example, we can start the chat with InternLM2.5-Chat-7B :
 
 ```shell
-xtuner chat internlm/internlm2-chat-7b --adapter xtuner/internlm2-chat-7b-qlora-oasst1 --prompt-template internlm2_chat
-```
-
-LLaVA-InternLM2-7B:
-
-```shell
-xtuner chat internlm/internlm2-chat-7b --visual-encoder openai/clip-vit-large-patch14-336 --llava xtuner/llava-internlm2-7b --prompt-template internlm2_chat --image $IMAGE_PATH
+xtuner chat internlm/internlm2_5-chat-7b --prompt-template internlm2_chat
 ```
 
 ## InternEvo

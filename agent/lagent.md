@@ -38,7 +38,7 @@ Then you can chat through the UI shown as below
 
 ![image](https://github.com/InternLM/lagent/assets/24622904/3aebb8b4-07d1-42a2-9da3-46080c556f68)
 
-## Run a ReAct agent with InternLM2-Chat
+## Run a ReAct agent with InternLM2.5-Chat
 
 **NOTE:** If you want to run a HuggingFace model, please run `pip install -e .[all]` first.
 
@@ -49,7 +49,7 @@ from lagent.actions import ActionExecutor, GoogleSearch, PythonInterpreter
 from lagent.llms import HFTransformer
 
 # Initialize the HFTransformer-based Language Model (llm) and provide the model name.
-llm = HFTransformer('internlm/internlm2-chat-7b')
+llm = HFTransformer('internlm/internlm2_5-7b-chat')
 
 # Initialize the Google Search tool and provide your API key.
 search_tool = GoogleSearch(api_key='Your SERPER_API_KEY')
