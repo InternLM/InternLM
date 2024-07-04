@@ -265,7 +265,33 @@ from lazyllm import TrainableModule, WebModule
 m = TrainableModule('internlm2-chat-7b').trainset('/patt/to/your_data.json')
 WebModule(m).update().wait()
 ```
+值的一提的是，无论您用InternLM系列的任何一个模型，都可以使用LazyLLM进行推理和微调，您都无需考虑模型的切分策略，也无需考虑模型的特殊token。<br>
+如果您想搭建自己的RAG应用，那么您无需像使用LangChain一样先启动服务推理服务，再配置ip和端口去启动应用程序。参考如下代码，您可以借助LazyLLM，使用InternLM系列的模型，十行代码搭建高度定制的RAG应用，且附带文档管理服务：
 
-如果您按照[LazyLLM搭建RAG应用](https://github.com/LazyAGI/LazyLLM/blob/main/README.CN.md)提供的教程操作，就可以借助LazyLLM，使用internLM系列的模型，十行代码搭建高度定制的RAG应用，且附带文档管理服务。
+<details>
+<summary>点击获取import和prompt</summary>
+
+```python
+
+import os
+import lazyllm
+from lazyllm import pipeline, parallel, bind, _0, Document, Retriever, Reranker
+
+prompt = '你将扮演一个人工智能问答助手的角色，完成一项对话任务。在这个任务中，你需要根据给定的上下文以及问题，给出你的回答。'
+```
+</details>
+
+```python
+documents = Document(dataset_path='/file/to/yourpath', embed=TrainableModule('bge-large-zh-v1.5'))
+with pipeline() as ppl:
+    with parallel().sum as ppl.prl:
+        prl.retriever1 = Retriever(documents, parser='CoarseChunk', similarity_top_k=6)
+        prl.retriever2 = Retriever(documents, parser='SentenceDivider', similarity='chinese_bm25', similarity_top_k=6)
+    ppl.reranker = Reranker(types='ModuleReranker', model='bge-reranker-large') | bind(ppl.input, _0)
+    ppl.post_processer = lambda nodes: f'《{nodes[0].metadata["file_name"].split(".")[0]}》{nodes[0].get_content()}' if len(nodes) > 0 else '未找到'
+    ppl.formatter = (lambda ctx, query: dict(context_str=ctx, query_str=query)) | bind(query=ppl.input)
+    ppl.llm = lazyllm.TrainableModule('internlm2-chat-7b').prompt(lazyllm.ChatPrompter(prompt, extro_keys=['context_str'])) 
+mweb = lazyllm.WebModule(ppl, port=23456).start().wait()
+```
 
 LazyLLM官方文档: https://lazyllm.readthedocs.io/
