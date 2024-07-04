@@ -268,6 +268,33 @@ m = TrainableModule('internlm2-chat-7b').trainset('/patt/to/your_data.json')
 WebModule(m).update().wait()
 ```
 
-If you follow the tutorial provided in [Building RAG Applications with LazyLLM](https://github.com/LazyAGI/LazyLLM/blob/main/README.md), you can use LazyLLM to build highly customized RAG applications with the internLM series models in just ten lines of code, along with document management services.
+It is worth mentioning that regardless of which model in the InternLM series you use, you can perform inference and fine-tuning with LazyLLM. You don't need to worry about the model's segmentation strategy or special tokens.<br>
+If you want to build your own RAG application, you don't need to first start the inference service and then configure the IP and port to launch the application like you would with LangChain. Refer to the code below, and with LazyLLM, you can use the internLM series models to build a highly customized RAG application in just ten lines of code, along with document management services:
+
+<details>
+<summary>点击获取import和prompt</summary>
+
+```python
+
+import os
+import lazyllm
+from lazyllm import pipeline, parallel, bind, _0, Document, Retriever, Reranker
+
+prompt = 'You will play the role of an AI Q&A assistant and complete a dialogue task. In this task, you need to provide your answer based on the given context and question.'
+```
+</details>
+
+```python
+documents = Document(dataset_path='/file/to/yourpath', embed=TrainableModule('bge-large-zh-v1.5'))
+with pipeline() as ppl:
+    with parallel().sum as ppl.prl:
+        prl.retriever1 = Retriever(documents, parser='CoarseChunk', similarity_top_k=6)
+        prl.retriever2 = Retriever(documents, parser='SentenceDivider', similarity='chinese_bm25', similarity_top_k=6)
+    ppl.reranker = Reranker(types='ModuleReranker', model='bge-reranker-large') | bind(ppl.input, _0)
+    ppl.post_processer = lambda nodes: f'《{nodes[0].metadata["file_name"].split(".")[0]}》{nodes[0].get_content()}' if len(nodes) > 0 else '未找到'
+    ppl.formatter = (lambda ctx, query: dict(context_str=ctx, query_str=query)) | bind(query=ppl.input)
+    ppl.llm = lazyllm.TrainableModule('internlm2-chat-7b').prompt(lazyllm.ChatPrompter(prompt, extro_keys=['context_str'])) 
+mweb = lazyllm.WebModule(ppl, port=23456).start().wait()
+```
 
 LazyLLM Documents: https://lazyllm.readthedocs.io/
