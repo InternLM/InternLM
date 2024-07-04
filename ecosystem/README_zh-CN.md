@@ -244,3 +244,28 @@ LlamaIndex 是一个用于构建上下文增强型 LLM 应用程序的框架。
 它选择 ollama 作为 LLM 推理引擎。你可以在[入门教程（本地模型）](<(https://docs.llamaindex.ai/en/stable/getting_started/starter_example_local/)>)中找到示例。
 
 因此，如果能够按照 [ollama 章节](#ollama)使用 ollama 部署浦语模型，你就可以顺利地将浦语模型集成到 LlamaIndex 中。
+
+### [LazyLLM](https://github.com/LazyAGI/LazyLLM)
+
+LazyLLM是一个的低代码构建多Agent大模型应用的开发工具，相比于LangChain和LLamaIndex，其具有极高的灵活性和易用性。
+
+当你安装了`lazyllm`之后, 你可以使用如下代码以极低的成本，基于internLM搭建chatbots，无论推理还是微调，您都无需考虑对话模型的特殊token（如`<|im_start|>system`和`<|im_end|>`等 ）。不用担心没有权重文件，只要您能联网，下面的代码将会自动帮您下载权重文件并部署服务，您只需尽情享受LazyLLM给您带来的便利。
+
+```python
+from lazyllm import TrainableModule, WebModule
+m = TrainableModule('internlm2-chat-7b')
+# will launch a chatbot server
+WebModule(m).start().wait()
+```
+
+如果你需要进一步微调模型，可以参考如下代码。当TrainableModule的trainset被设置之后，在调研WebModule的update函数时，会自动微调TrainableModule，然后对TrainableModule和WebModule分别进行部署。
+
+```python
+from lazyllm import TrainableModule, WebModule
+m = TrainableModule('internlm2-chat-7b').trainset('/patt/to/your_data.json')
+WebModule(m).update().wait()
+```
+
+如果您按照[LazyLLM搭建RAG应用](https://github.com/LazyAGI/LazyLLM/blob/main/README.CN.md)提供的教程操作，就可以借助LazyLLM，使用internLM系列的模型，十行代码搭建高度定制的RAG应用，且附带文档管理服务。
+
+LazyLLM官方文档: https://lazyllm.readthedocs.io/
