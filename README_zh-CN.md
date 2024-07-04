@@ -109,25 +109,25 @@ InternLM2.5 系列模型在本仓库正式发布，具有如下特性：
 
 ### 基座模型
 
-| Benchmark      | InternLM2.5-7B     | Llama3-8B  | Yi-1.5-9B |
-| -------------- | ------------------ | ---------- | --------- |
-| MMLU (5-shot)  | **71.6**           | 66.4       | 71.6      |
-| CMMLU (5-shot) | **79.1**           | 51.0       | 74.1      |
-| BBH (3-shot)   | 70.1               | 59.7       | 71.1      |
-| MATH (4-shot)  | **34.0**           | 16.4       | 31.9      |
-| GSM8K (4-shot) | **74.8**           | 54.3       | 74.5      |
-| GPQA (0-shot)  | **31.3**           | 31.3       | 27.8      |
+| Benchmark      | InternLM2.5-7B | Llama3-8B | Yi-1.5-9B |
+| -------------- | -------------- | --------- | --------- |
+| MMLU (5-shot)  | **71.6**       | 66.4      | 71.6      |
+| CMMLU (5-shot) | **79.1**       | 51.0      | 74.1      |
+| BBH (3-shot)   | 70.1           | 59.7      | 71.1      |
+| MATH (4-shot)  | **34.0**       | 16.4      | 31.9      |
+| GSM8K (4-shot) | **74.8**       | 54.3      | 74.5      |
+| GPQA (0-shot)  | **31.3**       | 31.3      | 27.8      |
 
 ### 对话模型
 
-| Benchmark          | InternLM2.5-7B-Chat     | Llama3-8B-Instruct  | Gemma2-9B-IT | Yi-1.5-9B-Chat | GLM-4-9B-Chat | Qwen2-7B-Instruct |
-| ------------------ | ----------------------- | ------------------- | ------------ | -------------- | ------------- | ----------------- |
-| MMLU (5-shot)      | **72.8**                | 68.4                | 70.9         | 71.0           | 71.4          | 70.8              |
-| CMMLU (5-shot)     | 78.0                    | 53.3                | 60.3         | 74.5           | 74.5          | 80.9              |
-| BBH (3-shot CoT)   | **71.6**                | 54.4                | 68.2\*       | 69.6           | 69.6          | 65.0              |
-| MATH (0-shot CoT)  | **60.1**                | 27.9                | 46.9         | 51.1           | 51.1          | 48.6              |
-| GSM8K (0-shot CoT) | 86.0                    | 72.9                | 88.9         | 80.1           | 85.3          | 82.9              |
-| GPQA (0-shot)      | **38.4**                | 26.1                | 33.8         | 37.9           | 36.9          | 38.4              |
+| Benchmark          | InternLM2.5-7B-Chat | Llama3-8B-Instruct | Gemma2-9B-IT | Yi-1.5-9B-Chat | GLM-4-9B-Chat | Qwen2-7B-Instruct |
+| ------------------ | ------------------- | ------------------ | ------------ | -------------- | ------------- | ----------------- |
+| MMLU (5-shot)      | **72.8**            | 68.4               | 70.9         | 71.0           | 71.4          | 70.8              |
+| CMMLU (5-shot)     | 78.0                | 53.3               | 60.3         | 74.5           | 74.5          | 80.9              |
+| BBH (3-shot CoT)   | **71.6**            | 54.4               | 68.2\*       | 69.6           | 69.6          | 65.0              |
+| MATH (0-shot CoT)  | **60.1**            | 27.9               | 46.9         | 51.1           | 51.1          | 48.6              |
+| GSM8K (0-shot CoT) | 86.0                | 72.9               | 88.9         | 80.1           | 85.3          | 82.9              |
+| GPQA (0-shot)      | **38.4**            | 26.1               | 33.8         | 37.9           | 36.9          | 38.4              |
 
 - 我们使用 `ppl` 对基座模型进行 MCQ 指标的评测。
 - 评测结果来自 [OpenCompass](https://github.com/open-compass/opencompass) ，评测配置可以在 [OpenCompass](https://github.com/open-compass/opencompass) 提供的配置文件中找到。
@@ -141,6 +141,8 @@ InternLM2.5 系列模型在本仓库正式发布，具有如下特性：
 - Transformers >= 4.38
 
 ## 使用案例
+
+InternLM 支持众多知名的上下游项目，如 LLaMA-Factory、vLLM、llama.cpp 等。这种支持使得广大用户群体能够更高效、更方便地使用 InternLM 全系列模型。为方便使用，我们为部分生态系统项目提供了教程，访问[此处](./ecosystem/README_zh-CN.md)即可获取。
 
 接下来我们展示使用 [Transformers](#import-from-transformers)，[ModelScope](#import-from-modelscope) 和 [Web demo](#dialogue) 进行推理。
 对话模型采用了 [chatml 格式](./chat/chat_format.md) 来支持通用对话和智能体应用。
@@ -205,11 +207,13 @@ pip install transformers>=4.38
 streamlit run ./chat/web_demo.py
 ```
 
-### 基于 InternLM 高性能部署
+## InternLM 高性能部署
 
 我们使用 [LMDeploy](https://github.com/InternLM/LMDeploy) 完成 InternLM 的一键部署。
 
-通过 `pip install lmdeploy>=0.2.1` 安装 LMDeploy 之后，只需 4 行代码，就可以实现离线批处理：
+### 推理
+
+通过 `pip install lmdeploy` 安装 LMDeploy 之后，只需 4 行代码，就可以实现离线批处理：
 
 ```python
 from lmdeploy import pipeline
@@ -218,7 +222,26 @@ response = pipe(["Hi, pls intro yourself", "Shanghai is"])
 print(response)
 ```
 
-请参考[部署指南](./chat/lmdeploy.md)了解更多使用案例，更多部署教程则可在[这里](https://github.com/InternLM/LMDeploy)找到。
+为了减少内存占用，我们提供了4位量化模型 [internlm2_5-7b-chat-4bit](https://huggingface.co/internlm/internlm2_5-7b-chat-4bit)。可以按照如下方式推理该模型：
+
+```python
+from lmdeploy import pipeline
+pipe = pipeline("internlm/internlm2_5-7b-chat-4bit")
+response = pipe(["Hi, pls intro yourself", "Shanghai is"])
+print(response)
+```
+
+此外，可以同步开启 8bit 或者 4bit KV 在线量化功能：
+
+```python
+from lmdeploy import pipeline, TurbomindEngineConfig
+pipe = pipeline("internlm/internlm2_5-7b-chat-4bit",
+                backend_config=TurbomindEngineConfig(quant_policy=8))
+response = pipe(["Hi, pls intro yourself", "Shanghai is"])
+print(response)
+```
+
+更多使用案例可参考[部署指南](./chat/lmdeploy.md)，详细的部署教程则可在[这里](https://github.com/InternLM/LMDeploy)找到。
 
 ### 1百万字超长上下文推理
 
