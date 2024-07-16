@@ -1,6 +1,7 @@
 import pytest
 import torch
 from auto_gptq.modeling import BaseGPTQForCausalLM
+from bs4 import BeautifulSoup
 from lmdeploy import TurbomindEngineConfig, pipeline
 from PIL import Image
 from transformers import AutoModel, AutoModelForCausalLM, AutoTokenizer
@@ -279,3 +280,181 @@ class InternLMXComposer2QForCausalLM(BaseGPTQForCausalLM):
         ['feed_forward.w1.linear', 'feed_forward.w3.linear'],
         ['feed_forward.w2.linear'],
     ]
+
+
+@pytest.mark.tmp
+class TestXcomposer2d5Model:
+    """Test cases for base model."""
+
+    @pytest.mark.parametrize(
+        'model_name',
+        [
+            'internlm/internlm-xcomposer2d5-7b',
+        ],
+    )
+    def test_high_resolution_default(self, model_name):
+        torch.set_grad_enabled(False)
+
+        # init model and tokenizer
+        model = AutoModel.from_pretrained(
+            model_name, torch_dtype=torch.bfloat16,
+            trust_remote_code=True).cuda().eval()
+        tokenizer = AutoTokenizer.from_pretrained(model_name,
+                                                  trust_remote_code=True)
+        model.tokenizer = tokenizer
+
+        query = 'Analyze the given image in a detail manner'
+        image = ['/mnt/petrelfs/qa-caif-cicd/github_runner/examples/dubai.png']
+        with torch.autocast(device_type='cuda', dtype=torch.float16):
+            response, _ = model.chat(tokenizer,
+                                     query,
+                                     image,
+                                     do_sample=False,
+                                     num_beams=3,
+                                     use_meta=True)
+        print(response)
+        assert len(response) > 100
+        assert 'dubai' in response.lower()
+
+    @pytest.mark.parametrize(
+        'model_name',
+        [
+            'internlm/internlm-xcomposer2d5-7b',
+        ],
+    )
+    def test_introduce_web_default(self, model_name):
+        torch.set_grad_enabled(False)
+        # init model and tokenizer
+        model = AutoModel.from_pretrained(
+            model_name, torch_dtype=torch.bfloat16,
+            trust_remote_code=True).cuda().eval()
+        tokenizer = AutoTokenizer.from_pretrained(model_name,
+                                                  trust_remote_code=True)
+        model.tokenizer = tokenizer
+
+        query = '''A website for Research institutions. The name is Shanghai
+        AI lab. Top Navigation Bar is blue.Below left, an image shows the
+        logo of the lab. In the right, there is a passage of text below that
+        describes the mission of the laboratory.There are several images to
+        show the research projects of Shanghai AI lab.'''
+        with torch.autocast(device_type='cuda', dtype=torch.float16):
+            response = model.write_webpage(
+                query,
+                seed=202,
+                task='Instruction-aware Webpage Generation',
+                repetition_penalty=3.0)
+        print(response)
+        assert len(response) > 100
+        assert is_html_code(response)
+        assert 'href' in response.lower()
+
+    @pytest.mark.parametrize(
+        'model_name',
+        [
+            'internlm/internlm-xcomposer2d5-7b',
+        ],
+    )
+    def test_resume_to_webset_default(self, model_name):
+        torch.set_grad_enabled(False)
+
+        # init model and tokenizer
+        model = AutoModel.from_pretrained(
+            model_name, torch_dtype=torch.bfloat16,
+            trust_remote_code=True).cuda().eval()
+        tokenizer = AutoTokenizer.from_pretrained(model_name,
+                                                  trust_remote_code=True)
+        model.tokenizer = tokenizer
+
+        # the input should be a resume in markdown format
+        query = '/mnt/petrelfs/qa-caif-cicd/github_runner/examples/resume.md'
+        with torch.autocast(device_type='cuda', dtype=torch.float16):
+            response = model.resume_2_webpage(query,
+                                              seed=202,
+                                              repetition_penalty=3.0)
+        print(response)
+        assert len(response) > 100
+        assert is_html_code(response)
+        assert 'href' in response.lower()
+
+    @pytest.mark.parametrize(
+        'model_name',
+        [
+            'internlm/internlm-xcomposer2d5-7b',
+        ],
+    )
+    def test_screen_to_webset_default(self, model_name):
+        torch.set_grad_enabled(False)
+
+        # init model and tokenizer
+        model = AutoModel.from_pretrained(
+            model_name, torch_dtype=torch.bfloat16,
+            trust_remote_code=True).cuda().eval()
+        tokenizer = AutoTokenizer.from_pretrained(model_name,
+                                                  trust_remote_code=True)
+        model.tokenizer = tokenizer
+
+        query = 'Generate the HTML code of this web image with Tailwind CSS.'
+        image = ['./examples/screenshot.jpg']
+        with torch.autocast(device_type='cuda', dtype=torch.float16):
+            response = model.resume_2_webpage(query,
+                                              image,
+                                              seed=202,
+                                              repetition_penalty=3.0)
+        print(response)
+        assert len(response) > 100
+        assert is_html_code(response)
+        assert 'href' in response.lower()
+
+    @pytest.mark.parametrize(
+        'model_name',
+        [
+            'internlm/internlm-xcomposer2d5-7b',
+        ],
+    )
+    def test_write_artical_default(self, model_name):
+        torch.set_grad_enabled(False)
+
+        # init model and tokenizer
+        model = AutoModel.from_pretrained(
+            'internlm/internlm-xcomposer2d5-7b',
+            torch_dtype=torch.bfloat16,
+            trust_remote_code=True).cuda().eval()
+        tokenizer = AutoTokenizer.from_pretrained(
+            'internlm/internlm-xcomposer2d5-7b', trust_remote_code=True)
+        model.tokenizer = tokenizer
+
+        query = '''阅读下面的材料，根据要求写作。 电影《长安三万里》的出现让人感慨，影片并未将重点全落在大唐风华上，
+        也展现了恢弘气象的阴暗面，即旧门阀的资源垄断、朝政的日益衰败与青年才俊的壮志难酬。高适仕进无门，只能回乡>沉潜修行。
+        李白虽得玉真公主举荐，擢入翰林，但他只是成为唐玄宗的御用文人，不能真正实现有益于朝政的志意。然而，片中高潮部分《将进酒》一节，
+        人至中年、挂着肚腩的李白引众人乘仙鹤上天，一路从水面、瀑布飞升至银河进入仙>宫，李白狂奔着与仙人们碰杯，最后大家纵身飞向漩涡般的九重天。
+        肉身的微贱、世路的“天生我材必有用，坎坷，拘不住精神的高蹈。“天生我材必有用，千金散尽还复来。” 古往今来，身处闲顿、遭受挫折、被病痛折磨，
+        很多人都曾经历>了人生的“失意”，却反而成就了他们“诗意”的人生。对正在追求人生价值的当代青年来说，如何对待人生中的缺憾和困顿?诗意人生中又
+        有怎样的自我坚守和自我认同?请结合“失意”与“诗意”这两个关键词写一篇文章。 要求:选准角度，确定>立意，明确文体，自拟标题;不要套作，不得抄
+        袭;不得泄露个人信息;不少于 800 字。'''
+        with torch.autocast(device_type='cuda', dtype=torch.float16):
+            response = model.write_artical(query, seed=8192)
+        print(response)
+        assert len(response) > 100
+        assert '。' in response and '诗' in response
+
+        query = '''Please write a blog based on the title: French Pastries:
+        A Sweet Indulgence'''
+        with torch.autocast(device_type='cuda', dtype=torch.float16):
+            response = model.write_artical(query, seed=8192)
+        print(response)
+        assert len(response) > 100
+        assert ' ' in response and 'a' in response
+
+
+def is_html_code(html_code):
+    try:
+        soup = BeautifulSoup(html_code, 'lxml')
+        if soup.find('html'):
+            print('HTML appears to be well-formed.')
+            return True
+        else:
+            print('There was an issue with the HTML structure.')
+            return False
+    except Exception as e:
+        print('Error parsing HTML:', str(e))
+        return False
