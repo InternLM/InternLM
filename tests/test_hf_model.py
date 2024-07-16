@@ -394,7 +394,7 @@ class TestXcomposer2d5Model:
         model.tokenizer = tokenizer
 
         query = 'Generate the HTML code of this web image with Tailwind CSS.'
-        image = ['./examples/screenshot.jpg']
+        image = ['/mnt/petrelfs/qa-caif-cicd/github_runner/examples/screenshot.jpg']
         with torch.autocast(device_type='cuda', dtype=torch.float16):
             response = model.resume_2_webpage(query,
                                               image,
