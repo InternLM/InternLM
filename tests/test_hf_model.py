@@ -397,7 +397,7 @@ class TestXcomposer2d5Model:
             '/mnt/petrelfs/qa-caif-cicd/github_runner/examples/screenshot.jpg'
         ]
         with torch.autocast(device_type='cuda', dtype=torch.float16):
-            response = model.resume_2_webpage(query,
+            response = model.screen_2_webpage(query,
                                               image,
                                               seed=202,
                                               repetition_penalty=3.0)
