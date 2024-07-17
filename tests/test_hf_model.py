@@ -282,7 +282,6 @@ class InternLMXComposer2QForCausalLM(BaseGPTQForCausalLM):
     ]
 
 
-@pytest.mark.tmp
 class TestXcomposer2d5Model:
     """Test cases for base model."""
 
@@ -298,7 +297,7 @@ class TestXcomposer2d5Model:
         # init model and tokenizer
         model = AutoModel.from_pretrained(
             model_name, torch_dtype=torch.bfloat16,
-            trust_remote_code=True).cuda().eval()
+            trust_remote_code=True).cuda().eval().half()
         tokenizer = AutoTokenizer.from_pretrained(model_name,
                                                   trust_remote_code=True)
         model.tokenizer = tokenizer
@@ -394,7 +393,9 @@ class TestXcomposer2d5Model:
         model.tokenizer = tokenizer
 
         query = 'Generate the HTML code of this web image with Tailwind CSS.'
-        image = ['/mnt/petrelfs/qa-caif-cicd/github_runner/examples/screenshot.jpg']
+        image = [
+            '/mnt/petrelfs/qa-caif-cicd/github_runner/examples/screenshot.jpg'
+        ]
         with torch.autocast(device_type='cuda', dtype=torch.float16):
             response = model.resume_2_webpage(query,
                                               image,
