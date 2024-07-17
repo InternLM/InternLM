@@ -46,7 +46,7 @@ InternLM2.5 series are released with the following features:
 
 ## News
 
-\[2024/07.10\] Intern [Summer Camp3](https://www.wjx.cn/vm/PvefmG2.aspx?sojumpparm=github) are comming!
+\[2024/07.10\] 🔥 Join the Intern [Summer Camp3](https://www.wjx.cn/vm/PvefmG2.aspx?sojumpparm=github) now!
  
 \[2024.07.03\] We release InternLM2.5-7B, InternLM2.5-7B-Chat and InternLM2.5-7B-Chat-1M. See [model zoo below](#model-zoo) for download or [model cards](./model_cards/) for more details.
 
