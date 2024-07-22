@@ -62,23 +62,6 @@ class TestChat:
             assert_model(response)
 
 
-class TestChatAwq:
-    """Test cases for chat model."""
-
-    @pytest.mark.parametrize(
-        'model_name',
-        ['internlm/internlm2-chat-20b-4bits'],
-    )
-    def test_demo_default(self, model_name):
-        engine_config = TurbomindEngineConfig(model_format='awq')
-        pipe = pipeline('internlm/internlm2-chat-20b-4bits',
-                        backend_config=engine_config)
-        responses = pipe(['Hi, pls intro yourself', 'Shanghai is'])
-        print(responses)
-        for response in responses:
-            assert_model(response.text)
-
-
 class TestBase:
     """Test cases for base model."""
 
@@ -282,8 +265,184 @@ class InternLMXComposer2QForCausalLM(BaseGPTQForCausalLM):
     ]
 
 
+class TestReward:
+    """Test cases for base model."""
+
+    @pytest.mark.parametrize(
+        'model_name',
+        [
+            'internlm/internlm2-1_8b-reward', 'internlm/internlm2-7b-reward',
+            'internlm/internlm2-20b-reward'
+        ],
+    )
+    @pytest.mark.parametrize(
+        'usefast',
+        [
+            True,
+            False,
+        ],
+    )
+    def test_demo_default(self, model_name, usefast):
+        tokenizer = AutoTokenizer.from_pretrained(model_name,
+                                                  trust_remote_code=True,
+                                                  use_fast=usefast)
+        model = AutoModel.from_pretrained(
+            model_name,
+            device_map='cuda',
+            torch_dtype=torch.float16,
+            trust_remote_code=True,
+        )
+        tokenizer = AutoTokenizer.from_pretrained(model_name,
+                                                  trust_remote_code=True)
+
+        chat_1 = [{
+            'role': 'user',
+            'content': "Hello! What's your name?"
+        }, {
+            'role':
+            'assistant',
+            'content':
+            'I am InternLM2! A helpful AI assistant. What can I do for you?'
+        }]
+        chat_2 = [{
+            'role': 'user',
+            'content': "Hello! What's your name?"
+        }, {
+            'role': 'assistant',
+            'content': 'I have no idea.'
+        }]
+
+        # get reward score for a single chat
+        score1 = model.get_score(tokenizer, chat_1)
+        score2 = model.get_score(tokenizer, chat_2)
+        print('score1: ', score1)
+        print('score2: ', score2)
+        assert score1 > 0
+        assert score2 < 0
+
+        # batch inference, get multiple scores at once
+        scores = model.get_scores(tokenizer, [chat_1, chat_2])
+        print('scores: ', scores)
+        assert scores[0] > 0
+        assert scores[1] < 0
+
+        # compare whether chat_1 is better than chat_2
+        compare_res = model.compare(tokenizer, chat_1, chat_2)
+        print('compare_res: ', compare_res)
+        assert compare_res
+        # >>> compare_res:  True
+
+        # rank multiple chats, it will return the ranking index of each chat
+        # the chat with the highest score will have ranking index as 0
+        rank_res = model.rank(tokenizer, [chat_1, chat_2])
+        print('rank_res: ', rank_res)  # lower index means higher score
+        # >>> rank_res:  [0, 1]
+        assert rank_res[0] == 0
+        assert rank_res[1] == 1
+
+
 class TestXcomposer2d5Model:
     """Test cases for base model."""
+
+    @pytest.mark.parametrize(
+        'model_name',
+        [
+            'internlm/internlm-xcomposer2d5-7b',
+        ],
+    )
+    def test_video_understanding(self, model_name):
+        torch.set_grad_enabled(False)
+
+        # init model and tokenizer
+        model = AutoModel.from_pretrained(
+            model_name, torch_dtype=torch.bfloat16,
+            trust_remote_code=True).cuda().eval().half()
+        tokenizer = AutoTokenizer.from_pretrained(model_name,
+                                                  trust_remote_code=True)
+        model.tokenizer = tokenizer
+
+        query = 'Here are some frames of a video. Describe this video in detail'  # noqa: F401, E501
+        image = [
+            '/mnt/petrelfs/qa-caif-cicd/github_runner/examples/liuxiang.mp4',
+        ]
+
+        with torch.autocast(device_type='cuda', dtype=torch.float16):
+            response, his = model.chat(tokenizer,
+                                       query,
+                                       image,
+                                       do_sample=False,
+                                       num_beams=3,
+                                       use_meta=True)
+        print(response)
+        assert len(response) > 100
+        assert 'athlete' in response.lower()
+
+        query = 'tell me the athlete code of Liu Xiang'
+        image = [
+            '/mnt/petrelfs/qa-caif-cicd/github_runner/examples/liuxiang.mp4',
+        ]
+        with torch.autocast(device_type='cuda', dtype=torch.float16):
+            response, _ = model.chat(tokenizer,
+                                     query,
+                                     image,
+                                     history=his,
+                                     do_sample=False,
+                                     num_beams=3,
+                                     use_meta=True)
+        print(response)
+        assert len(response) > 10
+        assert '1363' in response.lower()
+
+    @pytest.mark.parametrize(
+        'model_name',
+        [
+            'internlm/internlm-xcomposer2d5-7b',
+        ],
+    )
+    def test_multi_image_understanding(self, model_name):
+        torch.set_grad_enabled(False)
+
+        # init model and tokenizer
+        model = AutoModel.from_pretrained(
+            model_name, torch_dtype=torch.bfloat16,
+            trust_remote_code=True).cuda().eval().half()
+        tokenizer = AutoTokenizer.from_pretrained(model_name,
+                                                  trust_remote_code=True)
+        model.tokenizer = tokenizer
+
+        query = 'Image1 <ImageHere>; Image2 <ImageHere>; Image3 <ImageHere>; I want to buy a car from the three given cars, analyze their advantages and weaknesses one by one'  # noqa: F401, E501
+        image = [
+            '/mnt/petrelfs/qa-caif-cicd/github_runner/examples/cars1.jpg',
+            '/mnt/petrelfs/qa-caif-cicd/github_runner/examples/cars2.jpg',
+            '/mnt/petrelfs/qa-caif-cicd/github_runner/examples/cars3.jpg',
+        ]
+        with torch.autocast(device_type='cuda', dtype=torch.float16):
+            response, his = model.chat(tokenizer,
+                                       query,
+                                       image,
+                                       do_sample=False,
+                                       num_beams=3,
+                                       use_meta=True)
+        print(response)
+        assert len(response) > 100
+        assert 'benz' in response.lower()
+        assert 'bugatti' in response.lower()
+        assert 'bmw' in response.lower()
+
+        query = 'Image4 <ImageHere>; How about the car in Image4'
+        image.append(
+            '/mnt/petrelfs/qa-caif-cicd/github_runner/examples/cars4.jpg')
+        with torch.autocast(device_type='cuda', dtype=torch.float16):
+            response, _ = model.chat(tokenizer,
+                                     query,
+                                     image,
+                                     do_sample=False,
+                                     num_beams=3,
+                                     history=his,
+                                     use_meta=True)
+        print(response)
+        assert len(response) > 10
+        assert 'ferrari' in response.lower()
 
     @pytest.mark.parametrize(
         'model_name',
@@ -459,3 +618,20 @@ def is_html_code(html_code):
     except Exception as e:
         print('Error parsing HTML:', str(e))
         return False
+
+
+class TestChatAwq:
+    """Test cases for chat model."""
+
+    @pytest.mark.parametrize(
+        'model_name',
+        ['internlm/internlm2-chat-20b-4bits'],
+    )
+    def test_demo_default(self, model_name):
+        engine_config = TurbomindEngineConfig(model_format='awq')
+        pipe = pipeline('internlm/internlm2-chat-20b-4bits',
+                        backend_config=engine_config)
+        responses = pipe(['Hi, pls intro yourself', 'Shanghai is'])
+        print(responses)
+        for response in responses:
+            assert_model(response.text)
