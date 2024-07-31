@@ -23,6 +23,7 @@ class TestChat:
         'model_name',
         [
             'internlm/internlm2_5-7b-chat', 'internlm/internlm2_5-7b-chat-1m',
+            'internlm/internlm2_5-20b-chat', 'internlm/internlm2_5-1_8b-chat',
             'internlm/internlm2-chat-7b', 'internlm/internlm2-chat-7b-sft',
             'internlm/internlm2-chat-20b', 'internlm/internlm2-chat-20b-sft',
             'internlm/internlm2-chat-1_8b', 'internlm/internlm2-chat-1_8b-sft'
@@ -70,7 +71,8 @@ class TestBase:
         [
             'internlm/internlm2_5-7b', 'internlm/internlm2-7b',
             'internlm/internlm2-base-7b', 'internlm/internlm2-20b',
-            'internlm/internlm2-base-20b', 'internlm/internlm2-1_8b'
+            'internlm/internlm2-base-20b', 'internlm/internlm2-1_8b',
+            'internlm/internlm2_5-20b',
         ],
     )
     @pytest.mark.parametrize(
