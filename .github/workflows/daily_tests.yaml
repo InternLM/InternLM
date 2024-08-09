@@ -36,12 +36,20 @@ jobs:
         conda create -n internlm-model-latest --clone ${CONDA_BASE_ENV}
         source activate internlm-model-latest
         pip install transformers
+    - name: install torch
+      run: |
+        source activate internlm-model-latest
+        pip install /mnt/petrelfs/qa-caif-cicd/resource/flash_attn-2.5.8+cu118torch2.2cxx11abiFALSE-cp310-cp310-linux_x86_64.whl
+        pip install torch==2.2.2 torchvision==0.17.2 --index-url https://download.pytorch.org/whl/cu118
+        pip install sentencepiece auto-gptq==0.6.0 beautifulsoup4 decord lxml
+        export LMDEPLOY_VERSION=0.5.0
+        export PYTHON_VERSION=310
+        pip install https://github.com/InternLM/lmdeploy/releases/download/v${LMDEPLOY_VERSION}/lmdeploy-${LMDEPLOY_VERSION}+cu118-cp${PYTHON_VERSION}-cp${PYTHON_VERSION}-manylinux2014_x86_64.whl --extra-index-url https://download.pytorch.org/whl/cu118
+        python3 -m pip list
+        conda deactivate
     - name: run_test
       run: |
         source activate internlm-model-latest
-        pip install torch==2.2.2 torchvision==0.17.2 --index-url https://download.pytorch.org/whl/cu118
-        pip install /mnt/petrelfs/qa-caif-cicd/resource/flash_attn-2.5.8+cu118torch2.2cxx11abiFALSE-cp310-cp310-linux_x86_64.whl
-        pip install sentencepiece auto-gptq==0.6.0 lmdeploy[all]
         srun -p ${SLURM_PARTITION} --kill-on-bad-exit=1 --job-name=${GITHUB_RUN_ID}-${GITHUB_JOB} --gpus-per-task=2 pytest -s -v --color=yes ./tests/test_hf_model.py
         conda deactivate
     - name: remove_env
