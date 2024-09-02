@@ -247,51 +247,51 @@ LlamaIndex 是一个用于构建上下文增强型 LLM 应用程序的框架。
 
 ### [LazyLLM](https://github.com/LazyAGI/LazyLLM)
 
-LazyLLM是一个的低代码构建多Agent大模型应用的开发工具，相比于LangChain和LLamaIndex，其具有极高的灵活性和易用性。
+LazyLLM 是一个的低代码构建多 Agent 大模型应用的开发工具，相比于 LangChain 和 LLamaIndex，其具有极高的灵活性和易用性。
 
-当你安装了`lazyllm`之后, 你可以使用如下代码以极低的成本，基于internLM搭建chatbots，无论推理还是微调，您都无需考虑对话模型的特殊token（如`<|im_start|>system`和`<|im_end|>`等 ）。不用担心没有权重文件，只要您能联网，下面的代码将会自动帮您下载权重文件并部署服务，您只需尽情享受LazyLLM给您带来的便利。
+当您依次通过 `pip3 install lazyllm` 和 `lazyllm install standard` 安装了`lazyllm`之后, 您可以使用如下代码以极低的成本，基于 InternLM 搭建chatbots，无论推理还是微调，您都无需考虑对话模型的特殊token（如`<|im_start|>system`和`<|im_end|>`等 ）。不用担心没有权重文件，只要您能联网，下面的代码将会自动帮您下载权重文件并部署服务，您只需尽情享受LazyLLM给您带来的便利。
 
 ```python
 from lazyllm import TrainableModule, WebModule
-m = TrainableModule('internlm2-chat-7b')
+m = TrainableModule('internlm2_5-7b-chat')
 # will launch a chatbot server
 WebModule(m).start().wait()
 ```
 
-如果你需要进一步微调模型，可以参考如下代码。当TrainableModule的trainset被设置之后，在调用WebModule的update函数时，会自动微调TrainableModule，然后对TrainableModule和WebModule分别进行部署。
+如果您需要进一步微调模型，可以参考如下代码。当 `TrainableModule` 的 `trainset` (数据集需下载到本地，例如：[
+alpaca_gpt4_zh](https://huggingface.co/datasets/llamafactory/alpaca_gpt4_zh))被设置之后，在调用 `WebModule` 的 `update` 函数时，会自动微调 `TrainableModule`，然后对 `TrainableModule` 和 `WebModule` 分别进行部署。
 
 ```python
 from lazyllm import TrainableModule, WebModule
 m = TrainableModule('internlm2-chat-7b').trainset('/patt/to/your_data.json')
 WebModule(m).update().wait()
 ```
-值的一提的是，无论您用InternLM系列的任何一个模型，都可以使用LazyLLM进行推理和微调，您都无需考虑模型的切分策略，也无需考虑模型的特殊token。<br>
-如果您想搭建自己的RAG应用，那么您无需像使用LangChain一样先启动服务推理服务，再配置ip和端口去启动应用程序。参考如下代码，您可以借助LazyLLM，使用InternLM系列的模型，十行代码搭建高度定制的RAG应用，且附带文档管理服务：
+值的一提的是，无论您用 InternLM 系列的任何一个模型，都可以使用 LazyLLM 进行推理和微调，您都无需考虑模型的切分策略，也无需考虑模型的特殊 token。<br>
+如果您想搭建自己的 RAG 应用，那么您无需像使用 LangChain 一样先启动服务推理服务，再配置 ip 和端口去启动应用程序。参考如下代码，您可以借助 LazyLLM，使用 InternLM 系列的模型，十行代码搭建高度定制的 RAG 应用，且附带文档管理服务（文档需指定本地绝对路径，可从这里下载：[rag_master](https://huggingface.co/datasets/Jing0o0Xin/rag_master)）：
 
 <details>
 <summary>点击获取import和prompt</summary>
 
 ```python
-
 import os
 import lazyllm
-from lazyllm import pipeline, parallel, bind, _0, Document, Retriever, Reranker
+from lazyllm import pipeline, parallel, bind, SentenceSplitter, Document, Retriever, Reranker
 
 prompt = '你将扮演一个人工智能问答助手的角色，完成一项对话任务。在这个任务中，你需要根据给定的上下文以及问题，给出你的回答。'
 ```
 </details>
 
 ```python
-documents = Document(dataset_path='/file/to/yourpath', embed=TrainableModule('bge-large-zh-v1.5'))
+documents = Document(dataset_path='/file/to/yourpath', embed=lazyllm.TrainableModule('bge-large-zh-v1.5'))
+documents.create_node_group(name="sentences", transform=SentenceSplitter, chunk_size=1024, chunk_overlap=100)
 with pipeline() as ppl:
     with parallel().sum as ppl.prl:
-        prl.retriever1 = Retriever(documents, parser='CoarseChunk', similarity_top_k=6)
-        prl.retriever2 = Retriever(documents, parser='SentenceDivider', similarity='chinese_bm25', similarity_top_k=6)
-    ppl.reranker = Reranker(types='ModuleReranker', model='bge-reranker-large') | bind(ppl.input, _0)
-    ppl.post_processer = lambda nodes: f'《{nodes[0].metadata["file_name"].split(".")[0]}》{nodes[0].get_content()}' if len(nodes) > 0 else '未找到'
-    ppl.formatter = (lambda ctx, query: dict(context_str=ctx, query_str=query)) | bind(query=ppl.input)
-    ppl.llm = lazyllm.TrainableModule('internlm2-chat-7b').prompt(lazyllm.ChatPrompter(prompt, extro_keys=['context_str'])) 
-mweb = lazyllm.WebModule(ppl, port=23456).start().wait()
+        prl.retriever1 = Retriever(documents, group_name="sentences", similarity="cosine", topk=3)
+        prl.retriever2 = Retriever(documents, "CoarseChunk", "bm25_chinese", 0.003, topk=3)
+    ppl.reranker = Reranker("ModuleReranker", model="bge-reranker-large", topk=1) | bind(query=ppl.input)
+    ppl.formatter = (lambda nodes, query: dict(context_str="".join([node.get_content() for node in nodes]), query=query)) | bind(query=ppl.input)
+    ppl.llm = lazyllm.TrainableModule("internlm2_5-7b-chat").prompt(lazyllm.ChatPrompter(prompt, extro_keys=["context_str"]))
+lazyllm.WebModule(ppl, port=23456).start().wait()
 ```
 
 LazyLLM官方文档: https://lazyllm.readthedocs.io/
