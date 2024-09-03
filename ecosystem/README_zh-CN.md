@@ -249,7 +249,7 @@ LlamaIndex 是一个用于构建上下文增强型 LLM 应用程序的框架。
 
 LazyLLM 是一个的低代码构建多 Agent 大模型应用的开发工具，相比于 LangChain 和 LLamaIndex，其具有极高的灵活性和易用性。
 
-当您依次通过 `pip3 install lazyllm` 和 `lazyllm install standard` 安装了`lazyllm`之后, 您可以使用如下代码以极低的成本，基于 InternLM 搭建chatbots，无论推理还是微调，您都无需考虑对话模型的特殊token（如`<|im_start|>system`和`<|im_end|>`等 ）。不用担心没有权重文件，只要您能联网，下面的代码将会自动帮您下载权重文件并部署服务，您只需尽情享受LazyLLM给您带来的便利。
+当您依次通过 `pip3 install lazyllm` 和 `lazyllm install standard` 安装了 LazyLLM 之后, 您可以使用如下代码以极低的成本，基于 InternLM 搭建 chatbots，无论推理还是微调，您都无需考虑对话模型的特殊 token（如`<|im_start|>system`和`<|im_end|>`等 ）。不用担心没有权重文件，只要您能联网，下面的代码将会自动帮您下载权重文件并部署服务，您只需尽情享受 LazyLLM 给您带来的便利。
 
 ```python
 from lazyllm import TrainableModule, WebModule
@@ -294,4 +294,4 @@ with pipeline() as ppl:
 lazyllm.WebModule(ppl, port=23456).start().wait()
 ```
 
-LazyLLM官方文档: https://lazyllm.readthedocs.io/
+LazyLLM 官方文档: https://lazyllm.readthedocs.io/
