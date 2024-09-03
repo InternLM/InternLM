@@ -265,7 +265,7 @@ alpaca_gpt4_zh](https://huggingface.co/datasets/llamafactory/alpaca_gpt4_zh)) of
 
 ```python
 from lazyllm import TrainableModule, WebModule
-m = TrainableModule('internlm2-chat-7b').trainset('/patt/to/your_data.json')
+m = TrainableModule('internlm2-chat-7b').trainset('/patt/to/your_data.json').mode('finetune')
 WebModule(m).update().wait()
 ```
 

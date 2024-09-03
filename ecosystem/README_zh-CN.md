@@ -263,7 +263,7 @@ alpaca_gpt4_zh](https://huggingface.co/datasets/llamafactory/alpaca_gpt4_zh))被
 
 ```python
 from lazyllm import TrainableModule, WebModule
-m = TrainableModule('internlm2-chat-7b').trainset('/patt/to/your_data.json')
+m = TrainableModule('internlm2-chat-7b').trainset('/patt/to/your_data.json').mode('finetune')
 WebModule(m).update().wait()
 ```
 值的一提的是，无论您用 InternLM 系列的任何一个模型，都可以使用 LazyLLM 进行推理和微调，您都无需考虑模型的切分策略，也无需考虑模型的特殊 token。<br>
