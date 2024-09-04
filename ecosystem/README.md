@@ -250,7 +250,7 @@ Therefore, you can integrate InternLM2 or InternLM2.5 models to LlamaIndex smoot
 
 LazyLLM is an framework which supports the easiest and laziest way for building multi-agent LLMs applications. It offers extremely high flexibility and ease of use compared to LangChain and LLamaIndex.
 
-When you have installed `lazyllm` by `pip3 install lazyllm` and `lazyllm install standard`, you can use the following code to build chatbots based on internLM at a very low cost, without worrying about the special tokens (such as `system` and ``) of the dialogue model. Don’t worry about not having weight files; as long as you are connected to the internet, the code below will automatically download the weight files and deploy the service for you. Enjoy the convenience that LazyLLM brings to you.
+When you have installed `lazyllm` by `pip3 install lazyllm` and `lazyllm install standard`, you can use the following code to build chatbots based on internLM at a very low cost, without worrying about the special tokens (such as `<|im_start|>system` and `<|im_end|>`) of the dialogue model. Don’t worry about not having weight files; as long as you are connected to the internet, the code below will automatically download the weight files and deploy the service for you. Enjoy the convenience that LazyLLM brings to you.
 
 ```python
 from lazyllm import TrainableModule, WebModule
@@ -297,4 +297,4 @@ with pipeline() as ppl:
 lazyllm.WebModule(ppl, port=23456).start().wait()
 ```
 
-LazyLLM Documents: https://lazyllm.readthedocs.io/
+LazyLLM Documents: https://docs.lazyllm.ai/

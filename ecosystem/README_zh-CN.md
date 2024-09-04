@@ -294,4 +294,4 @@ with pipeline() as ppl:
 lazyllm.WebModule(ppl, port=23456).start().wait()
 ```
 
-LazyLLM 官方文档: https://lazyllm.readthedocs.io/
+LazyLLM 官方文档: https://docs.lazyllm.ai/
