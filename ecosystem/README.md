@@ -285,7 +285,7 @@ prompt = 'You will play the role of an AI Q&A assistant and complete a dialogue 
 </details>
 
 ```python
-documents = Document(dataset_path='/file/to/yourpath', embed=lazyllm.TrainableModule('bge-large-zh-v1.5'))
+documents = Document(dataset_path='/file/to/yourpath', embed=lazyllm.TrainableModule('bge-large-zh-v1.5'), create_ui=False)
 documents.create_node_group(name="sentences", transform=SentenceSplitter, chunk_size=1024, chunk_overlap=100)
 with pipeline() as ppl:
     with parallel().sum as ppl.prl:

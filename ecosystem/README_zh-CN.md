@@ -282,7 +282,7 @@ prompt = '你将扮演一个人工智能问答助手的角色，完成一项对�
 </details>
 
 ```python
-documents = Document(dataset_path='/file/to/yourpath', embed=lazyllm.TrainableModule('bge-large-zh-v1.5'))
+documents = Document(dataset_path='/file/to/yourpath', embed=lazyllm.TrainableModule('bge-large-zh-v1.5'), create_ui=False)
 documents.create_node_group(name="sentences", transform=SentenceSplitter, chunk_size=1024, chunk_overlap=100)
 with pipeline() as ppl:
     with parallel().sum as ppl.prl:
