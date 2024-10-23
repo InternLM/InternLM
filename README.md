@@ -9,7 +9,7 @@
     <sup>
       <a href="https://internlm.intern-ai.org.cn/">
         <i><font size="4">HOT</font></i>
-      </a>
+      </a>xxxx 
     </sup>
     <div> </div>
   </div>
