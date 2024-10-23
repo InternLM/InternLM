@@ -23,7 +23,8 @@
 [🤗HuggingFace](https://huggingface.co/internlm) |
 [🆕最新消息](#更新) |
 [🤔提交反馈](https://github.com/InternLM/InternLM/issues/new)|
-[📜技术报告](https://arxiv.org/abs/2403.17297)
+[📜技术报告](https://arxiv.org/abs/2403.17297) |
+[🧩魔乐社区](https://modelers.cn/spaces/MindSpore-Lab/INTERNLM2-20B-PLAN)
 
 [English](./README.md) |
 [简体中文](./README_zh-CN.md)
