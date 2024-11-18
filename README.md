@@ -23,7 +23,9 @@
 [🤗HuggingFace](https://huggingface.co/internlm) |
 [🆕Update News](#news) |
 [🤔Reporting Issues](https://github.com/InternLM/InternLM/issues/new) |
-[📜Technical Report](https://arxiv.org/abs/2403.17297)
+[📜Technical Report](https://arxiv.org/abs/2403.17297)<br>
+[💬Chat Web](https://internlm-chat.intern-ai.org.cn/) |
+[🔗API](https://internlm.intern-ai.org.cn/api/document)
 
 [English](./README.md) |
 [简体中文](./README_zh-CN.md)
