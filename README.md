@@ -25,7 +25,8 @@
 [🤔Reporting Issues](https://github.com/InternLM/InternLM/issues/new) |
 [📜Technical Report](https://arxiv.org/abs/2403.17297)<br>
 [💬Chat Web](https://internlm-chat.intern-ai.org.cn/) |
-[🔗API](https://internlm.intern-ai.org.cn/api/document)
+[🔗API](https://internlm.intern-ai.org.cn/api/document) |
+[🧩Modelers](https://modelers.cn/spaces/MindSpore-Lab/INTERNLM2-20B-PLAN)
 
 [English](./README.md) |
 [简体中文](./README_zh-CN.md)
