@@ -226,8 +226,12 @@ def combine_history(prompt, deepthink=False, start=0, stop=None):
         else:
             messages.append(message)
     meta_instruction = (
-        (
-            """You are an expert mathematician with extensive experience in mathematical competitions. You approach problems through systematic thinking and rigorous reasoning. When solving problems, follow these thought processes:
+        'You are InternLM (书生·浦语), a helpful, honest, '
+        'and harmless AI assistant developed by Shanghai '
+        'AI Laboratory (上海人工智能实验室).'
+    )
+    if deepthink:
+        meta_instruction += """\nYou are an expert mathematician with extensive experience in mathematical competitions. You approach problems through systematic thinking and rigorous reasoning. When solving problems, follow these thought processes:
 ## Deep Understanding
 Take time to fully comprehend the problem before attempting a solution. Consider:
 - What is the real question being asked?
@@ -272,14 +276,6 @@ When you're ready, present your complete solution with:
 - Thorough verification
 Focus on clear, logical progression of ideas and thorough explanation of your mathematical reasoning. Provide answers in the same language as the user asking the question, repeat the final answer using a '\\boxed{}' without any units, you have [[8192]] tokens to complete the answer.
 """
-        )
-        if deepthink
-        else (
-            'You are InternLM (书生·浦语), a helpful, honest, '
-            'and harmless AI assistant developed by Shanghai '
-            'AI Laboratory (上海人工智能实验室).'
-        )
-    )
     total_prompt = f'<s><|im_start|>system\n{meta_instruction}<|im_end|>\n'
     for message in messages:
         cur_content = message['content']
@@ -346,6 +342,7 @@ def main():
                                 message_placeholder.markdown(postprocess(cur_response) + '▌')
                             message_placeholder.markdown(postprocess(cur_response))
                             deepthink_message['content'] = cur_response
+                            torch.cuda.empty_cache()
                         else:
                             st.markdown(postprocess(deepthink_message['content']))
                 else:
