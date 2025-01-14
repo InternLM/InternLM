@@ -186,8 +186,8 @@ model = AutoModelForCausalLM.from_pretrained("internlm/internlm3-8b-instruct", t
 # (可选) 如果在低资源设备上，可以通过bitsandbytes加载4-bit或8-bit量化的模型，进一步节省GPU显存.
   # 4-bit 量化的 InternLM3 8B 大约会消耗 8GB 显存.
   # pip install -U bitsandbytes
-  # 8-bit: model = AutoModelForCausalLM.from_pretrained(model_dir, device_map="auto", trust_remote_code=True, load_in_8bit=True)
-  # 4-bit: model = AutoModelForCausalLM.from_pretrained(model_dir, device_map="auto", trust_remote_code=True, load_in_4bit=True)
+  # 8-bit: model = AutoModelForCausalLM.from_pretrained("internlm/internlm3-8b-instruct", device_map="auto", trust_remote_code=True, load_in_8bit=True)
+  # 4-bit: model = AutoModelForCausalLM.from_pretrained("internlm/internlm3-8b-instruct", device_map="auto", trust_remote_code=True, load_in_4bit=True)
 model = model.eval()
 
 messages = [

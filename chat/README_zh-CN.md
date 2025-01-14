@@ -42,16 +42,29 @@ response = tokenizer.batch_decode(generated_ids)[0]
 通过以下的代码从 ModelScope 加载 InternLM2.5-Chat 模型 （可修改模型名称替换不同的模型）
 
 ```python
-from modelscope import snapshot_download, AutoTokenizer, AutoModelForCausalLM
 import torch
-model_dir = snapshot_download('Shanghai_AI_Laboratory/internlm2_5-7b-chat', revision='v1.0.0')
-tokenizer = AutoTokenizer.from_pretrained(model_dir, device_map="auto", trust_remote_code=True,torch_dtype=torch.float16)
-model = AutoModelForCausalLM.from_pretrained(model_dir,device_map="auto",  trust_remote_code=True,torch_dtype=torch.float16)
-model = model.eval()
-response, history = model.chat(tokenizer, "hello", history=[])
-print(response)
-response, history = model.chat(tokenizer, "please provide three suggestions about time management", history=history)
-print(response)
+from modelscope import snapshot_download, AutoTokenizer, AutoModelForCausalLM
+model_dir = snapshot_download('Shanghai_AI_Laboratory/internlm3-8b-instruct')
+tokenizer = AutoTokenizer.from_pretrained(model_dir,trust_remote_code=True)
+# 设置`torch_dtype=torch.float16`来将模型精度指定为torch.float16，否则可能会因为您的硬件原因造成显存不足的问题。
+model = AutoModelForCausalLM.from_pretrained(model_dir, device_map="auto", trust_remote_code=True, torch_dtype=torch.float16)
+# (可选) 如果在低资源设备上，可以通过bitsandbytes加载4-bit或8-bit量化的模型，进一步节省GPU显存.
+  # 4-bit 量化的 InternLM3 8B 大约会消耗 8GB 显存.
+  # pip install -U bitsandbytes
+  # 8-bit: model = AutoModelForCausalLM.from_pretrained(model_dir, device_map="auto", trust_remote_code=True, load_in_8bit=True)
+  # 4-bit: model = AutoModelForCausalLM.from_pretrained(model_dir, device_map="auto", trust_remote_code=True, load_in_4bit=True)
+messages = [
+    {"role": "system", "content": "You are an AI assistant whose name is InternLM."},
+    {"role": "user", "content": "Please tell me five scenic spots in Shanghai"},
+ ]
+tokenized_chat = tokenizer.apply_chat_template(messages, tokenize=True, add_generation_prompt=True, return_tensors="pt")
+
+generated_ids = model.generate(tokenized_chat, max_new_tokens=512)
+
+generated_ids = [
+    output_ids[len(input_ids):] for input_ids, output_ids in zip(tokenized_chat, generated_ids)
+]
+response = tokenizer.batch_decode(generated_ids)[0]
 ```
 
 ## 通过前端网页对话
