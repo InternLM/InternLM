@@ -16,7 +16,7 @@ jobs:
 
       - name: lint-flake8
         run: |
-          pip install flake8==v3.8.4
+          pip install flake8==v3.8.4 importlib-metadata<5.0
           FLAKE_DISABLE_LIST="F403,F405,W504,W503,E203"
           flake8 --max-line-length=120 --ignore=$FLAKE_DISABLE_LIST ./chat/web_demo.py
 
