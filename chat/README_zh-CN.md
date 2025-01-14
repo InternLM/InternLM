@@ -12,15 +12,29 @@
 通过以下的代码从 Transformers 加载 InternLM 模型 （可修改模型名称替换不同的模型）
 
 ```python
->>> from transformers import AutoTokenizer, AutoModelForCausalLM
->>> tokenizer = AutoTokenizer.from_pretrained("internlm/internlm2_5-7b-chat", trust_remote_code=True)
->>> model = AutoModelForCausalLM.from_pretrained("internlm/internlm2_5-7b-chat", trust_remote_code=True).cuda()
->>> model = model.eval()
->>> response, history = model.chat(tokenizer, "你好", history=[])
->>> print(response)
-你好！有什么我可以帮助你的吗？
->>> response, history = model.chat(tokenizer, "请提供三个管理时间的建议。", history=history)
->>> print(response)
+import torch
+from modelscope import snapshot_download, AutoTokenizer, AutoModelForCausalLM
+model_dir = snapshot_download('Shanghai_AI_Laboratory/internlm3-8b-instruct')
+tokenizer = AutoTokenizer.from_pretrained(model_dir,trust_remote_code=True)
+# 设置`torch_dtype=torch.float16`来将模型精度指定为torch.float16，否则可能会因为您的硬件原因造成显存不足的问题。
+model = AutoModelForCausalLM.from_pretrained(model_dir, device_map="auto", trust_remote_code=True, torch_dtype=torch.float16)
+# (可选) 如果在低资源设备上，可以通过bitsandbytes加载4-bit或8-bit量化的模型，进一步节省GPU显存.
+  # 4-bit 量化的 InternLM3 8B 大约会消耗 8GB 显存.
+  # pip install -U bitsandbytes
+  # 8-bit: model = AutoModelForCausalLM.from_pretrained(model_dir, device_map="auto", trust_remote_code=True, load_in_8bit=True)
+  # 4-bit: model = AutoModelForCausalLM.from_pretrained(model_dir, device_map="auto", trust_remote_code=True, load_in_4bit=True)
+messages = [
+    {"role": "system", "content": "You are an AI assistant whose name is InternLM."},
+    {"role": "user", "content": "Please tell me five scenic spots in Shanghai"},
+ ]
+tokenized_chat = tokenizer.apply_chat_template(messages, tokenize=True, add_generation_prompt=True, return_tensors="pt")
+
+generated_ids = model.generate(tokenized_chat, max_new_tokens=512)
+
+generated_ids = [
+    output_ids[len(input_ids):] for input_ids, output_ids in zip(tokenized_chat, generated_ids)
+]
+response = tokenizer.batch_decode(generated_ids)[0]
 ```
 
 ### 通过 ModelScope 加载
@@ -42,10 +56,10 @@ print(response)
 
 ## 通过前端网页对话
 
-可以通过以下代码启动一个前端的界面来与 InternLM2.5 Chat 7B 模型进行交互
+可以通过以下代码启动一个前端的界面来与 InternLM3-8B-Instruct 模型进行交互
 
 ```bash
 pip install streamlit
-pip install transformers>=4.38
+pip install transformers>=4.48
 streamlit run ./web_demo.py
 ```

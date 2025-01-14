@@ -8,30 +8,38 @@ You can also know more about the [chatml format](./chat_format.md) and how to us
 
 ## Import from Transformers
 
-To load the InternLM2.5 7B Chat model using Transformers, use the following code:
+To load the InternLM3-8B-Instruct model using Transformers, use the following code:
 
 ```python
->>> from transformers import AutoTokenizer, AutoModelForCausalLM
->>> tokenizer = AutoTokenizer.from_pretrained("internlm/internlm2_5-7b-chat", trust_remote_code=True)
->>> model = AutoModelForCausalLM.from_pretrained("internlm/internlm2_5-7b-chat", trust_remote_code=True).cuda()
->>> model = model.eval()
->>> response, history = model.chat(tokenizer, "hello", history=[])
->>> print(response)
-Hello! How can I help you today?
->>> response, history = model.chat(tokenizer, "please provide three suggestions about time management", history=history)
->>> print(response)
-Sure, here are three tips for effective time management:
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
+tokenizer = AutoTokenizer.from_pretrained("internlm/internlm3-8b-instruct", trust_remote_code=True)
+# Set `torch_dtype=torch.float16` to load model in float16, otherwise it will be loaded as float32 and might cause OOM Error.
+model = AutoModelForCausalLM.from_pretrained("internlm/internlm3-8b-instruct", trust_remote_code=True, torch_dtype=torch.float16)
+# (Optional) If on low resource devices, you can load model in 4-bit or 8-bit to further save GPU memory via bitsandbytes.
+  # InternLM3 8B in 4bit will cost nearly 8GB GPU memory.
+  # pip install -U bitsandbytes
+  # 8-bit: model = AutoModelForCausalLM.from_pretrained(model_dir, device_map="auto", trust_remote_code=True, load_in_8bit=True)
+  # 4-bit: model = AutoModelForCausalLM.from_pretrained(model_dir, device_map="auto", trust_remote_code=True, load_in_4bit=True)
+model = model.eval()
 
-1. Prioritize tasks based on importance and urgency: Make a list of all your tasks and categorize them into "important and urgent," "important but not urgent," and "not important but urgent." Focus on completing the tasks in the first category before moving on to the others.
-2. Use a calendar or planner: Write down deadlines and appointments in a calendar or planner so you don't forget them. This will also help you schedule your time more effectively and avoid overbooking yourself.
-3. Minimize distractions: Try to eliminate any potential distractions when working on important tasks. Turn off notifications on your phone, close unnecessary tabs on your computer, and find a quiet place to work if possible.
+messages = [
+    {"role": "system", "content": "You are an AI assistant whose name is InternLM."},
+    {"role": "user", "content": "Please tell me five scenic spots in Shanghai"},
+ ]
+tokenized_chat = tokenizer.apply_chat_template(messages, tokenize=True, add_generation_prompt=True, return_tensors="pt")
 
-Remember, good time management skills take practice and patience. Start with small steps and gradually incorporate these habits into your daily routine.
+generated_ids = model.generate(tokenized_chat, max_new_tokens=512)
+
+generated_ids = [
+    output_ids[len(input_ids):] for input_ids, output_ids in zip(tokenized_chat, generated_ids)
+]
+response = tokenizer.batch_decode(generated_ids)[0]
 ```
 
 ## Import from ModelScope
 
-To load the InternLM2.5 Chat model using ModelScope, use the following code:
+To load the InternLM3-8B-Instruct model using ModelScope, use the following code:
 
 ```python
 from modelscope import snapshot_download, AutoTokenizer, AutoModelForCausalLM
@@ -48,11 +56,11 @@ print(response)
 
 ## Dialogue
 
-You can interact with the InternLM2.5 Chat model through a frontend interface by running the following code:
+You can interact with the InternLM3-8B-Instruct model through a frontend interface by running the following code:
 
 ```bash
 pip install streamlit
-pip install transformers>=4.38
+pip install transformers>=4.48
 streamlit run ./chat/web_demo.py
 ```
 
