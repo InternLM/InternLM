@@ -170,7 +170,7 @@ We conducted a comprehensive evaluation of InternLM using the open-source evalua
 - The evaluation data may have numerical differences due to the version iteration of [OpenCompass](https://github.com/internLM/OpenCompass/), so please refer to the latest evaluation results of [OpenCompass](https://github.com/internLM/OpenCompass/).
   **Limitations:** Although we have made efforts to ensure the safety of the model during the training process and to encourage the model to generate text that complies with ethical and legal requirements, the model may still produce unexpected outputs due to its size and probabilistic generation paradigm. For example, the generated responses may contain biases, discrimination, or other harmful content. Please do not propagate such content. We are not responsible for any consequences resulting from the dissemination of harmful information.
 
-## Requirements
+### Requirements
 
 - Python >= 3.8
 - PyTorch >= 1.12.0 (2.0.0 and above are recommended)
@@ -178,56 +178,17 @@ We conducted a comprehensive evaluation of InternLM using the open-source evalua
 
 ## Usages
 
-InternLM supports a diverse range of well-known upstream and downstream projects, such as LLaMA-Factory, vLLM, llama.cpp, and more. This support enables a broad spectrum of users to utilize the InternLM series models more efficiently and conveniently. Tutorials for selected ecosystem projects are available [here](./ecosystem/README.md) for your convenience.
+### Conversation Mode
 
-In the following chapters, we will focus on the usages with [Transformers](#import-from-transformers), [ModelScope](#import-from-modelscope), and [Web demos](#dialogue).
-The chat models adopt [chatml format](./chat/chat_format.md) to support both chat and agent applications.
-To ensure a better usage effect, please make sure that the installed transformers library version meets the following requirements before performing inference with [Transformers](#import-from-transformers) or [ModelScope](#import-from-modelscope):
+#### Transformers inference
 
-```
-transformers >= 4.48
-```
-
-### Import from Transformers
-
-To load the InternLM3-8B-Instruct model using Transformers, use the following code:
+To load the InternLM3 8B Instruct model using Transformers, use the following code:
 
 ```python
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
-tokenizer = AutoTokenizer.from_pretrained("internlm/internlm3-8b-instruct", trust_remote_code=True)
-# Set `torch_dtype=torch.float16` to load model in float16, otherwise it will be loaded as float32 and might cause OOM Error.
-model = AutoModelForCausalLM.from_pretrained("internlm/internlm3-8b-instruct", trust_remote_code=True, torch_dtype=torch.float16)
-# (Optional) If on low resource devices, you can load model in 4-bit or 8-bit to further save GPU memory via bitsandbytes.
-  # InternLM3 8B in 4bit will cost nearly 8GB GPU memory.
-  # pip install -U bitsandbytes
-  # 8-bit: model = AutoModelForCausalLM.from_pretrained("internlm/internlm3-8b-instruct", device_map="auto", trust_remote_code=True, load_in_8bit=True)
-  # 4-bit: model = AutoModelForCausalLM.from_pretrained("internlm/internlm3-8b-instruct", device_map="auto", trust_remote_code=True, load_in_4bit=True)
-model = model.eval()
-
-messages = [
-    {"role": "system", "content": "You are an AI assistant whose name is InternLM."},
-    {"role": "user", "content": "Please tell me five scenic spots in Shanghai"},
- ]
-tokenized_chat = tokenizer.apply_chat_template(messages, tokenize=True, add_generation_prompt=True, return_tensors="pt")
-
-generated_ids = model.generate(tokenized_chat, max_new_tokens=512)
-
-generated_ids = [
-    output_ids[len(input_ids):] for input_ids, output_ids in zip(tokenized_chat, generated_ids)
-]
-response = tokenizer.batch_decode(generated_ids)[0]
-```
-
-### Import from ModelScope
-
-To load the InternLM3-8B-Instruct model using ModelScope, use the following code:
-
-```python
-import torch
-from modelscope import snapshot_download, AutoTokenizer, AutoModelForCausalLM
-model_dir = snapshot_download('Shanghai_AI_Laboratory/internlm3-8b-instruct')
-tokenizer = AutoTokenizer.from_pretrained(model_dir,trust_remote_code=True)
+model_dir = "internlm/internlm3-8b-instruct"
+tokenizer = AutoTokenizer.from_pretrained(model_dir, trust_remote_code=True)
 # Set `torch_dtype=torch.float16` to load model in float16, otherwise it will be loaded as float32 and might cause OOM Error.
 model = AutoModelForCausalLM.from_pretrained(model_dir, trust_remote_code=True, torch_dtype=torch.float16)
 # (Optional) If on low resource devices, you can load model in 4-bit or 8-bit to further save GPU memory via bitsandbytes.
@@ -236,130 +197,248 @@ model = AutoModelForCausalLM.from_pretrained(model_dir, trust_remote_code=True, 
   # 8-bit: model = AutoModelForCausalLM.from_pretrained(model_dir, device_map="auto", trust_remote_code=True, load_in_8bit=True)
   # 4-bit: model = AutoModelForCausalLM.from_pretrained(model_dir, device_map="auto", trust_remote_code=True, load_in_4bit=True)
 model = model.eval()
-
+system_prompt = """You are an AI assistant whose name is InternLM (书生·浦语).
+- InternLM (书生·浦语) is a conversational language model that is developed by Shanghai AI Laboratory (上海人工智能实验室). It is designed to be helpful, honest, and harmless.
+- InternLM (书生·浦语) can understand and communicate fluently in the language chosen by the user such as English and 中文."""
 messages = [
-    {"role": "system", "content": "You are an AI assistant whose name is InternLM."},
+    {"role": "system", "content": system_prompt},
     {"role": "user", "content": "Please tell me five scenic spots in Shanghai"},
  ]
 tokenized_chat = tokenizer.apply_chat_template(messages, tokenize=True, add_generation_prompt=True, return_tensors="pt")
-
-generated_ids = model.generate(tokenized_chat, max_new_tokens=512)
-
+generated_ids = model.generate(tokenized_chat, max_new_tokens=1024, temperature=1, repetition_penalty=1.005, top_k=40, top_p=0.8)
 generated_ids = [
     output_ids[len(input_ids):] for input_ids, output_ids in zip(tokenized_chat, generated_ids)
 ]
+prompt = tokenizer.batch_decode(tokenized_chat)[0]
+print(prompt)
 response = tokenizer.batch_decode(generated_ids)[0]
+print(response)
 ```
 
-### Dialogue
+#### LMDeploy inference
 
-You can interact with the InternLM3-8B-Instruct model through a frontend interface by running the following code:
+LMDeploy is a toolkit for compressing, deploying, and serving LLM, developed by the MMRazor and MMDeploy teams.
 
 ```bash
-pip install streamlit
-pip install transformers>=4.48
-streamlit run ./chat/web_demo.py
+pip install lmdeploy
 ```
 
-## Deployment by LMDeploy
-
-We use [LMDeploy](https://github.com/InternLM/LMDeploy) for fast deployment of InternLM.
-
-### Inference
-
-With only 4 lines of codes, you can perform [internlm2_5-7b-chat](https://huggingface.co/internlm/internlm2_5-7b-chat) inference after `pip install lmdeploy`.
+You can run batch inference locally with the following python code:
 
 ```python
-from lmdeploy import pipeline
-pipe = pipeline("internlm/internlm2_5-7b-chat")
-response = pipe(["Hi, pls intro yourself", "Shanghai is"])
+import lmdeploy
+model_dir = "internlm/internlm3-8b-instruct"
+pipe = lmdeploy.pipeline(model_dir)
+response = pipe("Please tell me five scenic spots in Shanghai")
 print(response)
 ```
 
-To reduce the memory footprint, we offers 4-bit quantized model [internlm2_5-7b-chat-4bit](https://huggingface.co/internlm/internlm2_5-7b-chat-4bit), with which the inference can be conducted as follows:
+Or you can launch an OpenAI compatible server with the following command:
+
+```bash
+lmdeploy serve api_server internlm/internlm3-8b-instruct --model-name internlm3-8b-instruct --server-port 23333
+```
+
+Then you can send a chat request to the server:
+
+```bash
+curl http://localhost:23333/v1/chat/completions \
+    -H "Content-Type: application/json" \
+    -d '{
+    "model": "internlm3-8b-instruct",
+    "messages": [
+    {"role": "user", "content": "Please tell me five scenic spots in Shanghai"}
+    ]
+    }'
+```
+
+Find more details in the [LMDeploy documentation](https://lmdeploy.readthedocs.io/en/latest/)
+
+#### Ollama inference
+
+TODO
+
+#### vLLM inference
+
+We are still working on merging the PR(https://github.com/vllm-project/vllm/pull/12037) into vLLM. In the meantime, please use the following PR link to install it manually.
 
 ```python
-from lmdeploy import pipeline
-pipe = pipeline("internlm/internlm2_5-7b-chat-4bit")
-response = pipe(["Hi, pls intro yourself", "Shanghai is"])
+git clone -b support-internlm3 https://github.com/RunningLeon/vllm.git
+pip install -e .
+```
+
+inference code:
+
+```python
+from vllm import LLM, SamplingParams
+llm = LLM(model="internlm/internlm3-8b-instruct")
+sampling_params = SamplingParams(temperature=1, repetition_penalty=1.005, top_k=40, top_p=0.8)
+system_prompt = """You are an AI assistant whose name is InternLM (书生·浦语).
+- InternLM (书生·浦语) is a conversational language model that is developed by Shanghai AI Laboratory (上海人工智能实验室). It is designed to be helpful, honest, and harmless.
+- InternLM (书生·浦语) can understand and communicate fluently in the language chosen by the user such as English and 中文."""
+prompts = [
+    {
+        "role": "system",
+        "content": system_prompt,
+    },
+    {
+        "role": "user",
+        "content": "Please tell me five scenic spots in Shanghai"
+    },
+]
+outputs = llm.chat(prompts,
+                   sampling_params=sampling_params,
+                   use_tqdm=False)
+print(outputs)
+```
+
+### Thinking Mode
+
+#### Thinking Demo
+
+<img src="https://github.com/InternLM/InternLM/blob/017ba7446d20ecc3b9ab8e7b66cc034500868ab4/assets/solve_puzzle.png?raw=true" width="400"/>
+
+#### Thinking system prompt
+
+```python
+thinking_system_prompt = """You are an expert mathematician with extensive experience in mathematical competitions. You approach problems through systematic thinking and rigorous reasoning. When solving problems, follow these thought processes:
+## Deep Understanding
+Take time to fully comprehend the problem before attempting a solution. Consider:
+- What is the real question being asked?
+- What are the given conditions and what do they tell us?
+- Are there any special restrictions or assumptions?
+- Which information is crucial and which is supplementary?
+## Multi-angle Analysis
+Before solving, conduct thorough analysis:
+- What mathematical concepts and properties are involved?
+- Can you recall similar classic problems or solution methods?
+- Would diagrams or tables help visualize the problem?
+- Are there special cases that need separate consideration?
+## Systematic Thinking
+Plan your solution path:
+- Propose multiple possible approaches
+- Analyze the feasibility and merits of each method
+- Choose the most appropriate method and explain why
+- Break complex problems into smaller, manageable steps
+## Rigorous Proof
+During the solution process:
+- Provide solid justification for each step
+- Include detailed proofs for key conclusions
+- Pay attention to logical connections
+- Be vigilant about potential oversights
+## Repeated Verification
+After completing your solution:
+- Verify your results satisfy all conditions
+- Check for overlooked special cases
+- Consider if the solution can be optimized or simplified
+- Review your reasoning process
+Remember:
+1. Take time to think thoroughly rather than rushing to an answer
+2. Rigorously prove each key conclusion
+3. Keep an open mind and try different approaches
+4. Summarize valuable problem-solving methods
+5. Maintain healthy skepticism and verify multiple times
+Your response should reflect deep mathematical understanding and precise logical thinking, making your solution path and reasoning clear to others.
+When you're ready, present your complete solution with:
+- Clear problem understanding
+- Detailed solution process
+- Key insights
+- Thorough verification
+Focus on clear, logical progression of ideas and thorough explanation of your mathematical reasoning. Provide answers in the same language as the user asking the question, repeat the final answer using a '\\boxed{}' without any units, you have [[8192]] tokens to complete the answer.
+"""
+```
+
+#### Transformers inference
+
+```python
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
+model_dir = "internlm/internlm3-8b-instruct"
+tokenizer = AutoTokenizer.from_pretrained(model_dir, trust_remote_code=True)
+# Set `torch_dtype=torch.float16` to load model in float16, otherwise it will be loaded as float32 and might cause OOM Error.
+model = AutoModelForCausalLM.from_pretrained(model_dir, trust_remote_code=True, torch_dtype=torch.float16)
+# (Optional) If on low resource devices, you can load model in 4-bit or 8-bit to further save GPU memory via bitsandbytes.
+  # InternLM3 8B in 4bit will cost nearly 8GB GPU memory.
+  # pip install -U bitsandbytes
+  # 8-bit: model = AutoModelForCausalLM.from_pretrained(model_dir, device_map="auto", trust_remote_code=True, load_in_8bit=True)
+  # 4-bit: model = AutoModelForCausalLM.from_pretrained(model_dir, device_map="auto", trust_remote_code=True, load_in_4bit=True)
+model = model.eval()
+messages = [
+    {"role": "system", "content": thinking_system_prompt},
+    {"role": "user", "content": "Given the function\(f(x)=\mathrm{e}^{x}-ax - a^{3}\),\n(1) When \(a = 1\), find the equation of the tangent line to the curve \(y = f(x)\) at the point \((1,f(1))\).\n(2) If \(f(x)\) has a local minimum and the minimum value is less than \(0\), determine the range of values for \(a\)."},
+ ]
+tokenized_chat = tokenizer.apply_chat_template(messages, tokenize=True, add_generation_prompt=True, return_tensors="pt")
+generated_ids = model.generate(tokenized_chat, max_new_tokens=8192)
+generated_ids = [
+    output_ids[len(input_ids):] for input_ids, output_ids in zip(tokenized_chat, generated_ids)
+]
+prompt = tokenizer.batch_decode(tokenized_chat)[0]
+print(prompt)
+response = tokenizer.batch_decode(generated_ids)[0]
 print(response)
 ```
 
-Moreover, you can independently activate the 8bit/4bit KV cache feature:
+#### LMDeploy inference
+
+LMDeploy is a toolkit for compressing, deploying, and serving LLM.
+
+```bash
+pip install lmdeploy
+```
+
+You can run batch inference locally with the following python code:
 
 ```python
-from lmdeploy import pipeline, TurbomindEngineConfig
-pipe = pipeline("internlm/internlm2_5-7b-chat-4bit",
-                backend_config=TurbomindEngineConfig(quant_policy=8))
-response = pipe(["Hi, pls intro yourself", "Shanghai is"])
+from lmdeploy import pipeline, GenerationConfig, ChatTemplateConfig
+model_dir = "internlm/internlm3-8b-instruct"
+chat_template_config = ChatTemplateConfig(model_name='internlm3')
+pipe = pipeline(model_dir, chat_template_config=chat_template_config)
+messages = [
+        {"role": "system", "content": thinking_system_prompt},
+        {"role": "user", "content": "Given the function\(f(x)=\mathrm{e}^{x}-ax - a^{3}\),\n(1) When \(a = 1\), find the equation of the tangent line to the curve \(y = f(x)\) at the point \((1,f(1))\).\n(2) If \(f(x)\) has a local minimum and the minimum value is less than \(0\), determine the range of values for \(a\)."},
+]
+response = pipe(messages, gen_config=GenerationConfig(max_new_tokens=2048))
 print(response)
 ```
 
-Please refer to the [guidance](./chat/lmdeploy.md) for more usages about model deployment. For additional deployment tutorials, feel free to explore [here](https://github.com/InternLM/LMDeploy).
+#### Ollama inference
 
-### 1M-long-context Inference
+TODO
 
-By enabling the Dynamic NTK feature of LMDeploy, you can acquire the long-context inference power.
+#### vLLM inference
 
-Note: 1M context length requires 4xA100-80G.
+We are still working on merging the PR(https://github.com/vllm-project/vllm/pull/12037) into vLLM. In the meantime, please use the following PR link to install it manually.
 
 ```python
-from lmdeploy import pipeline, GenerationConfig, TurbomindEngineConfig
-
-backend_config = TurbomindEngineConfig(
-        rope_scaling_factor=2.5,
-        session_len=1048576,  # 1M context length
-        max_batch_size=1,
-        cache_max_entry_count=0.7,
-        tp=4)  # 4xA100-80G.
-pipe = pipeline('internlm/internlm2_5-7b-chat-1m', backend_config=backend_config)
-prompt = 'Use a long prompt to replace this sentence'
-response = pipe(prompt)
-print(response)
+git clone https://github.com/RunningLeon/vllm.git
+pip install -e .
 ```
 
-## Agent
+inference code
 
-InternLM2.5-Chat models have excellent tool utilization capabilities and can work with function calls in a zero-shot manner. It also supports to conduct analysis by collecting information from more than 100 web pages. See more examples in [agent section](./agent/).
-
-## Fine-tuning
-
-Please refer to [finetune docs](./finetune/) for fine-tuning with InternLM.
-
-**Note:** We have migrated the whole training functionality in this project to [InternEvo](https://github.com/InternLM/InternEvo) for easier user experience, which provides efficient pre-training and fine-tuning infra for training InternLM.
-
-## Evaluation
-
-We utilize [OpenCompass](https://github.com/open-compass/opencompass) for model evaluation. In InternLM2.5, we primarily focus on standard objective evaluation, long-context evaluation (needle in a haystack), data contamination assessment, agent evaluation, and subjective evaluation.
-
-### Objective Evaluation
-
-To evaluate the InternLM model, please follow the guidelines in the [OpenCompass tutorial](https://opencompass.readthedocs.io/en/latest/get_started/installation.html). Typically, we use `ppl` for multiple-choice questions on the **Base** model and `gen` for all questions on the **Chat** model.
-
-### Long-Context Evaluation (Needle in a Haystack)
-
-For the `Needle in a Haystack` evaluation, refer to the tutorial provided in the [documentation](https://github.com/open-compass/opencompass/blob/main/docs/en/advanced_guides/needleinahaystack_eval.md). Feel free to try it out.
-
-### Data Contamination Assessment
-
-To learn more about data contamination assessment, please check the [contamination eval](https://opencompass.readthedocs.io/en/latest/advanced_guides/contamination_eval.html).
-
-### Agent Evaluation
-
-- To evaluate tool utilization, please refer to [T-Eval](https://github.com/open-compass/T-Eval).
-- For code interpreter evaluation, use the [Math Agent Evaluation](agent/README.md) provided in the repository.
-
-### Subjective Evaluation
-
-- Please follow the [tutorial](https://opencompass.readthedocs.io/en/latest/advanced_guides/subjective_evaluation.html) for subjective evaluation.
-
-## Contribution
-
-We appreciate all the contributors for their efforts to improve and enhance InternLM. Community users are highly encouraged to participate in the project. Please refer to the contribution guidelines for instructions on how to contribute to the project.
+```python
+from vllm import LLM, SamplingParams
+llm = LLM(model="internlm/internlm3-8b-instruct")
+sampling_params = SamplingParams(temperature=1, repetition_penalty=1.005, top_k=40, top_p=0.8, max_tokens=8192)
+prompts = [
+    {
+        "role": "system",
+        "content": thinking_system_prompt,
+    },
+    {
+        "role": "user",
+        "content": "Given the function\(f(x)=\mathrm{e}^{x}-ax - a^{3}\),\n(1) When \(a = 1\), find the equation of the tangent line to the curve \(y = f(x)\) at the point \((1,f(1))\).\n(2) If \(f(x)\) has a local minimum and the minimum value is less than \(0\), determine the range of values for \(a\)."
+    },
+]
+outputs = llm.chat(prompts,
+                   sampling_params=sampling_params,
+                   use_tqdm=False)
+print(outputs)
+```
 
 ## License
 
-The code is licensed under Apache-2.0, while model weights are fully open for academic research and also allow **free** commercial usage. To apply for a commercial license, please fill in the [application form (English)](https://wj.qq.com/s2/12727483/5dba/)/[申请表（中文）](https://wj.qq.com/s2/12725412/f7c1/). For other questions or collaborations, please contact <internlm@pjlab.org.cn>.
+Code and model weights are licensed under Apache-2.0.
 
 ## Citation
 

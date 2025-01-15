@@ -171,7 +171,7 @@ InternLM2-Reward 是基于 240 万个偏好样本进行训练的奖励模型，�
 
 **局限性：** 尽管在训练过程中我们非常注重模型的安全性，尽力促使模型输出符合伦理和法律要求的文本，但受限于模型大小以及概率生成范式，模型可能会产生各种不符合预期的输出，例如回复内容包含偏见、歧视等有害内容，请勿传播这些内容。由于传播不良信息导致的任何后果，本项目不承担责任。
 
-## 依赖
+### 依赖
 
 - Python >= 3.8
 - PyTorch >= 1.12.0 (推荐 2.0.0 和更高版本)
@@ -179,190 +179,267 @@ InternLM2-Reward 是基于 240 万个偏好样本进行训练的奖励模型，�
 
 ## 使用案例
 
-InternLM 支持众多知名的上下游项目，如 LLaMA-Factory、vLLM、llama.cpp 等。这种支持使得广大用户群体能够更高效、更方便地使用 InternLM 全系列模型。为方便使用，我们为部分生态系统项目提供了教程，访问[此处](./ecosystem/README_zh-CN.md)即可获取。
+### 常规对话模式
 
-接下来我们展示使用 [Transformers](#import-from-transformers)，[ModelScope](#import-from-modelscope) 和 [Web demo](#dialogue) 进行推理。
-对话模型采用了 [chatml 格式](./chat/chat_format.md) 来支持通用对话和智能体应用。
-为了保障更好的使用效果，在用 [Transformers](#import-from-transformers) 或 [ModelScope](#import-from-modelscope) 进行推理前，请确保安装的 transformers 库版本满足以下要求：
+#### Transformers 推理
 
-```
-transformers >= 4.48
-```
-
-### 通过 Transformers 加载
-
-通过以下的代码从 Transformers 加载 InternLM3-8B-Instruct 模型 （可修改模型名称替换不同的模型）
+通过以下的代码加载  InternLM3 8B Instruct 模型
 
 ```python
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
-tokenizer = AutoTokenizer.from_pretrained("internlm/internlm2_5-7b-chat", trust_remote_code=True)
-# 设置`torch_dtype=torch.float16`来将模型精度指定为torch.float16，否则可能会因为您的硬件原因造成显存不足的问题。
-model = AutoModelForCausalLM.from_pretrained("internlm/internlm3-8b-instruct", trust_remote_code=True, torch_dtype=torch.float16)
-# (可选) 如果在低资源设备上，可以通过bitsandbytes加载4-bit或8-bit量化的模型，进一步节省GPU显存.
-  # 4-bit 量化的 InternLM3 8B 大约会消耗 8GB 显存.
-  # pip install -U bitsandbytes
-  # 8-bit: model = AutoModelForCausalLM.from_pretrained("internlm/internlm3-8b-instruct", device_map="auto", trust_remote_code=True, load_in_8bit=True)
-  # 4-bit: model = AutoModelForCausalLM.from_pretrained("internlm/internlm3-8b-instruct", device_map="auto", trust_remote_code=True, load_in_4bit=True)
-model = model.eval()
-
-messages = [
-    {"role": "system", "content": "You are an AI assistant whose name is InternLM."},
-    {"role": "user", "content": "Please tell me five scenic spots in Shanghai"},
- ]
-tokenized_chat = tokenizer.apply_chat_template(messages, tokenize=True, add_generation_prompt=True, return_tensors="pt")
-
-generated_ids = model.generate(tokenized_chat, max_new_tokens=512)
-
-generated_ids = [
-    output_ids[len(input_ids):] for input_ids, output_ids in zip(tokenized_chat, generated_ids)
-]
-response = tokenizer.batch_decode(generated_ids)[0]
-```
-
-### 通过 ModelScope 加载
-
-通过以下的代码从 ModelScope 加载 InternLM2.5-7B-Chat 模型 （可修改模型名称替换不同的模型）
-
-```python
-import torch
-from modelscope import snapshot_download, AutoTokenizer, AutoModelForCausalLM
-model_dir = snapshot_download('Shanghai_AI_Laboratory/internlm3-8b-instruct')
-tokenizer = AutoTokenizer.from_pretrained(model_dir,trust_remote_code=True)
-# 设置`torch_dtype=torch.float16`来将模型精度指定为torch.float16，否则可能会因为您的硬件原因造成显存不足的问题。
-model = AutoModelForCausalLM.from_pretrained(model_dir, device_map="auto", trust_remote_code=True, torch_dtype=torch.float16)
-# (可选) 如果在低资源设备上，可以通过bitsandbytes加载4-bit或8-bit量化的模型，进一步节省GPU显存.
-  # 4-bit 量化的 InternLM3 8B 大约会消耗 8GB 显存.
+model_dir = "internlm/internlm3-8b-instruct"
+tokenizer = AutoTokenizer.from_pretrained(model_dir, trust_remote_code=True)
+# Set `torch_dtype=torch.float16` to load model in float16, otherwise it will be loaded as float32 and might cause OOM Error.
+model = AutoModelForCausalLM.from_pretrained(model_dir, trust_remote_code=True, torch_dtype=torch.float16)
+# (Optional) If on low resource devices, you can load model in 4-bit or 8-bit to further save GPU memory via bitsandbytes.
+  # InternLM3 8B in 4bit will cost nearly 8GB GPU memory.
   # pip install -U bitsandbytes
   # 8-bit: model = AutoModelForCausalLM.from_pretrained(model_dir, device_map="auto", trust_remote_code=True, load_in_8bit=True)
   # 4-bit: model = AutoModelForCausalLM.from_pretrained(model_dir, device_map="auto", trust_remote_code=True, load_in_4bit=True)
+model = model.eval()
+system_prompt = """You are an AI assistant whose name is InternLM (书生·浦语).
+- InternLM (书生·浦语) is a conversational language model that is developed by Shanghai AI Laboratory (上海人工智能实验室). It is designed to be helpful, honest, and harmless.
+- InternLM (书生·浦语) can understand and communicate fluently in the language chosen by the user such as English and 中文."""
 messages = [
-    {"role": "system", "content": "You are an AI assistant whose name is InternLM."},
+    {"role": "system", "content": system_prompt},
     {"role": "user", "content": "Please tell me five scenic spots in Shanghai"},
  ]
 tokenized_chat = tokenizer.apply_chat_template(messages, tokenize=True, add_generation_prompt=True, return_tensors="pt")
-
-generated_ids = model.generate(tokenized_chat, max_new_tokens=512)
-
+generated_ids = model.generate(tokenized_chat, max_new_tokens=1024, temperature=1, repetition_penalty=1.005, top_k=40, top_p=0.8)
 generated_ids = [
     output_ids[len(input_ids):] for input_ids, output_ids in zip(tokenized_chat, generated_ids)
 ]
+prompt = tokenizer.batch_decode(tokenized_chat)[0]
+print(prompt)
 response = tokenizer.batch_decode(generated_ids)[0]
+print(response)
 ```
 
-### 通过前端网页对话
+#### LMDeploy 推理
 
-可以通过以下代码启动一个前端的界面来与 InternLM3-8B-Instruct 模型进行交互
+LMDeploy 是涵盖了 LLM 任务的全套轻量化、部署和服务解决方案。
 
 ```bash
-pip install streamlit
-pip install transformers>=4.48
-streamlit run ./chat/web_demo.py
+pip install lmdeploy
 ```
 
-## InternLM 高性能部署
-
-我们使用 [LMDeploy](https://github.com/InternLM/LMDeploy) 完成 InternLM 的一键部署。
-
-### 推理
-
-通过 `pip install lmdeploy` 安装 LMDeploy 之后，只需 4 行代码，就可以实现离线批处理：
+你可以使用以下 python 代码进行本地批量推理:
 
 ```python
-from lmdeploy import pipeline
-pipe = pipeline("internlm/internlm2_5-7b-chat")
-response = pipe(["Hi, pls intro yourself", "Shanghai is"])
+import lmdeploy
+model_dir = "internlm/internlm3-8b-instruct"
+pipe = lmdeploy.pipeline(model_dir)
+response = pipe(["Please tell me five scenic spots in Shanghai"])
 print(response)
 ```
 
-为了减少内存占用，我们提供了4位量化模型 [internlm2_5-7b-chat-4bit](https://huggingface.co/internlm/internlm2_5-7b-chat-4bit)。可以按照如下方式推理该模型：
+或者你可以使用以下命令启动兼容 OpenAI API 的服务:
+
+```bash
+lmdeploy serve api_server internlm/internlm3-8b-instruct --model-name internlm3-8b-instruct --server-port 23333
+```
+
+然后你可以向服务端发起一个聊天请求:
+
+```bash
+curl http://localhost:23333/v1/chat/completions \
+    -H "Content-Type: application/json" \
+    -d '{
+    "model": "internlm3-8b-instruct",
+    "messages": [
+    {"role": "user", "content": "介绍一下深度学习。"}
+    ]
+    }'
+```
+
+更多信息请查看 [LMDeploy 文档](https://lmdeploy.readthedocs.io/en/latest/)
+
+#### Ollama 推理
+
+TODO
+
+#### vLLM 推理
+
+我们还在推动PR(https://github.com/vllm-project/vllm/pull/12037) 合入vllm，现在请使用以下PR链接手动安装
 
 ```python
-from lmdeploy import pipeline
-pipe = pipeline("internlm/internlm2_5-7b-chat-4bit")
-response = pipe(["Hi, pls intro yourself", "Shanghai is"])
+git clone https://github.com/RunningLeon/vllm.git
+pip install -e .
+```
+
+推理代码
+
+```python
+from vllm import LLM, SamplingParams
+llm = LLM(model="internlm/internlm3-8b-instruct")
+sampling_params = SamplingParams(temperature=1, repetition_penalty=1.005, top_k=40, top_p=0.8)
+system_prompt = """You are an AI assistant whose name is InternLM (书生·浦语).
+- InternLM (书生·浦语) is a conversational language model that is developed by Shanghai AI Laboratory (上海人工智能实验室). It is designed to be helpful, honest, and harmless.
+- InternLM (书生·浦语) can understand and communicate fluently in the language chosen by the user such as English and 中文."""
+prompts = [
+    {
+        "role": "system",
+        "content": system_prompt,
+    },
+    {
+        "role": "user",
+        "content": "Please tell me five scenic spots in Shanghai"
+    },
+]
+outputs = llm.chat(prompts,
+                   sampling_params=sampling_params,
+                   use_tqdm=False)
+print(outputs)
+```
+
+### 深度思考模式
+
+#### 深度思考 Demo
+
+<img src="https://github.com/InternLM/InternLM/blob/017ba7446d20ecc3b9ab8e7b66cc034500868ab4/assets/solve_puzzle.png?raw=true" width="400"/>
+
+#### 深度思考 system prompt
+
+```python
+thinking_system_prompt = """You are an expert mathematician with extensive experience in mathematical competitions. You approach problems through systematic thinking and rigorous reasoning. When solving problems, follow these thought processes:
+## Deep Understanding
+Take time to fully comprehend the problem before attempting a solution. Consider:
+- What is the real question being asked?
+- What are the given conditions and what do they tell us?
+- Are there any special restrictions or assumptions?
+- Which information is crucial and which is supplementary?
+## Multi-angle Analysis
+Before solving, conduct thorough analysis:
+- What mathematical concepts and properties are involved?
+- Can you recall similar classic problems or solution methods?
+- Would diagrams or tables help visualize the problem?
+- Are there special cases that need separate consideration?
+## Systematic Thinking
+Plan your solution path:
+- Propose multiple possible approaches
+- Analyze the feasibility and merits of each method
+- Choose the most appropriate method and explain why
+- Break complex problems into smaller, manageable steps
+## Rigorous Proof
+During the solution process:
+- Provide solid justification for each step
+- Include detailed proofs for key conclusions
+- Pay attention to logical connections
+- Be vigilant about potential oversights
+## Repeated Verification
+After completing your solution:
+- Verify your results satisfy all conditions
+- Check for overlooked special cases
+- Consider if the solution can be optimized or simplified
+- Review your reasoning process
+Remember:
+1. Take time to think thoroughly rather than rushing to an answer
+2. Rigorously prove each key conclusion
+3. Keep an open mind and try different approaches
+4. Summarize valuable problem-solving methods
+5. Maintain healthy skepticism and verify multiple times
+Your response should reflect deep mathematical understanding and precise logical thinking, making your solution path and reasoning clear to others.
+When you're ready, present your complete solution with:
+- Clear problem understanding
+- Detailed solution process
+- Key insights
+- Thorough verification
+Focus on clear, logical progression of ideas and thorough explanation of your mathematical reasoning. Provide answers in the same language as the user asking the question, repeat the final answer using a '\\boxed{}' without any units, you have [[8192]] tokens to complete the answer.
+"""
+```
+
+#### Transformers 推理
+
+```python
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
+model_dir = "internlm/internlm3-8b-instruct"
+tokenizer = AutoTokenizer.from_pretrained(model_dir, trust_remote_code=True)
+# Set `torch_dtype=torch.float16` to load model in float16, otherwise it will be loaded as float32 and might cause OOM Error.
+model = AutoModelForCausalLM.from_pretrained(model_dir, trust_remote_code=True, torch_dtype=torch.float16)
+# (Optional) If on low resource devices, you can load model in 4-bit or 8-bit to further save GPU memory via bitsandbytes.
+  # InternLM3 8B in 4bit will cost nearly 8GB GPU memory.
+  # pip install -U bitsandbytes
+  # 8-bit: model = AutoModelForCausalLM.from_pretrained(model_dir, device_map="auto", trust_remote_code=True, load_in_8bit=True)
+  # 4-bit: model = AutoModelForCausalLM.from_pretrained(model_dir, device_map="auto", trust_remote_code=True, load_in_4bit=True)
+model = model.eval()
+messages = [
+    {"role": "system", "content": thinking_system_prompt},
+    {"role": "user", "content": "已知函数\(f(x)=\mathrm{e}^{x}-ax - a^{3}\)。\n（1）当\(a = 1\)时，求曲线\(y = f(x)\)在点\((1,f(1))\)处的切线方程；\n（2）若\(f(x)\)有极小值，且极小值小于\(0\)，求\(a\)的取值范围。"},
+ ]
+tokenized_chat = tokenizer.apply_chat_template(messages, tokenize=True, add_generation_prompt=True, return_tensors="pt")
+generated_ids = model.generate(tokenized_chat, max_new_tokens=8192)
+generated_ids = [
+    output_ids[len(input_ids):] for input_ids, output_ids in zip(tokenized_chat, generated_ids)
+]
+prompt = tokenizer.batch_decode(tokenized_chat)[0]
+print(prompt)
+response = tokenizer.batch_decode(generated_ids)[0]
 print(response)
 ```
 
-此外，可以同步开启 8bit 或者 4bit KV 在线量化功能：
+#### LMDeploy 推理
+
+LMDeploy is a toolkit for compressing, deploying, and serving LLM, developed by the MMRazor and MMDeploy teams.
+
+```bash
+pip install lmdeploy
+```
+
+You can run batch inference locally with the following python code:
 
 ```python
-from lmdeploy import pipeline, TurbomindEngineConfig
-pipe = pipeline("internlm/internlm2_5-7b-chat-4bit",
-                backend_config=TurbomindEngineConfig(quant_policy=8))
-response = pipe(["Hi, pls intro yourself", "Shanghai is"])
+from lmdeploy import pipeline, GenerationConfig, ChatTemplateConfig
+model_dir = "internlm/internlm3-8b-instruct"
+chat_template_config = ChatTemplateConfig(model_name='internlm3')
+pipe = pipeline(model_dir, chat_template_config=chat_template_config)
+messages = [
+        {"role": "system", "content": thinking_system_prompt},
+        {"role": "user", "content": "已知函数\(f(x)=\mathrm{e}^{x}-ax - a^{3}\)。\n（1）当\(a = 1\)时，求曲线\(y = f(x)\)在点\((1,f(1))\)处的切线方程；\n（2）若\(f(x)\)有极小值，且极小值小于\(0\)，求\(a\)的取值范围。"},
+]
+response = pipe(messages, gen_config=GenerationConfig(max_new_tokens=2048))
 print(response)
 ```
 
-更多使用案例可参考[部署指南](./chat/lmdeploy.md)，详细的部署教程则可在[这里](https://github.com/InternLM/LMDeploy)找到。
+#### Ollama 推理
 
-### 1百万字超长上下文推理
+TODO
 
-激活 LMDeploy 的 Dynamic NTK 能力，可以轻松把 internlm2_5-7b-chat 外推到 200K 上下文。
+#### vLLM 推理
 
-注意: 1M 上下文需要 4xA100-80G。
+我们还在推动PR(https://github.com/vllm-project/vllm/pull/12037) 合入vllm，现在请使用以下PR链接手动安装
 
 ```python
-from lmdeploy import pipeline, GenerationConfig, TurbomindEngineConfig
-
-backend_config = TurbomindEngineConfig(
-        rope_scaling_factor=2.5,
-        session_len=1048576,  # 1M context length
-        max_batch_size=1,
-        cache_max_entry_count=0.7,
-        tp=4)  # 4xA100-80G.
-pipe = pipeline('internlm/internlm2_5-7b-chat-1m', backend_config=backend_config)
-prompt = 'Use a long prompt to replace this sentence'
-response = pipe(prompt)
-print(response)
+git clone https://github.com/RunningLeon/vllm.git
+pip install -e .
 ```
 
-## 智能体
+推理代码
 
-InternLM-2.5-Chat 模型有出色的工具调用性能并具有一定的零样本泛化能力。它支持从上百个网页中搜集信息并进行分析。更多样例可以参考  [agent 目录](./agent/).
-
-## 微调&训练
-
-请参考[微调教程](./finetune/)尝试续训或微调 InternLM2。
-
-**注意：** 本项目中的全量训练功能已经迁移到了 [InternEvo](https://github.com/InternLM/InternEvo) 以便用户使用。InternEvo 提供了高效的预训练和微调基建用于训练 InternLM 系列模型。
-
-## 评测
-
-我们使用 [OpenCompass](https://github.com/open-compass/opencompass) 进行模型评估。在 InternLM2.5 中，我们主要标准客观评估、长文评估（大海捞针）、数据污染评估、智能体评估和主观评估。
-
-### 标准客观评测
-
-请按照 [OpenCompass 教程](https://opencompass.readthedocs.io/zh-cn/latest/get_started/installation.html) 进行客观评测。我们通常在 Base 模型上使用 ppl 进行多项选择题评测，在 Chat 模型上使用 gen 进行所有问题的答案生成和评测。
-
-### 长文评估（大海捞针）
-
-有关 `大海捞针` 评估的教程，请参阅 [文档](https://github.com/open-compass/opencompass/blob/main/docs/en/advanced_guides/needleinahaystack_eval.md) 中的教程。
-
-### 数据污染评估
-
-要了解更多关于数据污染评估的信息，请查看 [污染评估](https://opencompass.readthedocs.io/en/latest/advanced_guides/contamination_eval.html)。
-
-### 智能体评估
-
-- 要评估大模型的工具利用能力，请使用 [T-Eval](https://github.com/open-compass/T-Eval) 进行评测。
-- 对于代码解释器评估，请使用 [gsm-8k-agent](https://github.com/open-compass/opencompass/blob/main/configs/datasets/gsm8k/gsm8k_agent_gen_be1606.py) 提供的配置进行评估。此外，您还需要安装 [Lagent](https://github.com/InternLM/lagent)。
-
-### 主观评估
-
-- 请按照 [教程](https://opencompass.readthedocs.io/en/latest/advanced_guides/subjective_evaluation.html) 进行主观评估。
-
-## 贡献
-
-我们感谢所有的贡献者为改进和提升 InternLM 所作出的努力。非常欢迎社区用户能参与进项目中来。请参考贡献指南来了解参与项目贡献的相关指引。
-
-## 致谢
-
-InternLM 代码库是一款由上海人工智能实验室和来自不同高校、企业的研发人员共同参与贡献的开源项目。我们感谢所有为项目提供新功能支持的贡献者，以及提供宝贵反馈意见的用户。我们希望这个工具箱和基准测试可以为社区提供灵活高效的代码工具，供用户微调 InternLM 并开发自己的新模型，从而不断为开源社区提供贡献。特别鸣谢 [flash-attention](https://github.com/HazyResearch/flash-attention) 与 [ColossalAI](https://github.com/hpcaitech/ColossalAI) 两项开源项目。
+```python
+from vllm import LLM, SamplingParams
+llm = LLM(model="internlm/internlm3-8b-instruct")
+sampling_params = SamplingParams(temperature=1, repetition_penalty=1.005, top_k=40, top_p=0.8, max_tokens=8192)
+prompts = [
+    {
+        "role": "system",
+        "content": thinking_system_prompt,
+    },
+    {
+        "role": "user",
+        "content": "已知函数\(f(x)=\mathrm{e}^{x}-ax - a^{3}\)。\n（1）当\(a = 1\)时，求曲线\(y = f(x)\)在点\((1,f(1))\)处的切线方程；\n（2）若\(f(x)\)有极小值，且极小值小于\(0\)，求\(a\)的取值范围。"
+    },
+]
+outputs = llm.chat(prompts,
+                   sampling_params=sampling_params,
+                   use_tqdm=False)
+print(outputs)
+```
 
 ## 开源许可证
 
-本仓库的代码依照 Apache-2.0 协议开源。模型权重对学术研究完全开放，也可申请免费的商业使用授权（[申请表](https://wj.qq.com/s2/12725412/f7c1/)）。其他问题与合作请联系 <internlm@pjlab.org.cn>。
+本仓库的代码和权重依照 Apache-2.0 协议开源。
 
 ## 引用
 
