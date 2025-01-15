@@ -81,4 +81,4 @@ streamlit run ./chat/web_demo.py
 
 It supports switching between different inference modes and comparing their responses.
 
-![demo](../assets/web_demo.png)
+![demo](https://github.com/user-attachments/assets/4953befa-343f-499d-b289-048d982439f3)

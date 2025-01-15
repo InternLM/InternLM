@@ -79,4 +79,4 @@ streamlit run ./web_demo.py
 
 支持切换不同推理模式，并比较它们的回复
 
-![demo](../assets/web_demo_zh_cn.png)
+![demo](https://github.com/user-attachments/assets/952e250d-22a6-4544-b8e3-9c21c746d3c7)
