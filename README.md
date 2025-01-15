@@ -436,7 +436,7 @@ print(response)
 
 #### SGLang inference
 
-##### Installation
+Installation
 ```bash
 pip3 install "sglang[srt]>=0.4.1.post6" --find-links https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/
 ```
