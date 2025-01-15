@@ -2,7 +2,7 @@
 
 English | [简体中文](./README_zh-CN.md)
 
-This document briefly shows how to use [Transformers](#import-from-transformers), [ModelScope](#import-from-modelscope), and [Web demos](#dialogue) to conduct inference with InternLM2.5-Chat.
+This document briefly shows how to use [Transformers](#import-from-transformers), [ModelScope](#import-from-modelscope), and [Web demos](#dialogue) to conduct inference with InternLM3-Instruct.
 
 You can also know more about the [chatml format](./chat_format.md) and how to use [LMDeploy for inference and model serving](./lmdeploy.md).
 
@@ -79,6 +79,6 @@ pip install transformers>=4.48
 streamlit run ./chat/web_demo.py
 ```
 
-The effect is similar to below:
+It supports switching between different inference modes and comparing their responses.
 
-![demo](https://github.com/InternLM/InternLM/assets/9102141/11b60ee0-47e4-42c0-8278-3051b2f17fe4)
+![demo](https://github.com/user-attachments/assets/4953befa-343f-499d-b289-048d982439f3)

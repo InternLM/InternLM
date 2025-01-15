@@ -3,9 +3,9 @@
 [English](./README.md) | 简体中文
 
 本文介绍采用 [Transformers](#import-from-transformers)、[ModelScope](#import-from-modelscope)、[Web demos](#dialogue)
-对 InternLM2.5-Chat 进行推理。
+对 InternLM3-Instruct 进行推理。
 
-你还可以进一步了解 InternLM2.5-Chat 采用的[对话格式](./chat_format_zh-CN.md)，以及如何[用 LMDeploy 进行推理或部署服务](./lmdeploy_zh-CN.md)，或者尝试用 [OpenAOE](./openaoe.md) 与多个模型对话。
+你还可以进一步了解 InternLM3-Instruct 采用的[对话格式](./chat_format_zh-CN.md)，以及如何[用 LMDeploy 进行推理或部署服务](./lmdeploy_zh-CN.md)，或者尝试用 [OpenAOE](./openaoe.md) 与多个模型对话。
 
 ## 通过 Transformers 加载
 
@@ -39,7 +39,7 @@ response = tokenizer.batch_decode(generated_ids)[0]
 
 ### 通过 ModelScope 加载
 
-通过以下的代码从 ModelScope 加载 InternLM2.5-Chat 模型 （可修改模型名称替换不同的模型）
+通过以下的代码从 ModelScope 加载 InternLM3-Instruct 模型 （可修改模型名称替换不同的模型）
 
 ```python
 import torch
@@ -76,3 +76,7 @@ pip install streamlit
 pip install transformers>=4.48
 streamlit run ./web_demo.py
 ```
+
+支持切换不同推理模式，并比较它们的回复
+
+![demo](https://github.com/user-attachments/assets/952e250d-22a6-4544-b8e3-9c21c746d3c7)
