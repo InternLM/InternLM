@@ -254,6 +254,39 @@ curl http://localhost:23333/v1/chat/completions \
 
 Find more details in the [LMDeploy documentation](https://lmdeploy.readthedocs.io/en/latest/)
 
+#### SGLang inference
+
+##### Installation
+```bash
+pip3 install "sglang[srt]>=0.4.1.post6" --find-links https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/
+```
+
+##### OpenAI Compatible Server
+
+```bash
+python3 -m sglang.launch_server --model internlm/internlm3-8b-instruct --trust-remote-code --chat-template internlm2-chat
+```
+
+##### OpenAI client
+
+```python3
+import openai
+client = openai.Client(
+    base_url="http://127.0.0.1:30000/v1", api_key="EMPTY")
+
+# Chat completion
+response = client.chat.completions.create(
+    model="default",
+    messages=[
+        {"role": "system", "content": "You are a helpful AI assistant"},
+        {"role": "user", "content": "List 3 countries and their capitals."},
+    ],
+    temperature=0,
+    max_tokens=64,
+)
+print(response)
+```
+
 #### Ollama inference
 
 TODO
@@ -400,6 +433,15 @@ messages = [
 response = pipe(messages, gen_config=GenerationConfig(max_new_tokens=2048))
 print(response)
 ```
+
+#### SGLang inference
+
+Installation
+```bash
+pip3 install "sglang[srt]>=0.4.1.post6" --find-links https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/
+```
+
+For offline engine api usage, please refer to [Offline Engine API](https://docs.sglang.ai/backend/offline_engine_api.html)
 
 #### Ollama inference
 
