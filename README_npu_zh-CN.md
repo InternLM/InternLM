@@ -42,11 +42,12 @@
 ## Model Zoo
 
 ### InternLM3
-| Model                     | Transformers(HF)                           | ModelScope(HF)                           | Release Date |
-|---------------------------| ------------------------------------------ | ---------------------------------------- |--------------|
-| **InternLM3-8B-Instruct** | [🤗internlm3-8b-instruct](https://huggingface.co/internlm/internlm3-8b-instruct) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm3-8b-instruct](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm3-8b-instruct) | 2025-01-15   |
 
-## 环境准备l
+| Model                     | Transformers(HF)                                         | ModelScope(HF)                                         | Modelers(HF)                                          | Release Date |
+| ------------------------- | -------------------------------------------------------- | ------------------------------------------------------ | ----------------------------------------------------- | ------------ |
+| **InternLM3-8B-Instruct** | [🤗internlm3_8B_instruct](https://huggingface.co/internlm/internlm3-8b-instruct) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm3_8b_instruct](https://www.modelscope.cn/models/Shanghai_AI_Laboratory/internlm3-8b-instruct/summary) | [![Open in Modelers](<>)](https://modelers.cn/models/Intern/internlm3-8b-instruct) | 2025-01-15   |
+
+## 环境准备
 
 ### 安装Ascend CANN Toolkit和Kernels
 
@@ -155,7 +156,9 @@ randomness = dict(seed=123, deterministic=True)
 NPROC_PER_NODE=8 xtuner train internlm3_8b_instruct_lora_oasst1_e10.py --deepspeed deepspeed_zero2
 ```
 
-微调后结果保存在`./work_dirs/internlm3_8b_instruct_lora_oasst1_e10/iter_xxx.pth`下。
+微调后结果保存在`./work_dirs/internlm3_8b_instruct_lora_oasst1_e10/iter_xxx.pth`,NPU与GPU的loss对比如下：
+
+![xtuner_training_loss](assets/xtuner_loss.png)
 
 ### 模型转换
 
@@ -195,75 +198,82 @@ pip install -e ".[torch-npu,metrics]"
 
 ### 推理
 
-在 LLaMa-Factory 路径下新建`examples/inference/internlm2_5_7b_chat.yaml`推理配置文件，文件内容为：
+在 LLaMa-Factory 路径下新建`examples/inference/internlm3_8b_instruct.yaml`推理配置文件，文件内容为：
 
 ```yaml
-model_name_or_path: xxx # Support only local loading. Set this parameter to the local weight path of InternLM2.5-7B-Chat.
-template: intern2
+model_name_or_path: xxx # Support only local loading. Set this parameter to the local weight path of InternLM3-8B-Instruct.
+trust_remote_code: true
+template: intern3
 ```
 
 使用以下命令与模型进行交互：
 
 ```shell
-llamafactory-cli chat examples/inference/internlm2_5_7b_chat.yaml
+llamafactory-cli chat examples/inference/internlm3_8b_instruct.yaml
 ```
 
 ### 微调
 
-在 LLaMa-Factory 路径下新建`examples/train_lora/internlm2_5_7b_chat_lora_sft.yaml`微调配置文件，微调配置文件如下：
+在 LLaMa-Factory 路径下新建`examples/train_full/internlm3_8b_instruct_full_sft.yaml`微调配置文件，微调配置文件如下：
 
 ```yaml
 ### model
-model_name_or_path: xxx # Support only local loading. Set this parameter to the local weight path of InternLM2.5-7B-Chat.
+model_name_or_path: xxx # Support only local loading. Set this parameter to the local weight path of InternLM3-8B-Instruct.
+trust_remote_code: true
 
 ### method
 stage: sft
 do_train: true
-finetuning_type: lora
-lora_target: all
+finetuning_type: full
+deepspeed: examples/deepspeed/ds_z3_config.json  # choices: [ds_z0_config.json, ds_z2_config.json, ds_z3_config.json]
 
 ### dataset
-dataset: identity
-template: intern2
-cutoff_len: 128
+dataset: alpaca_data
+template: intern3
+cutoff_len: 4096
+max_samples: 10000
+overwrite_cache: true
 preprocessing_num_workers: 16
 
 ### output
-output_dir: saves/internlm2_5_7b_chat/lora/sft
-logging_steps: 5
-save_steps: 20 
+output_dir: saves/interlm3/full/sft
+logging_steps: 10
+save_steps: 500
 plot_loss: true
 overwrite_output_dir: true
 
 ### train
-per_device_train_batch_size: 8
+per_device_train_batch_size: 1
 gradient_accumulation_steps: 1
-learning_rate: 1.0e-4
-num_train_epochs: 5.0
+learning_rate: 1.0e-6
+num_train_epochs: 1.0
 lr_scheduler_type: cosine
 warmup_ratio: 0.1
 bf16: true
 ddp_timeout: 180000000
+
+### eval
+val_size: 0.1
+per_device_eval_batch_size: 1
+eval_strategy: steps
+eval_steps: 5000000000
 ```
 
 通过下面的命令启动微调：
 
 ```shell
-export ASCEND_RT_VISIBLE_DEVICES=0
-llamafactory-cli train examples/train_lora/internlm2_5_7b_chat_lora_sft.yaml
+llamafactory-cli train examples/train_full/internlm3_8b_instruct_full_sft.yaml
 ```
 
 ### 精度
 
 微调后得到的loss曲线如下：
 
-![training_loss](assets/training_loss.png)
+![training_loss](assets/lf_training_loss_npu.png)
 
-### 性能
+与GPU对比的loss曲线如下：
 
-| 芯片型号              | train_samples_per_second |
-|-------------------|--------------------------|
-| Atlas 900 A2 PODc | 49.662                   |
+![training_loss_compare](assets/lf_traing_loss_compare.png)
 
 ## Transformers
 
