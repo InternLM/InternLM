@@ -37,15 +37,16 @@
 This is a guide to using Ascend NPU to train and infer the InternLM series models.
 
 ## News
-\[2025.01.15\] InternLM3-8B-Instruct can be used in Xtuner, LLaMa-Factory and transformers.
+\[2025.01.15\] InternLM3-8B-Instruct can be used in Xtuner, LLaMA-Factory and transformers.
 
 ## Model Zoo
 
 ### InternLM3
 
-| Model                     | Transformers(HF)                                         | ModelScope(HF)                                         | Modelers(HF)                                          | Release Date |
-| ------------------------- | -------------------------------------------------------- | ------------------------------------------------------ | ----------------------------------------------------- | ------------ |
-| **InternLM3-8B-Instruct** | [🤗internlm3_8B_instruct](https://huggingface.co/internlm/internlm3-8b-instruct) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm3_8b_instruct](https://www.modelscope.cn/models/Shanghai_AI_Laboratory/internlm3-8b-instruct/summary) | [![Open in Modelers](<>)](https://modelers.cn/models/Intern/internlm3-8b-instruct) | 2025-01-15   |
+| Model                     | Transformers                                         | ModelScope                                         | Modelers                                          | Release Date |
+| ------------------------- | ---------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------- | ------------ |
+| **InternLM3-8B-Instruct** | [🤗internlm3_8B_instruct](https://huggingface.co/internlm/internlm3-8b-instruct) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm3_8b_instruct](https://www.modelscope.cn/models/Shanghai_AI_Laboratory/internlm3-8b-instruct/summary) | [![Open in Modelers](https://modelers.cn/assets/logo1-1bf58310.svg)](https://modelers.cn/models/Intern/internlm3-8b-instruct) | 2025-01-15   |
+
 ## Environment Setup
 
 ### Installing Ascend CANN Toolkit and Kernels
@@ -79,7 +80,6 @@ Modify `requirements/runtime.txt` with the following changes:
 
 ```text
 bitsandbytes==0.42.0
-mmengine==0.10.5
 torchvision==0.19.0
 numpy==1.26.4
 ```
@@ -127,24 +127,6 @@ model = dict(
         #     bnb_4bit_compute_dtype=torch.float16,
         #     bnb_4bit_use_double_quant=True,
         #     bnb_4bit_quant_type='nf4')),
-    lora=dict(
-        type=LoraConfig,
-        r=64,
-        lora_alpha=16,
-        lora_dropout=0.1,
-        bias='none',
-        task_type='CAUSAL_LM'))
-
-custom_hooks = [
-    dict(type=DatasetInfoHook, tokenizer=tokenizer),
-    # dict(
-    #     type=EvaluateChatHook,
-    #     tokenizer=tokenizer,
-    #     every_n_iters=evaluation_freq,
-    #     evaluation_inputs=evaluation_inputs,
-    #     system=SYSTEM,
-    #     prompt_template=prompt_template)
-]
 
 randomness = dict(seed=123, deterministic=True)
 ```
@@ -158,7 +140,7 @@ NPROC_PER_NODE=8 xtuner train internlm3_8b_instruct_lora_oasst1_e10.py --deepspe
 The fine-tuning results are saved in the directory `./work_dirs/internlm3_8b_instruct_lora_oasst1_e10/iter_xxx.pth`.
 The comparison of loss between NPU and GPU is as follows:
 
-![xtuner_training_loss](assets/xtuner_loss.png)
+![xtuner_training_loss](assets/xtuner_training_loss_compare.png)
 
 ### Model Convert
 
@@ -189,9 +171,9 @@ cp path_to_your_model/modeling_internlm3.py ./work_dirs/merge_output
 xtuner chat ./work_dirs/merge_output --prompt-template internlm2_chat
 ```
 
-## LLama-Factory
+## LLaMA-Factory
 
-### Installing LLaMa-Factory
+### Installing LLaMA-Factory
 
 ```shell
 git clone --depth 1 https://github.com/hiyouga/LLaMA-Factory.git
@@ -201,7 +183,7 @@ pip install -e ".[torch-npu,metrics]"
 
 ### Inference
 
-Create the `examples/inference/internlm3_8b_instruct.yaml` inference configuration file in the LLaMa-Factory directory:
+Create the `examples/inference/internlm3_8b_instruct.yaml` inference configuration file in the LLaMA-Factory directory:
 
 ```yaml
 model_name_or_path: xxx # Support only local loading. Set this parameter to the local weight path of InternLM3-8B-Instruct.
@@ -217,7 +199,7 @@ llamafactory-cli chat examples/inference/internlm3_8b_instruct.yaml
 
 ### Fine-tuning
 
-Create the `examples/train_full/internlm3_8b_instruct_full_sft.yaml` configuration file in the LLaMa-Factory directory. The fine-tuning configuration file is as follows:
+Create the `examples/train_full/internlm3_8b_instruct_full_sft.yaml` configuration file in the LLaMA-Factory directory. The fine-tuning configuration file is as follows:
 
 ```yaml
 ### model
@@ -276,7 +258,7 @@ The loss curve obtained after finetuning is as follows:
 
 The loss curve compared with GPU is as follows:
 
-![training_loss_compare](assets/lf_traing_loss_compare.png)
+![training_loss_compare](assets/lf_training_loss_compare.png)
 
 ## Transformers
 
