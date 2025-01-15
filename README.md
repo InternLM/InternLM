@@ -39,15 +39,16 @@
 
 ## Introduction
 
-InternLM2.5 series are released with the following features:
+InternLM3 has open-sourced an 8-billion parameter instruction model, InternLM3-8B-Instruct, designed for general-purpose usage and advanced reasoning. This model has the following characteristics:
 
-- **Outstanding reasoning capability**: State-of-the-art performance on Math reasoning, surpassing models like Llama3 and Gemma2-9B.
-
-- **1M Context window**: Nearly perfect at finding needles in the haystack with 1M-long context, with leading performance on long-context tasks like LongBench. Try it with [LMDeploy](./chat/lmdeploy.md) for 1M-context inference. More details and a file chat demo are found [here](./long_context/README.md).
-
-- **Stronger tool use**: InternLM2.5 supports gathering information from more than 100 web pages, corresponding implementation will be released in [Lagent](https://github.com/InternLM/lagent/tree/main) soon. InternLM2.5 has better tool utilization-related capabilities in instruction following, tool selection and reflection. See [examples](./agent/).
+- **Enhanced performance at reduced cost**:
+  State-of-the-art performance on reasoning and knowledge-intensive tasks surpass models like Llama3.1-8B and Qwen2.5-7B. Remarkably, InternLM3 is trained on only 4 trillion high-quality tokens, saving more than 75% of the training cost compared to other LLMs of similar scale.
+- **Deep thinking capability**:
+  InternLM3 supports both the deep thinking mode for solving complicated reasoning tasks via the long chain-of-thought and the normal response mode for fluent user interactions.
 
 ## News
+
+\[2025.01.15\] We release InternLM3-8B-Instruct, See [model zoo below](#model-zoo) for download or [model cards](./model_cards/) for more details.
 
 \[2024.08.01\] We release InternLM2.5-1.8B, InternLM2.5-1.8B-Chat, InternLM2.5-20B and InternLM2.5-20B-Chat. See [model zoo below](#model-zoo) for download or [model cards](./model_cards/) for more details.
 
@@ -69,7 +70,16 @@ InternLM2.5 series are released with the following features:
 
 ## Model Zoo
 
+### InternLM3
+
+| Model                     | Transformers(HF)                                         | ModelScope(HF)                                         | Modelers(HF)                                          | Release Date |
+| ------------------------- | -------------------------------------------------------- | ------------------------------------------------------ | ----------------------------------------------------- | ------------ |
+| **InternLM3-8B-Instruct** | [🤗internlm3_8B_instruct](https://huggingface.co/internlm/internlm3-8b-instruct) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm3_8b_instruct](https://www.modelscope.cn/models/Shanghai_AI_Laboratory/internlm3-8b-instruct/summary) | [![Open in Modelers](<>)](https://modelers.cn/models/Intern/internlm3-8b-instruct) | 2025-01-15   |
+
 ### InternLM2.5
+
+<details>
+    <summary>(click to expand)</summary>
 
 | Model                      | Transformers(HF)                           | ModelScope(HF)                           | OpenXLab(HF)                           | OpenXLab(Origin)                           | Release Date |
 | -------------------------- | ------------------------------------------ | ---------------------------------------- | -------------------------------------- | ------------------------------------------ | ------------ |
@@ -93,7 +103,12 @@ The release of InternLM2.5 series contains 1.8B, 7B, and 20B versions. 7B models
 
 **Supplements:** `HF` refers to the format used by HuggingFace in [transformers](https://github.com/huggingface/transformers), whereas `Origin` denotes the format adopted by the InternLM team in [InternEvo](https://github.com/InternLM/InternEvo).
 
+</details>
+
 ### InternLM2-Reward
+
+<details>
+    <summary>(click to expand)</summary>
 
 InternLM2-Reward is a series of reward models, trained on 2.4 million preference samples, available in 1.8B, 7B, and 20B sizes. These model were applied to the PPO training process of our chat models. See [model cards](./model_cards/internlm2_reward.md) for more details.
 
@@ -102,6 +117,8 @@ InternLM2-Reward is a series of reward models, trained on 2.4 million preference
 | **InternLM2-1.8B-Reward** | 80.6              | [🤗internlm2-1_8b-reward](https://huggingface.co/internlm/internlm2-1_8b-reward) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-1_8b-reward](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-1_8b-reward/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-1_8b-reward) | 2024-07-19   |
 | **InternLM2-7B-Reward**   | 86.6              | [🤗internlm2-7b-reward](https://huggingface.co/internlm/internlm2-7b-reward) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-7b-reward](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-7b-reward/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-7b-reward) | 2024-07-19   |
 | **InternLM2-20B-Reward**  | 89.5              | [🤗internlm2-20b-reward](https://huggingface.co/internlm/internlm2-20b-reward) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-20b-reward](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-20b-reward/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-20b-reward) | 2024-07-19   |
+
+</details>
 
 ### InternLM2
 
@@ -128,34 +145,30 @@ Our previous generation models with advanced capabilities in long-context proces
 
 ## Performance
 
-We have evaluated InternLM2.5 on several important benchmarks using the open-source evaluation tool [OpenCompass](https://github.com/open-compass/opencompass). Some of the evaluation results are shown in the table below. You are welcome to visit the [OpenCompass Leaderboard](https://rank.opencompass.org.cn) for more evaluation results.
+We conducted a comprehensive evaluation of InternLM using the open-source evaluation tool [OpenCompass](https://github.com/internLM/OpenCompass/). The evaluation covered five dimensions of capabilities: disciplinary competence, language competence, knowledge competence, inference competence, and comprehension competence. Here are some of the evaluation results, and you can visit the [OpenCompass leaderboard](https://rank.opencompass.org.cn) for more evaluation results.
 
-### Base Model
+| Benchmark    |                                 | InternLM3-8B-Instruct | Qwen2.5-7B-Instruct | Llama3.1-8B-Instruct | GPT-4o-mini(close source) |
+| ------------ | ------------------------------- | --------------------- | ------------------- | -------------------- | ------------------------- |
+| General      | CMMLU(0-shot)                   | **83.1**              | 75.8                | 53.9                 | 66.0                      |
+|              | MMLU(0-shot)                    | 76.6                  | **76.8**            | 71.8                 | 82.7                      |
+|              | MMLU-Pro(0-shot)                | **57.6**              | 56.2                | 48.1                 | 64.1                      |
+| Reasoning    | GPQA-Diamond(0-shot)            | **37.4**              | 33.3                | 24.2                 | 42.9                      |
+|              | DROP(0-shot)                    | **83.1**              | 80.4                | 81.6                 | 85.2                      |
+|              | HellaSwag(10-shot)              | **91.2**              | 85.3                | 76.7                 | 89.5                      |
+|              | KOR-Bench(0-shot)               | **56.4**              | 44.6                | 47.7                 | 58.2                      |
+| MATH         | MATH-500(0-shot)                | **83.0**\*            | 72.4                | 48.4                 | 74.0                      |
+|              | AIME2024(0-shot)                | **20.0**\*            | 16.7                | 6.7                  | 13.3                      |
+| Coding       | LiveCodeBench(2407-2409 Pass@1) | **17.8**              | 16.8                | 12.9                 | 21.8                      |
+|              | HumanEval(Pass@1)               | 82.3                  | **85.4**            | 72.0                 | 86.6                      |
+| Instrunction | IFEval(Prompt-Strict)           | **79.3**              | 71.7                | 75.2                 | 79.7                      |
+| Long Context | RULER(4-128K Average)           | 87.9                  | 81.4                | **88.5**             | 90.7                      |
+| Chat         | AlpacaEval 2.0(LC WinRate)      | **51.1**              | 30.3                | 25.0                 | 50.7                      |
+|              | WildBench(Raw Score)            | **33.1**              | 23.3                | 1.5                  | 40.3                      |
+|              | MT-Bench-101(Score 1-10)        | **8.59**              | 8.49                | 8.37                 | 8.87                      |
 
-| Benchmark      | InternLM2.5-7B | Llama3-8B | Yi-1.5-9B |
-| -------------- | -------------- | --------- | --------- |
-| MMLU (5-shot)  | **71.6**       | 66.4      | 71.6      |
-| CMMLU (5-shot) | **79.1**       | 51.0      | 74.1      |
-| BBH (3-shot)   | 70.1           | 59.7      | 71.1      |
-| MATH (4-shot)  | **34.0**       | 16.4      | 31.9      |
-| GSM8K (4-shot) | **74.8**       | 54.3      | 74.5      |
-| GPQA (0-shot)  | **31.3**       | 31.3      | 27.8      |
-
-### Chat Model
-
-| Benchmark          | InternLM2.5-7B-Chat | Llama3-8B-Instruct | Gemma2-9B-IT | Yi-1.5-9B-Chat | GLM-4-9B-Chat | Qwen2-7B-Instruct |
-| ------------------ | ------------------- | ------------------ | ------------ | -------------- | ------------- | ----------------- |
-| MMLU (5-shot)      | **72.8**            | 68.4               | 70.9         | 71.0           | 71.4          | 70.8              |
-| CMMLU (5-shot)     | 78.0                | 53.3               | 60.3         | 74.5           | 74.5          | 80.9              |
-| BBH (3-shot CoT)   | **71.6**            | 54.4               | 68.2\*       | 69.6           | 69.6          | 65.0              |
-| MATH (0-shot CoT)  | **60.1**            | 27.9               | 46.9         | 51.1           | 51.1          | 48.6              |
-| GSM8K (0-shot CoT) | 86.0                | 72.9               | 88.9         | 80.1           | 85.3          | 82.9              |
-| GPQA (0-shot)      | **38.4**            | 26.1               | 33.8         | 37.9           | 36.9          | 38.4              |
-
-- We use `ppl` for the MCQ evaluation on base model.
-- The evaluation results were obtained from [OpenCompass](https://github.com/open-compass/opencompass) , and evaluation configuration can be found in the configuration files provided by [OpenCompass](https://github.com/open-compass/opencompass).
-- The evaluation data may have numerical differences due to the version iteration of [OpenCompass](https://github.com/open-compass/opencompass), so please refer to the latest evaluation results of [OpenCompass](https://github.com/open-compass/opencompass).
-- \* means the result is copied from the original paper.
+- The evaluation results were obtained from [OpenCompass](https://github.com/internLM/OpenCompass/) (some data marked with \*, which means evaluating with Thinking Mode), and evaluation configuration can be found in the configuration files provided by [OpenCompass](https://github.com/internLM/OpenCompass/).
+- The evaluation data may have numerical differences due to the version iteration of [OpenCompass](https://github.com/internLM/OpenCompass/), so please refer to the latest evaluation results of [OpenCompass](https://github.com/internLM/OpenCompass/).
+  **Limitations:** Although we have made efforts to ensure the safety of the model during the training process and to encourage the model to generate text that complies with ethical and legal requirements, the model may still produce unexpected outputs due to its size and probabilistic generation paradigm. For example, the generated responses may contain biases, discrimination, or other harmful content. Please do not propagate such content. We are not responsible for any consequences resulting from the dissemination of harmful information.
 
 ## Requirements
 

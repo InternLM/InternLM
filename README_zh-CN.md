@@ -39,13 +39,16 @@
 
 ## 简介
 
-InternLM2.5 系列模型在本仓库正式发布，具有如下特性：
+InternLM3，即书生·浦语大模型第3代，开源了80亿参数，面向通用使用与高阶推理的指令模型（InternLM3-8B-Instruct）。模型具备以下特点：
 
-- 卓越的推理性能：在数学推理方面取得了同量级模型最优精度，超越了 Llama3 和 Gemma2-9B。
-- 有效支持百万字超长上下文：模型在 1 百万字长输入中几乎完美地实现长文“大海捞针”，而且在 LongBench 等长文任务中的表现也达到开源模型中的领先水平。 可以通过 [LMDeploy](./chat/lmdeploy_zh_cn.md) 尝试百万字超长上下文推理。更多内容和文档对话 demo 请查看[这里](./long_context/README_zh-CN.md)。
-- 工具调用能力整体升级：InternLM2.5 支持从上百个网页搜集有效信息进行分析推理，相关实现将于近期开源到 [Lagent](https://github.com/InternLM/lagent/tree/main)。InternLM2.5 具有更强和更具有泛化性的指令理解、工具筛选与结果反思等能力，新版模型可以更可靠地支持复杂智能体的搭建，支持对工具进行有效的多轮调用，完成较复杂的任务。可以查看更多[样例](./agent/)。
+- **更低的代价取得更高的性能**:
+  在推理、知识类任务上取得同量级最优性能，超过Llama3.1-8B和Qwen2.5-7B。值得关注的是InternLM3只用了4万亿词元进行训练，对比同级别模型训练成本节省75%以上。
+- **深度思考能力**:
+  InternLM3支持通过长思维链求解复杂推理任务的深度思考模式，同时还兼顾了用户体验更流畅的通用回复模式。
 
 ## 更新
+
+\[2025.01.15\] 我们发布了 InternLM3-8B-Instruct 模型。可以在下方的 [模型库](#model-zoo) 进行下载，或者在 [model cards](./model_cards/) 中了解更多细节。
 
 \[2024.08.01\] 我们发布了 InternLM2.5-1.8B、InternLM2.5-1.8B-Chat、InternLM2.5-20B 和 InternLM2.5-20B-Chat。可以在下方的 [模型库](#model-zoo) 进行下载，或者在 [model cards](./model_cards/) 中了解更多细节。
 
@@ -67,7 +70,16 @@ InternLM2.5 系列模型在本仓库正式发布，具有如下特性：
 
 ## Model Zoo
 
+### InternLM3
+
+| Model                     | Transformers(HF)                                         | ModelScope(HF)                                         | Modelers(HF)                                          | Release Date |
+| ------------------------- | -------------------------------------------------------- | ------------------------------------------------------ | ----------------------------------------------------- | ------------ |
+| **InternLM3-8B-Instruct** | [🤗internlm3_8B_instruct](https://huggingface.co/internlm/internlm3-8b-instruct) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm3_8b_instruct](https://www.modelscope.cn/models/Shanghai_AI_Laboratory/internlm3-8b-instruct/summary) | [![Open in Modelers](<>)](https://modelers.cn/models/Intern/internlm3-8b-instruct) | 2025-01-15   |
+
 ### InternLM2.5
+
+<details>
+    <summary>(click to expand)</summary>
 
 | Model                      | Transformers(HF)                           | ModelScope(HF)                           | OpenXLab(HF)                           | OpenXLab(Origin)                           | Release Date |
 | -------------------------- | ------------------------------------------ | ---------------------------------------- | -------------------------------------- | ------------------------------------------ | ------------ |
@@ -91,7 +103,12 @@ InternLM2.5 系列模型在本仓库正式发布，具有如下特性：
 
 **补充说明：** 上表中的 `HF` 表示对应模型为 HuggingFace 平台提供的 [transformers](https://github.com/huggingface/transformers) 框架格式；`Origin` 则表示对应模型为我们 InternLM 团队的 [InternEvo](https://github.com/InternLM/InternEvo) 框架格式。
 
+</details>
+
 ### InternLM2-Reward
+
+<details>
+    <summary>(click to expand)</summary>
 
 InternLM2-Reward 是基于 240 万个偏好样本进行训练的奖励模型，有 1.8B、7B 和 20B 大小可供选择。这些模型被用于 InternLM 对话模型的 PPO 训练过程。请参考 [model cards](./model_cards/internlm2_reward.md) 了解更多细节。
 
@@ -100,6 +117,8 @@ InternLM2-Reward 是基于 240 万个偏好样本进行训练的奖励模型，�
 | **InternLM2-1.8B-Reward** | 80.6              | [🤗internlm2-1_8b-reward](https://huggingface.co/internlm/internlm2-1_8b-reward) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-1_8b-reward](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-1_8b-reward/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-1_8b-reward) | 2024-07-19   |
 | **InternLM2-7B-Reward**   | 86.6              | [🤗internlm2-7b-reward](https://huggingface.co/internlm/internlm2-7b-reward) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-7b-reward](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-7b-reward/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-7b-reward) | 2024-07-19   |
 | **InternLM2-20B-Reward**  | 89.5              | [🤗internlm2-20b-reward](https://huggingface.co/internlm/internlm2-20b-reward) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm2-20b-reward](https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-20b-reward/summary) | [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/header/openxlab_models.svg)](https://openxlab.org.cn/models/detail/OpenLMLab/internlm2-20b-reward) | 2024-07-19   |
+
+</details>
 
 ### InternLM2
 
@@ -126,34 +145,31 @@ InternLM2-Reward 是基于 240 万个偏好样本进行训练的奖励模型，�
 
 ## 性能
 
-我们使用开源评测工具 [OpenCompass](https://github.com/open-compass/opencompass) 在几个重要的基准测试中对 InternLM2.5 进行了评测。部分评测结果如下表所示。欢迎访问 [OpenCompass 排行榜](https://rank.opencompass.org.cn) 获取更多评测结果。
+我们使用开源评测工具 [OpenCompass](https://github.com/internLM/OpenCompass/) 从学科综合能力、语言能力、知识能力、推理能力、理解能力五大能力维度对InternLM开展全面评测，部分评测结果如下表所示，欢迎访问[ OpenCompass 榜单 ](https://rank.opencompass.org.cn)获取更多的评测结果。
 
-### 基座模型
+| 评测集\\模型 |                                 | InternLM3-8B-Instruct | Qwen2.5-7B-Instruct | Llama3.1-8B-Instruct | GPT-4o-mini(close source) |
+| ------------ | ------------------------------- | --------------------- | ------------------- | -------------------- | ------------------------- |
+| General      | CMMLU(0-shot)                   | **83.1**              | 75.8                | 53.9                 | 66.0                      |
+|              | MMLU(0-shot)                    | 76.6                  | **76.8**            | 71.8                 | 82.7                      |
+|              | MMLU-Pro(0-shot)                | **57.6**              | 56.2                | 48.1                 | 64.1                      |
+| Reasoning    | GPQA-Diamond(0-shot)            | **37.4**              | 33.3                | 24.2                 | 42.9                      |
+|              | DROP(0-shot)                    | **83.1**              | 80.4                | 81.6                 | 85.2                      |
+|              | HellaSwag(10-shot)              | **91.2**              | 85.3                | 76.7                 | 89.5                      |
+|              | KOR-Bench(0-shot)               | **56.4**              | 44.6                | 47.7                 | 58.2                      |
+| MATH         | MATH-500(0-shot)                | **83.0**\*            | 72.4                | 48.4                 | 74.0                      |
+|              | AIME2024(0-shot)                | **20.0**\*            | 16.7                | 6.7                  | 13.3                      |
+| Coding       | LiveCodeBench(2407-2409 Pass@1) | **17.8**              | 16.8                | 12.9                 | 21.8                      |
+|              | HumanEval(Pass@1)               | 82.3                  | **85.4**            | 72.0                 | 86.6                      |
+| Instrunction | IFEval(Prompt-Strict)           | **79.3**              | 71.7                | 75.2                 | 79.7                      |
+| LongContext  | RULER(4-128K Average)           | 87.9                  | 81.4                | **88.5**             | 90.7                      |
+| Chat         | AlpacaEval 2.0(LC WinRate)      | **51.1**              | 30.3                | 25.0                 | 50.7                      |
+|              | WildBench(Raw Score)            | **33.1**              | 23.3                | 1.5                  | 40.3                      |
+|              | MT-Bench-101(Score 1-10)        | **8.59**              | 8.49                | 8.37                 | 8.87                      |
 
-| Benchmark      | InternLM2.5-7B | Llama3-8B | Yi-1.5-9B |
-| -------------- | -------------- | --------- | --------- |
-| MMLU (5-shot)  | **71.6**       | 66.4      | 71.6      |
-| CMMLU (5-shot) | **79.1**       | 51.0      | 74.1      |
-| BBH (3-shot)   | 70.1           | 59.7      | 71.1      |
-| MATH (4-shot)  | **34.0**       | 16.4      | 31.9      |
-| GSM8K (4-shot) | **74.8**       | 54.3      | 74.5      |
-| GPQA (0-shot)  | **31.3**       | 31.3      | 27.8      |
+- 以上评测结果基于 [OpenCompass](https://github.com/internLM/OpenCompass/) 获得(部分数据标注`*`代表使用深度思考模式进行评测)，具体测试细节可参见 [OpenCompass](https://github.com/internLM/OpenCompass/) 中提供的配置文件。
+- 评测数据会因 [OpenCompass](https://github.com/internLM/OpenCompass/) 的版本迭代而存在数值差异，请以 [OpenCompass](https://github.com/internLM/OpenCompass/) 最新版的评测结果为主。
 
-### 对话模型
-
-| Benchmark          | InternLM2.5-7B-Chat | Llama3-8B-Instruct | Gemma2-9B-IT | Yi-1.5-9B-Chat | GLM-4-9B-Chat | Qwen2-7B-Instruct |
-| ------------------ | ------------------- | ------------------ | ------------ | -------------- | ------------- | ----------------- |
-| MMLU (5-shot)      | **72.8**            | 68.4               | 70.9         | 71.0           | 71.4          | 70.8              |
-| CMMLU (5-shot)     | 78.0                | 53.3               | 60.3         | 74.5           | 74.5          | 80.9              |
-| BBH (3-shot CoT)   | **71.6**            | 54.4               | 68.2\*       | 69.6           | 69.6          | 65.0              |
-| MATH (0-shot CoT)  | **60.1**            | 27.9               | 46.9         | 51.1           | 51.1          | 48.6              |
-| GSM8K (0-shot CoT) | 86.0                | 72.9               | 88.9         | 80.1           | 85.3          | 82.9              |
-| GPQA (0-shot)      | **38.4**            | 26.1               | 33.8         | 37.9           | 36.9          | 38.4              |
-
-- 我们使用 `ppl` 对基座模型进行 MCQ 指标的评测。
-- 评测结果来自 [OpenCompass](https://github.com/open-compass/opencompass) ，评测配置可以在 [OpenCompass](https://github.com/open-compass/opencompass) 提供的配置文件中找到。
-- 由于 [OpenCompass](https://github.com/open-compass/opencompass) 的版本迭代，评测数据可能存在数值差异，因此请参考 [OpenCompass](https://github.com/open-compass/opencompass) 的最新评测结果。
-- \* 表示从原论文中复制而来。
+**局限性：** 尽管在训练过程中我们非常注重模型的安全性，尽力促使模型输出符合伦理和法律要求的文本，但受限于模型大小以及概率生成范式，模型可能会产生各种不符合预期的输出，例如回复内容包含偏见、歧视等有害内容，请勿传播这些内容。由于传播不良信息导致的任何后果，本项目不承担责任。
 
 ## 依赖
 
