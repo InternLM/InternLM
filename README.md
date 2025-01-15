@@ -267,20 +267,6 @@ pip3 install "sglang[srt]>=0.4.1.post6" --find-links https://flashinfer.ai/whl/c
 python3 -m sglang.launch_server --model internlm/internlm3-8b-instruct --trust-remote-code --chat-template internlm2-chat
 ```
 
-##### cURL client
-
-```bash
-curl http://127.0.0.1:30000/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer EMPTY" \
-  -d '{
-    "model": "internlm/internlm3-8b-instruct",
-    "messages": [{"role": "user", "content": "Introduce Shanghai"}],
-    "stream": false
-  }' \
-  --no-buffer
-```
-
 ##### OpenAI client
 
 ```python3
