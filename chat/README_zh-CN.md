@@ -76,3 +76,7 @@ pip install streamlit
 pip install transformers>=4.48
 streamlit run ./web_demo.py
 ```
+
+支持切换不同推理模式，并比较它们的回复
+
+![demo](../assets/web_demo.png)

@@ -79,6 +79,6 @@ pip install transformers>=4.48
 streamlit run ./chat/web_demo.py
 ```
 
-The effect is similar to below:
+It supports switching between different inference modes and comparing their responses.
 
-![demo](https://github.com/InternLM/InternLM/assets/9102141/11b60ee0-47e4-42c0-8278-3051b2f17fe4)
+![demo](../assets/web_demo.png)
