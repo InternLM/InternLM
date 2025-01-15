@@ -86,6 +86,28 @@ for output in outputs:
     print(f"Prompt: {prompt!r}, Generated text: {generated_text!r}")
 ```
 
+### [SGLang](https://github.com/sgl-project/sglang)
+
+`SGLang` is a fast serving framework for large language models and vision language models.
+
+After the installation following the official [documentation](https://docs.sglang.ai/start/install.html), you can conduct the `internlm3-8b-instruct` model inference as follows:
+
+```shell
+python3 -m sglang.launch_server --model internlm/internlm3-8b-instruct --trust-remote-code --chat-template internlm2-chat
+```
+
+```shell
+curl http://127.0.0.1:30000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer EMPTY" \
+  -d '{
+    "model": "internlm/internlm3-8b-instruct",
+    "messages": [{"role": "user", "content": "Introduce Shanghai"}],
+    "stream": false
+  }' \
+  --no-buffer
+```
+
 ### [TGI](https://github.com/huggingface/text-generation-inference)
 
 TGI is a toolkit for deploying and serving Large Language Models (LLMs). The easiest way of deploying a LLM is using the official Docker container:
@@ -246,7 +268,7 @@ It chooses ollama as the LLM inference engine locally. An example can be found f
 
 Therefore, you can integrate InternLM2 or InternLM2.5 models to LlamaIndex smoothly if you can deploying them with `ollama` as guided in the [ollama section](#ollama)
 
-### \[open-webui\]
+### [open-webui](https://github.com/open-webui/open-webui)
 
 Open WebUI is an extensible, feature-rich, and user-friendly self-hosted AI platform designed to run completely offline. It supports Ollama services and other compatible OpenAI API services, and comes with a built-in RAG reasoning engine, making it a powerful AI deployment solution.
 

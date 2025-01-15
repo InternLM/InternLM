@@ -86,6 +86,28 @@ for output in outputs:
     print(f"Prompt: {prompt!r}, Generated text: {generated_text!r}")
 ```
 
+### [SGLang](https://github.com/sgl-project/sglang)
+
+`SGLang` 是一个用于 LLMs 和 VLMs 的高效服务工具。
+
+根据官方 [文档](https://docs.sglang.ai/start/install.html)安装完成后, 可以使用 `internlm3-8b-instruct` 模型进行如下的服务与调用：
+
+```shell
+python3 -m sglang.launch_server --model internlm/internlm3-8b-instruct --trust-remote-code --chat-template internlm2-chat
+```
+
+```shell
+curl http://127.0.0.1:30000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer EMPTY" \
+  -d '{
+    "model": "internlm/internlm3-8b-instruct",
+    "messages": [{"role": "user", "content": "Introduce Shanghai"}],
+    "stream": false
+  }' \
+  --no-buffer
+```
+
 ### [TGI](https://github.com/huggingface/text-generation-inference)
 
 TGI 是一个用于部署和提供 LLMs 服务的工具包。部署 LLM 服务最简单的方法是使用官方的 Docker 容器：
@@ -246,7 +268,7 @@ LlamaIndex 是一个用于构建上下文增强型 LLM 应用程序的框架。
 
 因此，如果能够按照 [ollama 章节](#ollama)使用 ollama 部署浦语模型，你就可以顺利地将浦语模型集成到 LlamaIndex 中。
 
-### \[open-webui\]
+### [open-webui](https://github.com/open-webui/open-webui)
 
 Open WebUI 是一个可扩展、功能丰富且用户友好的自托管人工智能平台，旨在完全离线运行。它支持 Ollama 服务和其他兼容 OpenAI 的 API 服务，并内置 RAG 推理引擎，使其成为强大的 AI 部署解决方案。
 
