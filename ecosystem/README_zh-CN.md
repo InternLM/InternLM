@@ -48,11 +48,11 @@ SWIFT 支持 LLMs 和多模态大型模型（MLLMs）的训练、推理、评估
 
 LMDeploy 是一个高效且友好的 LLMs 模型部署工具箱，功能涵盖了量化、推理和服务。
 
-通过 `pip install lmdeploy` 安装后，只用以下 4 行代码，即可使用 `internlm2_5-7b-chat` 模型完成 prompts 的批处理：
+通过 `pip install lmdeploy` 安装后，只用以下 4 行代码，即可使用 `internlm3-8b-instruct` 模型完成 prompts 的批处理：
 
 ```python
 from lmdeploy import pipeline
-pipe = pipeline("internlm/internlm2_5-7b-chat")
+pipe = pipeline("internlm/internlm3-8b-instruct")
 response = pipe(["Hi, pls intro yourself", "Shanghai is"])
 print(response)
 ```
@@ -61,7 +61,13 @@ print(response)
 
 vLLM 是一个用于 LLMs 的高吞吐量和内存效率的推理和服务引擎。
 
-通过 `pip install vllm` 安装后，你可以按照以下方式使用 `internlm2_5-chat-7b` 模型进行推理：
+参考[安装文档](https://docs.vllm.ai/en/latest/getting_started/installation/index.html) 安装 vllm 最新代码
+
+```bash
+pip install vllm --pre --extra-index-url https://wheels.vllm.ai/nightly
+```
+
+然后，你可以按照以下方式使用 `internlm3-8b-instruct` 模型进行推理：
 
 ```python
 from vllm import LLM, SamplingParams
@@ -75,7 +81,7 @@ prompts = [
 sampling_params = SamplingParams(temperature=0.8, top_p=0.95)
 
 # Create an LLM.
-llm = LLM(model="internlm/internlm2_5-chat-7b", trust_remote_code=True)
+llm = LLM(model="internlm/internlm3-8b-instruct", trust_remote_code=True)
 # Generate texts from the prompts. The output is a list of RequestOutput objects
 # that contain the prompt, generated text, and other information.
 outputs = llm.generate(prompts, sampling_params)
@@ -132,7 +138,7 @@ curl 127.0.0.1:8080/generate_stream \
 
 llama.cpp 是一个用 C/C++ 开发的 LLMs 推理框架。其目标是在各种硬件上实现最小设置和最先进的性能的 LLM 推理——无论是在本地还是在云端。
 
-通过以下方式可以使用 llama.cpp 部署 InternLM2 和 InternLM2.5 模型：
+通过以下方式可以使用 llama.cpp 部署 InternLM2, InternLM2.5 以及 InternLM3 模型：
 
 - 参考 [这里](https://github.com/ggerganov/llama.cpp?tab=readme-ov-file#build) 编译并安装 llama.cpp
 - 把 InternLM 模型转成 GGUF 格式，具体方法参考 [此处](https://github.com/ggerganov/llama.cpp?tab=readme-ov-file#prepare-and-quantize)
@@ -141,14 +147,14 @@ llama.cpp 是一个用 C/C++ 开发的 LLMs 推理框架。其目标是在各种
 
 Ollama 将模型权重、配置和数据打包到一个单一的包中，由 Modelfile 定义。它优化了安装和配置，使用户能够轻松地在本地（以 CPU 和 GPU 模式）设置和执行 LLMs。
 
-以下展示的是 `internlm2_5-7b-chat` 的 Modelfile。请注意，应首先把模型转换为 GGUF 模型。
+以下展示的是 `internlm3-8b-instruct` 的 Modelfile。请注意，应首先把模型转换为 GGUF 模型。
 
 ```shell
-echo 'FROM ./internlm2_5-7b-chat.gguf
+echo 'FROM ./internlm3-8b-instruct.gguf
 TEMPLATE """{{ if .System }}<|im_start|>system
 {{ .System }}<|im_end|>
 {{ end }}{{ if .Prompt }}<|im_start|>user
-{{ .Prompt }}<im_end>
+{{ .Prompt }}<|im_end|>
 {{ end }}<|im_start|>assistant
 {{ .Response }}<|im_end|>"""
 
@@ -165,7 +171,7 @@ SYSTEM """You are an AI assistant whose name is InternLM (书生·浦语).
 接着，使用上述 `Modelfile` 创建镜像：
 
 ```shell
-ollama create internlm2.5:7b-chat -f ./Modelfile
+ollama create internlm3:8b-instruct -f ./Modelfile
 ```
 
 Ollama 的使用方法可以参考[这里](https://github.com/ollama/ollama/tree/main/docs)。
@@ -176,17 +182,17 @@ llamafile 可以把 LLMs 的权重转换为可执行文件。它结合了 llama.
 
 使用 llamafile 部署 InternLM 系列模型的最佳实践如下：
 
-- 通过 llama.cpp 将模型转换为 GGUF 模型。假设我们在这一步得到了 `internlm2_5-chat-7b.gguf`
+- 通过 llama.cpp 将模型转换为 GGUF 模型。假设我们在这一步得到了 `internlm3-8b-instruct.gguf`
 - 创建 llamafile
 
 ```shell
 wget https://github.com/Mozilla-Ocho/llamafile/releases/download/0.8.6/llamafile-0.8.6.zip
 unzip llamafile-0.8.6.zip
 
-cp llamafile-0.8.6/bin/llamafile internlm2_5.llamafile
+cp llamafile-0.8.6/bin/llamafile internlm3.llamafile
 
 echo "-m
-internlm2_5-7b-chat.gguf
+internlm3-8b-instruct.gguf
 --host
 0.0.0.0
 -ngl
@@ -194,8 +200,8 @@ internlm2_5-7b-chat.gguf
 ..." > .args
 
 llamafile-0.8.6/bin/zipalign -j0 \
-  internlm2_5.llamafile \
-  internlm2_5-7b-chat.gguf \
+  internlm3.llamafile \
+  internlm3-8b-instruct.gguf \
   .args
 
 rm -rf .args
@@ -204,7 +210,7 @@ rm -rf .args
 - Run the llamafile
 
 ```shell
-./internlm2_5.llamafile
+./internlm3.llamafile
 ```
 
 你的浏览器应该会自动打开并显示一个聊天界面。（如果没有，只需打开你的浏览器并访问 http://localhost:8080）

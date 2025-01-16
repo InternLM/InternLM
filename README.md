@@ -290,15 +290,53 @@ print(response)
 
 #### Ollama inference
 
-TODO
+install ollama and pull the model
+
+```bash
+# install ollama
+curl -fsSL https://ollama.com/install.sh | sh
+# pull the model
+ollama pull internlm/internlm3-8b-instruct
+# install ollama-python
+pip install ollama
+```
+
+inference code:
+
+```python
+import ollama
+
+system_prompt = """You are an AI assistant whose name is InternLM (书生·浦语).
+- InternLM (书生·浦语) is a conversational language model that is developed by Shanghai AI Laboratory (上海人工智能实验室). It is designed to be helpful, honest, and harmless.
+- InternLM (书生·浦语) can understand and communicate fluently in the language chosen by the user such as English and 中文."""
+
+messages = [
+    {
+        "role": "system",
+        "content": system_prompt,
+    },
+    {
+        "role": "user",
+        "content": "Please tell me five scenic spots in Shanghai"
+    },
+]
+
+stream = ollama.chat(
+    model='internlm/internlm3-8b-instruct',
+    messages=messages,
+    stream=True,
+)
+
+for chunk in stream:
+  print(chunk['message']['content'], end='', flush=True)
+```
 
 #### vLLM inference
 
-We are still working on merging the PR(https://github.com/vllm-project/vllm/pull/12037) into vLLM. In the meantime, please use the following PR link to install it manually.
+refer to [installation](https://docs.vllm.ai/en/latest/getting_started/installation/index.html) to install the latest code of vllm
 
 ```python
-git clone -b support-internlm3 https://github.com/RunningLeon/vllm.git
-pip install -e .
+pip install vllm --pre --extra-index-url https://wheels.vllm.ai/nightly
 ```
 
 inference code:
@@ -447,15 +485,50 @@ For offline engine api usage, please refer to [Offline Engine API](https://docs.
 
 #### Ollama inference
 
-TODO
+install ollama and pull the model
+
+```bash
+# install ollama
+curl -fsSL https://ollama.com/install.sh | sh
+# pull the model
+ollama pull internlm/internlm3-8b-instruct
+# install ollama-python
+pip install ollama
+```
+
+inference code:
+
+```python
+import ollama
+
+messages = [
+    {
+        "role": "system",
+        "content": thinking_system_prompt,
+    },
+    {
+        "role": "user",
+        "content": "已知函数\(f(x)=\mathrm{e}^{x}-ax - a^{3}\)。\n（1）当\(a = 1\)时，求曲线\(y = f(x)\)在点\((1,f(1))\)处的切线方程；\n（2）若\(f(x)\)有极小值，且极小值小于\(0\)，求\(a\)的取值范围。"
+    },
+]
+
+stream = ollama.chat(
+    model='internlm/internlm3-8b-instruct',
+    messages=messages,
+    stream=True,
+    options=dict(num_ctx=8192, num_predict=2048)
+)
+
+for chunk in stream:
+  print(chunk['message']['content'], end='', flush=True)
+```
 
 #### vLLM inference
 
-We are still working on merging the PR(https://github.com/vllm-project/vllm/pull/12037) into vLLM. In the meantime, please use the following PR link to install it manually.
+refer to [installation](https://docs.vllm.ai/en/latest/getting_started/installation/index.html) to install the latest code of vllm
 
 ```python
-git clone https://github.com/RunningLeon/vllm.git
-pip install -e .
+pip install vllm --pre --extra-index-url https://wheels.vllm.ai/nightly
 ```
 
 inference code
