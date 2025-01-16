@@ -86,6 +86,28 @@ for output in outputs:
     print(f"Prompt: {prompt!r}, Generated text: {generated_text!r}")
 ```
 
+### [SGLang](https://github.com/sgl-project/sglang)
+
+`SGLang` is a fast serving framework for large language models and vision language models.
+
+After the installation following the official [documentation](https://docs.sglang.ai/start/install.html), you can conduct the `internlm3-8b-instruct` model inference as follows:
+
+```shell
+python3 -m sglang.launch_server --model internlm/internlm3-8b-instruct --trust-remote-code --chat-template internlm2-chat
+```
+
+```shell
+curl http://127.0.0.1:30000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer EMPTY" \
+  -d '{
+    "model": "internlm/internlm3-8b-instruct",
+    "messages": [{"role": "user", "content": "Introduce Shanghai"}],
+    "stream": false
+  }' \
+  --no-buffer
+```
+
 ### [TGI](https://github.com/huggingface/text-generation-inference)
 
 TGI is a toolkit for deploying and serving Large Language Models (LLMs). The easiest way of deploying a LLM is using the official Docker container:
@@ -221,8 +243,9 @@ from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 
 llm = ChatOpenAI(
-    api_key="a dummy key",
-    base_ur='https://0.0.0.0:23333/v1')
+    model_name="a-model",
+    openai_api_key="a dummy key",
+    openai_api_base='https://0.0.0.0:23333/v1')
 prompt = ChatPromptTemplate.from_messages([
     ("system", "You are a world class technical documentation writer."),
     ("user", "{input}")
@@ -245,6 +268,13 @@ It chooses ollama as the LLM inference engine locally. An example can be found f
 
 Therefore, you can integrate InternLM2 or InternLM2.5 models to LlamaIndex smoothly if you can deploying them with `ollama` as guided in the [ollama section](#ollama)
 
+### [open-webui](https://github.com/open-webui/open-webui)
+
+Open WebUI is an extensible, feature-rich, and user-friendly self-hosted AI platform designed to run completely offline. It supports Ollama services and other compatible OpenAI API services, and comes with a built-in RAG reasoning engine, making it a powerful AI deployment solution.
+
+1. You can start an API service with LMDeploy, or launch the service with ollama.
+2. Follow the [guidance](https://github.com/open-webui/open-webui?tab=readme-ov-file#installation-via-python-pip-)to install Open WebUI, and start the webui service with open-webui serve. Open the webui in your browser.
+3. Refer to the [documentation](https://docs.openwebui.com/getting-started/quick-start/starting-with-ollama#step-2-managing-your-ollama-instance). Inside the opened page, find the settings, configure the OpenAI-like services or ollama services. Once configured, you can choose a model to engage in conversation.
 
 ### [LazyLLM](https://github.com/LazyAGI/LazyLLM)
 
@@ -282,6 +312,7 @@ from lazyllm import pipeline, parallel, bind, SentenceSplitter, Document, Retrie
 
 prompt = 'You will play the role of an AI Q&A assistant and complete a dialogue task. In this task, you need to provide your answer based on the given context and question.'
 ```
+
 </details>
 
 ```python

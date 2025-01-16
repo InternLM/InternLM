@@ -86,6 +86,28 @@ for output in outputs:
     print(f"Prompt: {prompt!r}, Generated text: {generated_text!r}")
 ```
 
+### [SGLang](https://github.com/sgl-project/sglang)
+
+`SGLang` 是一个用于 LLMs 和 VLMs 的高效服务工具。
+
+根据官方 [文档](https://docs.sglang.ai/start/install.html)安装完成后, 可以使用 `internlm3-8b-instruct` 模型进行如下的服务与调用：
+
+```shell
+python3 -m sglang.launch_server --model internlm/internlm3-8b-instruct --trust-remote-code --chat-template internlm2-chat
+```
+
+```shell
+curl http://127.0.0.1:30000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer EMPTY" \
+  -d '{
+    "model": "internlm/internlm3-8b-instruct",
+    "messages": [{"role": "user", "content": "Introduce Shanghai"}],
+    "stream": false
+  }' \
+  --no-buffer
+```
+
 ### [TGI](https://github.com/huggingface/text-generation-inference)
 
 TGI 是一个用于部署和提供 LLMs 服务的工具包。部署 LLM 服务最简单的方法是使用官方的 Docker 容器：
@@ -221,8 +243,9 @@ from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 
 llm = ChatOpenAI(
-    api_key="a dummy key",
-    base_ur='https://0.0.0.0:23333/v1')
+    model_name="a-model",
+    openai_api_key="a dummy key",
+    openai_api_base='https://0.0.0.0:23333/v1')
 prompt = ChatPromptTemplate.from_messages([
     ("system", "You are a world class technical documentation writer."),
     ("user", "{input}")
@@ -245,6 +268,14 @@ LlamaIndex 是一个用于构建上下文增强型 LLM 应用程序的框架。
 
 因此，如果能够按照 [ollama 章节](#ollama)使用 ollama 部署浦语模型，你就可以顺利地将浦语模型集成到 LlamaIndex 中。
 
+### [open-webui](https://github.com/open-webui/open-webui)
+
+Open WebUI 是一个可扩展、功能丰富且用户友好的自托管人工智能平台，旨在完全离线运行。它支持 Ollama 服务和其他兼容 OpenAI 的 API 服务，并内置 RAG 推理引擎，使其成为强大的 AI 部署解决方案。
+
+1. 可以用 LMDeploy 启动一个 api_server 服务，或者用 ollama 启动服务。
+2. 按照 [引导](https://github.com/open-webui/open-webui?tab=readme-ov-file#installation-via-python-pip-) 安装 open-webui，并 `open-webui serve` 启动 webui 服务。浏览器打开 webui。
+3. 参考 [文档](https://docs.openwebui.com/getting-started/quick-start/starting-with-ollama#step-2-managing-your-ollama-instance)。在打开的页面内部找到设置，配置好类 OpenAI 服务或者 ollama 服务，配置完就可以选用某个模型进行对话了。
+
 ### [LazyLLM](https://github.com/LazyAGI/LazyLLM)
 
 LazyLLM 是一个的低代码构建多 Agent 大模型应用的开发工具，相比于 LangChain 和 LLamaIndex，其具有极高的灵活性和易用性。
@@ -266,6 +297,7 @@ from lazyllm import TrainableModule, WebModule
 m = TrainableModule('internlm2-chat-7b').trainset('/patt/to/your_data.json').mode('finetune')
 WebModule(m).update().wait()
 ```
+
 值的一提的是，无论您用 InternLM 系列的任何一个模型，都可以使用 LazyLLM 进行推理和微调，您都无需考虑模型的切分策略，也无需考虑模型的特殊 token。<br>
 如果您想搭建自己的 RAG 应用，那么您无需像使用 LangChain 一样先启动服务推理服务，再配置 ip 和端口去启动应用程序。参考如下代码，您可以借助 LazyLLM，使用 InternLM 系列的模型，十行代码搭建高度定制的 RAG 应用，且附带文档管理服务（文档需指定本地绝对路径，可从这里下载：[rag_master](https://huggingface.co/datasets/Jing0o0Xin/rag_master)）：
 
@@ -279,6 +311,7 @@ from lazyllm import pipeline, parallel, bind, SentenceSplitter, Document, Retrie
 
 prompt = '你将扮演一个人工智能问答助手的角色，完成一项对话任务。在这个任务中，你需要根据给定的上下文以及问题，给出你的回答。'
 ```
+
 </details>
 
 ```python
