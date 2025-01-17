@@ -37,7 +37,7 @@
 这是一份使用 Ascend NPU 对 InternLM 系列模型进行训练和推理的指南。
 
 ## News
-\[2025.01.15\] InternLM3-8B-Instruct 可用于 Xtuner、LLaMA-Factory 和 transformers 中。
+\[2025.01.15\] InternLM3-8B-Instruct 可用于 Xtuner、LLaMA-Factory、transformers 和 openMind 中。
 
 ## Model Zoo
 
@@ -299,6 +299,75 @@ print(response)
 ```shell
 python inference_internlm3_instruct_8b.py
 ```
+
+## openMind Library
+
+### openMind 简介
+
+openMind Library 是一个开源的大模型套件，原生支持在昇腾NPU上进行微调、推理、评估和部署。
+openMind Library 提供高易用性的接口和使用方式，充分发挥昇腾NPU的性能，快速支持、增强业界前沿模型。
+
+### 微调
+
+openMind Library 提供了昇腾 NPU 上的一键式模型微调方案，涵盖了数据处理、多站点权重加载，低参微调（LoRA）、
+量化适配（QLoRA）等能力。同时，openMind Library支持昇腾NPU融合算子优化，提升模型训练性能。
+
+#### 安装 openMind Library
+
+```shell
+git clone -b dev https://gitee.com/ascend/openmind.git
+cd openmind
+pip install -e .[pt]
+```
+
+#### 启动微调
+
+在 openmind 文件夹下，通过以下命令行即可启动微调：
+
+```
+openmind-cli train examples/internlm3/train_sft_full_internlm3.yaml
+```
+
+#### 训练结果与优势
+
+如下图所示，openMind Library 的训练 loss 正常收敛，同时和 GPU 对比，平均相对误差在 2% 以内。
+
+<div align=center>
+  <img src="./assets/openmind_train_loss_compare.png" width="600px">
+</div>
+
+<p align="center"><strong>精度对比</strong> (npu=8, per_device_train_batch_size=6, max_length=1024)</p>
+
+openMind Library 支持在昇腾 NPU 上使能 LoRA、QLoRA 等微调方法，显著减少 device 内存使用。
+如下图所示，通过使能 QloRA 微调方式可减少 device 内存约 40%。
+
+<div align=center>
+  <img src="./assets/openmind_train_memory.png" width="400px">
+</div>
+
+<p align="center"><strong>Full/LoRA/QLoRA 显存开销</strong> (npu=8, per_device_train_batch_size=6, max_length=1024)</p>
+
+openMind Library 支持训练时自动加载昇腾 NPU 融合算子，无需开发者手动修改代码或配置，提升模型训练性能
+的同时兼顾易用性。下图展示了 openMind 默认使能昇腾 NPU 融合算子之后的性能收益。
+
+<div align=center>
+  <img src="./assets/openmind_fused_ops.png" width="300px">
+</div>
+
+<p align="center"><strong>每秒训练样本数</strong></p>
+
+更多特性请参考[openMind 微调文档](https://modelers.cn/docs/zh/openmind-library/1.0.0/basic_tutorial/finetune/finetune_pt.html)。
+
+### 推理
+
+除了微调以外，也可以使用 openMind Library 进行模型推理，安装 openMind Library 后，使用
+下述命令行即可进行单轮推理：
+
+```shell
+openmind-cli run Intern/internlm3-8b-instruct --task text-generation --input '{"text_inputs":"What is AI?","max_length":512}' --trust_remote_code 1
+```
+
+更多特性请参考[openMind 推理文档](https://modelers.cn/docs/zh/openmind-library/1.0.0/basic_tutorial/pipeline.html)。
 
 ## 开源许可证
 

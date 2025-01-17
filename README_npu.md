@@ -37,7 +37,7 @@
 This is a guide to using Ascend NPU to train and infer the InternLM series models.
 
 ## News
-\[2025.01.15\] InternLM3-8B-Instruct can be used in Xtuner, LLaMA-Factory and transformers.
+\[2025.01.15\] InternLM3-8B-Instruct can be used in Xtuner, LLaMA-Factory, transformers and openMind.
 
 ## Model Zoo
 
@@ -303,6 +303,69 @@ Execute the inference script:
 python inference_internlm3_instruct_8b.py
 ```
 
+## openMind Library
+
+### Introduction to openMind
+
+The openMind Library is an open-source suite for large-scale models, natively supporting fine-tuning, inference, evaluation, and deployment on Ascend NPUs. The openMind Library offers highly user-friendly interfaces and usage methods, fully leveraging the performance of Ascend NPUs to rapidly support and enhance cutting-edge industry models.
+
+### Fine-Tuning
+
+The openMind Library provides a one-click model fine-tuning solution on Ascend NPUs, encompassing capabilities such as data processing, multi-site weight loading, low-rank adaptation (LoRA), and quantization adaptation (QLoRA). Additionally, the openMind Library supports optimization of Ascend NPU fused operators, enhancing model training performance.
+
+#### Installing the openMind Library
+
+```shell
+git clone -b dev https://gitee.com/ascend/openmind.git
+cd openmind
+pip install -e .[pt]
+```
+
+#### Initiating Fine-Tuning
+
+Within the openMind directory, fine-tuning can be initiated using the following command line:
+
+```
+openmind-cli train examples/internlm3/train_sft_full_internlm3.yaml
+```
+
+#### Training Results and Advantages
+
+As illustrated in the figure below, the training loss of the openMind Library normally converges, and compared with the GPU, the average relative error is within 2%.
+
+<div align=center>
+  <img src="./assets/openmind_train_loss_compare.png" width="600px">
+</div>
+
+<p align="center"><strong>Accuracy Comparison</strong> (npu=8, per_device_train_batch_size=6, max_length=1024)</p>
+
+The openMind Library supports the enabling of fine-tuning methods such as LoRA and QLoRA on Ascend NPUs, significantly reducing device memory usage. As illustrated in the figure below, employing the QLoRA fine-tuning method can lead to approximately a 40% reduction in device memory consumption.
+
+<div align=center>
+  <img src="./assets/openmind_train_memory.png" width="400px">
+</div>
+
+<p align="center"><strong>Memory Consumption</strong> (npu=8, per_device_train_batch_size=6, max_length=1024)</p>
+
+The openMind Library facilitates the automatic loading of Ascend NPU fused operators during training, eliminating the need for developers to manually modify code or configurations. This enhances model training performance while maintaining ease of use. The figure below demonstrates the performance benefits achieved by default when the openMind Library enables Ascend NPU fused operators.
+
+<div align=center>
+  <img src="./assets/openmind_fused_ops.png" width="300px">
+</div>
+
+<p align="center"><strong>Training Samples per Second</strong></p>
+
+For more features, please refer to the [openMind Fine-tuning Documentation](https://modelers.cn/docs/en/openmind-library/1.0.0/basic_tutorial/finetune/finetune_pt.html).
+
+### Inference
+
+In addition to fine-tuning, the openMind Library can also be utilized for model inference. After installing the openMind Library, a single round of inference can be conducted using the following command line:
+
+```shell
+openmind-cli run Intern/internlm3-8b-instruct --task text-generation --input '{"text_inputs":"What is AI?","max_length":512}' --trust_remote_code 1
+```
+
+For more features, please refer to the [openMind Inference Documentation](https://modelers.cn/docs/en/openmind-library/1.0.0/basic_tutorial/pipeline.html).
 
 ## License
 The code is licensed under Apache-2.0, while model weights are fully open for academic research and also allow **free** commercial usage. To apply for a commercial license, please fill in the [application form (English)](https://wj.qq.com/s2/12727483/5dba/)/[申请表（中文）](https://wj.qq.com/s2/12725412/f7c1/). For other questions or collaborations, please contact <internlm@pjlab.org.cn>.
