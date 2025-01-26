@@ -371,4 +371,4 @@ openmind-cli run Intern/internlm3-8b-instruct --task text-generation --input '{"
 
 ## 开源许可证
 
-本仓库的代码依照 Apache-2.0 协议开源。模型权重对学术研究完全开放，也可申请免费的商业使用授权（[申请表](https://wj.qq.com/s2/12725412/f7c1/)）。其他问题与合作请联系 <internlm@pjlab.org.cn>。
+本仓库的代码和权重依照 Apache-2.0 协议开源。

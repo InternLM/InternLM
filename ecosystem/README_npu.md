@@ -368,4 +368,4 @@ openmind-cli run Intern/internlm3-8b-instruct --task text-generation --input '{"
 For more features, please refer to the [openMind Inference Documentation](https://modelers.cn/docs/en/openmind-library/1.0.0/basic_tutorial/pipeline.html).
 
 ## License
-The code is licensed under Apache-2.0, while model weights are fully open for academic research and also allow **free** commercial usage. To apply for a commercial license, please fill in the [application form (English)](https://wj.qq.com/s2/12727483/5dba/)/[申请表（中文）](https://wj.qq.com/s2/12725412/f7c1/). For other questions or collaborations, please contact <internlm@pjlab.org.cn>.
+Code and model weights are licensed under Apache-2.0.
