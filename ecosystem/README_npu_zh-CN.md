@@ -2,7 +2,7 @@
 
 <div align="center">
 
-<img src="./assets//logo.svg" width="200"/>
+<img src="../assets/logo.svg" width="200"/>
   <div>&nbsp;</div>
   <div align="center">
     <b><font size="5">书生·浦语 官网</font></b>
@@ -14,8 +14,8 @@
     <div>&nbsp;</div>
   </div>
 
-[![license](./assets//license.svg)](https://github.com/open-mmlab/mmdetection/blob/main/LICENSE)
-[![evaluation](./assets//compass_support.svg)](https://github.com/internLM/OpenCompass/)
+[![license](../assets/license.svg)](https://github.com/open-mmlab/mmdetection/blob/main/LICENSE)
+[![evaluation](../assets/compass_support.svg)](https://github.com/internLM/OpenCompass/)
 
 <!-- [![Documentation Status](https://readthedocs.org/projects/internlm/badge/?version=latest)](https://internlm.readthedocs.io/zh_CN/latest/?badge=latest) -->
 
@@ -43,9 +43,9 @@
 
 ### InternLM3
 
-| Model                     | Transformers                                         | ModelScope                                         | Modelers                                          | Release Date |
-| ------------------------- | ---------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------- | ------------ |
-| **InternLM3-8B-Instruct** | [🤗internlm3_8B_instruct](https://huggingface.co/internlm/internlm3-8b-instruct) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm3_8b_instruct](https://www.modelscope.cn/models/Shanghai_AI_Laboratory/internlm3-8b-instruct/summary) | [![Open in Modelers](https://modelers.cn/assets/logo1-1bf58310.svg)](https://modelers.cn/models/Intern/internlm3-8b-instruct) | 2025-01-15   |
+| Model                     | Transformers                                         | ModelScope                                                                                                                                                              | Modelers                                          | Release Date |
+| ------------------------- | ---------------------------------------------------- |-------------------------------------------------------------------------------------------------------------------------------------------------------------------------| ------------------------------------------------- | ------------ |
+| **InternLM3-8B-Instruct** | [🤗internlm3_8B_instruct](https://huggingface.co/internlm/internlm3-8b-instruct) | [<img src="../assets/modelscope_logo.png" width="20px" /> internlm3_8b_instruct](https://www.modelscope.cn/models/Shanghai_AI_Laboratory/internlm3-8b-instruct/summary) | [![Open in Modelers](https://modelers.cn/assets/logo1-1bf58310.svg)](https://modelers.cn/models/Intern/internlm3-8b-instruct) | 2025-01-15   |
 
 ## 环境准备
 
@@ -333,7 +333,7 @@ openmind-cli train examples/internlm3/train_sft_full_internlm3.yaml
 如下图所示，openMind Library 的训练 loss 正常收敛，同时和 GPU 对比，平均相对误差在 2% 以内。
 
 <div align=center>
-  <img src="./assets/openmind_train_loss_compare.png" width="600px">
+  <img src="../assets/npu/openmind_train_loss_compare.png" width="600px">
 </div>
 
 <p align="center"><strong>精度对比</strong> (npu=8, per_device_train_batch_size=6, max_length=1024)</p>
@@ -342,7 +342,7 @@ openMind Library 支持在昇腾 NPU 上使能 LoRA、QLoRA 等微调方法，�
 如下图所示，通过使能 QloRA 微调方式可减少 device 内存约 40%。
 
 <div align=center>
-  <img src="./assets/openmind_train_memory.png" width="400px">
+  <img src="../assets/npu/openmind_train_memory.png" width="400px">
 </div>
 
 <p align="center"><strong>Full/LoRA/QLoRA 显存开销</strong> (npu=8, per_device_train_batch_size=6, max_length=1024)</p>
@@ -351,7 +351,7 @@ openMind Library 支持训练时自动加载昇腾 NPU 融合算子，无需开�
 的同时兼顾易用性。下图展示了 openMind 默认使能昇腾 NPU 融合算子之后的性能收益。
 
 <div align=center>
-  <img src="./assets/openmind_fused_ops.png" width="300px">
+  <img src="../assets/npu/openmind_fused_ops.png" width="300px">
 </div>
 
 <p align="center"><strong>每秒训练样本数</strong></p>

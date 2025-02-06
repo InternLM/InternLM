@@ -2,7 +2,7 @@
 
 <div align="center">
 
-<img src="./assets/logo.svg" width="200"/>
+<img src="../assets/logo.svg" width="200"/>
   <div> </div>
   <div align="center">
     <b><font size="5">InternLM</font></b>
@@ -43,9 +43,9 @@ This is a guide to using Ascend NPU to train and infer the InternLM series model
 
 ### InternLM3
 
-| Model                     | Transformers                                         | ModelScope                                         | Modelers                                          | Release Date |
-| ------------------------- | ---------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------- | ------------ |
-| **InternLM3-8B-Instruct** | [🤗internlm3_8B_instruct](https://huggingface.co/internlm/internlm3-8b-instruct) | [<img src="./assets/modelscope_logo.png" width="20px" /> internlm3_8b_instruct](https://www.modelscope.cn/models/Shanghai_AI_Laboratory/internlm3-8b-instruct/summary) | [![Open in Modelers](https://modelers.cn/assets/logo1-1bf58310.svg)](https://modelers.cn/models/Intern/internlm3-8b-instruct) | 2025-01-15   |
+| Model                     | Transformers                                         | ModelScope                                                                                                                                                              | Modelers                                          | Release Date |
+| ------------------------- | ---------------------------------------------------- |-------------------------------------------------------------------------------------------------------------------------------------------------------------------------| ------------------------------------------------- | ------------ |
+| **InternLM3-8B-Instruct** | [🤗internlm3_8B_instruct](https://huggingface.co/internlm/internlm3-8b-instruct) | [<img src="../assets/modelscope_logo.png" width="20px" /> internlm3_8b_instruct](https://www.modelscope.cn/models/Shanghai_AI_Laboratory/internlm3-8b-instruct/summary) | [![Open in Modelers](https://modelers.cn/assets/logo1-1bf58310.svg)](https://modelers.cn/models/Intern/internlm3-8b-instruct) | 2025-01-15   |
 
 ## Environment Setup
 
@@ -334,7 +334,7 @@ openmind-cli train examples/internlm3/train_sft_full_internlm3.yaml
 As illustrated in the figure below, the training loss of the openMind Library normally converges, and compared with the GPU, the average relative error is within 2%.
 
 <div align=center>
-  <img src="./assets/openmind_train_loss_compare.png" width="600px">
+  <img src="../assets/npu/openmind_train_loss_compare.png" width="600px">
 </div>
 
 <p align="center"><strong>Accuracy Comparison</strong> (npu=8, per_device_train_batch_size=6, max_length=1024)</p>
@@ -342,7 +342,7 @@ As illustrated in the figure below, the training loss of the openMind Library no
 The openMind Library supports the enabling of fine-tuning methods such as LoRA and QLoRA on Ascend NPUs, significantly reducing device memory usage. As illustrated in the figure below, employing the QLoRA fine-tuning method can lead to approximately a 40% reduction in device memory consumption.
 
 <div align=center>
-  <img src="./assets/openmind_train_memory.png" width="400px">
+  <img src="../assets/npu/openmind_train_memory.png" width="400px">
 </div>
 
 <p align="center"><strong>Memory Consumption</strong> (npu=8, per_device_train_batch_size=6, max_length=1024)</p>
@@ -350,7 +350,7 @@ The openMind Library supports the enabling of fine-tuning methods such as LoRA a
 The openMind Library facilitates the automatic loading of Ascend NPU fused operators during training, eliminating the need for developers to manually modify code or configurations. This enhances model training performance while maintaining ease of use. The figure below demonstrates the performance benefits achieved by default when the openMind Library enables Ascend NPU fused operators.
 
 <div align=center>
-  <img src="./assets/openmind_fused_ops.png" width="300px">
+  <img src="../assets/npu/openmind_fused_ops.png" width="300px">
 </div>
 
 <p align="center"><strong>Training Samples per Second</strong></p>
